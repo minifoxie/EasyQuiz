@@ -66,24 +66,28 @@ export class Autopilot {
       }
 
       if (context) {
-        const inputControls = context.controls.filter(c => c.tag !== 'button' && c.type !== 'submit')
+        const answerControls = context.controls.filter((c) => c.role === 'answer')
         const cache = loadDomainCache(window.location.hostname)
-        
-        if (inputControls.length > 0) {
-          // TEM QUESTÃO NA TELA!
-          this.callbacks.onStatusChange('analyzing', '> [IA] Questão detectada. Consultando IA...', 'text-blue')
-          await new Promise(r => setTimeout(r, 800))
+
+        if (answerControls.length > 0) {
+          // TEM QUESTÃO / EXERCÍCIO NA TELA (Múltipla escolha, texto, categorização, arrastar-soltar)
+          this.callbacks.onStatusChange('analyzing', '> [IA] Questão/Exercício detectado. Consultando IA...', 'text-blue')
+          await new Promise((r) => setTimeout(r, 600))
           const plan = await this.callbacks.onRequestAnalysis()
           if (plan) {
-            this.callbacks.onStatusChange('analyzing', `> [IA] (${plan.usedModel || 'gemini'}) Confiança: ${(plan.confidence * 100).toFixed(1)}% | Modo: ${plan.mode}`, 'text-blue')
+            this.callbacks.onStatusChange(
+              'analyzing',
+              `> [IA] (${plan.usedModel || 'gemini'}) Confiança: ${(plan.confidence * 100).toFixed(1)}% | Modo: ${plan.mode}`,
+              'text-blue',
+            )
             this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
             this.callbacks.onStatusChange('analyzing', `> [IA] Ações geradas: ${plan.actions.length}`, 'text-blue')
             this.errorCount = 0
-            
+
             if (plan.memoryToStore) {
               this.callbacks.onStatusChange('analyzing', `> [IA] 🧠 Memória RAG salva: "${plan.memoryToStore}"`, 'text-yellow')
             }
-            
+
             if (plan.pageType === 'conclusion') {
               this.callbacks.onStatusChange('idle', '> [SYS] Atividade concluída! Desligando Autopilot.', 'text-green')
               this.stop()
@@ -91,32 +95,45 @@ export class Autopilot {
             }
           } else {
             this.errorCount++
+            this.callbacks.onStatusChange('waiting', `> [AVISO] Falha ao analisar questão (${this.errorCount}/3)...`, 'text-yellow')
           }
           this.lastActionTime = Date.now()
-        } else if (cache.advanceSelector && findElementExt(cache.advanceSelector)) {
-          // TELA INFORMATIVA E JÁ SABEMOS O BOTÃO
+        } else if (cache.advanceSelector && findElementExt(cache.advanceSelector) && context.questionText.length < 50) {
+          // TELA INFORMATIVA SIMPLES E JÁ SABEMOS O BOTÃO DE AVANÇO
           const btn = findElementExt(cache.advanceSelector)
           if (btn) {
             this.callbacks.onStatusChange('advancing', `> [BRUTE] Avançando via cache "${cache.advanceSelector}"...`)
-            await new Promise(r => setTimeout(r, 1200))
+            await new Promise((r) => setTimeout(r, 1000))
             simulatePointerClick(btn)
             this.lastActionTime = Date.now()
             this.errorCount = 0
           }
         } else {
-          // ROTA DESCONHECIDA, TELA DE FIM OU FALLBACK
-          this.callbacks.onStatusChange('analyzing', '> [IA] Rota desconhecida/fallback. Consultando IA...', 'text-blue')
-          await new Promise(r => setTimeout(r, 800))
+          // PÁGINA DE CONTEXTO, ARTIGO TEÓRICO, TELA DE INÍCIO OU FALLBACK
+          this.callbacks.onStatusChange(
+            'analyzing',
+            '> [IA] Página informativa/contexto detectada. Lendo e consultando IA...',
+            'text-blue',
+          )
+          await new Promise((r) => setTimeout(r, 600))
           const plan = await this.callbacks.onRequestAnalysis()
           if (plan) {
-            this.callbacks.onStatusChange('analyzing', `> [IA] (${plan.usedModel || 'gemini'}) Confiança: ${(plan.confidence * 100).toFixed(1)}% | Modo: ${plan.mode}`, 'text-blue')
+            this.callbacks.onStatusChange(
+              'analyzing',
+              `> [IA] (${plan.usedModel || 'gemini'}) Tipo: ${plan.pageType} | Modo: ${plan.mode}`,
+              'text-blue',
+            )
             this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
-            
+
             if (plan.memoryToStore) {
-              this.callbacks.onStatusChange('analyzing', `> [IA] 🧠 Memória RAG salva: "${plan.memoryToStore}"`, 'text-yellow')
+              this.callbacks.onStatusChange('analyzing', `> [IA] 🧠 Conteúdo absorvido na memória: "${plan.memoryToStore}"`, 'text-yellow')
             }
-            
-            if (plan.pageType === 'conclusion') {
+
+            if (plan.pageType === 'info') {
+              this.callbacks.onStatusChange('advancing', '> [IA] 📖 Leitura concluída. Avançando automaticamente...', 'text-green')
+            } else if (plan.pageType === 'start') {
+              this.callbacks.onStatusChange('advancing', '> [SYS] Início de módulo detectado. Iniciando...', 'text-blue')
+            } else if (plan.pageType === 'conclusion') {
               this.callbacks.onStatusChange('idle', '> [SYS] Atividade concluída! Desligando Autopilot.', 'text-green')
               this.stop()
               return
@@ -124,6 +141,7 @@ export class Autopilot {
             this.errorCount = 0
           } else {
             this.errorCount++
+            this.callbacks.onStatusChange('waiting', `> [AVISO] Falha ao processar página (${this.errorCount}/3)...`, 'text-yellow')
           }
           this.lastActionTime = Date.now()
         }

@@ -4,19 +4,43 @@ import { NAVIGATION_PATTERN } from './controls'
 
 // ---- MOTOR DE BUSCA ROBUSTA ----
 export function findElementExt(idOrLabel: string): HTMLElement | null {
-  const escaped = CSS.escape(idOrLabel)
-  // 1. Tenta por ID estrito gerado
+  if (!idOrLabel) return null
+  const trimmed = idOrLabel.trim()
+
+  // 1. Tenta por ID estrito gerado pelo EasyQuiz
+  const escaped = CSS.escape(trimmed)
   let el = document.querySelector(`[data-easyquiz-id="${escaped}"]`) as HTMLElement
   if (el) return el
 
-  // 2. Tenta por ID real ou name
+  // 2. Tenta como seletor CSS direto (ex: ".classe", "#id", "[data-testid='...']")
+  try {
+    el = document.querySelector(trimmed) as HTMLElement
+    if (el) return el
+  } catch {}
+
+  // 3. Tenta por ID real ou name
   el = document.querySelector(`#${escaped}, [name="${escaped}"]`) as HTMLElement
   if (el) return el
 
-  // 3. Tenta encontrar via XPath por texto exato (label)
-  const xpath = `//*[text()="${idOrLabel}"] | //*[contains(text(),"${idOrLabel}")]`
-  const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null)
-  if (result.singleNodeValue) return result.singleNodeValue as HTMLElement
+  // 4. Tenta encontrar via XPath por texto exato, aria-label ou data-category
+  try {
+    const xpath = `//*[text()="${trimmed}"] | //*[contains(text(),"${trimmed}")] | //*[@aria-label="${trimmed}"] | //*[@data-category="${trimmed}"] | //*[@data-testid="${trimmed}"]`
+    const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null)
+    if (result.singleNodeValue) return result.singleNodeValue as HTMLElement
+  } catch {}
+
+  // 5. Busca flexível (case-insensitive) nos elementos visíveis
+  const targetLower = trimmed.toLowerCase()
+  const candidates = Array.from(document.querySelectorAll('button, a, div, span, li, p, label, input, [draggable="true"]')) as HTMLElement[]
+  for (const item of candidates) {
+    const txt = (item.textContent || '').trim().toLowerCase()
+    const aria = (item.getAttribute('aria-label') || '').trim().toLowerCase()
+    const cat = (item.getAttribute('data-category') || '').trim().toLowerCase()
+    const testid = (item.getAttribute('data-testid') || '').trim().toLowerCase()
+    if (txt === targetLower || aria === targetLower || cat === targetLower || testid === targetLower) {
+      return item
+    }
+  }
 
   return null
 }
@@ -103,6 +127,61 @@ function selectValues(element: HTMLElement, values: string[]): void {
   throw new Error('Elemento não é select.')
 }
 
+function createMockDataTransfer(): DataTransfer {
+  const store: Record<string, string> = {}
+  return {
+    dropEffect: 'move',
+    effectAllowed: 'all',
+    files: [] as any,
+    items: [] as any,
+    types: ['text/plain'],
+    clearData: (format?: string) => {
+      if (format) delete store[format]
+      else Object.keys(store).forEach((k) => delete store[k])
+    },
+    getData: (format: string) => store[format] || '',
+    setData: (format: string, data: string) => {
+      store[format] = data
+    },
+    setDragImage: () => {},
+  } as unknown as DataTransfer
+}
+
+export function simulateDragDrop(origin: HTMLElement, dest: HTMLElement): void {
+  const dataTransfer = createMockDataTransfer()
+  const originRect = origin.getBoundingClientRect()
+  const destRect = dest.getBoundingClientRect()
+  const pStart = {
+    clientX: originRect.left + originRect.width / 2,
+    clientY: originRect.top + originRect.height / 2,
+    bubbles: true,
+    cancelable: true,
+  }
+  const pEnd = {
+    clientX: destRect.left + destRect.width / 2,
+    clientY: destRect.top + destRect.height / 2,
+    bubbles: true,
+    cancelable: true,
+  }
+
+  // Sequência de eventos de início de drag
+  origin.dispatchEvent(new PointerEvent('pointerdown', pStart))
+  origin.dispatchEvent(new MouseEvent('mousedown', pStart))
+  origin.dispatchEvent(new DragEvent('dragstart', { ...pStart, dataTransfer }))
+
+  // Sequência sobre o destino
+  dest.dispatchEvent(new DragEvent('dragenter', { ...pEnd, dataTransfer }))
+  dest.dispatchEvent(new DragEvent('dragover', { ...pEnd, dataTransfer }))
+
+  // Drop no destino
+  dest.dispatchEvent(new DragEvent('drop', { ...pEnd, dataTransfer }))
+
+  // Finalização do arrasto
+  origin.dispatchEvent(new DragEvent('dragend', { ...pStart, dataTransfer }))
+  dest.dispatchEvent(new PointerEvent('pointerup', pEnd))
+  dest.dispatchEvent(new MouseEvent('mouseup', pEnd))
+}
+
 // ---- API GLOBAL $eq ----
 export const EqAPI = {
   fill: (idOrLabel: string, value: string) => {
@@ -121,15 +200,30 @@ export const EqAPI = {
     else console.warn(`$eq.check: Elemento ${idOrLabel} não encontrado`)
   },
   drag: (idOrigem: string, idDest: string) => {
-    // Simulação básica de drag drop
     const origin = findElementExt(idOrigem)
     const dest = findElementExt(idDest)
     if (origin && dest) {
-      origin.dispatchEvent(new DragEvent('dragstart', { bubbles: true }))
-      dest.dispatchEvent(new DragEvent('drop', { bubbles: true }))
-      origin.dispatchEvent(new DragEvent('dragend', { bubbles: true }))
+      simulateDragDrop(origin, dest)
+    } else {
+      console.warn(`$eq.drag: Origem ou destino não encontrado (${idOrigem} -> ${idDest})`)
     }
-  }
+  },
+  categorize: (itemQuery: string, categoryQuery: string) => {
+    const item = findElementExt(itemQuery)
+    const cat = findElementExt(categoryQuery)
+    if (!item || !cat) {
+      console.warn(`$eq.categorize: Item ou categoria não encontrados (${itemQuery} -> ${categoryQuery})`)
+      return
+    }
+    // 1. Simula arrastar e soltar
+    simulateDragDrop(item, cat)
+
+    // 2. Dispara padrão de acessibilidade (clicar no item e depois na categoria)
+    simulatePointerClick(item)
+    setTimeout(() => {
+      simulatePointerClick(cat)
+    }, 150)
+  },
 }
 // Instancia no window do hospedeiro
 ;(window as any).$eq = EqAPI
@@ -139,11 +233,23 @@ function executeDeclarativeAction(action: DeclarativeAction): void {
   if (action.t === 'js') {
     const code = String(action.v || '')
     try {
-      const fn = new Function('$eq', code)
-      fn(EqAPI)
+      const fn = new Function('$eq', 'document', 'window', code)
+      fn(EqAPI, document, window)
     } catch (err) {
-      console.error('[EasyQuiz JS Error]', err)
-      throw new Error('Falha na execução JS gerada pela IA.')
+      console.warn('[EasyQuiz JS Execution]', err)
+    }
+    return
+  }
+
+  if (action.t === 'drag') {
+    const fromEl = findElementExt(action.from)
+    const toEl = findElementExt(action.to)
+    if (fromEl && toEl) {
+      simulateDragDrop(fromEl, toEl)
+      simulatePointerClick(fromEl)
+      setTimeout(() => simulatePointerClick(toEl), 150)
+    } else {
+      console.warn(`[EasyQuiz] Drag: alvo não encontrado (${action.from} -> ${action.to})`)
     }
     return
   }
@@ -151,7 +257,8 @@ function executeDeclarativeAction(action: DeclarativeAction): void {
   const elId = action.id || ''
   const element = findElementExt(elId)
   if (!element && action.t !== 'adv') {
-    throw new Error(`Alvo '${elId}' não encontrado para ação '${action.t}'`)
+    console.warn(`[EasyQuiz] Alvo '${elId}' não encontrado para ação '${action.t}'. Prosseguindo...`)
+    return
   }
 
   switch (action.t) {
@@ -173,12 +280,12 @@ function executeDeclarativeAction(action: DeclarativeAction): void {
     case 'adv':
       let targetEl = element
       if (!targetEl) {
-        // Tenta achar qualquer botão de navegação
-        const navs = Array.from(document.querySelectorAll('button, a, input[type="submit"]'))
-          .filter(e => NAVIGATION_PATTERN.test(e.textContent || (e as HTMLInputElement).value || ''))
+        const navs = Array.from(document.querySelectorAll('button, a, input[type="submit"]')).filter((e) =>
+          NAVIGATION_PATTERN.test(e.textContent || (e as HTMLInputElement).value || ''),
+        )
         if (navs.length) targetEl = navs[0] as HTMLElement
       }
-      
+
       if (targetEl) {
         const heuristic = action.id || targetEl.textContent?.trim() || (targetEl as HTMLInputElement).value?.trim() || ''
         if (heuristic) {
@@ -186,7 +293,7 @@ function executeDeclarativeAction(action: DeclarativeAction): void {
         }
         simulatePointerClick(targetEl)
       } else {
-        throw new Error('Botão de avanço não encontrado.')
+        console.warn('[EasyQuiz] Botão de avanço não localizado.')
       }
       break
   }
@@ -204,10 +311,32 @@ export async function executePlan(
   }
 
   let advanced = false
-  if (allowAdvance && advanceActions.length > 0) {
-    await new Promise((resolve) => setTimeout(resolve, 600))
-    executeDeclarativeAction(advanceActions[0])
-    advanced = true
+  if (allowAdvance) {
+    // 1. Verifica se há um botão intermediário de "Verificar" / "Check"
+    const checkBtn = Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"]')).find((b) =>
+      /(verificar|checar|check|conferir)/i.test(b.textContent || (b as HTMLInputElement).value || ''),
+    ) as HTMLElement | undefined
+
+    if (checkBtn && isVisible(checkBtn)) {
+      simulatePointerClick(checkBtn)
+      await new Promise((resolve) => setTimeout(resolve, 800))
+    }
+
+    if (advanceActions.length > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 600))
+      executeDeclarativeAction(advanceActions[0])
+      advanced = true
+    } else if (checkBtn) {
+      // Se clicou em verificar, busca o botão de próxima pergunta que surgiu
+      await new Promise((resolve) => setTimeout(resolve, 600))
+      const nextBtn = Array.from(document.querySelectorAll('button, [role="button"], a, input[type="submit"]')).find(
+        (b) => /(próxim[oa]|next|continuar|avançar|mostrar resumo)/i.test(b.textContent || (b as HTMLInputElement).value || ''),
+      ) as HTMLElement | undefined
+      if (nextBtn && isVisible(nextBtn)) {
+        simulatePointerClick(nextBtn)
+        advanced = true
+      }
+    }
   }
 
   return {

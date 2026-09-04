@@ -10,10 +10,22 @@ export const CONTROL_SELECTOR = [
   '[role="checkbox"]',
   '[role="option"]',
   '[contenteditable="true"]',
+  '[draggable="true"]',
+  '[aria-grabbed]',
+  '[aria-dropeffect]',
+  '[data-widget-type]',
+  '.perseus-drag-item',
+  '.sortable-item',
+  '[data-testid*="drag" i]',
+  '[data-testid*="card" i]',
+  '[data-testid*="option" i]',
+  '[data-testid*="category" i]',
+  '[data-role="dropzone"]',
+  '[data-category]',
 ].join(',')
 
 export const NAVIGATION_PATTERN =
-  /^(próxim[oa]|next|continuar|avançar|prosseguir|enviar|submit|concluir|finalizar|próxima questão|next question|avançar questão)$/i
+  /(verificar|checar|check|conferir|validar|próxim[oa]|next|continuar|avançar|prosseguir|enviar|submit|concluir|finalizar|terminar|começar|iniciar|start|vamos lá|próxima tarefa|next task|próxima pergunta|next question|marcar como concluíd[oa]|mostrar resumo|entendi)/i
 
 let idSequence = 0
 
@@ -45,13 +57,21 @@ export function easyQuizId(element: HTMLElement): string {
 
 export function isNavigationControl(element: HTMLElement): boolean {
   const text = cleanText(
-    element.textContent ||
-      element.getAttribute('aria-label') ||
+    element.getAttribute('aria-label') ||
+      element.textContent ||
       element.getAttribute('value') ||
       (element as HTMLInputElement).value,
   )
   const type = (element as HTMLButtonElement).type
-  return NAVIGATION_PATTERN.test(text) || type === 'submit'
+  const testableText = text.replace(/[\d\(\)\[\]→\>\•\-\/\\]+/g, ' ').trim()
+  return (
+    NAVIGATION_PATTERN.test(testableText) ||
+    NAVIGATION_PATTERN.test(text) ||
+    type === 'submit' ||
+    element.getAttribute('data-testid')?.toLowerCase().includes('next') ||
+    element.getAttribute('data-testid')?.toLowerCase().includes('check') ||
+    false
+  )
 }
 
 export function labelForControl(element: HTMLElement): string {
@@ -109,14 +129,20 @@ export function describeControl(element: HTMLElement, role: 'answer' | 'navigati
     : 'other'
 
   const customRole = element.getAttribute('role') || ''
-  const inputType = cleanText(input.type || customRole || tag, 40)
+  const isDraggable = element.getAttribute('draggable') === 'true' || element.classList.contains('perseus-drag-item')
+  const isDropzone =
+    element.getAttribute('data-role') === 'dropzone' ||
+    element.classList.contains('category-container') ||
+    element.hasAttribute('data-category')
+  const widgetHint = isDraggable ? 'draggable' : isDropzone ? 'dropzone' : ''
+  const inputType = cleanText(widgetHint || input.type || customRole || tag, 40)
 
   let currentValue = ''
   if (input.type === 'checkbox' || input.type === 'radio' || customRole === 'radio' || customRole === 'checkbox') {
     const isChecked = input.checked || element.getAttribute('aria-checked') === 'true'
     currentValue = isChecked ? 'checked' : 'unchecked'
   } else {
-    currentValue = cleanText(input.value || element.textContent || '', 2000)
+    currentValue = cleanText(input.value || element.getAttribute('data-category') || element.textContent || '', 2000)
   }
 
   const options: Array<{ value: string; label: string }> = []

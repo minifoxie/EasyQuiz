@@ -112,21 +112,29 @@ export function sanitizeHtml(scope: HTMLElement): string {
     .querySelectorAll('script, style, iframe, object, embed, svg, canvas, noscript, audio, video')
     .forEach((el) => el.remove())
 
-  // Manter apenas atributos relevantes para acessibilidade e identificação
+  // Manter atributos relevantes para acessibilidade, identificação e manipulação por JS
+  const keep = [
+    'type',
+    'name',
+    'value',
+    'role',
+    'aria-label',
+    'aria-labelledby',
+    'aria-checked',
+    'aria-required',
+    'required',
+    'disabled',
+    'data-easyquiz-id',
+    'draggable',
+    'class',
+    'id',
+    'data-widget-type',
+    'data-role',
+    'data-category',
+    'data-testid',
+  ]
+
   clone.querySelectorAll('*').forEach((element) => {
-    const keep = [
-      'type',
-      'name',
-      'value',
-      'role',
-      'aria-label',
-      'aria-labelledby',
-      'aria-checked',
-      'aria-required',
-      'required',
-      'disabled',
-      'data-easyquiz-id',
-    ]
     for (const attr of Array.from(element.attributes)) {
       if (!keep.includes(attr.name)) {
         element.removeAttribute(attr.name)
@@ -172,10 +180,18 @@ export function captureCurrentContext(expanded = false): CapturedContext | null 
 
   const questionText = cleanText(scope.innerText, 16_000)
   const answers = extractAnswerControls(scope)
-  const navs = extractNavigationControls(scope)
+  let navs = extractNavigationControls(scope)
+
+  // Se não achou navegação no escopo, procura globalmente na página
+  if (navs.length === 0) {
+    navs = extractNavigationControls(document.body)
+  }
+
   const controls = [...answers, ...navs].slice(0, 120)
 
-  if (!questionText || !controls.length) {
+  // Se tem texto explicativo relevante (> 30 chars), mesmo sem controles de resposta direta,
+  // é uma página de leitura/contexto/artigo válida!
+  if (!questionText || (controls.length === 0 && questionText.length < 30)) {
     return null
   }
 
@@ -192,13 +208,15 @@ export function captureCurrentContext(expanded = false): CapturedContext | null 
 export function captureFullPageText(): CapturedContext {
   const rawText = document.body.innerText || document.documentElement.innerText
   const questionText = cleanText(rawText, 8000)
-  
+  const navs = extractNavigationControls(document.body)
+  const mainEl = (document.querySelector('main, article, [role="main"]') || document.body) as HTMLElement
+
   return {
     sourceUrl: window.location.href.slice(0, 2_000),
     pageTitle: document.title.slice(0, 500) || 'Página Inteira',
     questionText,
-    htmlSnippet: '<!-- HTML omitido no fallback -->',
-    controls: [], // Fallback não tem controles extraídos, IA vai ter que deduzir que não há ação manual ou inferir a partir de clicks às cegas
-    scope: document.body,
+    htmlSnippet: sanitizeHtml(mainEl).slice(0, 10_000),
+    controls: navs,
+    scope: mainEl,
   }
 }

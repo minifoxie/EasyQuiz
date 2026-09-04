@@ -5,6 +5,9 @@ export type ResponseMode =
   | 'verdadeiro_falso'
   | 'preenchimento'
   | 'acao_sem_resposta'
+  | 'categorizacao'
+  | 'ordenacao'
+  | 'arrastar_soltar'
 
 export type ExecutionEngine = 'command' | 'javascript' | 'smart'
 
@@ -43,11 +46,13 @@ export interface CapturedImage {
 }
 
 // Comandos declarativos minificados para economizar tokens:
-// t: tipo (val, chk, sel, clk, adv, js)
+// t: tipo (val, chk, sel, clk, adv, js, drag)
 // id: targetId ou targetLabel
-// v: string ou array de strings (value)
+// v: string ou array de strings (value) ou código JS
 // c: booleano (checked)
 // co: array de coordenadas [x, y]
+// from: seletor/texto do item de origem (drag)
+// to: seletor/texto do container/categoria de destino (drag)
 export type DeclarativeAction =
   | { t: 'val'; id: string; v: string } // set_value
   | { t: 'chk'; id: string; c: boolean } // set_checked
@@ -55,6 +60,7 @@ export type DeclarativeAction =
   | { t: 'clk'; id: string; co?: [number, number] } // click / click_by_label / simulate_click
   | { t: 'adv'; id?: string } // advance
   | { t: 'js'; v: string } // custom_js execution (using $eq)
+  | { t: 'drag'; from: string; to: string } // drag and drop / categorizacao
 
 export interface AnalysisPlan {
   pageType: 'question' | 'info' | 'start' | 'conclusion'

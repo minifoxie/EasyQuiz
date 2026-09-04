@@ -29,6 +29,25 @@ export function highlightScope(scope: HTMLElement): void {
 export function highlightTargetActions(actions: DeclarativeAction[]): void {
   for (const action of actions) {
     if (action.t === 'adv' || action.t === 'js') continue
+    if (action.t === 'drag') {
+      try {
+        const fromEl =
+          (document.querySelector(`[data-easyquiz-id="${CSS.escape(action.from)}"]`) as HTMLElement | null) ||
+          (document.querySelector(action.from) as HTMLElement | null)
+        const toEl =
+          (document.querySelector(`[data-easyquiz-id="${CSS.escape(action.to)}"]`) as HTMLElement | null) ||
+          (document.querySelector(action.to) as HTMLElement | null)
+        if (fromEl) {
+          fromEl.style.outline = '2px solid #00ff88'
+          highlightedElements.push(fromEl)
+        }
+        if (toEl) {
+          toEl.style.outline = '2px dashed #00e5ff'
+          highlightedElements.push(toEl)
+        }
+      } catch {}
+      continue
+    }
     if (!action.id) continue
     const escaped = CSS.escape(action.id)
     const element = document.querySelector(`[data-easyquiz-id="${escaped}"]`) as HTMLElement | null

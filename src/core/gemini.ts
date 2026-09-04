@@ -14,7 +14,17 @@ const GEMINI_JSON_SCHEMA = {
     pageType: { type: 'STRING', enum: ['question', 'info', 'start', 'conclusion'] },
     mode: {
       type: 'STRING',
-      enum: ['texto_livre', 'escolha_unica', 'escolha_multipla', 'verdadeiro_falso', 'preenchimento', 'acao_sem_resposta'],
+      enum: [
+        'texto_livre',
+        'escolha_unica',
+        'escolha_multipla',
+        'verdadeiro_falso',
+        'preenchimento',
+        'acao_sem_resposta',
+        'categorizacao',
+        'ordenacao',
+        'arrastar_soltar',
+      ],
     },
     confidence: { type: 'NUMBER' },
     rationale: { type: 'STRING' },
@@ -26,11 +36,13 @@ const GEMINI_JSON_SCHEMA = {
       items: {
         type: 'OBJECT',
         properties: {
-          t: { type: 'STRING', enum: ['val', 'chk', 'sel', 'clk', 'adv', 'js'] },
+          t: { type: 'STRING', enum: ['val', 'chk', 'sel', 'clk', 'adv', 'js', 'drag'] },
           id: { type: 'STRING' },
-          v: {}, // Pode ser string ou array ou omitido
+          v: {}, // Pode ser string (valor ou código JS) ou array ou omitido
           c: { type: 'BOOLEAN' },
-          co: { type: 'ARRAY', items: { type: 'NUMBER' } } // coordinates
+          co: { type: 'ARRAY', items: { type: 'NUMBER' } }, // coordinates
+          from: { type: 'STRING' }, // Seletor ou texto de origem (drag)
+          to: { type: 'STRING' }, // Seletor ou texto de destino (drag)
         },
         required: ['t'],
       },
