@@ -15,9 +15,13 @@ export function loadSettings(): EasyQuizSettings {
       return { ...DEFAULT_SETTINGS }
     }
     const parsed = JSON.parse(raw) as Partial<EasyQuizSettings>
+    let model = typeof parsed.model === 'string' && parsed.model ? parsed.model : DEFAULT_SETTINGS.model
+    if (model.includes('3.8') || model.includes('3.7') || model.includes('3.6') || model.includes('3.5') || model.includes('3.1')) {
+      model = DEFAULT_SETTINGS.model
+    }
     return {
       apiKey: typeof parsed.apiKey === 'string' ? parsed.apiKey.trim() : DEFAULT_SETTINGS.apiKey,
-      model: typeof parsed.model === 'string' && parsed.model ? parsed.model : DEFAULT_SETTINGS.model,
+      model,
       uiMode: (parsed.uiMode === 'easy' || parsed.uiMode === 'advanced') ? parsed.uiMode : DEFAULT_SETTINGS.uiMode,
       modeHint: (parsed.modeHint ?? '') as ResponseMode | '',
       engine: (parsed.engine ?? 'smart') as ExecutionEngine,

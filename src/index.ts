@@ -85,7 +85,15 @@ async function initEasyQuiz(): Promise<void> {
         'info',
       )
 
-      let { plan } = await analyzeWithGemini(context, images, settings)
+      let { plan, usedModel } = await analyzeWithGemini(context, images, settings, (msg, type) => {
+        panel.setStatus(msg, type === 'warning' ? 'info' : type)
+      })
+
+      if (usedModel && usedModel !== settings.model) {
+        settings.model = usedModel
+        saveSettings({ model: usedModel })
+        panel.updateSelectedModel(usedModel)
+      }
 
       // Se a IA pediu mais contexto ou detectou que o escopo estava isolado
       if (plan.needsMoreContext) {
@@ -98,8 +106,15 @@ async function initEasyQuiz(): Promise<void> {
         highlightScope(context.scope)
         images = await captureImages(context.scope)
         panel.setStatus(`Reconsultando IA com escopo ampliado (${context.controls.length} controles)...`, 'info')
-        const recheck = await analyzeWithGemini(context, images, settings)
+        const recheck = await analyzeWithGemini(context, images, settings, (msg, type) => {
+          panel.setStatus(msg, type === 'warning' ? 'info' : type)
+        })
         plan = recheck.plan
+        if (recheck.usedModel && recheck.usedModel !== settings.model) {
+          settings.model = recheck.usedModel
+          saveSettings({ model: recheck.usedModel })
+          panel.updateSelectedModel(recheck.usedModel)
+        }
       }
 
       if (plan.memoryToStore) {

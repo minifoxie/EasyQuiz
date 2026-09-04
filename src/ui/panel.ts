@@ -1,5 +1,5 @@
-import type { AnalysisPlan, EasyQuizSettings, ResponseMode, ExecutionEngine } from '../core/types'
-import { AVAILABLE_MODELS, testApiKey } from '../core/gemini'
+import type { AnalysisPlan, EasyQuizSettings, ResponseMode, ExecutionEngine, ModelOption } from '../core/types'
+import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey } from '../core/gemini'
 import { clearSessionMemories } from '../core/storage'
 import { Autopilot, type AutopilotStatus } from '../dom/autopilot'
 import { ICONS } from './icons'
@@ -263,6 +263,14 @@ export class EasyQuizPanel {
     this.applyHostDarkMode(initialSettings.hostDarkMode)
     this.switchMode(initialSettings.uiMode)
 
+    if (initialSettings.apiKey) {
+      fetchAvailableModels(initialSettings.apiKey).then((models) => {
+        if (models && models.length > 0) {
+          this.updateModelSelect(models, initialSettings.model)
+        }
+      }).catch(() => {})
+    }
+
     // Tornar painel e launcher arrastáveis
     this.makeDraggable(this.panelEl, this.shadow.querySelector('.eq-header') as HTMLElement)
     this.makeDraggable(this.launcherBtn, this.launcherBtn)
@@ -339,11 +347,14 @@ export class EasyQuizPanel {
     this.testKeyBtn.addEventListener('click', async () => {
       const key = this.apiKeyInput.value.trim()
       if (!key) return this.setStatus('Informe a chave de API.', 'error')
-      this.setStatus('Testando 3.8 Flash...', 'info')
+      this.setStatus('Validando chave e descobrindo modelos...', 'info')
       this.testKeyBtn.disabled = true
       try {
         const res = await testApiKey(key)
         this.setStatus(res.message, res.ok ? 'success' : 'error')
+        if (res.ok && res.models && res.models.length > 0) {
+          this.updateModelSelect(res.models)
+        }
       } finally {
         this.testKeyBtn.disabled = false
       }
@@ -454,16 +465,41 @@ export class EasyQuizPanel {
     this.statusBox.textContent = message
     this.statusBox.className = `eq-status-box ${type}`
 
-    if (this.apConsole && this.autopilot && this.autopilot.isActive()) {
+    if (this.apConsole) {
       const entry = document.createElement('div')
-      const prefix = type === 'error' ? '> [ERRO DETALHADO] ' : type === 'success' ? '> [SUCESSO] ' : '> [SISTEMA] '
+      const isFallback = message.includes('Alternando') || message.includes('indisponível') || message.includes('fallback') || message.includes('alternativo')
+      const prefix = type === 'error' ? '> [ERRO DETALHADO] ' : type === 'success' ? '> [SUCESSO] ' : isFallback ? '> [FALLBACK] ' : '> [SYS] '
       entry.textContent = `${prefix}${message}`
       if (type === 'error') entry.className = 'text-red'
       else if (type === 'success') entry.className = 'text-green'
+      else if (isFallback) entry.className = 'text-yellow'
       else entry.className = 'text-blue'
       this.apConsole.appendChild(entry)
       this.apConsole.scrollTop = this.apConsole.scrollHeight
     }
+  }
+
+  public updateModelSelect(models: ModelOption[], selectedId?: string): void {
+    const targetId = selectedId || this.modelSelect.value || this.initialSettings.model
+    this.modelSelect.innerHTML = ''
+    let matched = false
+    models.forEach((m) => {
+      const isSelected = m.id === targetId
+      if (isSelected) matched = true
+      this.modelSelect.add(new Option(m.name, m.id, false, isSelected))
+    })
+    if (!matched && models.length > 0) {
+      this.modelSelect.selectedIndex = 0
+      this.callbacks.onSettingsChange({ model: this.modelSelect.value })
+    }
+  }
+
+  public updateSelectedModel(modelId: string): void {
+    const exists = Array.from(this.modelSelect.options).some((opt) => opt.value === modelId)
+    if (!exists) {
+      this.modelSelect.add(new Option(`Gemini (${modelId})`, modelId, false, true))
+    }
+    this.modelSelect.value = modelId
   }
 
   public setPlan(plan: AnalysisPlan, canApply: boolean): void {
