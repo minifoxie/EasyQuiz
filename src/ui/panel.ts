@@ -50,6 +50,16 @@ export class EasyQuizPanel {
     this.callbacks = callbacks
     this.host = document.createElement('div')
     this.host.id = 'easyquiz-shadow-root'
+    
+    // Blindagem extrema do host para evitar que CSS de sites como Khan Academy destrua a visibilidade
+    this.host.style.position = 'fixed'
+    this.host.style.top = '0'
+    this.host.style.left = '0'
+    this.host.style.width = '100vw'
+    this.host.style.height = '100vh'
+    this.host.style.zIndex = '2147483647'
+    this.host.style.pointerEvents = 'none' // Deixa os cliques passarem pro site
+
     this.shadow = this.host.attachShadow({ mode: 'open' })
 
     this.shadow.innerHTML = `
@@ -177,7 +187,7 @@ export class EasyQuizPanel {
     this.hostDarkModeCheckbox.checked = initialSettings.hostDarkMode
 
     this.setupEventListeners()
-    document.documentElement.appendChild(this.host)
+    document.body.appendChild(this.host)
     this.applyHostDarkMode(initialSettings.hostDarkMode)
 
     // Tornar painel e launcher arrastáveis

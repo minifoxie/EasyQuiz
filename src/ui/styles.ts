@@ -23,6 +23,7 @@ export const PANEL_STYLES = `
 
 
   .eq-launcher {
+    pointer-events: auto;
     position: fixed;
     right: 20px;
     bottom: 20px;
@@ -59,6 +60,7 @@ export const PANEL_STYLES = `
   }
 
   .eq-panel {
+    pointer-events: auto;
     position: fixed;
     right: 20px;
     bottom: 84px;
