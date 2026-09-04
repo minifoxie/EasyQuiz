@@ -6,6 +6,8 @@ export type ResponseMode =
   | 'preenchimento'
   | 'acao_sem_resposta'
 
+export type ExecutionEngine = 'command' | 'javascript' | 'smart'
+
 export interface ControlOption {
   value: string
   label: string
@@ -40,11 +42,19 @@ export interface CapturedImage {
   source: string
 }
 
+// Comandos declarativos minificados para economizar tokens:
+// t: tipo (val, chk, sel, clk, adv, js)
+// id: targetId ou targetLabel
+// v: string ou array de strings (value)
+// c: booleano (checked)
+// co: array de coordenadas [x, y]
 export type DeclarativeAction =
-  | { type: 'set_value'; targetId: string; value: string }
-  | { type: 'set_checked'; targetId: string; checked: boolean }
-  | { type: 'select_values'; targetId: string; values: string[] }
-  | { type: 'advance'; targetId: string }
+  | { t: 'val'; id: string; v: string } // set_value
+  | { t: 'chk'; id: string; c: boolean } // set_checked
+  | { t: 'sel'; id: string; v: string[] } // select_values
+  | { t: 'clk'; id: string; co?: [number, number] } // click / click_by_label / simulate_click
+  | { t: 'adv'; id?: string } // advance
+  | { t: 'js'; v: string } // custom_js execution (using $eq)
 
 export interface AnalysisPlan {
   mode: ResponseMode
@@ -66,8 +76,10 @@ export interface EasyQuizSettings {
   apiKey: string
   model: string
   modeHint: ResponseMode | ''
+  engine: ExecutionEngine
   dryRun: boolean
   autoApply: boolean
   autoAdvance: boolean
+  hostDarkMode: boolean
   confidenceThreshold: number
 }

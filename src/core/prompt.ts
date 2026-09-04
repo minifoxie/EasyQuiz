@@ -1,55 +1,63 @@
 import type { CapturedContext, CapturedImage, EasyQuizSettings } from './types'
 
-export const SYSTEM_PROMPT = `Você é o EasyQuiz Engine, um assistente avançado de resolução e preenchimento de questões, formulários e exames acadêmicos e técnicos.
-Sua missão é analisar o bloco da pergunta atual com o máximo de rigor conceitual e precisão, gerando um plano declarativo para preenchimento.
+export const SYSTEM_PROMPT = `Você é o EasyQuiz Engine. 
+Resolva a questão analisando o texto, HTML e controles.
 
-REGRAS FUNDAMENTAIS:
-1. Use estritamente os 'targetId' informados na lista de controles. Nunca invente IDs.
-2. Identifique com precisão o enunciado, as alternativas e o formato da resposta.
-3. Para escolha_unica: marque somente uma opção correta com 'set_checked: true' no targetId da alternativa correta.
-4. Para escolha_multipla: marque todas as opções corretas com 'set_checked: true'.
-5. Para texto_livre ou preenchimento: forneça a resposta exata e concisa no campo 'value'.
-6. Para select_values: use o 'value' exato da opção válida entre as opções disponíveis no controle.
-7. Explique a resposta no campo 'rationale' de forma direta e técnica, justificando por que aquela opção é a correta.
-8. Atribua um índice de confiança realista de 0.0 a 1.0 em 'confidence'.
-9. Imagens anexadas fazem parte do enunciado ou das opções da questão e devem ser analisadas cuidadosamente.
-10. Se a questão tiver botão de navegação ("Próxima", "Avançar", "Next") e você estiver altamente confiante (>= 0.85), você pode incluir um avanço caso solicitado, caso contrário nunca avance.
-11. Responda exclusivamente com o objeto JSON estruturado.`
+Você DEVE responder com JSON restrito contendo o plano.
+O formato "actions" foi MINIFICADO para poupar tokens. Você pode emitir as seguintes ações:
+
+Se MODO DE EXECUÇÃO = Comando ou Inteligente:
+- { "t": "val", "id": "id_do_campo", "v": "texto_da_resposta" } (Preencher)
+- { "t": "chk", "id": "id_do_checkbox", "c": true } (Marcar opção)
+- { "t": "sel", "id": "id_do_select", "v": ["valor"] } (Selecionar)
+- { "t": "clk", "id": "id_ou_rotulo", "co": [x, y] } (Clique. Use o texto/nome do botão se o id for dinâmico/invisível. Opcional: coordenadas absolutas se souber).
+- { "t": "adv" } (Avançar, apenas se 'autoAdvance' ativo e confiança >= 0.85).
+
+Se MODO DE EXECUÇÃO = JS ou Inteligente (se achar Comando fraco):
+Use a ação: { "t": "js", "v": "$eq.fill('nome_do_aluno', 'Lucas'); $eq.click('Avançar');" }
+Você tem acesso a uma API GLOBAL DE ATALHOS NA PÁGINA '$eq':
+- $eq.fill(id_ou_label, valor)
+- $eq.click(id_ou_label_ou_coord)
+- $eq.check(id_ou_label, booleano)
+- $eq.drag(idOrigem, idDestino)
+NUNCA escreva loops grandes, document.querySelectors complexos ou coisas enormes. APENAS invoque métodos do '$eq' encadeados.
+
+REGRAS GERAIS:
+- "confidence": 0.0 a 1.0.
+- "rationale": justificativa técnica da escolha.
+- "needsMoreContext": se os dados atuais forem lixo/insuficientes, retorne true e pararemos para reenviar a tela inteira com varredura absoluta.`
 
 export function buildUserPrompt(
   context: CapturedContext,
   images: CapturedImage[],
   settings: EasyQuizSettings,
 ): string {
-  return `RESOLVA A SEGUINTE QUESTÃO:
-
-[DICA DE MODO]: ${settings.modeHint || 'Detectar automaticamente (escolha única, múltipla, texto ou preenchimento)'}
-[SIMULAÇÃO]: ${settings.dryRun ? 'Simulação ativa (não execute navegação destrutiva)' : 'Execução real'}
-[PÁGINA]: ${context.pageTitle}
+  return `--- NOVA QUESTÃO ---
+[MODO EXECUÇÃO REQUERIDO]: ${settings.engine} (command | javascript | smart)
+[DICA MODO DE QUESTÃO]: ${settings.modeHint || 'Auto'}
+[SIMULAÇÃO]: ${settings.dryRun ? 'ON (Não destrutivo)' : 'OFF'}
 [URL]: ${context.sourceUrl}
+[PÁGINA]: ${context.pageTitle}
 
-[ENUNCIADO E TEXTO VISÍVEL]:
+[TEXTO VISÍVEL]:
 ${context.questionText}
 
-[FRAGMENTO HTML]:
+[HTML FRAGMENT]:
 ${context.htmlSnippet}
 
-[CONTROLES DISPONÍVEIS - Use estes targetIds para as ações]:
+[CONTROLES IDENTIFICADOS]:
 ${JSON.stringify(
   context.controls.map((c) => ({
     id: c.id,
-    tag: c.tag,
     type: c.type,
-    label: c.label,
-    name: c.name,
-    value: c.value,
-    options: c.options.length ? c.options : undefined,
-    role: c.role,
+    lbl: c.label,
+    val: c.value,
+    opt: c.options.length ? c.options : undefined,
   })),
   null,
-  2,
+  0,
 )}
 
-[IMAGENS ANEXADAS À QUESTÃO]: ${images.length}
-Gere o plano em JSON estruturado com 'mode', 'confidence', 'summary', 'rationale', 'needsMoreContext', 'warnings' e 'actions'.`
+[IMAGENS ANEXADAS]: ${images.length}
+Gere o plano em JSON estrito.`
 }

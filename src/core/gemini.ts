@@ -2,11 +2,10 @@ import type { AnalysisPlan, CapturedContext, CapturedImage, EasyQuizSettings, Mo
 import { buildUserPrompt, SYSTEM_PROMPT } from './prompt'
 
 export const AVAILABLE_MODELS: ModelOption[] = [
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Recomendado: ultrarrápido, multimodal e de alta precisão' },
-  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', description: 'Modelo rápido de última geração para tarefas gerais' },
-  { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', description: 'Modelo leve de baixo consumo e boa resposta' },
-  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', description: 'Raciocínio complexo e contextos gigantescos' },
-  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', description: 'Modelo avançado para questões de alta complexidade' },
+  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Recomendado)', description: 'Ultrapoderoso, hiper-rápido modelo 2026 para agents.' },
+  { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', description: 'Alta velocidade para tarefas simples.' },
+  { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', description: 'Raciocínio longo de elite.' },
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Modelo rápido de geração anterior.' }
 ]
 
 const GEMINI_JSON_SCHEMA = {
@@ -20,34 +19,28 @@ const GEMINI_JSON_SCHEMA = {
     summary: { type: 'STRING' },
     rationale: { type: 'STRING' },
     needsMoreContext: { type: 'BOOLEAN' },
-    warnings: {
-      type: 'ARRAY',
-      items: { type: 'STRING' },
-    },
+    warnings: { type: 'ARRAY', items: { type: 'STRING' } },
     actions: {
       type: 'ARRAY',
       items: {
         type: 'OBJECT',
         properties: {
-          type: { type: 'STRING', enum: ['set_value', 'set_checked', 'select_values', 'advance'] },
-          targetId: { type: 'STRING' },
-          value: { type: 'STRING' },
-          checked: { type: 'BOOLEAN' },
-          values: {
-            type: 'ARRAY',
-            items: { type: 'STRING' },
-          },
+          t: { type: 'STRING', enum: ['val', 'chk', 'sel', 'clk', 'adv', 'js'] },
+          id: { type: 'STRING' },
+          v: {}, // Pode ser string ou array ou omitido
+          c: { type: 'BOOLEAN' },
+          co: { type: 'ARRAY', items: { type: 'NUMBER' } } // coordinates
         },
-        required: ['type', 'targetId'],
+        required: ['t'],
       },
     },
   },
-  required: ['mode', 'confidence', 'summary', 'rationale', 'needsMoreContext', 'warnings', 'actions'],
+  required: ['mode', 'confidence', 'summary', 'rationale', 'needsMoreContext', 'actions'],
 }
 
 function normalizeModel(model: string): string {
   const clean = model.trim().replace(/^google\//, '').replace(/^models\//, '')
-  return clean || 'gemini-2.5-flash'
+  return clean || 'gemini-3.8-flash'
 }
 
 function parseGeminiError(errorText: string, status: number): string {
@@ -55,7 +48,7 @@ function parseGeminiError(errorText: string, status: number): string {
     const json = JSON.parse(errorText)
     const message = json.error?.message || json.message || ''
     if (/API_KEY_INVALID|API key not valid/i.test(message)) {
-      return 'Chave de API do Gemini inválida ou não autorizada. Verifique sua chave no Google AI Studio.'
+      return 'Chave de API do Gemini inválida ou não autorizada. Verifique no Google AI Studio.'
     }
     if (/RESOURCE_EXHAUSTED|Quota exceeded/i.test(message)) {
       return 'Limite de cota do Gemini atingido temporariamente. Aguarde alguns segundos.'
@@ -64,16 +57,14 @@ function parseGeminiError(errorText: string, status: number): string {
   } catch {
     // fallback
   }
-  return `Falha na requisição ao Gemini (HTTP ${status}). Verifique sua conexão e chave de API.`
+  return `Falha na requisição ao Gemini (HTTP ${status}). Verifique sua conexão e chave.`
 }
 
 export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message: string }> {
   const key = apiKey.trim()
-  if (!key) {
-    return { ok: false, message: 'Insira sua chave de API do Gemini.' }
-  }
+  if (!key) return { ok: false, message: 'Insira sua chave de API.' }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(key)}`
   try {
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -88,11 +79,11 @@ export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message
       const errText = await res.text()
       return { ok: false, message: parseGeminiError(errText, res.status) }
     }
-    return { ok: true, message: 'Chave de API validada com sucesso! Gemini pronto para uso.' }
+    return { ok: true, message: 'Chave de API validada com sucesso no Gemini 3.8 Flash!' }
   } catch (error) {
     return {
       ok: false,
-      message: error instanceof Error ? `Erro de conexão: ${error.message}` : 'Erro desconhecido ao validar chave.',
+      message: error instanceof Error ? `Erro de conexão: ${error.message}` : 'Erro desconhecido ao testar chave.',
     }
   }
 }
@@ -103,9 +94,7 @@ export async function analyzeWithGemini(
   settings: EasyQuizSettings,
 ): Promise<{ plan: AnalysisPlan; rawUsage?: unknown }> {
   const key = settings.apiKey.trim()
-  if (!key) {
-    throw new Error('Chave de API do Gemini não configurada. Insira sua chave no painel EasyQuiz.')
-  }
+  if (!key) throw new Error('Chave de API não configurada.')
 
   const model = normalizeModel(settings.model)
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`
@@ -113,28 +102,17 @@ export async function analyzeWithGemini(
   const userText = buildUserPrompt(context, images, settings)
 
   const parts: Array<Record<string, unknown>> = [{ text: userText }]
-
   for (const img of images) {
     parts.push({
-      inline_data: {
-        mime_type: img.mediaType,
-        data: img.base64,
-      },
+      inline_data: { mime_type: img.mediaType, data: img.base64 },
     })
   }
 
   const payload = {
-    system_instruction: {
-      parts: [{ text: SYSTEM_PROMPT }],
-    },
-    contents: [
-      {
-        role: 'user',
-        parts,
-      },
-    ],
+    system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    contents: [{ role: 'user', parts }],
     generationConfig: {
-      temperature: 0.1,
+      temperature: 0.05, // Extremamente baixo para manter previsibilidade
       response_mime_type: 'application/json',
       response_schema: GEMINI_JSON_SCHEMA,
     },
@@ -154,27 +132,19 @@ export async function analyzeWithGemini(
   const data = await response.json()
   const candidate = data.candidates?.[0]
   if (!candidate || !candidate.content?.parts?.[0]?.text) {
-    throw new Error('O modelo Gemini não retornou resposta estruturada.')
+    throw new Error('A IA não retornou uma resposta estruturada válida.')
   }
 
-  const textOutput = candidate.content.parts[0].text
   let parsedPlan: AnalysisPlan
   try {
-    parsedPlan = JSON.parse(textOutput) as AnalysisPlan
+    parsedPlan = JSON.parse(candidate.content.parts[0].text) as AnalysisPlan
   } catch {
-    throw new Error('Falha ao decodificar o plano JSON do Gemini.')
+    throw new Error('Falha ao decodificar o plano JSON da IA.')
   }
 
-  // Sanitizar e validar formato mínimo
-  if (!Array.isArray(parsedPlan.actions)) {
-    parsedPlan.actions = []
-  }
-  if (!Array.isArray(parsedPlan.warnings)) {
-    parsedPlan.warnings = []
-  }
-  if (typeof parsedPlan.confidence !== 'number') {
-    parsedPlan.confidence = 0.8
-  }
+  if (!Array.isArray(parsedPlan.actions)) parsedPlan.actions = []
+  if (!Array.isArray(parsedPlan.warnings)) parsedPlan.warnings = []
+  if (typeof parsedPlan.confidence !== 'number') parsedPlan.confidence = 0.8
 
   return { plan: parsedPlan, rawUsage: data.usageMetadata }
 }

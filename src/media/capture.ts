@@ -11,8 +11,7 @@ function blobToBase64(blob: Blob): Promise<string> {
     reader.onerror = () => reject(new Error('Falha ao converter blob para base64.'))
     reader.onload = () => {
       const res = String(reader.result || '')
-      const base64 = res.split(',')[1] || ''
-      resolve(base64)
+      resolve(res.split(',')[1] || '')
     }
     reader.readAsDataURL(blob)
   })
@@ -25,17 +24,12 @@ async function compressImage(source: HTMLImageElement | HTMLCanvasElement | Imag
   if (source instanceof HTMLImageElement) {
     width = source.naturalWidth || source.width
     height = source.naturalHeight || source.height
-  } else if (source instanceof HTMLCanvasElement) {
-    width = source.width
-    height = source.height
   } else {
     width = source.width
     height = source.height
   }
 
-  if (width <= 0 || height <= 0) {
-    throw new Error('Dimensões de imagem inválidas.')
-  }
+  if (width <= 0 || height <= 0) throw new Error('Dimensões inválidas.')
 
   const scale = Math.min(1, MAX_DIMENSION / Math.max(width, height))
   const targetWidth = Math.max(1, Math.round(width * scale))
@@ -45,7 +39,7 @@ async function compressImage(source: HTMLImageElement | HTMLCanvasElement | Imag
   canvas.width = targetWidth
   canvas.height = targetHeight
   const ctx = canvas.getContext('2d', { alpha: false })
-  if (!ctx) throw new Error('Contexto Canvas 2D indisponível.')
+  if (!ctx) throw new Error('Sem suporte a Canvas 2D.')
 
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, targetWidth, targetHeight)
@@ -53,14 +47,53 @@ async function compressImage(source: HTMLImageElement | HTMLCanvasElement | Imag
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
-      (blob) => {
-        if (blob) resolve(blob)
-        else reject(new Error('Falha ao gerar blob comprimido.'))
-      },
+      (blob) => blob ? resolve(blob) : reject(new Error('Falha compressão.')),
       'image/jpeg',
       0.8,
     )
   })
+}
+
+// CAPTURA SUPREMA: SVG ForeignObject Rasterization
+// Tenta clonar um nodo HTML que falhou e desenhá-lo diretamente no canvas via SVG.
+async function rasterizeHtmlNode(node: HTMLElement): Promise<CapturedImage | null> {
+  try {
+    const clone = node.cloneNode(true) as HTMLElement
+    // Limpa links quebrados e styles complexos para evitar taint no SVG
+    const width = node.offsetWidth || 500
+    const height = node.offsetHeight || 500
+    
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+        <foreignObject width="100%" height="100%">
+          <div xmlns="http://www.w3.org/1999/xhtml" style="background:#fff;font-family:sans-serif;">
+            ${clone.innerHTML}
+          </div>
+        </foreignObject>
+      </svg>
+    `
+    const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(svgBlob)
+    
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    await new Promise((resolve, reject) => {
+      img.onload = resolve
+      img.onerror = reject
+      img.src = url
+    })
+    
+    const blob = await compressImage(img)
+    const base64 = await blobToBase64(blob)
+    URL.revokeObjectURL(url)
+    
+    if (base64 && base64.length <= MAX_BASE64_LENGTH) {
+      return { mediaType: 'image/jpeg', base64, alt: 'Captura Suprema via rasterização DOM', source: 'rasterized' }
+    }
+  } catch (err) {
+    console.warn('Falha na rasterização suprema:', err)
+  }
+  return null
 }
 
 async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage | null> {
@@ -68,7 +101,7 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
   if (!src) return null
   const alt = (img.alt || img.getAttribute('aria-label') || 'Imagem da questão').slice(0, 500)
 
-  // 1. Se já está carregada no DOM e com dimensões válidas
+  // 1. Imagem carregada sem CORS restrito (ou Base64 inline)
   if (img.complete && img.naturalWidth > 0) {
     try {
       const blob = await compressImage(img)
@@ -81,7 +114,7 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
     }
   }
 
-  // 2. Tentar fetch direto CORS
+  // 2. Tentar fetch direto
   try {
     const res = await fetch(src, { mode: 'cors' })
     if (res.ok) {
@@ -97,27 +130,10 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
       }
     }
   } catch {
-    // Falha silenciosa: a imagem remota é protegida, continuaremos com o contexto textual
+    // 3. Fallback Supremo: Clona o próprio container da imagem para tentar capturar SVG 
+    return rasterizeHtmlNode(img.parentElement || img)
   }
 
-  return null
-}
-
-async function captureCanvasElement(canvas: HTMLCanvasElement): Promise<CapturedImage | null> {
-  try {
-    const blob = await compressImage(canvas)
-    const base64 = await blobToBase64(blob)
-    if (base64 && base64.length <= MAX_BASE64_LENGTH) {
-      return {
-        mediaType: 'image/jpeg',
-        base64,
-        alt: 'Canvas da questão',
-        source: 'canvas-inline',
-      }
-    }
-  } catch {
-    // Canvas protegido
-  }
   return null
 }
 
@@ -125,7 +141,6 @@ export async function captureImages(scope: HTMLElement): Promise<CapturedImage[]
   const captures: CapturedImage[] = []
   let totalLength = 0
 
-  // 1. Imagens comuns
   const images = Array.from(scope.querySelectorAll('img')).filter(isVisible).slice(0, MAX_IMAGES)
   for (const img of images) {
     try {
@@ -135,24 +150,27 @@ export async function captureImages(scope: HTMLElement): Promise<CapturedImage[]
         totalLength += cap.base64.length
         if (captures.length >= MAX_IMAGES) break
       }
-    } catch {
-      // continua
-    }
+    } catch { }
   }
 
-  // 2. Elementos Canvas (gráficos, esquemas, desenhos)
   if (captures.length < MAX_IMAGES) {
     const canvases = Array.from(scope.querySelectorAll('canvas')).filter(isVisible).slice(0, MAX_IMAGES)
     for (const cnv of canvases) {
       try {
-        const cap = await captureCanvasElement(cnv)
-        if (cap && totalLength + cap.base64.length <= 2_500_000) {
-          captures.push(cap)
-          totalLength += cap.base64.length
+        const blob = await compressImage(cnv)
+        const base64 = await blobToBase64(blob)
+        if (base64 && totalLength + base64.length <= 2_500_000) {
+          captures.push({ mediaType: 'image/jpeg', base64, alt: 'Canvas inline', source: 'canvas' })
+          totalLength += base64.length
           if (captures.length >= MAX_IMAGES) break
         }
       } catch {
-        // continua
+        // Fallback supremo se canvas for tainted
+        const raster = await rasterizeHtmlNode(cnv.parentElement || cnv)
+        if (raster) {
+          captures.push(raster)
+          totalLength += raster.base64.length
+        }
       }
     }
   }
