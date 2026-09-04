@@ -66,33 +66,33 @@ export class Autopilot {
         // Filtra para achar campos que requerem preenchimento
         // inputs, selects, textareas que não são botões
         const inputControls = context.controls.filter(c => c.tag !== 'button' && c.type !== 'submit')
+        const cache = loadDomainCache(window.location.hostname)
         
         if (inputControls.length > 0) {
           // TEM QUESTÃO NA TELA!
           this.callbacks.onStatusChange('analyzing', '> [IA] Questão detectada. Consultando Gemini...')
-          
-          // Aguarda um pequeno delay para a página estabilizar animações antes de bater print
           await new Promise(r => setTimeout(r, 800))
-          
           await this.callbacks.onRequestAnalysis()
           this.lastActionTime = Date.now()
-        } else {
-          // TELA INFORMATIVA OU TRANSIÇÃO
-          const cache = loadDomainCache(window.location.hostname)
-          if (cache.advanceSelector) {
-            const btn = findElementExt(cache.advanceSelector)
-            if (btn) {
-              this.callbacks.onStatusChange('advancing', `> [BRUTE] Avançando via cache "${cache.advanceSelector}"...`)
-              // Delay humano para evitar detecção de bot e dar tempo de carregar
-              await new Promise(r => setTimeout(r, 1200))
-              simulatePointerClick(btn)
-              this.lastActionTime = Date.now()
-            } else {
-              this.callbacks.onStatusChange('waiting', '> [SYS] Nenhuma questão. Aguardando botão de avanço...')
-            }
+        } else if (cache.advanceSelector) {
+          // TELA INFORMATIVA E JÁ SABEMOS O BOTÃO
+          const btn = findElementExt(cache.advanceSelector)
+          if (btn) {
+            this.callbacks.onStatusChange('advancing', `> [BRUTE] Avançando via cache "${cache.advanceSelector}"...`)
+            await new Promise(r => setTimeout(r, 1200))
+            simulatePointerClick(btn)
+            this.lastActionTime = Date.now()
           } else {
-            this.callbacks.onStatusChange('waiting', '> [SYS] Nenhuma questão. Ensine o botão de avanço manualmente.')
+            // Sabemos o seletor mas não achamos na tela. Pode ser um delay de renderização.
+            this.callbacks.onStatusChange('waiting', '> [SYS] Aguardando tela renderizar...')
           }
+        } else {
+          // NÃO TEM QUESTÃO E NÃO SABEMOS O BOTÃO (EX: TELA DE INÍCIO INÉDITA)
+          // Aciona a IA para ela descobrir qual é o botão de avançar/iniciar e salvar no cache!
+          this.callbacks.onStatusChange('analyzing', '> [IA] Mapeando rota desconhecida...')
+          await new Promise(r => setTimeout(r, 800))
+          await this.callbacks.onRequestAnalysis()
+          this.lastActionTime = Date.now()
         }
       }
     } catch (err) {
