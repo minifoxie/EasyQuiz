@@ -229,18 +229,21 @@ export class EasyQuizPanel {
     if (enable) {
       // Prevenção: verifica se a página já é escura nativamente
       let bg = window.getComputedStyle(document.body).backgroundColor
-      if (bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') {
+      if (bg.includes('rgba(0, 0, 0, 0)') || bg === 'transparent') {
         bg = window.getComputedStyle(document.documentElement).backgroundColor
       }
-      if (bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') {
-        bg = 'rgb(255, 255, 255)' // default do browser
-      }
-      const rgb = bg.match(/\d+/g)
-      if (rgb && rgb.length >= 3) {
-        const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000
-        if (brightness < 100) {
-          console.log('[EasyQuiz] Fundo escuro detectado. Smart Dark Mode preventivamente suspenso.')
-          return // Não inverte se já for escuro
+      
+      const rgba = bg.match(/\d+(\.\d+)?/g)
+      if (rgba && rgba.length >= 3) {
+        const a = rgba[3] !== undefined ? parseFloat(rgba[3]) : 1
+        // Se a opacidade for muito baixa (transparente), o fundo real visível é branco (padrão navegador)
+        if (a > 0.1) {
+          const r = parseInt(rgba[0]), g = parseInt(rgba[1]), b = parseInt(rgba[2])
+          const brightness = (r * 299 + g * 587 + b * 114) / 1000
+          if (brightness < 100) {
+            console.log('[EasyQuiz] Fundo escuro detectado (Brightness: '+brightness+'). Smart Dark Mode preventivamente suspenso.')
+            return // Não inverte se já for escuro
+          }
         }
       }
 

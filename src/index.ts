@@ -146,10 +146,8 @@ async function initEasyQuiz(): Promise<void> {
     }
   }
 
-  // Abrir o painel logo ao injetar se não houver chave
-  if (!settings.apiKey) {
-    panel.toggle(true)
-  }
+  // Abrir o painel logo ao injetar sempre (feedback visual imediato)
+  panel.toggle(true)
 }
 
 // Iniciar
