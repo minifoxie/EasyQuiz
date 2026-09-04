@@ -29,6 +29,7 @@ export function loadSettings(): EasyQuizSettings {
       autoApply: Boolean(parsed.autoApply),
       autoAdvance: Boolean(parsed.autoAdvance),
       hostDarkMode: parsed.hostDarkMode !== undefined ? Boolean(parsed.hostDarkMode) : true,
+      useVision: Boolean(parsed.useVision),
       confidenceThreshold:
         typeof parsed.confidenceThreshold === 'number'
           ? parsed.confidenceThreshold
@@ -36,6 +37,24 @@ export function loadSettings(): EasyQuizSettings {
     }
   } catch {
     return { ...DEFAULT_SETTINGS }
+  }
+}
+
+export function resetAllData(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem('easyquiz_settings_v1')
+    const keysToRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && (k.startsWith('eq_') || k.startsWith('easyquiz_'))) {
+        keysToRemove.push(k)
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k))
+    clearSessionMemories()
+  } catch (e) {
+    console.warn('[EasyQuiz] Erro ao resetar dados:', e)
   }
 }
 

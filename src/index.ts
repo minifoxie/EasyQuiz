@@ -77,11 +77,13 @@ async function initEasyQuiz(): Promise<void> {
 
       highlightScope(context.scope)
 
-      panel.setStatus(`Questão localizada (${context.controls.length} controles). Otimizando imagens...`, 'info')
-      let images = await captureImages(context.scope)
+      panel.setStatus(`Questão localizada (${context.controls.length} controles). Preparando análise...`, 'info')
+      let images = await captureImages(context.scope, settings.useVision)
 
       panel.setStatus(
-        `Consultando Gemini (${settings.model}) com ${images.length} imagem(ns) anexada(s)...`,
+        images.length > 0
+          ? `Consultando Gemini (${settings.model}) com ${images.length} imagem(ns) anexada(s)...`
+          : `Consultando Gemini (${settings.model}) via DOM nativo (modo rápido)...`,
         'info',
       )
 
@@ -104,7 +106,7 @@ async function initEasyQuiz(): Promise<void> {
           context = captureFullPageText()
         }
         highlightScope(context.scope)
-        images = await captureImages(context.scope)
+        images = await captureImages(context.scope, settings.useVision)
         panel.setStatus(`Reconsultando IA com escopo ampliado (${context.controls.length} controles)...`, 'info')
         const recheck = await analyzeWithGemini(context, images, settings, (msg, type) => {
           panel.setStatus(msg, type === 'warning' ? 'info' : type)

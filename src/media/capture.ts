@@ -137,7 +137,8 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
   return null
 }
 
-export async function captureImages(scope: HTMLElement): Promise<CapturedImage[]> {
+export async function captureImages(scope: HTMLElement, enabled = true): Promise<CapturedImage[]> {
+  if (!enabled) return []
   const captures: CapturedImage[] = []
   let totalLength = 0
 

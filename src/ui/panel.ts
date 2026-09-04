@@ -1,7 +1,7 @@
 import type { AnalysisPlan, EasyQuizSettings, ResponseMode, ExecutionEngine, ModelOption } from '../core/types'
 import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey } from '../core/gemini'
-import { clearSessionMemories } from '../core/storage'
-import { Autopilot, type AutopilotStatus } from '../dom/autopilot'
+import { clearSessionMemories, resetAllData } from '../core/storage'
+import { Autopilot } from '../dom/autopilot'
 import { ICONS } from './icons'
 import { PANEL_STYLES } from './styles'
 
@@ -36,19 +36,38 @@ export class EasyQuizPanel {
   private callbacks: PanelCallbacks
   private autopilot: Autopilot
   private initialSettings: EasyQuizSettings
+  private isCollapsed: boolean = false
+  private activeTab: 'autopilot' | 'advanced' | 'inspector' | 'settings' = 'autopilot'
+  private stopwatchInterval: any = null
+  private stopwatchStartTime: number = 0
+  private latestPlan: AnalysisPlan | null = null
 
+  // Elementos do Layout
   private launcherBtn: HTMLButtonElement
-  private panelEl: HTMLElement
-  private statusBox: HTMLElement
-  private resultContainer: HTMLElement
+  private dockToggleBtn: HTMLButtonElement
+  private sidebarEl: HTMLElement
+  private apToggleBtn: HTMLButtonElement
+  private apConsole: HTMLElement
+
+  // Status & Stopwatch
+  private dotPulseAp: HTMLElement
+  private statusTextAp: HTMLElement
+  private stopwatchAp: HTMLElement
+  private dotPulseAdv: HTMLElement
+  private statusTextAdv: HTMLElement
+  private stopwatchAdv: HTMLElement
+
+  // Inspector Elements
+  private inspModel: HTMLElement
+  private inspLatency: HTMLElement
+  private inspTokens: HTMLElement
+  private inspPrompt: HTMLElement
+  private inspRationale: HTMLElement
+  private inspActions: HTMLElement
+  private copyPromptBtn: HTMLButtonElement
+
+  // Form Controls
   private apiKeyInput: HTMLInputElement
-  private apiKeyEasyInput: HTMLInputElement
-  private saveKeyAdvBtn: HTMLButtonElement
-  private saveKeyEasyBtn: HTMLButtonElement
-  private testKeyBtn: HTMLButtonElement
-  private testKeyEasyBtn: HTMLButtonElement
-  private toggleKeyAdvBtn: HTMLButtonElement
-  private toggleKeyEasyBtn: HTMLButtonElement
   private modelSelect: HTMLSelectElement
   private modeSelect: HTMLSelectElement
   private engineSelect: HTMLSelectElement
@@ -56,29 +75,18 @@ export class EasyQuizPanel {
   private autoApplyCheckbox: HTMLInputElement
   private autoAdvanceCheckbox: HTMLInputElement
   private hostDarkModeCheckbox: HTMLInputElement
+  private useVisionCheckbox: HTMLInputElement
   private analyzeBtn: HTMLButtonElement
   private applyBtn: HTMLButtonElement
-
-  // novos binds
-  private tabEasyBtn: HTMLButtonElement
-  private tabAdvBtn: HTMLButtonElement
-  private contentEasy: HTMLElement
-  private contentAdv: HTMLElement
-  private apToggleBtn: HTMLButtonElement
-  private apConsole: HTMLElement
+  private resultContainer: HTMLElement
 
   constructor(initialSettings: EasyQuizSettings, callbacks: PanelCallbacks) {
     this.initialSettings = initialSettings
     this.callbacks = callbacks
+
     this.autopilot = new Autopilot({
       onStatusChange: (status, msg, colorClass) => {
-        if (this.apConsole) {
-          const entry = document.createElement('div')
-          entry.textContent = msg
-          if (colorClass) entry.classList.add(colorClass)
-          this.apConsole.appendChild(entry)
-          this.apConsole.scrollTop = this.apConsole.scrollHeight
-        }
+        this.logToConsole(msg, colorClass)
         if (status === 'analyzing') {
           this.setBusy(true, 'Autopilot: IA analisando...')
         } else if (status === 'advancing' || status === 'waiting') {
@@ -87,36 +95,44 @@ export class EasyQuizPanel {
       },
       onRequestAnalysis: async () => {
         try {
-          const plan = await this.callbacks.onAnalyze() // O index.ts deve retornar o plan
+          const plan = await this.callbacks.onAnalyze()
           return plan || null
-        } catch (e) {
+        } catch {
           return null
         }
-      }
+      },
     })
 
     this.host = document.createElement('div')
     this.host.id = 'easyquiz-shadow-root'
-    
-    // Blindagem extrema do host para evitar que CSS de sites como Khan Academy destrua a visibilidade
     this.host.style.position = 'fixed'
     this.host.style.top = '0'
     this.host.style.left = '0'
     this.host.style.width = '100vw'
     this.host.style.height = '100vh'
     this.host.style.zIndex = '2147483647'
-    this.host.style.pointerEvents = 'none' // Deixa os cliques passarem pro site
+    this.host.style.pointerEvents = 'none'
 
     this.shadow = this.host.attachShadow({ mode: 'open' })
 
     this.shadow.innerHTML = `
       <style>${PANEL_STYLES}</style>
+
+      <!-- Botão Flutuante Inferior -->
       <button class="eq-launcher" type="button" title="Abrir EasyQuiz (Alt+Q)">
         ${ICONS.logo}
         <span>EQ</span>
       </button>
 
-      <section class="eq-panel" hidden aria-label="EasyQuiz">
+      <!-- Sidebar Fixa Lateral Direita Estilo VS Code -->
+      <aside class="eq-sidebar" aria-label="EasyQuiz Sidebar">
+        <!-- Aba Retrátil na Borda Esquerda -->
+        <button class="eq-dock-toggle" id="eq-dock-toggle" type="button" title="Recolher / Expandir Painel (Alt+Q)">
+          <span class="eq-dock-toggle-icon">${ICONS.chevronRight}</span>
+          <span class="eq-dock-toggle-label">EQ</span>
+        </button>
+
+        <!-- Cabeçalho VS Code -->
         <header class="eq-header">
           <div class="eq-brand">
             ${ICONS.logo}
@@ -124,78 +140,97 @@ export class EasyQuizPanel {
             <span class="eq-brand-badge">2.0 SUPREME</span>
           </div>
           <div class="eq-header-tools">
-            <button class="eq-icon-btn" id="eq-min-btn" type="button" title="Minimizar">${ICONS.minimize}</button>
+            <button class="eq-icon-btn" id="eq-min-btn" type="button" title="Minimizar (Alt+Q)">${ICONS.chevronRight}</button>
             <button class="eq-icon-btn" id="eq-close-btn" type="button" title="Fechar">${ICONS.close}</button>
           </div>
         </header>
-        
-        <div class="eq-tabs">
-          <button class="eq-tab-btn" id="eq-tab-easy">Modo Fácil (Autopilot)</button>
-          <button class="eq-tab-btn" id="eq-tab-advanced">Avançado</button>
-        </div>
 
-        <!-- MODO FÁCIL -->
-        <div class="eq-content" id="eq-content-easy" style="display: none;">
-          <div class="eq-field-group" style="margin-bottom: 2px;">
-            <div class="eq-section-title">
-              <span>Chave Gemini (API Key)</span>
-              <div style="display: flex; gap: 6px;">
-                <button class="eq-mini-btn" id="eq-clear-key-easy" type="button" title="Limpar campo">🧹 Limpar</button>
-                <button class="eq-mini-btn" id="eq-prompt-key-easy" type="button" title="Colar via janela direta">✏️ Inserir</button>
-                <button class="eq-mini-btn" id="eq-toggle-key-easy" type="button">👁️ Mostrar</button>
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="eq-link">
-                  Obter Grátis
-                </a>
+        <!-- Activity Bar Rail (Abas) -->
+        <nav class="eq-activity-bar" role="tablist">
+          <button class="eq-tab-btn active" id="eq-tab-autopilot" role="tab" title="Modo Autopilot Contínuo">
+            ${ICONS.rocket}
+            <span>Autopilot</span>
+          </button>
+          <button class="eq-tab-btn" id="eq-tab-advanced" role="tab" title="Modo Manual e Avançado">
+            ${ICONS.code}
+            <span>Avançado</span>
+          </button>
+          <button class="eq-tab-btn" id="eq-tab-inspector" role="tab" title="Inspetor de Prompt & IA">
+            ${ICONS.inspector}
+            <span>Inspetor IA</span>
+          </button>
+          <button class="eq-tab-btn" id="eq-tab-settings" role="tab" title="Configurações & Chaves">
+            ${ICONS.settings}
+            <span>Configurações</span>
+          </button>
+        </nav>
+
+        <!-- TAB 1: AUTOPILOT -->
+        <div class="eq-view-container" id="eq-view-autopilot">
+          <div style="display: flex; gap: 8px; width: 100%;">
+            <button class="eq-btn-primary" id="eq-ap-toggle-btn" type="button" style="flex: 1;">
+              ${ICONS.play} INICIAR AUTOPILOT
+            </button>
+            <button class="eq-btn-secondary" id="eq-ap-clear-memory" type="button" title="Limpar Memória da Sessão Atual">
+              ${ICONS.eraser} Memória
+            </button>
+          </div>
+
+          <!-- Status & Stopwatch Timeline Card -->
+          <div class="eq-status-card">
+            <div class="eq-status-card-header">
+              <div class="eq-ai-indicator">
+                <span class="eq-dot-pulse" id="eq-dot-ap"></span>
+                <span>Status da IA</span>
+              </div>
+              <div class="eq-stopwatch" id="eq-stopwatch-ap">
+                ${ICONS.clock} <span>0.00s</span>
               </div>
             </div>
-            <div class="eq-input-wrap">
-              <input id="eq-api-key-easy" class="eq-input" type="password" placeholder="Cole sua chave AIzaSy..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
-              <button class="eq-input-action-btn" id="eq-save-key-easy" type="button" title="Salvar Chave">💾 Salvar</button>
-              <button class="eq-input-action-btn" id="eq-test-key-easy" type="button" title="Testar Chave">${ICONS.key} Testar</button>
+            <div class="eq-status-text" id="eq-status-text-ap">
+              Pronto para iniciar. O Autopilot responderá e avançará as questões de forma automática.
             </div>
           </div>
 
-          <div class="eq-autopilot-container" style="padding: 10px 0;">
-            <div style="display: flex; gap: 8px; width: 100%;">
-              <button class="eq-btn-primary eq-pulse" id="eq-ap-toggle-btn" type="button" style="flex: 1;">
-                INICIAR AUTOPILOT
-              </button>
-              <button class="eq-btn-secondary" id="eq-ap-clear-memory" type="button" title="Limpar Memória de Sessão">
-                🧠 Limpar
-              </button>
-            </div>
-            <div class="eq-ap-console" id="eq-ap-console">
-              > [SYS] Pronto para ligar...
-            </div>
+          <!-- Console Terminal -->
+          <div class="eq-section-title">
+            <span>Terminal de Operações</span>
+            <span style="font-size: 10px; color: #666;">Live Event Stream</span>
           </div>
-          <div class="eq-footer-note">Híbrido 4.0 • RAG + Brute Force + AI</div>
+          <div class="eq-terminal" id="eq-ap-console">
+            <div class="text-blue">> [SYS] EasyQuiz 2.0 Supreme inicializado.</div>
+            <div class="text-muted">> [SYS] Conexão com a API do Google Gemini pronta.</div>
+          </div>
+
+          <div class="eq-footer-note">Híbrido 4.0 • RAG + AST + Vision (Opt-in)</div>
         </div>
 
-        <!-- MODO AVANÇADO -->
-        <div class="eq-content" id="eq-content-advanced" style="display: none;">
-          <div class="eq-field-group">
-            <div class="eq-section-title">
-              <span>Chave Gemini (API Key)</span>
-              <div style="display: flex; gap: 6px;">
-                <button class="eq-mini-btn" id="eq-clear-key-adv" type="button" title="Limpar campo">🧹 Limpar</button>
-                <button class="eq-mini-btn" id="eq-prompt-key-adv" type="button" title="Colar via janela direta">✏️ Inserir</button>
-                <button class="eq-mini-btn" id="eq-toggle-key-adv" type="button">👁️ Mostrar</button>
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="eq-link">
-                  Obter Grátis
-                </a>
+        <!-- TAB 2: AVANÇADO -->
+        <div class="eq-view-container" id="eq-view-advanced" style="display: none;">
+          <button class="eq-btn-primary" id="eq-analyze-btn" type="button">
+            ${ICONS.analyze} Analisar & Resolver Questão
+          </button>
+
+          <!-- Status & Stopwatch Adv -->
+          <div class="eq-status-card">
+            <div class="eq-status-card-header">
+              <div class="eq-ai-indicator">
+                <span class="eq-dot-pulse" id="eq-dot-adv"></span>
+                <span>Processamento Manual</span>
+              </div>
+              <div class="eq-stopwatch" id="eq-stopwatch-adv">
+                ${ICONS.clock} <span>0.00s</span>
               </div>
             </div>
-            <div class="eq-input-wrap">
-              <input id="eq-api-key" class="eq-input" type="password" placeholder="Cole sua chave AIzaSy..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
-              <button class="eq-input-action-btn" id="eq-save-key-adv" type="button" title="Salvar Chave">💾 Salvar</button>
-              <button class="eq-input-action-btn" id="eq-test-key-btn" type="button" title="Testar Chave">${ICONS.key} Testar</button>
+            <div class="eq-status-text" id="eq-status-text-adv">
+              Clique em Analisar para inspecionar a questão atual na tela.
             </div>
           </div>
 
-          <div class="eq-row-2">
+          <div class="eq-grid-2">
             <div class="eq-field-group">
-              <div class="eq-section-title">Motor de Inteligência</div>
-              <select id="eq-model-select" class="eq-select"></select>
+              <div class="eq-section-title">Modo da Questão</div>
+              <select id="eq-mode-select" class="eq-select"></select>
             </div>
             <div class="eq-field-group">
               <div class="eq-section-title">Motor de Execução</div>
@@ -203,79 +238,167 @@ export class EasyQuizPanel {
             </div>
           </div>
 
-          <div class="eq-field-group">
-            <div class="eq-section-title">Modo da Questão (Forçar)</div>
-            <select id="eq-mode-select" class="eq-select"></select>
-          </div>
-
-          <div class="eq-row-2">
+          <div class="eq-grid-2">
             <label class="eq-checkbox-label">
               <input id="eq-dry-run" type="checkbox" />
-              <span>Apenas Simular</span>
+              <span>Simular (Dry-Run)</span>
             </label>
             <label class="eq-checkbox-label">
               <input id="eq-auto-apply" type="checkbox" />
               <span>Auto Aplicar</span>
             </label>
-            <label class="eq-checkbox-label" style="grid-column: span 2;">
-              <input id="eq-auto-advance" type="checkbox" />
-              <span>Auto Avançar para Próxima Questão</span>
-            </label>
-            <label class="eq-checkbox-label" style="grid-column: span 2;">
-              <input id="eq-host-dark" type="checkbox" />
-              <span style="color:#00ffcc;">Habilitar Smart Dark Mode no Site</span>
-            </label>
           </div>
+          <label class="eq-checkbox-label">
+            <input id="eq-auto-advance" type="checkbox" />
+            <span>Auto Avançar Após Injetar</span>
+          </label>
 
-          <button class="eq-btn-primary" id="eq-analyze-btn" type="button">
-            ${ICONS.analyze} Analisar & Resolver Questão
-          </button>
+          <!-- Painel de Resultados Manuais -->
+          <div id="eq-result" style="display: none; flex-direction: column; gap: 10px;">
+            <div class="eq-section-title">Plano Gerado</div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;" id="eq-badges"></div>
 
-          <div class="eq-status-box" id="eq-status">
-            Sistema Operante. Aponte para a questão ou inicie a análise.
-          </div>
+            <div class="eq-rationale-card" id="eq-rationale-text"></div>
 
-          <div class="eq-result-container" id="eq-result" style="display: none;">
-            <div class="eq-result-header">
-              <div class="eq-badges" id="eq-badges"></div>
-            </div>
-            <div class="eq-rationale-box">
-              <div class="eq-rationale-title">Justificativa</div>
-              <div id="eq-rationale-text"></div>
-            </div>
-            <div class="eq-actions-summary">
-              <div class="eq-rationale-title">Ações do Motor Híbrido</div>
-              <div id="eq-actions-list"></div>
-            </div>
+            <div class="eq-action-list" id="eq-actions-list"></div>
+
             <button class="eq-btn-secondary" id="eq-apply-btn" type="button">
-              ${ICONS.apply} Injetar Respostas na Página
+              ${ICONS.apply} Injetar Resposta na Página
             </button>
           </div>
-          <div class="eq-footer-note">EQ Engine v2.0 • 100% Client-Side</div>
+
+          <div class="eq-footer-note">Modo Manual • Controle Total dos Elementos</div>
         </div>
-      </section>
+
+        <!-- TAB 3: INSPETOR IA -->
+        <div class="eq-view-container" id="eq-view-inspector" style="display: none;">
+          <div class="eq-inspector-meta">
+            <div class="eq-meta-box">
+              <div class="eq-meta-title">Modelo IA</div>
+              <div class="eq-meta-val" id="eq-insp-model">--</div>
+            </div>
+            <div class="eq-meta-box">
+              <div class="eq-meta-title">Latência</div>
+              <div class="eq-meta-val" id="eq-insp-latency">--</div>
+            </div>
+            <div class="eq-meta-box">
+              <div class="eq-meta-title">Tokens</div>
+              <div class="eq-meta-val" id="eq-insp-tokens">--</div>
+            </div>
+          </div>
+
+          <div class="eq-field-group">
+            <div class="eq-section-title">
+              <span>Prompt Enviado para a IA</span>
+              <button class="eq-btn-tool" id="eq-copy-prompt-btn" type="button" title="Copiar Prompt Completo">
+                ${ICONS.copy} Copiar
+              </button>
+            </div>
+            <div class="eq-code-block" id="eq-insp-prompt">Nenhuma consulta realizada ainda. Execute uma análise no Autopilot ou Avançado para inspecionar os dados enviados.</div>
+          </div>
+
+          <div class="eq-field-group">
+            <div class="eq-section-title">Raciocínio Detalhado</div>
+            <div class="eq-rationale-card" id="eq-insp-rationale">Aguardando resposta da IA...</div>
+          </div>
+
+          <div class="eq-field-group">
+            <div class="eq-section-title">Comandos Gerados</div>
+            <div class="eq-action-list" id="eq-insp-actions">
+              <div class="text-muted" style="padding: 6px;">Nenhuma ação no momento.</div>
+            </div>
+          </div>
+
+          <div class="eq-footer-note">Inspetor em Tempo Real • 100% Transparente</div>
+        </div>
+
+        <!-- TAB 4: CONFIGURAÇÕES -->
+        <div class="eq-view-container" id="eq-view-settings" style="display: none;">
+          <!-- API Key Section -->
+          <div class="eq-field-group">
+            <div class="eq-section-title">
+              <span>Chave Gemini (Google AI Studio)</span>
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: #00ffcc; text-decoration: none; font-size: 11px; font-weight: 700;">
+                Obter Grátis ↗
+              </a>
+            </div>
+
+            <div class="eq-input-box">
+              <div class="eq-input-wrap">
+                <input id="eq-api-key" class="eq-input" type="password" placeholder="Cole sua chave AIzaSy..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+              </div>
+              <div class="eq-input-actions">
+                <button class="eq-btn-tool" id="eq-key-toggle" type="button">${ICONS.eye} Mostrar</button>
+                <button class="eq-btn-tool primary" id="eq-key-save" type="button">${ICONS.save} Salvar</button>
+                <button class="eq-btn-tool" id="eq-key-prompt" type="button" title="Abre janela nativa que não sofre bloqueio do site">${ICONS.edit} Inserir via Janela</button>
+                <button class="eq-btn-tool" id="eq-key-paste" type="button" title="Colar direto do clipboard">${ICONS.paste} Colar</button>
+                <button class="eq-btn-tool" id="eq-key-clear" type="button" title="Limpar campo">${ICONS.eraser} Limpar</button>
+                <button class="eq-btn-tool" id="eq-key-test" type="button" title="Testar chave no Google">${ICONS.key} Testar Conexão</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Model Selection -->
+          <div class="eq-field-group">
+            <div class="eq-section-title">Modelo Padrão</div>
+            <select id="eq-model-select" class="eq-select"></select>
+          </div>
+
+          <!-- System Preferences -->
+          <div class="eq-field-group" style="gap: 8px; margin-top: 4px;">
+            <label class="eq-checkbox-label">
+              <input id="eq-use-vision" type="checkbox" />
+              <span>Visão Computacional (Imagens)</span>
+            </label>
+            <div style="font-size: 11px; color: #888888; margin-left: 24px; line-height: 1.3;">
+              Desativado por padrão: A IA analisa o DOM estruturado diretamente, respondendo muito mais rápido e sem gastar cota com capturas de tela.
+            </div>
+
+            <label class="eq-checkbox-label" style="margin-top: 6px;">
+              <input id="eq-host-dark" type="checkbox" />
+              <span style="color: #00ffcc;">Habilitar Smart Dark Mode no Site</span>
+            </label>
+          </div>
+
+          <!-- Danger Zone -->
+          <div class="eq-field-group" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #2d2d30;">
+            <div class="eq-section-title" style="color: #ff5555;">Zona de Redefinição</div>
+            <button class="eq-btn-tool danger" id="eq-reset-all-btn" type="button" style="height: 34px; justify-content: center;">
+              ${ICONS.trash} Resetar Todos os Dados e Memória
+            </button>
+          </div>
+
+          <div class="eq-footer-note">Configurações salvas localmente no navegador</div>
+        </div>
+      </aside>
     `
 
-    this.tabEasyBtn = this.shadow.querySelector('#eq-tab-easy') as HTMLButtonElement
-    this.tabAdvBtn = this.shadow.querySelector('#eq-tab-advanced') as HTMLButtonElement
-    this.contentEasy = this.shadow.querySelector('#eq-content-easy') as HTMLElement
-    this.contentAdv = this.shadow.querySelector('#eq-content-advanced') as HTMLElement
+    // Bindings de Layout
+    this.launcherBtn = this.shadow.querySelector('.eq-launcher') as HTMLButtonElement
+    this.dockToggleBtn = this.shadow.querySelector('#eq-dock-toggle') as HTMLButtonElement
+    this.sidebarEl = this.shadow.querySelector('.eq-sidebar') as HTMLElement
     this.apToggleBtn = this.shadow.querySelector('#eq-ap-toggle-btn') as HTMLButtonElement
     this.apConsole = this.shadow.querySelector('#eq-ap-console') as HTMLElement
 
-    this.launcherBtn = this.shadow.querySelector('.eq-launcher') as HTMLButtonElement
-    this.panelEl = this.shadow.querySelector('.eq-panel') as HTMLElement
-    this.statusBox = this.shadow.querySelector('#eq-status') as HTMLElement
-    this.resultContainer = this.shadow.querySelector('#eq-result') as HTMLElement
-    this.apiKeyInput = this.shadow.querySelector('#eq-api-key') as HTMLInputElement
-    this.apiKeyEasyInput = this.shadow.querySelector('#eq-api-key-easy') as HTMLInputElement
-    this.saveKeyAdvBtn = this.shadow.querySelector('#eq-save-key-adv') as HTMLButtonElement
-    this.saveKeyEasyBtn = this.shadow.querySelector('#eq-save-key-easy') as HTMLButtonElement
-    this.testKeyBtn = this.shadow.querySelector('#eq-test-key-btn') as HTMLButtonElement
-    this.testKeyEasyBtn = this.shadow.querySelector('#eq-test-key-easy') as HTMLButtonElement
-    this.toggleKeyAdvBtn = this.shadow.querySelector('#eq-toggle-key-adv') as HTMLButtonElement
-    this.toggleKeyEasyBtn = this.shadow.querySelector('#eq-toggle-key-easy') as HTMLButtonElement
+    // Status & Stopwatch
+    this.dotPulseAp = this.shadow.querySelector('#eq-dot-ap') as HTMLElement
+    this.statusTextAp = this.shadow.querySelector('#eq-status-text-ap') as HTMLElement
+    this.stopwatchAp = this.shadow.querySelector('#eq-stopwatch-ap span') as HTMLElement
+    this.dotPulseAdv = this.shadow.querySelector('#eq-dot-adv') as HTMLElement
+    this.statusTextAdv = this.shadow.querySelector('#eq-status-text-adv') as HTMLElement
+    this.stopwatchAdv = this.shadow.querySelector('#eq-stopwatch-adv span') as HTMLElement
 
+    // Inspetor
+    this.inspModel = this.shadow.querySelector('#eq-insp-model') as HTMLElement
+    this.inspLatency = this.shadow.querySelector('#eq-insp-latency') as HTMLElement
+    this.inspTokens = this.shadow.querySelector('#eq-insp-tokens') as HTMLElement
+    this.inspPrompt = this.shadow.querySelector('#eq-insp-prompt') as HTMLElement
+    this.inspRationale = this.shadow.querySelector('#eq-insp-rationale') as HTMLElement
+    this.inspActions = this.shadow.querySelector('#eq-insp-actions') as HTMLElement
+    this.copyPromptBtn = this.shadow.querySelector('#eq-copy-prompt-btn') as HTMLButtonElement
+
+    // Controles de Formulário
+    this.apiKeyInput = this.shadow.querySelector('#eq-api-key') as HTMLInputElement
     this.modelSelect = this.shadow.querySelector('#eq-model-select') as HTMLSelectElement
     this.modeSelect = this.shadow.querySelector('#eq-mode-select') as HTMLSelectElement
     this.engineSelect = this.shadow.querySelector('#eq-engine-select') as HTMLSelectElement
@@ -283,223 +406,254 @@ export class EasyQuizPanel {
     this.autoApplyCheckbox = this.shadow.querySelector('#eq-auto-apply') as HTMLInputElement
     this.autoAdvanceCheckbox = this.shadow.querySelector('#eq-auto-advance') as HTMLInputElement
     this.hostDarkModeCheckbox = this.shadow.querySelector('#eq-host-dark') as HTMLInputElement
+    this.useVisionCheckbox = this.shadow.querySelector('#eq-use-vision') as HTMLInputElement
     this.analyzeBtn = this.shadow.querySelector('#eq-analyze-btn') as HTMLButtonElement
     this.applyBtn = this.shadow.querySelector('#eq-apply-btn') as HTMLButtonElement
+    this.resultContainer = this.shadow.querySelector('#eq-result') as HTMLElement
 
-    AVAILABLE_MODELS.forEach(m => this.modelSelect.add(new Option(m.name, m.id, false, m.id === initialSettings.model)))
-    RESPONSE_MODE_LABELS.forEach(m => this.modeSelect.add(new Option(m.label, m.value, false, m.value === initialSettings.modeHint)))
-    ENGINE_LABELS.forEach(m => this.engineSelect.add(new Option(m.label, m.value, false, m.value === initialSettings.engine)))
+    // Preencher Selects
+    AVAILABLE_MODELS.forEach((m) => this.modelSelect.add(new Option(m.name, m.id, false, m.id === initialSettings.model)))
+    RESPONSE_MODE_LABELS.forEach((m) => this.modeSelect.add(new Option(m.label, m.value, false, m.value === initialSettings.modeHint)))
+    ENGINE_LABELS.forEach((m) => this.engineSelect.add(new Option(m.label, m.value, false, m.value === initialSettings.engine)))
 
+    // Inicializar Valores
     this.apiKeyInput.value = initialSettings.apiKey
-    this.apiKeyEasyInput.value = initialSettings.apiKey
     this.dryRunCheckbox.checked = initialSettings.dryRun
     this.autoApplyCheckbox.checked = initialSettings.autoApply
     this.autoAdvanceCheckbox.checked = initialSettings.autoAdvance
     this.hostDarkModeCheckbox.checked = initialSettings.hostDarkMode
+    this.useVisionCheckbox.checked = initialSettings.useVision
 
     this.setupEventListeners()
     document.body.appendChild(this.host)
     this.applyHostDarkMode(initialSettings.hostDarkMode)
-    this.switchMode(initialSettings.uiMode)
 
+    // Se chave existir, listar modelos
     if (initialSettings.apiKey) {
-      fetchAvailableModels(initialSettings.apiKey).then((models) => {
-        if (models && models.length > 0) {
-          this.updateModelSelect(models, initialSettings.model)
-        }
-      }).catch(() => {})
+      fetchAvailableModels(initialSettings.apiKey)
+        .then((models) => {
+          if (models && models.length > 0) {
+            this.updateModelSelect(models, initialSettings.model)
+          }
+        })
+        .catch(() => {})
     }
-
-    // Tornar painel e launcher arrastáveis
-    this.makeDraggable(this.panelEl, this.shadow.querySelector('.eq-header') as HTMLElement)
-    this.makeDraggable(this.launcherBtn, this.launcherBtn)
   }
 
-  private switchMode(mode: 'easy' | 'advanced') {
-    this.callbacks.onSettingsChange({ uiMode: mode })
-    if (mode === 'easy') {
-      this.tabEasyBtn.classList.add('active')
-      this.tabAdvBtn.classList.remove('active')
-      this.contentEasy.style.display = 'block'
-      this.contentAdv.style.display = 'none'
-      // No modo fácil, forçar auto apply e advance
-      this.initialSettings.autoApply = true
-      this.initialSettings.autoAdvance = true
+  private switchTab(tab: 'autopilot' | 'advanced' | 'inspector' | 'settings') {
+    this.activeTab = tab
+    const tabs: Array<'autopilot' | 'advanced' | 'inspector' | 'settings'> = [
+      'autopilot',
+      'advanced',
+      'inspector',
+      'settings',
+    ]
+
+    for (const t of tabs) {
+      const btn = this.shadow.querySelector(`#eq-tab-${t}`) as HTMLElement
+      const view = this.shadow.querySelector(`#eq-view-${t}`) as HTMLElement
+      if (t === tab) {
+        btn.classList.add('active')
+        view.style.display = 'flex'
+      } else {
+        btn.classList.remove('active')
+        view.style.display = 'none'
+      }
+    }
+
+    if (tab === 'autopilot') {
       this.callbacks.onSettingsChange({ autoApply: true, autoAdvance: true })
-    } else {
-      this.autopilot.stop()
-      this.apToggleBtn.textContent = 'INICIAR AUTOPILOT'
-      this.apToggleBtn.classList.remove('active')
-      
-      this.tabEasyBtn.classList.remove('active')
-      this.tabAdvBtn.classList.add('active')
-      this.contentEasy.style.display = 'none'
-      this.contentAdv.style.display = 'block'
     }
   }
 
   private setupEventListeners(): void {
-    this.tabEasyBtn.addEventListener('click', () => this.switchMode('easy'))
-    this.tabAdvBtn.addEventListener('click', () => this.switchMode('advanced'))
+    // Abas do Activity Bar
+    this.shadow.querySelector('#eq-tab-autopilot')?.addEventListener('click', () => this.switchTab('autopilot'))
+    this.shadow.querySelector('#eq-tab-advanced')?.addEventListener('click', () => this.switchTab('advanced'))
+    this.shadow.querySelector('#eq-tab-inspector')?.addEventListener('click', () => this.switchTab('inspector'))
+    this.shadow.querySelector('#eq-tab-settings')?.addEventListener('click', () => this.switchTab('settings'))
 
-    this.apToggleBtn.addEventListener('click', () => {
-      if (this.autopilot.isActive()) {
-        this.autopilot.stop()
-        this.apToggleBtn.textContent = 'INICIAR AUTOPILOT'
-        this.apToggleBtn.classList.remove('active')
-      } else {
-        const currentKey = this.apiKeyEasyInput.value.trim().replace(/^["']|["']$/g, '')
-        if (!currentKey) {
-           this.setStatus('Insira sua chave de API Gemini no campo acima antes de ligar o Autopilot.', 'error')
-           this.apiKeyEasyInput.focus()
-           return
-        }
-        this.autopilot.start()
-        this.apToggleBtn.textContent = 'PARAR AUTOPILOT'
-        this.apToggleBtn.classList.add('active')
-      }
-    })
-
-    const clearMemoryBtn = this.shadow.querySelector('#eq-ap-clear-memory') as HTMLButtonElement
-    clearMemoryBtn.addEventListener('click', () => {
-      clearSessionMemories()
-      this.apConsole.innerHTML = '<span style="color:#00ff55">> [SYS] Memória de sessão limpa com sucesso.</span>'
-    })
-
+    // Toggle da Sidebar e Launcher
     this.launcherBtn.addEventListener('click', () => this.toggle())
+    this.dockToggleBtn.addEventListener('click', () => this.toggle())
     this.shadow.querySelector('#eq-min-btn')?.addEventListener('click', () => this.toggle(false))
     this.shadow.querySelector('#eq-close-btn')?.addEventListener('click', () => this.toggle(false))
 
-    // ==== BLINDAGEM DE TECLADO CONTRA SITES QUE INTERCEPTAM BACKSPACE/TECLAS ====
-    const shieldKeyboardEvent = (e: KeyboardEvent) => {
-      // Impede que ouvintes de teclado do site pai capturem ou dêem preventDefault() no Backspace, Delete ou teclas
-      e.stopPropagation()
-    }
+    // Atalho de Teclado Alt+Q para recolher/expandir
+    window.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.altKey && (e.key === 'q' || e.key === 'Q')) {
+          e.preventDefault()
+          this.toggle()
+        }
+      },
+      true,
+    )
 
-    // Intercepta na fase de captura na window para rodar ANTES de qualquer script do site
-    const globalCaptureShield = (e: KeyboardEvent) => {
+    // ==== BLINDAGEM COMPLETA DE TECLADO CONTRA SITES DE EXAMES ====
+    // Sites de prova interceptam backspace no document/window se o elemento parecer uma DIV (Shadow DOM retargeting).
+    // Interceptamos na fase de captura (useCapture: true) no window para impedir qualquer preventDefault() do host.
+    const keyboardCaptureShield = (e: KeyboardEvent) => {
       const path = e.composedPath()
-      if (path.includes(this.apiKeyInput) || path.includes(this.apiKeyEasyInput) || path.includes(this.panelEl)) {
-        e.stopPropagation()
+      if (path.includes(this.sidebarEl) || path.includes(this.host)) {
+        // Permite navegação nativa de texto e impede scripts do site pai de capturarem o evento
+        e.stopImmediatePropagation()
       }
     }
-    window.addEventListener('keydown', globalCaptureShield, true)
-    window.addEventListener('keyup', globalCaptureShield, true)
-    window.addEventListener('keypress', globalCaptureShield, true)
+    window.addEventListener('keydown', keyboardCaptureShield, true)
+    window.addEventListener('keyup', keyboardCaptureShield, true)
+    window.addEventListener('keypress', keyboardCaptureShield, true)
 
-    this.apiKeyInput.addEventListener('keydown', shieldKeyboardEvent)
-    this.apiKeyEasyInput.addEventListener('keydown', shieldKeyboardEvent)
-    this.apiKeyInput.addEventListener('keyup', shieldKeyboardEvent)
-    this.apiKeyEasyInput.addEventListener('keyup', shieldKeyboardEvent)
-    this.apiKeyInput.addEventListener('keypress', shieldKeyboardEvent)
-    this.apiKeyEasyInput.addEventListener('keypress', shieldKeyboardEvent)
-
-    const stopClipboardPropagation = (e: ClipboardEvent) => {
-      e.stopPropagation()
-    }
-    this.apiKeyInput.addEventListener('paste', stopClipboardPropagation)
-    this.apiKeyEasyInput.addEventListener('paste', stopClipboardPropagation)
-
-    // Sincronização direta sem reatribuir o valor do input ativo (preserva backspace e cursor)
+    // Sincronização e digitação livre do campo de chave
     this.apiKeyInput.addEventListener('input', () => {
-      const val = this.apiKeyInput.value
-      if (this.apiKeyEasyInput.value !== val) {
-        this.apiKeyEasyInput.value = val
-      }
-      this.callbacks.onSettingsChange({ apiKey: val.trim().replace(/^["']|["']$/g, '') })
-    })
-
-    this.apiKeyEasyInput.addEventListener('input', () => {
-      const val = this.apiKeyEasyInput.value
-      if (this.apiKeyInput.value !== val) {
-        this.apiKeyInput.value = val
-      }
-      this.callbacks.onSettingsChange({ apiKey: val.trim().replace(/^["']|["']$/g, '') })
-    })
-
-    const saveKeyExplicitly = (inputEl: HTMLInputElement) => {
-      const cleanVal = inputEl.value.trim().replace(/^["']|["']$/g, '')
-      this.apiKeyInput.value = cleanVal
-      this.apiKeyEasyInput.value = cleanVal
+      const cleanVal = this.apiKeyInput.value.trim().replace(/^["']|["']$/g, '')
       this.callbacks.onSettingsChange({ apiKey: cleanVal })
-      this.setStatus('Chave de API salva com sucesso!', 'success')
-    }
+    })
 
-    this.saveKeyAdvBtn.addEventListener('click', () => saveKeyExplicitly(this.apiKeyInput))
-    this.saveKeyEasyBtn.addEventListener('click', () => saveKeyExplicitly(this.apiKeyEasyInput))
+    // Botão Salvar Chave
+    const saveKeyBtn = this.shadow.querySelector('#eq-key-save') as HTMLButtonElement
+    saveKeyBtn.addEventListener('click', () => {
+      const cleanVal = this.apiKeyInput.value.trim().replace(/^["']|["']$/g, '')
+      this.apiKeyInput.value = cleanVal
+      this.callbacks.onSettingsChange({ apiKey: cleanVal })
+      this.setStatus('Chave Gemini salva com sucesso!', 'success')
+    })
 
-    // Botões de Limpar Campo
-    const clearInputs = () => {
-      this.apiKeyInput.value = ''
-      this.apiKeyEasyInput.value = ''
-      this.callbacks.onSettingsChange({ apiKey: '' })
-      this.setStatus('Campo de chave limpo. Cole a nova chave e clique em Salvar.', 'info')
-      this.apiKeyEasyInput.focus()
-    }
-    this.shadow.querySelector('#eq-clear-key-easy')?.addEventListener('click', clearInputs)
-    this.shadow.querySelector('#eq-clear-key-adv')?.addEventListener('click', clearInputs)
+    // Botão Mostrar/Ocultar Chave
+    const toggleKeyBtn = this.shadow.querySelector('#eq-key-toggle') as HTMLButtonElement
+    toggleKeyBtn.addEventListener('click', () => {
+      const isPass = this.apiKeyInput.type === 'password'
+      this.apiKeyInput.type = isPass ? 'text' : 'password'
+      toggleKeyBtn.innerHTML = isPass ? `${ICONS.eyeOff} Ocultar` : `${ICONS.eye} Mostrar`
+    })
 
-    // Botões de Inserir via Prompt Nativo (à prova de qualquer bloqueio de DOM de sites)
-    const promptForApiKey = () => {
+    // Botão Inserir via Janela Nativa (100% imune a qualquer bloqueio de DOM do site)
+    const promptKeyBtn = this.shadow.querySelector('#eq-key-prompt') as HTMLButtonElement
+    promptKeyBtn.addEventListener('click', () => {
       const current = this.apiKeyInput.value.trim()
       const entered = window.prompt('Cole sua Chave API do Google Gemini (AI Studio):', current)
       if (entered !== null) {
         const clean = entered.trim().replace(/^["']|["']$/g, '')
         this.apiKeyInput.value = clean
-        this.apiKeyEasyInput.value = clean
         this.callbacks.onSettingsChange({ apiKey: clean })
-        this.setStatus('Chave de API inserida e salva com sucesso!', 'success')
+        this.setStatus('Chave Gemini inserida e salva com sucesso!', 'success')
       }
-    }
-    this.shadow.querySelector('#eq-prompt-key-easy')?.addEventListener('click', promptForApiKey)
-    this.shadow.querySelector('#eq-prompt-key-adv')?.addEventListener('click', promptForApiKey)
-
-    const toggleVisibility = (inputEl: HTMLInputElement, btnEl: HTMLButtonElement) => {
-      const isPass = inputEl.type === 'password'
-      inputEl.type = isPass ? 'text' : 'password'
-      btnEl.textContent = isPass ? '🔒 Ocultar' : '👁️ Mostrar'
-    }
-
-    this.toggleKeyEasyBtn.addEventListener('click', () => {
-      toggleVisibility(this.apiKeyEasyInput, this.toggleKeyEasyBtn)
-    })
-    this.toggleKeyAdvBtn.addEventListener('click', () => {
-      toggleVisibility(this.apiKeyInput, this.toggleKeyAdvBtn)
     })
 
-    const runKeyTest = async (keyToTest: string) => {
-      const cleanKey = keyToTest.trim().replace(/^["']|["']$/g, '')
-      if (!cleanKey) return this.setStatus('Informe ou cole a chave de API.', 'error')
-      this.apiKeyInput.value = cleanKey
-      this.apiKeyEasyInput.value = cleanKey
-      this.callbacks.onSettingsChange({ apiKey: cleanKey })
-
-      this.setStatus('Validando chave no Google AI Studio e descobrindo modelos...', 'info')
-      this.testKeyBtn.disabled = true
-      this.testKeyEasyBtn.disabled = true
+    // Botão Colar do Clipboard Nativo
+    const pasteKeyBtn = this.shadow.querySelector('#eq-key-paste') as HTMLButtonElement
+    pasteKeyBtn.addEventListener('click', async () => {
       try {
-        const res = await testApiKey(cleanKey)
+        const text = await navigator.clipboard.readText()
+        if (text) {
+          const clean = text.trim().replace(/^["']|["']$/g, '')
+          this.apiKeyInput.value = clean
+          this.callbacks.onSettingsChange({ apiKey: clean })
+          this.setStatus('Chave colada e salva com sucesso!', 'success')
+        }
+      } catch {
+        promptKeyBtn.click()
+      }
+    })
+
+    // Botão Limpar Campo
+    const clearKeyBtn = this.shadow.querySelector('#eq-key-clear') as HTMLButtonElement
+    clearKeyBtn.addEventListener('click', () => {
+      this.apiKeyInput.value = ''
+      this.callbacks.onSettingsChange({ apiKey: '' })
+      this.setStatus('Campo limpo. Cole a nova chave e clique em Salvar.', 'info')
+      this.apiKeyInput.focus()
+    })
+
+    // Botão Testar Conexão
+    const testKeyBtn = this.shadow.querySelector('#eq-key-test') as HTMLButtonElement
+    testKeyBtn.addEventListener('click', async () => {
+      const key = this.apiKeyInput.value.trim().replace(/^["']|["']$/g, '')
+      if (!key) return this.setStatus('Insira ou cole a chave de API.', 'error')
+
+      this.setStatus('Testando chave e descobrindo modelos autorizados...', 'info')
+      testKeyBtn.disabled = true
+      try {
+        const res = await testApiKey(key)
         this.setStatus(res.message, res.ok ? 'success' : 'error')
         if (res.ok && res.models && res.models.length > 0) {
           this.updateModelSelect(res.models)
         }
       } finally {
-        this.testKeyBtn.disabled = false
-        this.testKeyEasyBtn.disabled = false
+        testKeyBtn.disabled = false
       }
-    }
+    })
 
-    this.testKeyBtn.addEventListener('click', () => runKeyTest(this.apiKeyInput.value))
-    this.testKeyEasyBtn.addEventListener('click', () => runKeyTest(this.apiKeyEasyInput.value))
+    // Resetar Todos os Dados
+    const resetAllBtn = this.shadow.querySelector('#eq-reset-all-btn') as HTMLButtonElement
+    resetAllBtn.addEventListener('click', () => {
+      const confirmed = window.confirm('Deseja realmente resetar todos os dados, chaves e memória de sessão do EasyQuiz?')
+      if (confirmed) {
+        resetAllData()
+        this.apiKeyInput.value = ''
+        this.callbacks.onSettingsChange({ apiKey: '' })
+        this.setStatus('Todos os dados do EasyQuiz foram limpos.', 'info')
+        this.logToConsole('> [SYS] Armazenamento local resetado.', 'text-yellow')
+      }
+    })
 
+    // Botão Iniciar/Parar Autopilot
+    this.apToggleBtn.addEventListener('click', () => {
+      if (this.autopilot.isActive()) {
+        this.autopilot.stop()
+        this.apToggleBtn.innerHTML = `${ICONS.play} INICIAR AUTOPILOT`
+        this.apToggleBtn.classList.remove('danger')
+        this.stopStopwatch()
+        this.setStatus('Autopilot pausado pelo usuário.', 'info')
+      } else {
+        const key = this.apiKeyInput.value.trim().replace(/^["']|["']$/g, '')
+        if (!key) {
+          this.setStatus('Configure sua chave de API Gemini na aba Configurações antes de ligar o Autopilot.', 'error')
+          this.switchTab('settings')
+          this.apiKeyInput.focus()
+          return
+        }
+        this.autopilot.start()
+        this.apToggleBtn.innerHTML = `${ICONS.stop} PARAR AUTOPILOT`
+        this.apToggleBtn.classList.add('danger')
+        this.startStopwatch()
+        this.setStatus('Autopilot ativo. Monitorando exercícios...', 'info')
+      }
+    })
+
+    // Limpar Memória da Sessão
+    const clearMemoryBtn = this.shadow.querySelector('#eq-ap-clear-memory') as HTMLButtonElement
+    clearMemoryBtn.addEventListener('click', () => {
+      clearSessionMemories()
+      this.logToConsole('> [SYS] Memória contextual limpa com sucesso.', 'text-green')
+      this.setStatus('Memória contextual da sessão limpa.', 'success')
+    })
+
+    // Copiar Prompt no Inspetor
+    this.copyPromptBtn.addEventListener('click', () => {
+      const text = this.inspPrompt.textContent || ''
+      navigator.clipboard.writeText(text).then(() => {
+        const prev = this.copyPromptBtn.innerHTML
+        this.copyPromptBtn.innerHTML = `${ICONS.check} Copiado!`
+        setTimeout(() => (this.copyPromptBtn.innerHTML = prev), 2000)
+      })
+    })
+
+    // Controles Avançados
     this.modelSelect.addEventListener('change', () => this.callbacks.onSettingsChange({ model: this.modelSelect.value }))
     this.modeSelect.addEventListener('change', () => this.callbacks.onSettingsChange({ modeHint: this.modeSelect.value as any }))
     this.engineSelect.addEventListener('change', () => this.callbacks.onSettingsChange({ engine: this.engineSelect.value as any }))
-    
     this.dryRunCheckbox.addEventListener('change', () => this.callbacks.onSettingsChange({ dryRun: this.dryRunCheckbox.checked }))
     this.autoApplyCheckbox.addEventListener('change', () => this.callbacks.onSettingsChange({ autoApply: this.autoApplyCheckbox.checked }))
     this.autoAdvanceCheckbox.addEventListener('change', () => this.callbacks.onSettingsChange({ autoAdvance: this.autoAdvanceCheckbox.checked }))
-    
+
+    this.useVisionCheckbox.addEventListener('change', () => {
+      const v = this.useVisionCheckbox.checked
+      this.callbacks.onSettingsChange({ useVision: v })
+      this.setStatus(v ? 'Visão Computacional ativada (capturas habilitadas).' : 'Modo DOM Rápido ativado (capturas desabilitadas).', 'info')
+    })
+
     this.hostDarkModeCheckbox.addEventListener('change', () => {
       const v = this.hostDarkModeCheckbox.checked
       this.callbacks.onSettingsChange({ hostDarkMode: v })
@@ -510,118 +664,150 @@ export class EasyQuizPanel {
     this.applyBtn.addEventListener('click', () => this.callbacks.onApply())
   }
 
-  private applyHostDarkMode(enable: boolean) {
-    const STYLE_ID = 'eq-host-dark-mode-style'
-    let styleEl = document.getElementById(STYLE_ID)
-    
-    if (enable) {
-      // Prevenção: verifica se a página já é escura nativamente
-      let bg = window.getComputedStyle(document.body).backgroundColor
-      if (bg.includes('rgba(0, 0, 0, 0)') || bg === 'transparent') {
-        bg = window.getComputedStyle(document.documentElement).backgroundColor
-      }
-      
-      const rgba = bg.match(/\d+(\.\d+)?/g)
-      if (rgba && rgba.length >= 3) {
-        const a = rgba[3] !== undefined ? parseFloat(rgba[3]) : 1
-        // Se a opacidade for muito baixa (transparente), o fundo real visível é branco (padrão navegador)
-        if (a > 0.1) {
-          const r = parseInt(rgba[0]), g = parseInt(rgba[1]), b = parseInt(rgba[2])
-          const brightness = (r * 299 + g * 587 + b * 114) / 1000
-          if (brightness < 100) {
-            console.log('[EasyQuiz] Fundo escuro detectado (Brightness: '+brightness+'). Smart Dark Mode preventivamente suspenso.')
-            return // Não inverte se já for escuro
-          }
-        }
-      }
+  private startStopwatch() {
+    this.stopStopwatch()
+    this.stopwatchStartTime = Date.now()
+    const update = () => {
+      const elapsed = ((Date.now() - this.stopwatchStartTime) / 1000).toFixed(2) + 's'
+      this.stopwatchAp.textContent = elapsed
+      this.stopwatchAdv.textContent = elapsed
+    }
+    update()
+    this.stopwatchInterval = setInterval(update, 100)
+  }
 
-      if (!styleEl) {
-        styleEl = document.createElement('style')
-        styleEl.id = STYLE_ID
-        // Inverte html, desinverte imagens
-        styleEl.innerHTML = `
-          html { filter: invert(1) hue-rotate(180deg) !important; background: #fff !important; }
-          img, video, canvas, [style*="background-image"] { filter: invert(1) hue-rotate(180deg) !important; }
-        `
-        document.head.appendChild(styleEl)
-      }
-      this.host.classList.add('eq-dark-mode-active')
-    } else {
-      this.host.classList.remove('eq-dark-mode-active')
-      if (styleEl) styleEl.remove()
+  private stopStopwatch(finalMs?: number) {
+    if (this.stopwatchInterval) {
+      clearInterval(this.stopwatchInterval)
+      this.stopwatchInterval = null
+    }
+    if (finalMs !== undefined) {
+      const val = (finalMs / 1000).toFixed(2) + 's'
+      this.stopwatchAp.textContent = val
+      this.stopwatchAdv.textContent = val
     }
   }
 
-  private makeDraggable(element: HTMLElement, handle: HTMLElement) {
-    let isDragging = false
-    let startX = 0, startY = 0, initialX = 0, initialY = 0
-
-    handle.style.cursor = 'grab'
-    
-    handle.addEventListener('mousedown', (e) => {
-      // Não inicia se clicou em um botão
-      if ((e.target as HTMLElement).closest('button')) return
-      isDragging = true
-      handle.style.cursor = 'grabbing'
-      startX = e.clientX
-      startY = e.clientY
-      
-      const rect = element.getBoundingClientRect()
-      // Pegar as posições baseadas no que está renderizado
-      initialX = rect.left
-      initialY = rect.top
-      
-      // Remove right/bottom para usar apenas left/top
-      element.style.right = 'auto'
-      element.style.bottom = 'auto'
-      element.style.left = initialX + 'px'
-      element.style.top = initialY + 'px'
-      e.preventDefault()
-    })
-
-    document.addEventListener('mousemove', (e) => {
-      if (!isDragging) return
-      const dx = e.clientX - startX
-      const dy = e.clientY - startY
-      element.style.left = (initialX + dx) + 'px'
-      element.style.top = (initialY + dy) + 'px'
-    })
-
-    document.addEventListener('mouseup', () => {
-      if (isDragging) {
-        isDragging = false
-        handle.style.cursor = 'grab'
-      }
-    })
+  private logToConsole(message: string, colorClass?: string) {
+    if (!this.apConsole) return
+    const entry = document.createElement('div')
+    entry.textContent = message
+    if (colorClass) entry.className = colorClass
+    this.apConsole.appendChild(entry)
+    this.apConsole.scrollTop = this.apConsole.scrollHeight
   }
 
   public toggle(force?: boolean): void {
-    const isHidden = force !== undefined ? !force : !this.panelEl.hidden
-    this.panelEl.hidden = isHidden
-    if (!isHidden && !this.apiKeyInput.value) this.apiKeyInput.focus()
+    if (force !== undefined) {
+      this.isCollapsed = !force
+    } else {
+      this.isCollapsed = !this.isCollapsed
+    }
+
+    if (this.isCollapsed) {
+      this.sidebarEl.classList.add('eq-collapsed')
+    } else {
+      this.sidebarEl.classList.remove('eq-collapsed')
+      if (!this.apiKeyInput.value) {
+        this.switchTab('settings')
+        this.apiKeyInput.focus()
+      }
+    }
   }
 
   public setBusy(busy: boolean, message?: string): void {
     this.analyzeBtn.disabled = busy
-    ;[this.modelSelect, this.modeSelect, this.engineSelect, this.dryRunCheckbox, this.autoApplyCheckbox, this.autoAdvanceCheckbox].forEach(e => (e as any).disabled = busy)
-    if (message) this.setStatus(message, 'info')
+    ;[this.modelSelect, this.modeSelect, this.engineSelect, this.dryRunCheckbox, this.autoApplyCheckbox, this.autoAdvanceCheckbox, this.useVisionCheckbox].forEach(
+      (e) => ((e as any).disabled = busy),
+    )
+
+    if (busy) {
+      this.startStopwatch()
+      this.dotPulseAp.className = 'eq-dot-pulse busy'
+      this.dotPulseAdv.className = 'eq-dot-pulse busy'
+      if (message) this.setStatus(message, 'info')
+    } else {
+      this.stopStopwatch()
+      this.dotPulseAp.className = 'eq-dot-pulse'
+      this.dotPulseAdv.className = 'eq-dot-pulse'
+    }
   }
 
   public setStatus(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
-    this.statusBox.textContent = message
-    this.statusBox.className = `eq-status-box ${type}`
+    this.statusTextAp.textContent = message
+    this.statusTextAdv.textContent = message
 
-    if (this.apConsole) {
-      const entry = document.createElement('div')
-      const isFallback = message.includes('Alternando') || message.includes('indisponível') || message.includes('fallback') || message.includes('alternativo')
-      const prefix = type === 'error' ? '> [ERRO DETALHADO] ' : type === 'success' ? '> [SUCESSO] ' : isFallback ? '> [FALLBACK] ' : '> [SYS] '
-      entry.textContent = `${prefix}${message}`
-      if (type === 'error') entry.className = 'text-red'
-      else if (type === 'success') entry.className = 'text-green'
-      else if (isFallback) entry.className = 'text-yellow'
-      else entry.className = 'text-blue'
-      this.apConsole.appendChild(entry)
-      this.apConsole.scrollTop = this.apConsole.scrollHeight
+    if (type === 'error') {
+      this.dotPulseAp.className = 'eq-dot-pulse error'
+      this.dotPulseAdv.className = 'eq-dot-pulse error'
+    } else if (type === 'success') {
+      this.dotPulseAp.className = 'eq-dot-pulse'
+      this.dotPulseAdv.className = 'eq-dot-pulse'
+    }
+
+    const isFallback = message.includes('Alternando') || message.includes('indisponível') || message.includes('fallback') || message.includes('alternativo')
+    const prefix = type === 'error' ? '> [ERRO] ' : type === 'success' ? '> [SUCESSO] ' : isFallback ? '> [FALLBACK] ' : '> [SYS] '
+    const color = type === 'error' ? 'text-red' : type === 'success' ? 'text-green' : isFallback ? 'text-yellow' : 'text-blue'
+    this.logToConsole(`${prefix}${message}`, color)
+  }
+
+  public setPlan(plan: AnalysisPlan, canApply: boolean): void {
+    this.latestPlan = plan
+    this.resultContainer.style.display = 'flex'
+
+    if (plan.durationMs) {
+      this.stopStopwatch(plan.durationMs)
+    }
+
+    // Atualiza Badges do Avançado
+    const badgesEl = this.shadow.querySelector('#eq-badges') as HTMLElement
+    badgesEl.innerHTML = `
+      <span class="eq-brand-badge">${plan.mode.replace('_', ' ')}</span>
+      <span class="eq-brand-badge" style="color: #00ff55; border-color: #00ff55;">${Math.round(plan.confidence * 100)}% Confiança</span>
+      <span class="eq-brand-badge">${plan.actions.length} Cmds</span>
+      ${plan.usedModel ? `<span class="eq-brand-badge" style="border-color: #5bc0eb; color: #5bc0eb;">${plan.usedModel}</span>` : ''}
+    `
+
+    const rationaleEl = this.shadow.querySelector('#eq-rationale-text') as HTMLElement
+    rationaleEl.textContent = plan.rationale
+
+    const actionsListEl = this.shadow.querySelector('#eq-actions-list') as HTMLElement
+    actionsListEl.innerHTML = ''
+    for (const act of plan.actions) {
+      const item = document.createElement('div')
+      item.className = 'eq-action-item'
+      let desc = ''
+      if (act.t === 'chk') desc = `chk ${act.id} (${(act as any).c})`
+      else if (act.t === 'val') desc = `val "${act.v}" -> ${act.id}`
+      else if (act.t === 'sel') desc = `sel "${Array.isArray(act.v) ? act.v.join(',') : act.v}" -> ${act.id}`
+      else if (act.t === 'clk') desc = `clk ${act.id}`
+      else if (act.t === 'adv') desc = `adv`
+      else if (act.t === 'js') desc = `js: ${String(act.v).slice(0, 40)}...`
+      else if (act.t === 'drag') desc = `drag "${act.from}" -> "${act.to}"`
+
+      item.innerHTML = `<span class="eq-action-badge">${act.t.toUpperCase()}</span> <span>${desc}</span>`
+      actionsListEl.appendChild(item)
+    }
+
+    this.applyBtn.disabled = !canApply || !plan.actions.length
+
+    // Atualiza Inspetor de IA
+    this.inspModel.textContent = plan.usedModel || this.initialSettings.model
+    this.inspLatency.textContent = plan.durationMs ? `${plan.durationMs}ms` : '--'
+    this.inspTokens.textContent = plan.tokensUsed ? `${plan.tokensUsed}` : '--'
+    this.inspPrompt.textContent = plan.promptSent || 'Prompt não registrado para esta requisição.'
+    this.inspRationale.textContent = plan.rationale
+
+    this.inspActions.innerHTML = ''
+    if (plan.actions.length > 0) {
+      for (const act of plan.actions) {
+        const item = document.createElement('div')
+        item.className = 'eq-action-item'
+        item.textContent = JSON.stringify(act)
+        this.inspActions.appendChild(item)
+      }
+    } else {
+      this.inspActions.innerHTML = '<div class="text-muted" style="padding: 4px;">Nenhuma ação prescrita pela IA.</div>'
     }
   }
 
@@ -648,41 +834,48 @@ export class EasyQuizPanel {
     this.modelSelect.value = modelId
   }
 
-  public setPlan(plan: AnalysisPlan, canApply: boolean): void {
-    this.resultContainer.style.display = 'flex'
-    
-    const badgesEl = this.shadow.querySelector('#eq-badges') as HTMLElement
-    badgesEl.innerHTML = `
-      <span class="eq-badge highlight">${plan.mode.replace('_', ' ')}</span>
-      <span class="eq-badge ${plan.confidence >= 0.8 ? 'success' : ''}">${Math.round(plan.confidence * 100)}% Confiança</span>
-      <span class="eq-badge">${plan.actions.length} Cmds</span>
-      ${plan.usedModel ? `<span class="eq-badge" style="border-color: #5bc0eb; color: #5bc0eb;">${plan.usedModel}</span>` : ''}
-    `
+  private applyHostDarkMode(enable: boolean) {
+    const STYLE_ID = 'eq-host-dark-mode-style'
+    let styleEl = document.getElementById(STYLE_ID)
 
-    const rationaleEl = this.shadow.querySelector('#eq-rationale-text') as HTMLElement
-    rationaleEl.textContent = plan.rationale
+    if (enable) {
+      let bg = window.getComputedStyle(document.body).backgroundColor
+      if (bg.includes('rgba(0, 0, 0, 0)') || bg === 'transparent') {
+        bg = window.getComputedStyle(document.documentElement).backgroundColor
+      }
 
-    const actionsListEl = this.shadow.querySelector('#eq-actions-list') as HTMLElement
-    actionsListEl.innerHTML = ''
-    for (const act of plan.actions) {
-      const item = document.createElement('div')
-      item.className = 'eq-action-item'
-      let desc = ''
-      if (act.t === 'chk') desc = `[CHK] ${act.id}`
-      else if (act.t === 'val') desc = `[INJ] "${act.v}" em ${act.id}`
-      else if (act.t === 'sel') desc = `[SEL] ${Array.isArray(act.v) ? act.v.join(',') : act.v} em ${act.id}`
-      else if (act.t === 'clk') desc = `[CLK] ${act.id}`
-      else if (act.t === 'adv') desc = `[AVANÇAR]`
-      else if (act.t === 'js') desc = `[JS] ${String(act.v)}`
+      const rgba = bg.match(/\d+(\.\d+)?/g)
+      if (rgba && rgba.length >= 3) {
+        const a = rgba[3] !== undefined ? parseFloat(rgba[3]) : 1
+        if (a > 0.1) {
+          const r = parseInt(rgba[0]),
+            g = parseInt(rgba[1]),
+            b = parseInt(rgba[2])
+          const brightness = (r * 299 + g * 587 + b * 114) / 1000
+          if (brightness < 100) {
+            return
+          }
+        }
+      }
 
-      item.innerHTML = `<span class="eq-action-bullet">■</span> <span>${desc}</span>`
-      actionsListEl.appendChild(item)
+      if (!styleEl) {
+        styleEl = document.createElement('style')
+        styleEl.id = STYLE_ID
+        styleEl.innerHTML = `
+          html { filter: invert(1) hue-rotate(180deg) !important; background: #fff !important; }
+          img, video, canvas, [style*="background-image"] { filter: invert(1) hue-rotate(180deg) !important; }
+        `
+        document.head.appendChild(styleEl)
+      }
+      this.host.classList.add('eq-dark-mode-active')
+    } else {
+      this.host.classList.remove('eq-dark-mode-active')
+      if (styleEl) styleEl.remove()
     }
-
-    this.applyBtn.disabled = !canApply || !plan.actions.length
   }
 
   public destroy(): void {
+    this.stopStopwatch()
     this.autopilot.stop()
     this.applyHostDarkMode(false)
     this.callbacks.onDestroy()

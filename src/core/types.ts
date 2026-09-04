@@ -72,6 +72,9 @@ export interface AnalysisPlan {
   actions: DeclarativeAction[]
   usedModel?: string
   memoryToStore?: string
+  promptSent?: string
+  durationMs?: number
+  tokensUsed?: number
 }
 
 export interface ModelOption {
@@ -90,19 +93,21 @@ export interface EasyQuizSettings {
   autoApply: boolean
   autoAdvance: boolean
   hostDarkMode: boolean
+  useVision: boolean
   confidenceThreshold: number
 }
 
 export const DEFAULT_SETTINGS: EasyQuizSettings = {
   apiKey: '',
   model: 'gemini-2.5-flash',
-  uiMode: 'advanced',
+  uiMode: 'easy',
   modeHint: '',
   engine: 'smart',
   dryRun: false,
   autoApply: false,
   autoAdvance: false,
   hostDarkMode: true,
+  useVision: false,
   confidenceThreshold: 0.8,
 }
 

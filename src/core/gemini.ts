@@ -286,6 +286,7 @@ export async function analyzeWithGemini(
     }
   }
 
+  const startTime = Date.now()
   const userText = buildUserPrompt(context, images, settings)
 
   const parts: Array<Record<string, unknown>> = [{ text: userText }]
@@ -378,6 +379,9 @@ export async function analyzeWithGemini(
         if (!Array.isArray(parsedPlan.warnings)) parsedPlan.warnings = []
         if (typeof parsedPlan.confidence !== 'number') parsedPlan.confidence = 0.8
         parsedPlan.usedModel = currentModel
+        parsedPlan.durationMs = Date.now() - startTime
+        parsedPlan.promptSent = userText
+        parsedPlan.tokensUsed = data.usageMetadata?.totalTokenCount
 
         if (currentModel !== chosenModel) {
           onProgress?.(`Resolvido com sucesso pelo fallback '${currentModel}' (${apiVer})!`, 'info')
