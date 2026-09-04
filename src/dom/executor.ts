@@ -46,6 +46,12 @@ function setChecked(element: HTMLElement, checked: boolean): void {
       element.click()
     }
     if (element.checked !== checked) {
+      const parentLabel = element.closest('label, [role="listitem"], .docssharedWizToggleLabeledContainer') as HTMLElement | null
+      if (parentLabel && parentLabel !== element) {
+        parentLabel.click()
+      }
+    }
+    if (element.checked !== checked) {
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
       setter?.call(element, checked)
       dispatchEventSequence(element, ['input', 'change'])
