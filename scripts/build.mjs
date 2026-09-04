@@ -30,12 +30,12 @@ const buildOptions = {
 
 await build(buildOptions)
 
-// Bookmarklet Loader que carrega dinamicamente do GitHub
+// Bookmarklet Loader ultra-curto e limpo
 const githubRepo = 'minifoxie/EasyQuiz'
 const cdnUrl = `https://cdn.jsdelivr.net/gh/${githubRepo}@main/dist/easyquiz.js`
-const rawUrl = `https://raw.githubusercontent.com/${githubRepo}/main/dist/easyquiz.js`
 
-const bookmarkletCode = `javascript:(function(){if(window.__easyquiz){window.__easyquiz.toggle();return;}const s=document.createElement('script');s.src='${cdnUrl}?t='+Date.now();s.onerror=function(){const fb=document.createElement('script');fb.src='${rawUrl}?t='+Date.now();document.head.appendChild(fb);};document.head.appendChild(s);})();`
+// Versão compacta padrão (125 caracteres)
+const bookmarkletCode = `javascript:(function(){document.head.appendChild(document.createElement('script')).src='${cdnUrl}'})();`
 
 await writeFile(path.join(dist, 'bookmarklet.txt'), `${bookmarkletCode}\n`, 'utf-8')
 

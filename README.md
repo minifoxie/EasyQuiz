@@ -31,7 +31,7 @@ Você não precisa instalar nenhuma extensão. Basta adicionar um favorito no se
 4. No campo **URL**, cole o código abaixo:
 
 ```javascript
-javascript:(function(){if(window.__easyquiz){window.__easyquiz.toggle();return;}const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/easyquiz.js?t='+Date.now();s.onerror=function(){const fb=document.createElement('script');fb.src='https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/easyquiz.js?t='+Date.now();document.head.appendChild(fb);};document.head.appendChild(s);})();
+javascript:(function(){document.head.appendChild(document.createElement('script')).src='https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/easyquiz.js'})();
 ```
 
 5. Salve o favorito!
