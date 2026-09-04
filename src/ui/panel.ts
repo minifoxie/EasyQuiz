@@ -139,7 +139,9 @@ export class EasyQuizPanel {
           <div class="eq-field-group" style="margin-bottom: 2px;">
             <div class="eq-section-title">
               <span>Chave Gemini (API Key)</span>
-              <div style="display: flex; gap: 8px;">
+              <div style="display: flex; gap: 6px;">
+                <button class="eq-mini-btn" id="eq-clear-key-easy" type="button" title="Limpar campo">🧹 Limpar</button>
+                <button class="eq-mini-btn" id="eq-prompt-key-easy" type="button" title="Colar via janela direta">✏️ Inserir</button>
                 <button class="eq-mini-btn" id="eq-toggle-key-easy" type="button">👁️ Mostrar</button>
                 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="eq-link">
                   Obter Grátis
@@ -147,7 +149,7 @@ export class EasyQuizPanel {
               </div>
             </div>
             <div class="eq-input-wrap">
-              <input id="eq-api-key-easy" class="eq-input" type="password" placeholder="Cole sua chave AIzaSy..." autocomplete="off" spellcheck="false" />
+              <input id="eq-api-key-easy" class="eq-input" type="password" placeholder="Cole sua chave AIzaSy..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
               <button class="eq-input-action-btn" id="eq-save-key-easy" type="button" title="Salvar Chave">💾 Salvar</button>
               <button class="eq-input-action-btn" id="eq-test-key-easy" type="button" title="Testar Chave">${ICONS.key} Testar</button>
             </div>
@@ -174,7 +176,9 @@ export class EasyQuizPanel {
           <div class="eq-field-group">
             <div class="eq-section-title">
               <span>Chave Gemini (API Key)</span>
-              <div style="display: flex; gap: 8px;">
+              <div style="display: flex; gap: 6px;">
+                <button class="eq-mini-btn" id="eq-clear-key-adv" type="button" title="Limpar campo">🧹 Limpar</button>
+                <button class="eq-mini-btn" id="eq-prompt-key-adv" type="button" title="Colar via janela direta">✏️ Inserir</button>
                 <button class="eq-mini-btn" id="eq-toggle-key-adv" type="button">👁️ Mostrar</button>
                 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="eq-link">
                   Obter Grátis
@@ -182,7 +186,7 @@ export class EasyQuizPanel {
               </div>
             </div>
             <div class="eq-input-wrap">
-              <input id="eq-api-key" class="eq-input" type="password" placeholder="Cole sua chave AIzaSy..." autocomplete="off" spellcheck="false" />
+              <input id="eq-api-key" class="eq-input" type="password" placeholder="Cole sua chave AIzaSy..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
               <button class="eq-input-action-btn" id="eq-save-key-adv" type="button" title="Salvar Chave">💾 Salvar</button>
               <button class="eq-input-action-btn" id="eq-test-key-btn" type="button" title="Testar Chave">${ICONS.key} Testar</button>
             </div>
@@ -366,21 +370,89 @@ export class EasyQuizPanel {
     this.shadow.querySelector('#eq-min-btn')?.addEventListener('click', () => this.toggle(false))
     this.shadow.querySelector('#eq-close-btn')?.addEventListener('click', () => this.toggle(false))
 
-    const setApiKey = (rawVal: string, notify = false) => {
-      const cleanVal = rawVal.trim().replace(/^["']|["']$/g, '')
+    // ==== BLINDAGEM DE TECLADO CONTRA SITES QUE INTERCEPTAM BACKSPACE/TECLAS ====
+    const shieldKeyboardEvent = (e: KeyboardEvent) => {
+      // Impede que ouvintes de teclado do site pai capturem ou dêem preventDefault() no Backspace, Delete ou teclas
+      e.stopPropagation()
+    }
+
+    // Intercepta na fase de captura na window para rodar ANTES de qualquer script do site
+    const globalCaptureShield = (e: KeyboardEvent) => {
+      const path = e.composedPath()
+      if (path.includes(this.apiKeyInput) || path.includes(this.apiKeyEasyInput) || path.includes(this.panelEl)) {
+        e.stopPropagation()
+      }
+    }
+    window.addEventListener('keydown', globalCaptureShield, true)
+    window.addEventListener('keyup', globalCaptureShield, true)
+    window.addEventListener('keypress', globalCaptureShield, true)
+
+    this.apiKeyInput.addEventListener('keydown', shieldKeyboardEvent)
+    this.apiKeyEasyInput.addEventListener('keydown', shieldKeyboardEvent)
+    this.apiKeyInput.addEventListener('keyup', shieldKeyboardEvent)
+    this.apiKeyEasyInput.addEventListener('keyup', shieldKeyboardEvent)
+    this.apiKeyInput.addEventListener('keypress', shieldKeyboardEvent)
+    this.apiKeyEasyInput.addEventListener('keypress', shieldKeyboardEvent)
+
+    const stopClipboardPropagation = (e: ClipboardEvent) => {
+      e.stopPropagation()
+    }
+    this.apiKeyInput.addEventListener('paste', stopClipboardPropagation)
+    this.apiKeyEasyInput.addEventListener('paste', stopClipboardPropagation)
+
+    // Sincronização direta sem reatribuir o valor do input ativo (preserva backspace e cursor)
+    this.apiKeyInput.addEventListener('input', () => {
+      const val = this.apiKeyInput.value
+      if (this.apiKeyEasyInput.value !== val) {
+        this.apiKeyEasyInput.value = val
+      }
+      this.callbacks.onSettingsChange({ apiKey: val.trim().replace(/^["']|["']$/g, '') })
+    })
+
+    this.apiKeyEasyInput.addEventListener('input', () => {
+      const val = this.apiKeyEasyInput.value
+      if (this.apiKeyInput.value !== val) {
+        this.apiKeyInput.value = val
+      }
+      this.callbacks.onSettingsChange({ apiKey: val.trim().replace(/^["']|["']$/g, '') })
+    })
+
+    const saveKeyExplicitly = (inputEl: HTMLInputElement) => {
+      const cleanVal = inputEl.value.trim().replace(/^["']|["']$/g, '')
       this.apiKeyInput.value = cleanVal
       this.apiKeyEasyInput.value = cleanVal
       this.callbacks.onSettingsChange({ apiKey: cleanVal })
-      if (notify) {
-        this.setStatus('Chave de API salva com sucesso!', 'success')
-      }
+      this.setStatus('Chave de API salva com sucesso!', 'success')
     }
 
-    this.apiKeyInput.addEventListener('input', () => setApiKey(this.apiKeyInput.value, false))
-    this.apiKeyEasyInput.addEventListener('input', () => setApiKey(this.apiKeyEasyInput.value, false))
+    this.saveKeyAdvBtn.addEventListener('click', () => saveKeyExplicitly(this.apiKeyInput))
+    this.saveKeyEasyBtn.addEventListener('click', () => saveKeyExplicitly(this.apiKeyEasyInput))
 
-    this.saveKeyAdvBtn.addEventListener('click', () => setApiKey(this.apiKeyInput.value, true))
-    this.saveKeyEasyBtn.addEventListener('click', () => setApiKey(this.apiKeyEasyInput.value, true))
+    // Botões de Limpar Campo
+    const clearInputs = () => {
+      this.apiKeyInput.value = ''
+      this.apiKeyEasyInput.value = ''
+      this.callbacks.onSettingsChange({ apiKey: '' })
+      this.setStatus('Campo de chave limpo. Cole a nova chave e clique em Salvar.', 'info')
+      this.apiKeyEasyInput.focus()
+    }
+    this.shadow.querySelector('#eq-clear-key-easy')?.addEventListener('click', clearInputs)
+    this.shadow.querySelector('#eq-clear-key-adv')?.addEventListener('click', clearInputs)
+
+    // Botões de Inserir via Prompt Nativo (à prova de qualquer bloqueio de DOM de sites)
+    const promptForApiKey = () => {
+      const current = this.apiKeyInput.value.trim()
+      const entered = window.prompt('Cole sua Chave API do Google Gemini (AI Studio):', current)
+      if (entered !== null) {
+        const clean = entered.trim().replace(/^["']|["']$/g, '')
+        this.apiKeyInput.value = clean
+        this.apiKeyEasyInput.value = clean
+        this.callbacks.onSettingsChange({ apiKey: clean })
+        this.setStatus('Chave de API inserida e salva com sucesso!', 'success')
+      }
+    }
+    this.shadow.querySelector('#eq-prompt-key-easy')?.addEventListener('click', promptForApiKey)
+    this.shadow.querySelector('#eq-prompt-key-adv')?.addEventListener('click', promptForApiKey)
 
     const toggleVisibility = (inputEl: HTMLInputElement, btnEl: HTMLButtonElement) => {
       const isPass = inputEl.type === 'password'
@@ -398,7 +470,10 @@ export class EasyQuizPanel {
     const runKeyTest = async (keyToTest: string) => {
       const cleanKey = keyToTest.trim().replace(/^["']|["']$/g, '')
       if (!cleanKey) return this.setStatus('Informe ou cole a chave de API.', 'error')
-      setApiKey(cleanKey, false)
+      this.apiKeyInput.value = cleanKey
+      this.apiKeyEasyInput.value = cleanKey
+      this.callbacks.onSettingsChange({ apiKey: cleanKey })
+
       this.setStatus('Validando chave no Google AI Studio e descobrindo modelos...', 'info')
       this.testKeyBtn.disabled = true
       this.testKeyEasyBtn.disabled = true

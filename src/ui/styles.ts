@@ -257,6 +257,8 @@ export const PANEL_STYLES = `
     font-size: 13px;
     font-weight: 700;
     outline: none;
+    user-select: text !important;
+    -webkit-user-select: text !important;
   }
 
   .eq-input:focus {
