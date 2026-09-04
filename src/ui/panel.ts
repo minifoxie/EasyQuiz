@@ -250,15 +250,16 @@ export class EasyQuizPanel {
       if (!styleEl) {
         styleEl = document.createElement('style')
         styleEl.id = STYLE_ID
-        // Inverte html, desinverte imagens e desinverte o próprio EasyQuiz
+        // Inverte html, desinverte imagens
         styleEl.innerHTML = `
           html { filter: invert(1) hue-rotate(180deg) !important; background: #fff !important; }
           img, video, canvas, [style*="background-image"] { filter: invert(1) hue-rotate(180deg) !important; }
-          #easyquiz-shadow-root { filter: invert(1) hue-rotate(180deg) !important; }
         `
         document.head.appendChild(styleEl)
       }
+      this.host.classList.add('eq-dark-mode-active')
     } else {
+      this.host.classList.remove('eq-dark-mode-active')
       if (styleEl) styleEl.remove()
     }
   }

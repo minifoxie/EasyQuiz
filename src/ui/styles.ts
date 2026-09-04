@@ -16,6 +16,12 @@ export const PANEL_STYLES = `
     padding: 0;
   }
 
+  :host(.eq-dark-mode-active) .eq-launcher,
+  :host(.eq-dark-mode-active) .eq-panel {
+    filter: invert(1) hue-rotate(180deg) !important;
+  }
+
+
   .eq-launcher {
     position: fixed;
     right: 20px;
