@@ -127,6 +127,9 @@ export const PANEL_STYLES = `
     gap: 4px;
     text-align: left;
   }
+  .text-blue { color: #5bc0eb; }
+  .text-yellow { color: #fde74c; }
+  .text-red { color: #ff4757; }
 
   .eq-panel {
     pointer-events: auto;

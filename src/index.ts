@@ -28,7 +28,7 @@ async function initEasyQuiz(): Promise<void> {
   let latestPlan: AnalysisPlan | null = null
 
   const panel = new EasyQuizPanel(settings, {
-    onAnalyze: () => void runAnalysis(),
+    onAnalyze: () => runAnalysis(),
     onApply: () => void runApply(),
     onDestroy: () => {
       clearHighlights()
@@ -43,7 +43,7 @@ async function initEasyQuiz(): Promise<void> {
   eqWindow.__easyquiz = {
     toggle: () => panel.toggle(),
     destroy: () => panel.destroy(),
-    analyze: () => runAnalysis(),
+    analyze: () => void runAnalysis(),
   }
 
   // Atalho global de teclado: Alt + Q para analisar a questão imediatamente
@@ -56,7 +56,7 @@ async function initEasyQuiz(): Promise<void> {
     }
   })
 
-  async function runAnalysis(): Promise<void> {
+  async function runAnalysis(): Promise<AnalysisPlan | void> {
     if (!settings.apiKey) {
       panel.setStatus('Configure sua chave de API Gemini acima para começar.', 'error')
       panel.toggle(true)
@@ -105,10 +105,12 @@ async function initEasyQuiz(): Promise<void> {
       if (settings.autoApply && !settings.dryRun) {
         await runApply()
       }
+      return plan
     } catch (error) {
       clearHighlights()
       const message = error instanceof Error ? error.message : 'Falha desconhecida na análise.'
       panel.setStatus(message, 'error')
+      return undefined
     } finally {
       panel.setBusy(false)
     }

@@ -1,3 +1,4 @@
+import type { AnalysisPlan } from '../core/types'
 import { loadDomainCache } from '../core/storage'
 import { captureCurrentContext } from './detector'
 import { findElementExt, simulatePointerClick } from './executor'
@@ -5,8 +6,8 @@ import { findElementExt, simulatePointerClick } from './executor'
 export type AutopilotStatus = 'idle' | 'waiting' | 'analyzing' | 'advancing' | 'error'
 
 export interface AutopilotCallbacks {
-  onStatusChange: (status: AutopilotStatus, message: string) => void
-  onRequestAnalysis: () => Promise<void>
+  onStatusChange: (status: AutopilotStatus, message: string, colorClass?: string) => void
+  onRequestAnalysis: () => Promise<AnalysisPlan | null>
 }
 
 export class Autopilot {
@@ -70,9 +71,14 @@ export class Autopilot {
         
         if (inputControls.length > 0) {
           // TEM QUESTÃO NA TELA!
-          this.callbacks.onStatusChange('analyzing', '> [IA] Questão detectada. Consultando Gemini...')
+          this.callbacks.onStatusChange('analyzing', '> [IA] Questão detectada. Consultando Gemini...', 'text-blue')
           await new Promise(r => setTimeout(r, 800))
-          await this.callbacks.onRequestAnalysis()
+          const plan = await this.callbacks.onRequestAnalysis()
+          if (plan) {
+            this.callbacks.onStatusChange('analyzing', `> [IA] Confiança: ${(plan.confidence * 100).toFixed(1)}% | Modo: ${plan.mode}`, 'text-blue')
+            this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
+            this.callbacks.onStatusChange('analyzing', `> [IA] Ações geradas: ${plan.actions.length}`, 'text-blue')
+          }
           this.lastActionTime = Date.now()
         } else if (cache.advanceSelector && findElementExt(cache.advanceSelector)) {
           // TELA INFORMATIVA E JÁ SABEMOS O BOTÃO, E ELE ESTÁ NA TELA
@@ -86,9 +92,14 @@ export class Autopilot {
         } else {
           // NÃO TEM QUESTÃO E (NÃO SABEMOS O BOTÃO OU ELE NÃO ESTÁ NA TELA)
           // Aciona a IA para ela descobrir qual é a ação correta
-          this.callbacks.onStatusChange('analyzing', '> [IA] Rota desconhecida ou botão ausente. Mapeando...')
+          this.callbacks.onStatusChange('analyzing', '> [IA] Rota desconhecida ou botão ausente. Mapeando...', 'text-blue')
           await new Promise(r => setTimeout(r, 800))
-          await this.callbacks.onRequestAnalysis()
+          const plan = await this.callbacks.onRequestAnalysis()
+          if (plan) {
+            this.callbacks.onStatusChange('analyzing', `> [IA] Confiança: ${(plan.confidence * 100).toFixed(1)}% | Modo: ${plan.mode}`, 'text-blue')
+            this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
+            this.callbacks.onStatusChange('analyzing', `> [IA] Ações geradas: ${plan.actions.length}`, 'text-blue')
+          }
           this.lastActionTime = Date.now()
         }
       }

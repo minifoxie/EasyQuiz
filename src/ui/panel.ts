@@ -5,7 +5,7 @@ import { ICONS } from './icons'
 import { PANEL_STYLES } from './styles'
 
 export interface PanelCallbacks {
-  onAnalyze: () => void
+  onAnalyze: () => Promise<AnalysisPlan | void>
   onApply: () => void
   onDestroy: () => void
   onSettingsChange: (settings: Partial<EasyQuizSettings>) => void
@@ -61,10 +61,11 @@ export class EasyQuizPanel {
     this.initialSettings = initialSettings
     this.callbacks = callbacks
     this.autopilot = new Autopilot({
-      onStatusChange: (status, msg) => {
+      onStatusChange: (status, msg, colorClass) => {
         if (this.apConsole) {
           const entry = document.createElement('div')
           entry.textContent = msg
+          if (colorClass) entry.classList.add(colorClass)
           this.apConsole.appendChild(entry)
           this.apConsole.scrollTop = this.apConsole.scrollHeight
         }
@@ -76,8 +77,11 @@ export class EasyQuizPanel {
       },
       onRequestAnalysis: async () => {
         try {
-          await this.callbacks.onAnalyze() // O index.ts cuida de chamar o gemini e aplicar (autoApply e autoAdvance já devem estar ativados internamente)
-        } catch (e) {}
+          const plan = await this.callbacks.onAnalyze() // O index.ts deve retornar o plan
+          return plan || null
+        } catch (e) {
+          return null
+        }
       }
     })
 

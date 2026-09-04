@@ -26,7 +26,7 @@ NUNCA escreva loops grandes, document.querySelectors complexos ou coisas enormes
 
 REGRAS GERAIS:
 - "confidence": 0.0 a 1.0.
-- "rationale": justificativa técnica da escolha.
+- "rationale": justificativa técnica PROFUNDA (Chain of Thought). SE HOUVER IMAGENS ANEXADAS, você é OBRIGADO a mencionar explicitamente os dados que leu na imagem e correlacioná-los com o texto da questão antes de deduzir a resposta final.
 - "needsMoreContext": se os dados atuais forem lixo/insuficientes, retorne true e pararemos para reenviar a tela inteira com varredura absoluta.`
 
 export function buildUserPrompt(
