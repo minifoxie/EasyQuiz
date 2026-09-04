@@ -1,6 +1,6 @@
 import type { AnalysisPlan } from '../core/types'
 import { loadDomainCache } from '../core/storage'
-import { captureCurrentContext, captureFullPageText } from './detector'
+import { captureCurrentContext } from './detector'
 import { findElementExt, simulatePointerClick } from './executor'
 
 export type AutopilotStatus = 'idle' | 'waiting' | 'analyzing' | 'advancing' | 'error'
@@ -17,7 +17,6 @@ export class Autopilot {
   private lastRunTime = 0
   private lastActionTime = 0
   private isProcessing = false
-  private errorCount = 0
 
   constructor(callbacks: AutopilotCallbacks) {
     this.callbacks = callbacks
@@ -41,6 +40,8 @@ export class Autopilot {
     this.callbacks.onStatusChange('idle', '> [SYS] Autopilot DESATIVADO.')
   }
 
+  private errorCount = 0
+
   private async loop() {
     if (!this.active) return
     
@@ -57,84 +58,72 @@ export class Autopilot {
     try {
       this.isProcessing = true
       
-      let context
-      try {
-        context = captureCurrentContext(false)
-      } catch (err) {
-        // Agora o detector não joga throw, retorna null
-      }
-
+      let context = captureCurrentContext(false)
       if (!context) {
-        // Tenta captura global
+        // Fallback supremo de tela inteira
+        const { captureFullPageText } = await import('./detector')
         context = captureFullPageText()
       }
 
       if (context) {
-        // Filtra para achar campos que requerem preenchimento
-        // inputs, selects, textareas que não são botões
         const inputControls = context.controls.filter(c => c.tag !== 'button' && c.type !== 'submit')
         const cache = loadDomainCache(window.location.hostname)
         
-        if (inputControls.length > 0 || context.htmlSnippet === '') {
-          // TEM QUESTÃO NA TELA OU ESTAMOS EM FALLBACK TOTAL!
-          this.callbacks.onStatusChange('analyzing', '> [IA] Analisando contexto...', 'text-blue')
+        if (inputControls.length > 0) {
+          // TEM QUESTÃO NA TELA!
+          this.callbacks.onStatusChange('analyzing', '> [IA] Questão detectada. Consultando IA...', 'text-blue')
           await new Promise(r => setTimeout(r, 800))
           const plan = await this.callbacks.onRequestAnalysis()
           if (plan) {
+            this.callbacks.onStatusChange('analyzing', `> [IA] (${plan.usedModel || 'gemini'}) Confiança: ${(plan.confidence * 100).toFixed(1)}% | Modo: ${plan.mode}`, 'text-blue')
+            this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
+            this.callbacks.onStatusChange('analyzing', `> [IA] Ações geradas: ${plan.actions.length}`, 'text-blue')
             this.errorCount = 0
+            
             if (plan.pageType === 'conclusion') {
-              this.callbacks.onStatusChange('idle', '> [IA] ✓ Atividade concluída! Autopilot encerrando.', 'text-green')
+              this.callbacks.onStatusChange('idle', '> [SYS] Atividade concluída! Desligando Autopilot.', 'text-green')
               this.stop()
               return
             }
-            this.callbacks.onStatusChange('analyzing', `> [IA] Confiança: ${(plan.confidence * 100).toFixed(1)}% | Modo: ${plan.mode}`, 'text-blue')
-            this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
-            this.callbacks.onStatusChange('analyzing', `> [IA] Modelo: ${plan.usedModel || 'Desconhecido'}`, 'text-blue')
-            this.callbacks.onStatusChange('analyzing', `> [IA] Ações geradas: ${plan.actions.length}`, 'text-blue')
           } else {
             this.errorCount++
-            if (this.errorCount >= 3) {
-               this.callbacks.onStatusChange('error', '> [SYS] Múltiplas falhas detectadas. Autopilot interrompido.', 'text-red')
-               this.stop()
-               return
-            }
           }
           this.lastActionTime = Date.now()
         } else if (cache.advanceSelector && findElementExt(cache.advanceSelector)) {
-          // TELA INFORMATIVA E JÁ SABEMOS O BOTÃO, E ELE ESTÁ NA TELA
+          // TELA INFORMATIVA E JÁ SABEMOS O BOTÃO
           const btn = findElementExt(cache.advanceSelector)
           if (btn) {
             this.callbacks.onStatusChange('advancing', `> [BRUTE] Avançando via cache "${cache.advanceSelector}"...`)
             await new Promise(r => setTimeout(r, 1200))
             simulatePointerClick(btn)
             this.lastActionTime = Date.now()
+            this.errorCount = 0
           }
         } else {
-          // NÃO TEM QUESTÃO E (NÃO SABEMOS O BOTÃO OU ELE NÃO ESTÁ NA TELA)
-          // Aciona a IA para ela descobrir qual é a ação correta
-          this.callbacks.onStatusChange('analyzing', '> [IA] Rota desconhecida ou botão ausente. Mapeando...', 'text-blue')
+          // ROTA DESCONHECIDA, TELA DE FIM OU FALLBACK
+          this.callbacks.onStatusChange('analyzing', '> [IA] Rota desconhecida/fallback. Consultando IA...', 'text-blue')
           await new Promise(r => setTimeout(r, 800))
           const plan = await this.callbacks.onRequestAnalysis()
           if (plan) {
-            this.errorCount = 0
+            this.callbacks.onStatusChange('analyzing', `> [IA] (${plan.usedModel || 'gemini'}) Confiança: ${(plan.confidence * 100).toFixed(1)}% | Modo: ${plan.mode}`, 'text-blue')
+            this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
+            
             if (plan.pageType === 'conclusion') {
-              this.callbacks.onStatusChange('idle', '> [IA] ✓ Atividade concluída! Autopilot encerrando.', 'text-green')
+              this.callbacks.onStatusChange('idle', '> [SYS] Atividade concluída! Desligando Autopilot.', 'text-green')
               this.stop()
               return
             }
-            this.callbacks.onStatusChange('analyzing', `> [IA] Confiança: ${(plan.confidence * 100).toFixed(1)}% | Modo: ${plan.mode}`, 'text-blue')
-            this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
-            this.callbacks.onStatusChange('analyzing', `> [IA] Modelo: ${plan.usedModel || 'Desconhecido'}`, 'text-blue')
-            this.callbacks.onStatusChange('analyzing', `> [IA] Ações geradas: ${plan.actions.length}`, 'text-blue')
+            this.errorCount = 0
           } else {
             this.errorCount++
-            if (this.errorCount >= 3) {
-               this.callbacks.onStatusChange('error', '> [SYS] Múltiplas falhas detectadas. Autopilot interrompido.', 'text-red')
-               this.stop()
-               return
-            }
           }
           this.lastActionTime = Date.now()
+        }
+
+        if (this.errorCount >= 3) {
+          this.callbacks.onStatusChange('error', '> [ERRO] 3 falhas consecutivas. Abortando Autopilot para poupar tokens.', 'text-red')
+          this.stop()
+          return
         }
       }
     } catch (err) {

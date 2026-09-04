@@ -112,7 +112,7 @@ export async function analyzeWithGemini(
     contents: [{ role: 'user', parts }],
     generationConfig: {
       temperature: 0.05, // Extremamente baixo para manter previsibilidade
-      maxOutputTokens: 400, // Limita resposta e economiza tokens na saída
+      maxOutputTokens: 400, // Força a IA a ser direta e objetiva, gerando economia massiva de tokens
       response_mime_type: 'application/json',
       response_schema: GEMINI_JSON_SCHEMA,
     },
@@ -157,6 +157,7 @@ export async function analyzeWithGemini(
       if (!Array.isArray(parsedPlan.actions)) parsedPlan.actions = []
       if (!Array.isArray(parsedPlan.warnings)) parsedPlan.warnings = []
       if (typeof parsedPlan.confidence !== 'number') parsedPlan.confidence = 0.8
+      parsedPlan.usedModel = currentModel
 
       return { plan: parsedPlan, rawUsage: data.usageMetadata, usedModel: currentModel }
     } catch (err) {

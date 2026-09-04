@@ -70,14 +70,14 @@ async function initEasyQuiz(): Promise<void> {
       let context = captureCurrentContext(false)
       
       if (!context) {
-        panel.setStatus('Nenhum bloco de controles encontrado. Capturando tela inteira como fallback...', 'info')
-        const { captureFullPageText } = require('./dom/detector')
+        panel.setStatus('Nenhum controle detectado. Tentando captura de tela inteira...', 'info')
+        const { captureFullPageText } = await import('./dom/detector')
         context = captureFullPageText()
-      } else {
-        panel.setStatus(`Questão localizada (${context.controls.length} controles). Otimizando imagens...`, 'info')
       }
-      
+
       highlightScope(context.scope)
+
+      panel.setStatus(`Questão localizada (${context.controls.length} controles). Otimizando imagens...`, 'info')
       let images = await captureImages(context.scope)
 
       panel.setStatus(
@@ -85,33 +85,36 @@ async function initEasyQuiz(): Promise<void> {
         'info',
       )
 
-      let { plan, usedModel } = await analyzeWithGemini(context, images, settings)
-      if (usedModel) plan.usedModel = usedModel
+      let { plan } = await analyzeWithGemini(context, images, settings)
 
       // Se a IA pediu mais contexto ao redor da questão
       if (plan.needsMoreContext) {
         panel.setStatus('Expandindo contexto ao redor da questão para maior assertividade...', 'info')
-        const expandedCtx = captureCurrentContext(true)
-        if (expandedCtx) {
-          context = expandedCtx
-          highlightScope(context.scope)
-          images = await captureImages(context.scope)
-          const recheck = await analyzeWithGemini(context, images, settings)
-          plan = recheck.plan
-          if (recheck.usedModel) plan.usedModel = recheck.usedModel
+        context = captureCurrentContext(true)
+        if (!context) {
+          const { captureFullPageText } = await import('./dom/detector')
+          context = captureFullPageText()
         }
+        highlightScope(context.scope)
+        images = await captureImages(context.scope)
+        const recheck = await analyzeWithGemini(context, images, settings)
+        plan = recheck.plan
       }
 
       latestPlan = plan
       highlightTargetActions(plan.actions)
       panel.setPlan(plan, !settings.dryRun)
 
-      panel.setStatus(
-        settings.dryRun
-          ? 'Simulação concluída. As respostas foram realçadas na página sem alteração.'
-          : 'Resolução pronta! Verifique o realce na tela e aplique quando desejar.',
-        'success',
-      )
+      if (plan.pageType === 'conclusion') {
+        panel.setStatus('Atividade concluída ou tela final detectada pela IA.', 'success')
+      } else {
+        panel.setStatus(
+          settings.dryRun
+            ? 'Simulação concluída. As respostas foram realçadas na página sem alteração.'
+            : 'Resolução pronta! Verifique o realce na tela e aplique quando desejar.',
+          'success',
+        )
+      }
 
       // Auto aplicação opcional
       if (settings.autoApply && !settings.dryRun) {

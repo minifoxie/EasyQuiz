@@ -1,40 +1,44 @@
 import type { CapturedContext, CapturedImage, EasyQuizSettings } from './types'
 
-export const SYSTEM_PROMPT = `Você é o EasyQuiz Engine. 
-Sua tarefa é analisar o contexto da tela (texto e controles HTML) e retornar um plano JSON.
-REGRAS ESTABELECIDAS:
-1. Retorne JSON estrito.
-2. "pageType": "question" (se há questão a ser respondida), "info" (tela informativa), "start" (tela inicial), "conclusion" (tela final de nota/parabéns).
-3. SE "pageType" FOR "conclusion", "actions" DEVE ESTAR VAZIO.
-4. "rationale": Cadeia de raciocínio lógico profunda. Se houver imagens anexadas, você DEVE extrair e correlacionar os dados da imagem (como gráficos) com o texto da questão antes de inferir a resposta final.
-5. "needsMoreContext": Retorne true se a pergunta ou as opções estiverem ausentes.
-6. AÇÕES MINIFICADAS:
-  - { "t": "val", "id": "id_do_campo", "v": "texto_da_resposta" } (Preencher input)
-  - { "t": "chk", "id": "id_do_checkbox", "c": true } (Marcar opção)
-  - { "t": "sel", "id": "id_do_select", "v": ["valor"] } (Selecionar select)
-  - { "t": "clk", "id": "id_ou_rotulo", "co": [x, y] } (Clicar em botão/elemento)
-  - { "t": "adv" } (Avançar para a próxima tela)
-  - { "t": "js", "v": "$eq.fill('id', 'val');" } (Atalhos JS via $eq)`
+export const SYSTEM_PROMPT = `Você é o EasyQuiz Engine v3.0. Retorne JSON estrito.
+Regras Absolutas:
+1. "pageType": "question" (se há pergunta), "info" (avisos), "start" (início), "conclusion" (FIM/NOTA: retorne actions vazias).
+2. "rationale" (OBRIGATÓRIO): Pense passo a passo. SE HOUVER IMAGENS, descreva matematicamente/textualmente o que você vê nelas ANTES de responder.
+3. "needsMoreContext": true se não houver dados suficientes.
+4. "actions": Array de comandos minificados:
+   - { "t": "val", "id": "id_campo", "v": "resposta" }
+   - { "t": "chk", "id": "id_check", "c": true }
+   - { "t": "sel", "id": "id_select", "v": ["valor"] }
+   - { "t": "clk", "id": "id_ou_texto" }
+   - { "t": "adv" } (Botão próximo)
+   - { "t": "js", "v": "$eq.click('botao')" }`
 
 export function buildUserPrompt(
   context: CapturedContext,
   images: CapturedImage[],
   settings: EasyQuizSettings,
 ): string {
-  // Otimização massiva de tokens: só envia o htmlSnippet cru se não tivermos controles parseados 
-  // ou se o texto legível for absurdamente escasso.
-  const isScarce = context.questionText.length < 80 || context.controls.length === 0
-  const htmlBlock = isScarce ? `\n[HTML FALLBACK (INFO ESCASSA)]:\n${context.htmlSnippet}` : ''
+  // Otimização extrema Anti-Quizizz e economia de tokens
+  // Se o texto puro capturado for razoavelmente longo (ex: > 80 chars),
+  // e as imagens existirem, muito provavelmente o HTML é inútil e só desperdiça tokens.
+  const shouldIncludeHtml = context.questionText.length < 80
 
-  return `--- NOVA ANÁLISE ---
-[MODO]: ${settings.engine}
-[TIPO DICA]: ${settings.modeHint || 'Auto'}
+  const htmlBlock = shouldIncludeHtml
+    ? `\n[HTML FRAGMENT]:\n${context.htmlSnippet}`
+    : `\n[HTML FRAGMENT]: Omitido (Texto puro suficiente. Foque no texto e nos controles).`
+
+  return `--- NOVA QUESTÃO ---
+[MODO REQUERIDO]: ${settings.engine}
+[DICA]: ${settings.modeHint || 'Auto'}
+[SIMULAÇÃO]: ${settings.dryRun ? 'ON' : 'OFF'}
 [URL]: ${context.sourceUrl}
+[PÁGINA]: ${context.pageTitle}
 
 [TEXTO VISÍVEL]:
 ${context.questionText}
 ${htmlBlock}
-[CONTROLES PARSEADOS]:
+
+[CONTROLES]:
 ${JSON.stringify(
   context.controls.map((c) => ({
     id: c.id,
@@ -43,8 +47,10 @@ ${JSON.stringify(
     val: c.value,
     opt: c.options.length ? c.options : undefined,
   })),
+  null,
+  0,
 )}
 
-[QTD IMAGENS ANEXADAS]: ${images.length}
-Gere o plano em JSON estrito.`
+[IMAGENS ANEXADAS]: ${images.length}
+Responda em JSON.`
 }

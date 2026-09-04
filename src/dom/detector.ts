@@ -190,14 +190,15 @@ export function captureCurrentContext(expanded = false): CapturedContext | null 
 }
 
 export function captureFullPageText(): CapturedContext {
-  const scope = document.body
-  const questionText = cleanText(scope.innerText, 8_000) // Fallback hard
+  const rawText = document.body.innerText || document.documentElement.innerText
+  const questionText = cleanText(rawText, 8000)
+  
   return {
     sourceUrl: window.location.href.slice(0, 2_000),
-    pageTitle: document.title.slice(0, 500) || 'Página Inteira (Fallback)',
+    pageTitle: document.title.slice(0, 500) || 'Página Inteira',
     questionText,
-    htmlSnippet: '', // sem HTML para economizar tokens nesse caso extremo
-    controls: [],
-    scope,
+    htmlSnippet: '<!-- HTML omitido no fallback -->',
+    controls: [], // Fallback não tem controles extraídos, IA vai ter que deduzir que não há ação manual ou inferir a partir de clicks às cegas
+    scope: document.body,
   }
 }
