@@ -74,22 +74,19 @@ export class Autopilot {
           await new Promise(r => setTimeout(r, 800))
           await this.callbacks.onRequestAnalysis()
           this.lastActionTime = Date.now()
-        } else if (cache.advanceSelector) {
-          // TELA INFORMATIVA E JÁ SABEMOS O BOTÃO
+        } else if (cache.advanceSelector && findElementExt(cache.advanceSelector)) {
+          // TELA INFORMATIVA E JÁ SABEMOS O BOTÃO, E ELE ESTÁ NA TELA
           const btn = findElementExt(cache.advanceSelector)
           if (btn) {
             this.callbacks.onStatusChange('advancing', `> [BRUTE] Avançando via cache "${cache.advanceSelector}"...`)
             await new Promise(r => setTimeout(r, 1200))
             simulatePointerClick(btn)
             this.lastActionTime = Date.now()
-          } else {
-            // Sabemos o seletor mas não achamos na tela. Pode ser um delay de renderização.
-            this.callbacks.onStatusChange('waiting', '> [SYS] Aguardando tela renderizar...')
           }
         } else {
-          // NÃO TEM QUESTÃO E NÃO SABEMOS O BOTÃO (EX: TELA DE INÍCIO INÉDITA)
-          // Aciona a IA para ela descobrir qual é o botão de avançar/iniciar e salvar no cache!
-          this.callbacks.onStatusChange('analyzing', '> [IA] Mapeando rota desconhecida...')
+          // NÃO TEM QUESTÃO E (NÃO SABEMOS O BOTÃO OU ELE NÃO ESTÁ NA TELA)
+          // Aciona a IA para ela descobrir qual é a ação correta
+          this.callbacks.onStatusChange('analyzing', '> [IA] Rota desconhecida ou botão ausente. Mapeando...')
           await new Promise(r => setTimeout(r, 800))
           await this.callbacks.onRequestAnalysis()
           this.lastActionTime = Date.now()
