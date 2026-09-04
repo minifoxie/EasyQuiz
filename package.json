@@ -1,0 +1,29 @@
+{
+  "name": "easyquiz",
+  "version": "1.0.0",
+  "description": "Ferramenta inteligente de resolução de formulários e quizzes com IA direto no navegador, sem necessidade de servidor.",
+  "type": "module",
+  "main": "dist/easyquiz.js",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/minifoxie/EasyQuiz.git"
+  },
+  "keywords": [
+    "bookmarklet",
+    "quiz-solver",
+    "gemini-ai",
+    "forms-autofill",
+    "serverless",
+    "easyquiz"
+  ],
+  "author": "minifoxie",
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.3"
+  }
+}
