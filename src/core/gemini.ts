@@ -4,33 +4,33 @@ import { buildUserPrompt, SYSTEM_PROMPT } from './prompt'
 export const AVAILABLE_MODELS: ModelOption[] = [
   {
     id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash (Oficial 2026 - Padrão)',
-    description: 'Mais rápido, econômico e disponível universalmente em todas as contas do Google AI Studio.',
+    name: 'Gemini 2.5 Flash (Padrão Oficial 2026)',
+    description: 'Mais rápido, econômico e amplamente disponível em contas Google AI Studio.',
+  },
+  {
+    id: 'gemini-3.5-flash',
+    name: 'Gemini 3.5 Flash (Geração 3 - Alta Velocidade)',
+    description: 'Frontier model com alta inteligência multimodal otimizado para velocidade.',
+  },
+  {
+    id: 'gemini-3.1-flash-lite',
+    name: 'Gemini 3.1 Flash Lite (Ultra Eficiente)',
+    description: 'Equilíbrio ideal entre inteligência e economia extrema de cota.',
   },
   {
     id: 'gemini-2.5-pro',
     name: 'Gemini 2.5 Pro (Raciocínio Avançado)',
-    description: 'Alta capacidade de raciocínio lógico, resolução de problemas complexos e código.',
+    description: 'Alta capacidade de raciocínio lógico, problemas complexos e STEM.',
   },
   {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash (Alta Velocidade)',
-    description: 'Geração multimodal ultrarrápida de baixa latência.',
-  },
-  {
-    id: 'gemini-2.0-flash-lite',
-    name: 'Gemini 2.0 Flash Lite (Ultra Leve)',
-    description: 'Consumo mínimo de cota com resposta instantânea.',
+    id: 'gemini-3.1-pro',
+    name: 'Gemini 3.1 Pro (Raciocínio Profundo)',
+    description: 'Modelo avançado para raciocínio em múltiplos passos e código.',
   },
   {
     id: 'gemini-1.5-flash',
     name: 'Gemini 1.5 Flash (Compatibilidade Ampla)',
-    description: 'Suporte universal de alta compatibilidade em contas legadas.',
-  },
-  {
-    id: 'gemini-1.5-pro',
-    name: 'Gemini 1.5 Pro (Legado)',
-    description: 'Modelo de raciocínio para contas legadas.',
+    description: 'Suporte universal de alta compatibilidade em contas com endpoints legados.',
   },
 ]
 
@@ -83,26 +83,27 @@ function normalizeModel(model: string): string {
 }
 
 function parseGeminiError(errorText: string, status: number): string {
+  let googleMsg = ''
   try {
     const json = JSON.parse(errorText)
-    const message = json.error?.message || json.message || ''
-    if (/API_KEY_INVALID|API key not valid/i.test(message)) {
-      return 'Chave de API do Gemini inválida ou expirada. Verifique no Google AI Studio.'
-    }
-    if (/RESOURCE_EXHAUSTED|Quota exceeded/i.test(message)) {
-      return 'Limite de cota do Gemini (HTTP 429) atingido. Aguarde alguns segundos.'
-    }
-    if (status === 404 || /not found/i.test(message)) {
-      return `Modelo inexistente ou sem permissão na sua conta (HTTP 404)`
-    }
-    if (status === 503 || /overloaded/i.test(message)) {
-      return 'Servidores do Google Gemini sobrecarregados (HTTP 503)'
-    }
-    if (message) return `Erro Gemini (HTTP ${status}): ${message}`
+    googleMsg = json.error?.message || json.message || ''
   } catch {
-    // fallback
+    googleMsg = errorText.slice(0, 160)
   }
-  return `Falha na requisição ao Gemini (HTTP ${status}).`
+
+  if (/API_KEY_INVALID|API key not valid|key.*invalid|unregistered/i.test(googleMsg)) {
+    return 'Chave de API do Gemini inválida ou não autorizada no Google AI Studio.'
+  }
+  if (/RESOURCE_EXHAUSTED|Quota exceeded/i.test(googleMsg) || status === 429) {
+    return 'Limite temporário de cota do Gemini (HTTP 429) atingido. Aguardando recuperação...'
+  }
+  if (status === 404) {
+    return `HTTP 404: ${googleMsg || 'Modelo ou endpoint não encontrado no Google AI Studio'}`
+  }
+  if (status === 503 || /overloaded/i.test(googleMsg)) {
+    return `Servidores Google sobrecarregados (HTTP 503): ${googleMsg || 'Aguardando'}`
+  }
+  return googleMsg ? `Erro Gemini (HTTP ${status}): ${googleMsg}` : `Falha na requisição ao Gemini (HTTP ${status}).`
 }
 
 function robustParsePlan(rawText: string): AnalysisPlan {
@@ -128,66 +129,89 @@ function robustParsePlan(rawText: string): AnalysisPlan {
   }
 }
 
+export let discoveredModelsCache: ModelOption[] | null = null
+const blacklistedModels = new Set<string>()
+
 export async function fetchAvailableModels(apiKey: string): Promise<ModelOption[]> {
-  const key = apiKey.trim()
+  const key = apiKey.trim().replace(/^["']|["']$/g, '')
   if (!key) return AVAILABLE_MODELS
 
-  try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`)
-    if (!res.ok) return AVAILABLE_MODELS
+  const endpoints = [
+    `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`,
+    `https://generativelanguage.googleapis.com/v1/models?key=${encodeURIComponent(key)}`,
+  ]
 
-    const data = await res.json()
-    if (!Array.isArray(data.models)) return AVAILABLE_MODELS
-
-    const validModels: ModelOption[] = data.models
-      .filter((m: any) => {
-        const methods = m.supportedGenerationMethods || []
-        const isGemini = (m.name || '').includes('gemini')
-        const supportsGen = methods.includes('generateContent')
-        const isExcluded =
-          (m.name || '').includes('embedding') ||
-          (m.name || '').includes('tts') ||
-          (m.name || '').includes('imagen') ||
-          (m.name || '').includes('aqa') ||
-          (m.name || '').includes('computer-use')
-        return isGemini && supportsGen && !isExcluded
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': key,
+        },
       })
-      .map((m: any) => {
-        const id = m.name.replace(/^models\//, '')
-        const displayName = m.displayName || id
-        return {
-          id,
-          name: displayName.includes(id) ? displayName : `${displayName} (${id})`,
-          description: m.description || '',
+
+      if (!res.ok) {
+        const errText = await res.text()
+        const parsed = parseGeminiError(errText, res.status)
+        if (parsed.includes('inválida') || parsed.includes('não autorizada')) {
+          throw new Error(parsed)
         }
-      })
+        continue
+      }
 
-    if (validModels.length > 0) {
-      // Prioridade das versões válidas e estáveis de 2026
-      validModels.sort((a, b) => {
-        const getPriority = (id: string) => {
-          if (id === 'gemini-2.5-flash') return 100
-          if (id === 'gemini-2.5-pro') return 90
-          if (id === 'gemini-2.0-flash') return 80
-          if (id === 'gemini-2.0-flash-lite') return 75
-          if (id === 'gemini-1.5-flash') return 70
-          if (id === 'gemini-1.5-pro') return 60
-          if (id.includes('flash')) return 50
-          return 10
+      const data = await res.json()
+      if (Array.isArray(data.models) && data.models.length > 0) {
+        const validModels: ModelOption[] = data.models
+          .filter((m: any) => {
+            const methods = m.supportedGenerationMethods || []
+            const isGemini = (m.name || '').includes('gemini')
+            const supportsGen = methods.includes('generateContent')
+            const isExcluded =
+              (m.name || '').includes('embedding') ||
+              (m.name || '').includes('tts') ||
+              (m.name || '').includes('imagen') ||
+              (m.name || '').includes('aqa') ||
+              (m.name || '').includes('computer-use')
+            return isGemini && supportsGen && !isExcluded
+          })
+          .map((m: any) => {
+            const id = m.name.replace(/^models\//, '')
+            const displayName = m.displayName || id
+            return {
+              id,
+              name: displayName.includes(id) ? displayName : `${displayName} (${id})`,
+              description: m.description || '',
+            }
+          })
+
+        if (validModels.length > 0) {
+          validModels.sort((a, b) => {
+            const getPriority = (id: string) => {
+              if (id === 'gemini-2.5-flash') return 100
+              if (id === 'gemini-3.5-flash') return 95
+              if (id === 'gemini-3.1-flash-lite') return 90
+              if (id === 'gemini-2.5-pro') return 85
+              if (id === 'gemini-3.1-pro') return 80
+              if (id === 'gemini-1.5-flash') return 60
+              if (id.includes('flash')) return 50
+              return 10
+            }
+            return getPriority(b.id) - getPriority(a.id)
+          })
+          discoveredModelsCache = validModels
+          return validModels
         }
-        return getPriority(b.id) - getPriority(a.id)
-      })
-      return validModels
+      }
+    } catch (err) {
+      if ((err as Error).message?.includes('Chave de API')) throw err
     }
-  } catch (err) {
-    console.warn('[EasyQuiz] Não foi possível consultar modelos dinâmicos:', err)
   }
 
   return AVAILABLE_MODELS
 }
 
 export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message: string; models?: ModelOption[] }> {
-  const key = apiKey.trim()
+  const key = apiKey.trim().replace(/^["']|["']$/g, '')
   if (!key) return { ok: false, message: 'Insira sua chave de API.' }
 
   // 1. Tenta listar modelos da conta do usuário diretamente
@@ -201,30 +225,38 @@ export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message
         models,
       }
     }
-  } catch {}
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return { ok: false, message: msg }
+  }
 
-  // 2. Teste direto nos modelos mais compatíveis e universais
-  const testCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
+  // 2. Teste direto nos modelos mais compatíveis em v1beta e v1
+  const testCandidates = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-1.5-flash']
   for (const modelId of testCandidates) {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${encodeURIComponent(key)}`
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: 'PING' }] }],
-          generationConfig: { maxOutputTokens: 5 },
-        }),
-      })
+    for (const apiVer of ['v1beta', 'v1']) {
+      const endpoint = `https://generativelanguage.googleapis.com/${apiVer}/models/${modelId}:generateContent?key=${encodeURIComponent(key)}`
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': key,
+          },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: 'PING' }] }],
+            generationConfig: { maxOutputTokens: 5 },
+          }),
+        })
 
-      if (res.ok) {
-        return {
-          ok: true,
-          message: `Chave de API validada com sucesso no ${modelId}!`,
-          models: AVAILABLE_MODELS,
+        if (res.ok) {
+          return {
+            ok: true,
+            message: `Chave validada com sucesso no ${modelId} (${apiVer})!`,
+            models: AVAILABLE_MODELS,
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
   }
 
   return { ok: false, message: 'Chave de API inválida, sem cota ou sem permissão para modelos Gemini.' }
@@ -236,10 +268,23 @@ export async function analyzeWithGemini(
   settings: EasyQuizSettings,
   onProgress?: (message: string, type?: 'info' | 'warning' | 'error') => void,
 ): Promise<{ plan: AnalysisPlan; rawUsage?: unknown; usedModel?: string }> {
-  const key = settings.apiKey.trim()
+  const key = settings.apiKey.trim().replace(/^["']|["']$/g, '')
   if (!key) throw new Error('Chave de API não configurada.')
 
   const chosenModel = normalizeModel(settings.model)
+
+  // 1. Descoberta dinâmica de modelos na primeira execução se ainda não feita
+  if (!discoveredModelsCache || discoveredModelsCache.length === 0) {
+    try {
+      onProgress?.('Verificando modelos autorizados na sua chave de API...', 'info')
+      await fetchAvailableModels(key)
+    } catch (discoveryErr) {
+      const msg = discoveryErr instanceof Error ? discoveryErr.message : String(discoveryErr)
+      if (msg.includes('inválida') || msg.includes('não autorizada')) {
+        throw new Error(msg)
+      }
+    }
+  }
 
   const userText = buildUserPrompt(context, images, settings)
 
@@ -261,76 +306,112 @@ export async function analyzeWithGemini(
     },
   }
 
-  // Cascata de modelos sólidos e verificados de 2026
-  // Começa pelo modelo escolhido pelo usuário. Se falhar (404/429/503), pula para os modelos disponíveis.
-  const fallbackChain = [
+  // Lista ordenada de modelos a tentar, priorizando o escolhido e os modelos confirmados da conta
+  const rawFallback = [
     chosenModel,
+    ...(discoveredModelsCache?.map((m) => m.id) || []),
     'gemini-2.5-flash',
-    'gemini-2.0-flash',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
     'gemini-2.5-pro',
-    'gemini-2.0-flash-lite',
+    'gemini-3.1-pro',
     'gemini-1.5-flash',
-    'gemini-1.5-pro',
   ]
-  const modelsToTry = Array.from(new Set(fallbackChain))
+  const modelsToTry = Array.from(new Set(rawFallback)).filter((m) => !blacklistedModels.has(m))
+
+  if (modelsToTry.length === 0) {
+    blacklistedModels.clear()
+    modelsToTry.push(...AVAILABLE_MODELS.map((m) => m.id))
+  }
 
   let lastError = new Error('Nenhum modelo tentado.')
 
   for (let i = 0; i < modelsToTry.length; i++) {
     const currentModel = modelsToTry[i]
     const nextModel = modelsToTry[i + 1]
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${encodeURIComponent(key)}`
 
-    try {
-      if (i > 0) {
-        onProgress?.(`Tentando modelo alternativo: ${currentModel}...`, 'info')
+    onProgress?.(`Aguardando resposta da API (${currentModel})...`, 'info')
+
+    // Tenta primeiro em v1beta, se der 404 tenta em v1
+    const versionsToTry = ['v1beta', 'v1']
+
+    for (const apiVer of versionsToTry) {
+      const endpoint = `https://generativelanguage.googleapis.com/${apiVer}/models/${currentModel}:generateContent?key=${encodeURIComponent(key)}`
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 35000)
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': key,
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          const parsedErrorMsg = parseGeminiError(errorText, response.status)
+
+          // Se for 404 e ainda temos a versão v1 para tentar, continua
+          if (response.status === 404 && apiVer === 'v1beta') {
+            continue
+          }
+          throw new Error(parsedErrorMsg)
+        }
+
+        const data = await response.json()
+        const candidate = data.candidates?.[0]
+        if (!candidate || !candidate.content?.parts?.[0]?.text) {
+          throw new Error('A IA não retornou uma resposta estruturada válida.')
+        }
+
+        const rawText = candidate.content.parts[0].text
+        const parsedPlan = robustParsePlan(rawText)
+
+        if (!Array.isArray(parsedPlan.actions)) parsedPlan.actions = []
+        if (!Array.isArray(parsedPlan.warnings)) parsedPlan.warnings = []
+        if (typeof parsedPlan.confidence !== 'number') parsedPlan.confidence = 0.8
+        parsedPlan.usedModel = currentModel
+
+        if (currentModel !== chosenModel) {
+          onProgress?.(`Resolvido com sucesso pelo fallback '${currentModel}' (${apiVer})!`, 'info')
+        }
+
+        return { plan: parsedPlan, rawUsage: data.usageMetadata, usedModel: currentModel }
+      } catch (err) {
+        clearTimeout(timeoutId)
+        lastError = err as Error
+
+        // Se for erro de chave inválida, encerra imediatamente
+        if (lastError.message.includes('inválida') || lastError.message.includes('não autorizada')) {
+          throw lastError
+        }
       }
+    }
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
+    // Se falhou em ambas as versões de API para este modelo
+    const isRateLimit = lastError.message.includes('429') || lastError.message.includes('cota')
+    const isOverloaded = lastError.message.includes('503') || lastError.message.includes('sobrecarregado')
+    const is404 = lastError.message.includes('404')
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        const parsedErrorMsg = parseGeminiError(errorText, response.status)
-        throw new Error(parsedErrorMsg)
-      }
+    if (is404) {
+      blacklistedModels.add(currentModel)
+    }
 
-      const data = await response.json()
-      const candidate = data.candidates?.[0]
-      if (!candidate || !candidate.content?.parts?.[0]?.text) {
-        throw new Error('A IA não retornou uma resposta estruturada válida.')
-      }
-
-      const rawText = candidate.content.parts[0].text
-      const parsedPlan = robustParsePlan(rawText)
-
-      if (!Array.isArray(parsedPlan.actions)) parsedPlan.actions = []
-      if (!Array.isArray(parsedPlan.warnings)) parsedPlan.warnings = []
-      if (typeof parsedPlan.confidence !== 'number') parsedPlan.confidence = 0.8
-      parsedPlan.usedModel = currentModel
-
-      if (currentModel !== chosenModel) {
-        onProgress?.(`Modelo '${chosenModel}' falhou. Resolvido com sucesso pelo fallback '${currentModel}'!`, 'info')
-      }
-
-      return { plan: parsedPlan, rawUsage: data.usageMetadata, usedModel: currentModel }
-    } catch (err) {
-      lastError = err as Error
-      // Se for chave inválida ou expirada, falha imediatamente
-      if (lastError.message.includes('inválida') || lastError.message.includes('expirada')) {
-        throw lastError
-      }
-
-      if (nextModel) {
-        const warnMsg = `Modelo '${currentModel}' indisponível (${lastError.message}). Alternando automaticamente para '${nextModel}'...`
-        console.warn(`[EasyQuiz Fallback] ${warnMsg}`)
-        onProgress?.(warnMsg, 'warning')
-      } else {
-        console.warn(`[EasyQuiz Fallback] Modelo '${currentModel}' falhou: ${lastError.message}. Todos os modelos esgotados.`)
-      }
+    if (nextModel) {
+      const pauseMs = isRateLimit ? 3500 : isOverloaded ? 2500 : 900
+      const warnMsg = `Modelo '${currentModel}' indisponível (${lastError.message}). Aguardando ${pauseMs / 1000}s antes de alternar para '${nextModel}'...`
+      console.warn(`[EasyQuiz Fallback] ${warnMsg}`)
+      onProgress?.(warnMsg, 'warning')
+      await new Promise((r) => setTimeout(r, pauseMs))
+    } else {
+      console.warn(`[EasyQuiz Fallback] Modelo '${currentModel}' falhou: ${lastError.message}. Todos os modelos esgotados.`)
     }
   }
 

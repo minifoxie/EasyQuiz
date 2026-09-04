@@ -95,12 +95,13 @@ export class Autopilot {
             }
           } else {
             this.errorCount++
+            const cooldown = this.errorCount === 1 ? 5000 : 8000
             this.callbacks.onStatusChange(
               'waiting',
-              `> [AVISO] Falha na análise (${this.errorCount}/3). Verifique a mensagem de erro acima.`,
+              `> [AVISO] Falha na análise (${this.errorCount}/3). Aguardando ${cooldown / 1000}s para estabilização antes de tentar novamente...`,
               'text-yellow',
             )
-            await new Promise((r) => setTimeout(r, 2500))
+            await new Promise((r) => setTimeout(r, cooldown))
           }
           this.lastActionTime = Date.now()
         } else if (cache.advanceSelector && findElementExt(cache.advanceSelector) && context.questionText.length < 50) {
@@ -146,12 +147,13 @@ export class Autopilot {
             this.errorCount = 0
           } else {
             this.errorCount++
+            const cooldown = this.errorCount === 1 ? 5000 : 8000
             this.callbacks.onStatusChange(
               'waiting',
-              `> [AVISO] Falha ao processar página (${this.errorCount}/3). Verifique o erro detalhado acima.`,
+              `> [AVISO] Falha ao processar página (${this.errorCount}/3). Aguardando ${cooldown / 1000}s para estabilização antes de tentar novamente...`,
               'text-yellow',
             )
-            await new Promise((r) => setTimeout(r, 2500))
+            await new Promise((r) => setTimeout(r, cooldown))
           }
           this.lastActionTime = Date.now()
         }
