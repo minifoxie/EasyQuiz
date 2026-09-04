@@ -21,7 +21,8 @@ Regras Absolutas:
 5. Se a questão for de categorizar ou associar itens a caixas/categorias:
    - Use "drag" com "from" e "to", OU
    - Gere microscript JS: ex: { "t": "js", "v": "$eq.categorize('Texto Item', 'Texto Categoria');" }
-   - Sempre inclua { "t": "adv" } ao final para confirmar.`
+   - Sempre inclua { "t": "adv" } ao final para confirmar.
+6. "needsMoreContext": true se a seleção atual parecer restrita ou isolada (cortando o enunciado da pergunta, faltando contexto do texto-base ou opções). O EasyQuiz acionará a SELEÇÃO GERAL EXPANDIDA, ampliando o escopo para o container completo da página para lhe dar visão total.`
 
 export function buildUserPrompt(
   context: CapturedContext,

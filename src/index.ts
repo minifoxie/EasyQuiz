@@ -87,9 +87,9 @@ async function initEasyQuiz(): Promise<void> {
 
       let { plan } = await analyzeWithGemini(context, images, settings)
 
-      // Se a IA pediu mais contexto ao redor da questão
+      // Se a IA pediu mais contexto ou detectou que o escopo estava isolado
       if (plan.needsMoreContext) {
-        panel.setStatus('Expandindo contexto ao redor da questão para maior assertividade...', 'info')
+        panel.setStatus('Enunciado ou contexto isolado detectado pela IA. Acionando Seleção Geral Expandida...', 'info')
         context = captureCurrentContext(true)
         if (!context) {
           const { captureFullPageText } = await import('./dom/detector')
@@ -97,6 +97,7 @@ async function initEasyQuiz(): Promise<void> {
         }
         highlightScope(context.scope)
         images = await captureImages(context.scope)
+        panel.setStatus(`Reconsultando IA com escopo ampliado (${context.controls.length} controles)...`, 'info')
         const recheck = await analyzeWithGemini(context, images, settings)
         plan = recheck.plan
       }

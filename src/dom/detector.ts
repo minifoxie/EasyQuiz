@@ -8,13 +8,15 @@ import {
 } from './controls'
 
 const CANDIDATE_SELECTORS = [
+  // Khan Academy & Perseus
+  '[data-test-id*="exercise" i]',
+  '[data-testid*="exercise" i]',
+  '.perseus-renderer',
+  '.framework-perseus',
   // Google Forms
   '.Qr7Oae',
-  '.geSAlb',
-  '[role="listitem"]',
   // Moodle & AVA
   '.que',
-  '.form-group',
   '.question-holder',
   // Canvas & Blackboard
   '.quiz-question',
@@ -23,20 +25,15 @@ const CANDIDATE_SELECTORS = [
   // Kahoot & Quizizz
   '[data-functional-selector*="question"]',
   '.question-container',
-  // Genéricos e semânticos
+  // Genéricos e semânticos de bloco completo
   '[data-question-id]',
   '[data-testid*="question" i]',
+  '[class*="question-container" i]',
   '[class*="question" i]',
   '[class*="pergunta" i]',
-  '[id*="question" i]',
-  '[id*="pergunta" i]',
-  'fieldset',
-  'form',
   'article',
+  'form',
   'section',
-  '[role="group"]',
-  '[role="region"]',
-  '[role="dialog"]',
   'main',
 ].join(',')
 
@@ -54,24 +51,79 @@ function scoreCandidate(element: HTMLElement): number {
   const elementArea = Math.max(1, rect.width * rect.height)
   const areaRatio = Math.min(1, elementArea / viewportArea)
 
-  // Dá preferência a blocos que ocupam proporção razoável da tela, não o body inteiro
   const centerY = rect.top + rect.height / 2
   const centerDistance = Math.abs(centerY - window.innerHeight / 2) / Math.max(1, window.innerHeight)
 
-  // Densidade de controles por área
-  const density = Math.min(60, (controls.length * 15_000) / elementArea)
+  // Bônus para elementos que agregam tanto o enunciado (texto > 40 chars) quanto controles
+  const hasSubstantialText = textLength > 40 ? 35 : 0
 
   // Se o elemento estiver visível no viewport atual, ganha bônus
-  const inViewportBonus = rect.top >= 0 && rect.bottom <= window.innerHeight ? 30 : 0
+  const inViewportBonus = rect.top >= 0 && rect.bottom <= window.innerHeight ? 25 : 0
 
   return (
-    controls.length * 20 +
-    Math.min(50, textLength / 25) +
-    density +
+    controls.length * 15 +
+    Math.min(60, textLength / 20) +
+    hasSubstantialText +
     inViewportBonus -
-    areaRatio * 60 -
-    centerDistance * 15
+    areaRatio * 20 -
+    centerDistance * 10
   )
+}
+
+export function findTrueQuestionContainer(element: HTMLElement): HTMLElement {
+  let curr = element
+
+  while (curr.parentElement && curr.parentElement !== document.body && curr.parentElement !== document.documentElement) {
+    const parent = curr.parentElement
+    const parentTag = parent.tagName.toLowerCase()
+    if (['header', 'footer', 'nav', 'aside'].includes(parentTag)) break
+
+    // Se o pai é um seletor conhecido de container de questão
+    if (
+      parent.matches?.(
+        'article, section, form, [data-test-id*="exercise" i], [data-testid*="exercise" i], .perseus-renderer, .framework-perseus, [class*="question-container" i], .que, main'
+      )
+    ) {
+      curr = parent
+      break
+    }
+
+    const currText = cleanText(curr.innerText, 10000)
+    const parentText = cleanText(parent.innerText, 10000)
+    const currControlsCount = curr.querySelectorAll(CONTROL_SELECTOR).length
+    const parentControlsCount = parent.querySelectorAll(CONTROL_SELECTOR).length
+
+    // Se o elemento atual tem texto curto (< 150 chars) e o pai agrega o enunciado sem trazer outros blocos desconexos
+    if (currText.length < 150 && parentText.length > currText.length && parentControlsCount <= currControlsCount + 4) {
+      curr = parent
+      continue
+    }
+
+    break
+  }
+
+  return curr
+}
+
+export function expandToGeneralSelection(scope: HTMLElement): HTMLElement {
+  let curr = scope
+  // Sobe procurando o container maior do exercício, artigo, formulário ou main
+  const candidate = curr.closest(
+    'main, [role="main"], article, form, [data-test-id*="exercise" i], [data-testid*="exercise" i], .framework-perseus, section'
+  ) as HTMLElement | null
+
+  if (candidate && candidate !== document.body && isVisible(candidate)) {
+    return candidate
+  }
+
+  // Se não achar por seletor semântico, sobe até 3 níveis na árvore DOM
+  let count = 0
+  while (curr.parentElement && curr.parentElement !== document.body && count < 3) {
+    curr = curr.parentElement
+    count++
+  }
+
+  return curr || document.body
 }
 
 export function findActiveScope(): HTMLElement {
@@ -80,7 +132,7 @@ export function findActiveScope(): HTMLElement {
   if (active && active !== document.body) {
     const focusedScope = active.closest(CANDIDATE_SELECTORS) as HTMLElement | null
     if (focusedScope && scoreCandidate(focusedScope) > 0) {
-      return focusedScope
+      return findTrueQuestionContainer(focusedScope)
     }
   }
 
@@ -92,7 +144,7 @@ export function findActiveScope(): HTMLElement {
     .sort((a, b) => b.score - a.score)
 
   if (ranked.length > 0 && ranked[0].score > 0) {
-    return ranked[0].element
+    return findTrueQuestionContainer(ranked[0].element)
   }
 
   // 3. Fallback: procurar o formulário principal ou main
@@ -174,8 +226,10 @@ export function extractNavigationControls(scope: HTMLElement): ControlDescriptor
 
 export function captureCurrentContext(expanded = false): CapturedContext | null {
   let scope = findActiveScope()
-  if (expanded && scope.parentElement && scope.parentElement !== document.body) {
-    scope = scope.parentElement
+  scope = findTrueQuestionContainer(scope)
+
+  if (expanded) {
+    scope = expandToGeneralSelection(scope)
   }
 
   const questionText = cleanText(scope.innerText, 16_000)
