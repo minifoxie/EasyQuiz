@@ -1,1 +1,1 @@
-javascript:(function(){document.head.appendChild(document.createElement('script')).src='https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/easyquiz.js'})();
+javascript:fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/easyquiz.js?t='+Date.now()).then(r=>r.text()).then(eval);
