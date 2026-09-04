@@ -61,16 +61,42 @@ function parseGeminiError(errorText: string, status: number): string {
     const json = JSON.parse(errorText)
     const message = json.error?.message || json.message || ''
     if (/API_KEY_INVALID|API key not valid/i.test(message)) {
-      return 'Chave de API do Gemini inválida ou não autorizada. Verifique no Google AI Studio.'
+      return 'Chave de API do Gemini inválida ou expirada. Verifique no Google AI Studio.'
     }
     if (/RESOURCE_EXHAUSTED|Quota exceeded/i.test(message)) {
-      return 'Limite de cota do Gemini atingido temporariamente. Aguarde alguns segundos.'
+      return 'Limite de cota do Gemini (HTTP 429) atingido. Aguarde alguns segundos.'
     }
-    if (message) return `Erro Gemini (${status}): ${message}`
+    if (status === 503 || /overloaded/i.test(message)) {
+      return 'Servidores do Google Gemini sobrecarregados (HTTP 503). Alternando modelo...'
+    }
+    if (message) return `Erro Gemini (HTTP ${status}): ${message}`
   } catch {
     // fallback
   }
   return `Falha na requisição ao Gemini (HTTP ${status}). Verifique sua conexão e chave.`
+}
+
+function robustParsePlan(rawText: string): AnalysisPlan {
+  try {
+    return JSON.parse(rawText) as AnalysisPlan
+  } catch (initialErr) {
+    const cleaned = rawText.trim()
+    const attempts = [
+      cleaned + '}',
+      cleaned + ']}',
+      cleaned + '"}]}',
+      cleaned + '"]}',
+      cleaned + '}]}',
+      cleaned + '}]}}',
+    ]
+    for (const attempt of attempts) {
+      try {
+        const parsed = JSON.parse(attempt) as AnalysisPlan
+        if (parsed && typeof parsed === 'object') return parsed
+      } catch {}
+    }
+    throw new Error(`Falha ao decodificar JSON da IA (${initialErr instanceof Error ? initialErr.message : 'incompleto'})`)
+  }
 }
 
 export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message: string }> {
@@ -125,22 +151,22 @@ export async function analyzeWithGemini(
     contents: [{ role: 'user', parts }],
     generationConfig: {
       temperature: 0.05, // Extremamente baixo para manter previsibilidade
-      maxOutputTokens: 400, // Força a IA a ser direta e objetiva, gerando economia massiva de tokens
+      maxOutputTokens: 2500, // Amplo espaço para categorizações, explicações e arrays de ações sem truncamento
       response_mime_type: 'application/json',
       response_schema: GEMINI_JSON_SCHEMA,
     },
   }
 
-  const modelsToTry = settings.uiMode === 'easy' ? AVAILABLE_MODELS.map(m => m.id) : [model]
+  const modelsToTry = settings.uiMode === 'easy' ? AVAILABLE_MODELS.map((m) => m.id) : [model]
   if (settings.uiMode === 'easy' && !modelsToTry.includes(model)) {
     modelsToTry.unshift(model) // Prioridade para o modelo escolhido
   }
 
   let lastError = new Error('Nenhum modelo tentado.')
-  
+
   for (const currentModel of new Set(modelsToTry)) {
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${encodeURIComponent(key)}`
-    
+
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -160,12 +186,8 @@ export async function analyzeWithGemini(
         throw new Error('A IA não retornou uma resposta estruturada válida.')
       }
 
-      let parsedPlan: AnalysisPlan
-      try {
-        parsedPlan = JSON.parse(candidate.content.parts[0].text) as AnalysisPlan
-      } catch {
-        throw new Error('Falha ao decodificar o plano JSON da IA.')
-      }
+      const rawText = candidate.content.parts[0].text
+      const parsedPlan = robustParsePlan(rawText)
 
       if (!Array.isArray(parsedPlan.actions)) parsedPlan.actions = []
       if (!Array.isArray(parsedPlan.warnings)) parsedPlan.warnings = []
@@ -179,7 +201,7 @@ export async function analyzeWithGemini(
       if (settings.uiMode !== 'easy' || lastError.message.includes('inválida')) {
         throw lastError
       }
-      console.warn(`[EasyQuiz] Fallback: Falha no modelo ${currentModel}. Tentando próximo...`, err)
+      console.warn(`[EasyQuiz] Fallback: Falha no modelo ${currentModel}: ${lastError.message}. Tentando próximo modelo...`)
     }
   }
 

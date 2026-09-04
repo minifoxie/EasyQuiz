@@ -453,6 +453,17 @@ export class EasyQuizPanel {
   public setStatus(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
     this.statusBox.textContent = message
     this.statusBox.className = `eq-status-box ${type}`
+
+    if (this.apConsole && this.autopilot && this.autopilot.isActive()) {
+      const entry = document.createElement('div')
+      const prefix = type === 'error' ? '> [ERRO DETALHADO] ' : type === 'success' ? '> [SUCESSO] ' : '> [SISTEMA] '
+      entry.textContent = `${prefix}${message}`
+      if (type === 'error') entry.className = 'text-red'
+      else if (type === 'success') entry.className = 'text-green'
+      else entry.className = 'text-blue'
+      this.apConsole.appendChild(entry)
+      this.apConsole.scrollTop = this.apConsole.scrollHeight
+    }
   }
 
   public setPlan(plan: AnalysisPlan, canApply: boolean): void {

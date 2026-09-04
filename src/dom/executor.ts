@@ -24,21 +24,38 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
 
   // 4. Tenta encontrar via XPath por texto exato, aria-label ou data-category
   try {
-    const xpath = `//*[text()="${trimmed}"] | //*[contains(text(),"${trimmed}")] | //*[@aria-label="${trimmed}"] | //*[@data-category="${trimmed}"] | //*[@data-testid="${trimmed}"]`
+    const cleanXpathText = trimmed.replace(/"/g, '')
+    const xpath = `//*[text()="${cleanXpathText}"] | //*[contains(text(),"${cleanXpathText}")] | //*[@aria-label="${cleanXpathText}"] | //*[@data-category="${cleanXpathText}"] | //*[@data-testid="${cleanXpathText}"]`
     const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null)
     if (result.singleNodeValue) return result.singleNodeValue as HTMLElement
   } catch {}
 
-  // 5. Busca flexível (case-insensitive) nos elementos visíveis
-  const targetLower = trimmed.toLowerCase()
-  const candidates = Array.from(document.querySelectorAll('button, a, div, span, li, p, label, input, [draggable="true"]')) as HTMLElement[]
+  // 5. Busca flexível (case-insensitive e contenção de substring) nos elementos visíveis
+  const targetClean = cleanText(trimmed).toLowerCase().replace(/['"“”«»]/g, '')
+  const candidates = Array.from(
+    document.querySelectorAll(
+      'button, a, div, span, li, p, label, input, [draggable="true"], [data-testid], [class*="option"], [class*="card"]',
+    ),
+  ) as HTMLElement[]
+
   for (const item of candidates) {
-    const txt = (item.textContent || '').trim().toLowerCase()
-    const aria = (item.getAttribute('aria-label') || '').trim().toLowerCase()
-    const cat = (item.getAttribute('data-category') || '').trim().toLowerCase()
-    const testid = (item.getAttribute('data-testid') || '').trim().toLowerCase()
-    if (txt === targetLower || aria === targetLower || cat === targetLower || testid === targetLower) {
+    const txt = cleanText(item.textContent).toLowerCase().replace(/['"“”«»]/g, '')
+    const aria = cleanText(item.getAttribute('aria-label')).toLowerCase().replace(/['"“”«»]/g, '')
+    const cat = cleanText(item.getAttribute('data-category')).toLowerCase().replace(/['"“”«»]/g, '')
+    const testid = cleanText(item.getAttribute('data-testid')).toLowerCase()
+    if (txt === targetClean || aria === targetClean || cat === targetClean || testid === targetClean) {
       return item
+    }
+  }
+
+  // Prioridade 2: elemento que contém o texto alvo (ótimo para cards com drag handle :: ou pontuação)
+  if (targetClean.length > 6) {
+    for (const item of candidates) {
+      if (item.children.length > 6) continue // Evita pegar grandes containers
+      const txt = cleanText(item.textContent).toLowerCase().replace(/['"“”«»]/g, '')
+      if (txt.includes(targetClean) || (txt.length > 10 && targetClean.includes(txt))) {
+        return item
+      }
     }
   }
 
@@ -229,7 +246,7 @@ export const EqAPI = {
 ;(window as any).$eq = EqAPI
 
 // ---- EXECUTOR DECLARATIVO ----
-function executeDeclarativeAction(action: DeclarativeAction): void {
+async function executeDeclarativeAction(action: DeclarativeAction): Promise<void> {
   if (action.t === 'js') {
     const code = String(action.v || '')
     try {
@@ -247,7 +264,12 @@ function executeDeclarativeAction(action: DeclarativeAction): void {
     if (fromEl && toEl) {
       simulateDragDrop(fromEl, toEl)
       simulatePointerClick(fromEl)
-      setTimeout(() => simulatePointerClick(toEl), 150)
+      await new Promise((r) => setTimeout(r, 150))
+      simulatePointerClick(toEl)
+      const dropChild = toEl.querySelector('[data-role="dropzone"], [class*="bucket" i], [class*="drop" i]') as HTMLElement | null
+      if (dropChild && dropChild !== toEl) {
+        simulatePointerClick(dropChild)
+      }
     } else {
       console.warn(`[EasyQuiz] Drag: alvo não encontrado (${action.from} -> ${action.to})`)
     }
@@ -307,7 +329,10 @@ export async function executePlan(
   const advanceActions = plan.actions.filter((a) => a.t === 'adv')
 
   for (const action of regularActions) {
-    executeDeclarativeAction(action)
+    await executeDeclarativeAction(action)
+    if (action.t === 'drag') {
+      await new Promise((resolve) => setTimeout(resolve, 350))
+    }
   }
 
   let advanced = false

@@ -95,7 +95,12 @@ export class Autopilot {
             }
           } else {
             this.errorCount++
-            this.callbacks.onStatusChange('waiting', `> [AVISO] Falha ao analisar questão (${this.errorCount}/3)...`, 'text-yellow')
+            this.callbacks.onStatusChange(
+              'waiting',
+              `> [AVISO] Falha na análise (${this.errorCount}/3). Verifique a mensagem de erro acima.`,
+              'text-yellow',
+            )
+            await new Promise((r) => setTimeout(r, 2500))
           }
           this.lastActionTime = Date.now()
         } else if (cache.advanceSelector && findElementExt(cache.advanceSelector) && context.questionText.length < 50) {
@@ -141,13 +146,27 @@ export class Autopilot {
             this.errorCount = 0
           } else {
             this.errorCount++
-            this.callbacks.onStatusChange('waiting', `> [AVISO] Falha ao processar página (${this.errorCount}/3)...`, 'text-yellow')
+            this.callbacks.onStatusChange(
+              'waiting',
+              `> [AVISO] Falha ao processar página (${this.errorCount}/3). Verifique o erro detalhado acima.`,
+              'text-yellow',
+            )
+            await new Promise((r) => setTimeout(r, 2500))
           }
           this.lastActionTime = Date.now()
         }
 
         if (this.errorCount >= 3) {
-          this.callbacks.onStatusChange('error', '> [ERRO] 3 falhas consecutivas. Abortando Autopilot para poupar tokens.', 'text-red')
+          this.callbacks.onStatusChange(
+            'error',
+            '> [ERRO] 3 falhas consecutivas. Abortando Autopilot para poupar sua cota e tokens.',
+            'text-red',
+          )
+          this.callbacks.onStatusChange(
+            'waiting',
+            '> [DICA] Verifique a mensagem vermelha de [ERRO DETALHADO] no console acima para saber o motivo exato.',
+            'text-yellow',
+          )
           this.stop()
           return
         }
