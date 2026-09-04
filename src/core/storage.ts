@@ -69,3 +69,21 @@ export function saveSettings(settings: Partial<EasyQuizSettings>): EasyQuizSetti
   }
   return updated
 }
+
+// ==== MEMÓRIA DE SESSÃO DA IA (RAG AUTÔNOMO) ====
+let sessionContextMemory: string[] = []
+
+export function addSessionMemory(text: string): void {
+  const clean = text.trim()
+  if (clean && !sessionContextMemory.includes(clean)) {
+    sessionContextMemory.push(clean)
+  }
+}
+
+export function getSessionMemories(): string[] {
+  return sessionContextMemory
+}
+
+export function clearSessionMemories(): void {
+  sessionContextMemory = []
+}

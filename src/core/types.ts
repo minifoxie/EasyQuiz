@@ -65,6 +65,7 @@ export interface AnalysisPlan {
   warnings: string[]
   actions: DeclarativeAction[]
   usedModel?: string
+  memoryToStore?: string
 }
 
 export interface ModelOption {

@@ -101,6 +101,12 @@ async function initEasyQuiz(): Promise<void> {
         plan = recheck.plan
       }
 
+      if (plan.memoryToStore) {
+        const { addSessionMemory } = await import('./core/storage')
+        addSessionMemory(plan.memoryToStore)
+        console.log('[EasyQuiz] Memória de sessão armazenada:', plan.memoryToStore)
+      }
+
       latestPlan = plan
       highlightTargetActions(plan.actions)
       panel.setPlan(plan, !settings.dryRun)

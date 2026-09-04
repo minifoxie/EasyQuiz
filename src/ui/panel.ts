@@ -1,5 +1,6 @@
 import type { AnalysisPlan, EasyQuizSettings, ResponseMode, ExecutionEngine } from '../core/types'
 import { AVAILABLE_MODELS, testApiKey } from '../core/gemini'
+import { clearSessionMemories } from '../core/storage'
 import { Autopilot, type AutopilotStatus } from '../dom/autopilot'
 import { ICONS } from './icons'
 import { PANEL_STYLES } from './styles'
@@ -127,14 +128,19 @@ export class EasyQuizPanel {
         <!-- MODO FÁCIL -->
         <div class="eq-content" id="eq-content-easy" style="display: none;">
           <div class="eq-autopilot-container">
-            <button class="eq-btn-primary eq-pulse" id="eq-ap-toggle-btn" type="button">
-              INICIAR AUTOPILOT
-            </button>
+            <div style="display: flex; gap: 8px;">
+              <button class="eq-btn-primary eq-pulse" id="eq-ap-toggle-btn" type="button" style="flex: 1;">
+                INICIAR AUTOPILOT
+              </button>
+              <button class="eq-btn-secondary" id="eq-ap-clear-memory" type="button" title="Limpar Memória de Sessão">
+                🧠 Limpar
+              </button>
+            </div>
             <div class="eq-ap-console" id="eq-ap-console">
               > [SYS] Pronto para ligar...
             </div>
           </div>
-          <div class="eq-footer-note">Híbrido 3.0 • Brute Force + AI</div>
+          <div class="eq-footer-note">Híbrido 4.0 • RAG + Brute Force + AI</div>
         </div>
 
         <!-- MODO AVANÇADO -->
@@ -300,6 +306,12 @@ export class EasyQuizPanel {
         this.apToggleBtn.textContent = 'PARAR AUTOPILOT'
         this.apToggleBtn.classList.add('active')
       }
+    })
+
+    const clearMemoryBtn = this.shadow.querySelector('#eq-ap-clear-memory') as HTMLButtonElement
+    clearMemoryBtn.addEventListener('click', () => {
+      clearSessionMemories()
+      this.apConsole.innerHTML = '<span style="color:#00ff55">> [SYS] Memória de sessão limpa com sucesso.</span>'
     })
 
     this.launcherBtn.addEventListener('click', () => this.toggle())

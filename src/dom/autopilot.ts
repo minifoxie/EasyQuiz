@@ -80,6 +80,10 @@ export class Autopilot {
             this.callbacks.onStatusChange('analyzing', `> [IA] Ações geradas: ${plan.actions.length}`, 'text-blue')
             this.errorCount = 0
             
+            if (plan.memoryToStore) {
+              this.callbacks.onStatusChange('analyzing', `> [IA] 🧠 Memória RAG salva: "${plan.memoryToStore}"`, 'text-yellow')
+            }
+            
             if (plan.pageType === 'conclusion') {
               this.callbacks.onStatusChange('idle', '> [SYS] Atividade concluída! Desligando Autopilot.', 'text-green')
               this.stop()
@@ -107,6 +111,10 @@ export class Autopilot {
           if (plan) {
             this.callbacks.onStatusChange('analyzing', `> [IA] (${plan.usedModel || 'gemini'}) Confiança: ${(plan.confidence * 100).toFixed(1)}% | Modo: ${plan.mode}`, 'text-blue')
             this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
+            
+            if (plan.memoryToStore) {
+              this.callbacks.onStatusChange('analyzing', `> [IA] 🧠 Memória RAG salva: "${plan.memoryToStore}"`, 'text-yellow')
+            }
             
             if (plan.pageType === 'conclusion') {
               this.callbacks.onStatusChange('idle', '> [SYS] Atividade concluída! Desligando Autopilot.', 'text-green')
