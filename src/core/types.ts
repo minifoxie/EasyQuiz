@@ -83,3 +83,15 @@ export interface EasyQuizSettings {
   hostDarkMode: boolean
   confidenceThreshold: number
 }
+
+export const DEFAULT_SETTINGS: EasyQuizSettings = {
+  apiKey: '',
+  model: 'gemini-3.8-flash',
+  modeHint: '',
+  engine: 'smart',
+  dryRun: false,
+  autoApply: false,
+  autoAdvance: false,
+  hostDarkMode: true,
+  confidenceThreshold: 0.8,
+}

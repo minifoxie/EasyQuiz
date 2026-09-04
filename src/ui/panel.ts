@@ -179,6 +179,10 @@ export class EasyQuizPanel {
     this.setupEventListeners()
     document.documentElement.appendChild(this.host)
     this.applyHostDarkMode(initialSettings.hostDarkMode)
+
+    // Tornar painel e launcher arrastáveis
+    this.makeDraggable(this.panelEl, this.shadow.querySelector('.eq-header') as HTMLElement)
+    this.makeDraggable(this.launcherBtn, this.launcherBtn)
   }
 
   private setupEventListeners(): void {
@@ -221,19 +225,82 @@ export class EasyQuizPanel {
   private applyHostDarkMode(enable: boolean) {
     const STYLE_ID = 'eq-host-dark-mode-style'
     let styleEl = document.getElementById(STYLE_ID)
+    
     if (enable) {
+      // Prevenção: verifica se a página já é escura nativamente
+      let bg = window.getComputedStyle(document.body).backgroundColor
+      if (bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') {
+        bg = window.getComputedStyle(document.documentElement).backgroundColor
+      }
+      if (bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') {
+        bg = 'rgb(255, 255, 255)' // default do browser
+      }
+      const rgb = bg.match(/\d+/g)
+      if (rgb && rgb.length >= 3) {
+        const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000
+        if (brightness < 100) {
+          console.log('[EasyQuiz] Fundo escuro detectado. Smart Dark Mode preventivamente suspenso.')
+          return // Não inverte se já for escuro
+        }
+      }
+
       if (!styleEl) {
         styleEl = document.createElement('style')
         styleEl.id = STYLE_ID
+        // Inverte html, desinverte imagens e desinverte o próprio EasyQuiz
         styleEl.innerHTML = `
           html { filter: invert(1) hue-rotate(180deg) !important; background: #fff !important; }
           img, video, canvas, [style*="background-image"] { filter: invert(1) hue-rotate(180deg) !important; }
+          #easyquiz-shadow-root { filter: invert(1) hue-rotate(180deg) !important; }
         `
         document.head.appendChild(styleEl)
       }
     } else {
       if (styleEl) styleEl.remove()
     }
+  }
+
+  private makeDraggable(element: HTMLElement, handle: HTMLElement) {
+    let isDragging = false
+    let startX = 0, startY = 0, initialX = 0, initialY = 0
+
+    handle.style.cursor = 'grab'
+    
+    handle.addEventListener('mousedown', (e) => {
+      // Não inicia se clicou em um botão
+      if ((e.target as HTMLElement).closest('button')) return
+      isDragging = true
+      handle.style.cursor = 'grabbing'
+      startX = e.clientX
+      startY = e.clientY
+      
+      const rect = element.getBoundingClientRect()
+      // Pegar as posições baseadas no que está renderizado
+      initialX = rect.left
+      initialY = rect.top
+      
+      // Remove right/bottom para usar apenas left/top
+      element.style.right = 'auto'
+      element.style.bottom = 'auto'
+      element.style.left = initialX + 'px'
+      element.style.top = initialY + 'px'
+      e.preventDefault()
+    })
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return
+      const dx = e.clientX - startX
+      const dy = e.clientY - startY
+      element.style.left = (initialX + dx) + 'px'
+      element.style.top = (initialY + dy) + 'px'
+    })
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false
+        handle.style.cursor = 'grab'
+      }
+    })
   }
 
   public toggle(force?: boolean): void {
