@@ -42,7 +42,13 @@ export class EasyQuizPanel {
   private statusBox: HTMLElement
   private resultContainer: HTMLElement
   private apiKeyInput: HTMLInputElement
+  private apiKeyEasyInput: HTMLInputElement
+  private saveKeyAdvBtn: HTMLButtonElement
+  private saveKeyEasyBtn: HTMLButtonElement
   private testKeyBtn: HTMLButtonElement
+  private testKeyEasyBtn: HTMLButtonElement
+  private toggleKeyAdvBtn: HTMLButtonElement
+  private toggleKeyEasyBtn: HTMLButtonElement
   private modelSelect: HTMLSelectElement
   private modeSelect: HTMLSelectElement
   private engineSelect: HTMLSelectElement
@@ -130,8 +136,25 @@ export class EasyQuizPanel {
 
         <!-- MODO FÁCIL -->
         <div class="eq-content" id="eq-content-easy" style="display: none;">
-          <div class="eq-autopilot-container">
-            <div style="display: flex; gap: 8px;">
+          <div class="eq-field-group" style="margin-bottom: 2px;">
+            <div class="eq-section-title">
+              <span>Chave Gemini (API Key)</span>
+              <div style="display: flex; gap: 8px;">
+                <button class="eq-mini-btn" id="eq-toggle-key-easy" type="button">👁️ Mostrar</button>
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="eq-link">
+                  Obter Grátis
+                </a>
+              </div>
+            </div>
+            <div class="eq-input-wrap">
+              <input id="eq-api-key-easy" class="eq-input" type="password" placeholder="Cole sua chave AIzaSy..." autocomplete="off" spellcheck="false" />
+              <button class="eq-input-action-btn" id="eq-save-key-easy" type="button" title="Salvar Chave">💾 Salvar</button>
+              <button class="eq-input-action-btn" id="eq-test-key-easy" type="button" title="Testar Chave">${ICONS.key} Testar</button>
+            </div>
+          </div>
+
+          <div class="eq-autopilot-container" style="padding: 10px 0;">
+            <div style="display: flex; gap: 8px; width: 100%;">
               <button class="eq-btn-primary eq-pulse" id="eq-ap-toggle-btn" type="button" style="flex: 1;">
                 INICIAR AUTOPILOT
               </button>
@@ -151,13 +174,17 @@ export class EasyQuizPanel {
           <div class="eq-field-group">
             <div class="eq-section-title">
               <span>Chave Gemini (API Key)</span>
-              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="eq-link">
-                Obter Grátis
-              </a>
+              <div style="display: flex; gap: 8px;">
+                <button class="eq-mini-btn" id="eq-toggle-key-adv" type="button">👁️ Mostrar</button>
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="eq-link">
+                  Obter Grátis
+                </a>
+              </div>
             </div>
             <div class="eq-input-wrap">
               <input id="eq-api-key" class="eq-input" type="password" placeholder="Cole sua chave AIzaSy..." autocomplete="off" spellcheck="false" />
-              <button class="eq-input-action-btn" id="eq-test-key-btn" type="button">${ICONS.key} Testar</button>
+              <button class="eq-input-action-btn" id="eq-save-key-adv" type="button" title="Salvar Chave">💾 Salvar</button>
+              <button class="eq-input-action-btn" id="eq-test-key-btn" type="button" title="Testar Chave">${ICONS.key} Testar</button>
             </div>
           </div>
 
@@ -237,7 +264,14 @@ export class EasyQuizPanel {
     this.statusBox = this.shadow.querySelector('#eq-status') as HTMLElement
     this.resultContainer = this.shadow.querySelector('#eq-result') as HTMLElement
     this.apiKeyInput = this.shadow.querySelector('#eq-api-key') as HTMLInputElement
+    this.apiKeyEasyInput = this.shadow.querySelector('#eq-api-key-easy') as HTMLInputElement
+    this.saveKeyAdvBtn = this.shadow.querySelector('#eq-save-key-adv') as HTMLButtonElement
+    this.saveKeyEasyBtn = this.shadow.querySelector('#eq-save-key-easy') as HTMLButtonElement
     this.testKeyBtn = this.shadow.querySelector('#eq-test-key-btn') as HTMLButtonElement
+    this.testKeyEasyBtn = this.shadow.querySelector('#eq-test-key-easy') as HTMLButtonElement
+    this.toggleKeyAdvBtn = this.shadow.querySelector('#eq-toggle-key-adv') as HTMLButtonElement
+    this.toggleKeyEasyBtn = this.shadow.querySelector('#eq-toggle-key-easy') as HTMLButtonElement
+
     this.modelSelect = this.shadow.querySelector('#eq-model-select') as HTMLSelectElement
     this.modeSelect = this.shadow.querySelector('#eq-mode-select') as HTMLSelectElement
     this.engineSelect = this.shadow.querySelector('#eq-engine-select') as HTMLSelectElement
@@ -253,6 +287,7 @@ export class EasyQuizPanel {
     ENGINE_LABELS.forEach(m => this.engineSelect.add(new Option(m.label, m.value, false, m.value === initialSettings.engine)))
 
     this.apiKeyInput.value = initialSettings.apiKey
+    this.apiKeyEasyInput.value = initialSettings.apiKey
     this.dryRunCheckbox.checked = initialSettings.dryRun
     this.autoApplyCheckbox.checked = initialSettings.autoApply
     this.autoAdvanceCheckbox.checked = initialSettings.autoAdvance
@@ -309,8 +344,10 @@ export class EasyQuizPanel {
         this.apToggleBtn.textContent = 'INICIAR AUTOPILOT'
         this.apToggleBtn.classList.remove('active')
       } else {
-        if (!this.apiKeyInput.value.trim()) {
-           this.apConsole.innerHTML = '<span style="color:#ff6b6b">> [ERRO] Chave API requerida no Modo Avançado!</span>'
+        const currentKey = this.apiKeyEasyInput.value.trim().replace(/^["']|["']$/g, '')
+        if (!currentKey) {
+           this.setStatus('Insira sua chave de API Gemini no campo acima antes de ligar o Autopilot.', 'error')
+           this.apiKeyEasyInput.focus()
            return
         }
         this.autopilot.start()
@@ -329,7 +366,57 @@ export class EasyQuizPanel {
     this.shadow.querySelector('#eq-min-btn')?.addEventListener('click', () => this.toggle(false))
     this.shadow.querySelector('#eq-close-btn')?.addEventListener('click', () => this.toggle(false))
 
-    this.apiKeyInput.addEventListener('input', () => this.callbacks.onSettingsChange({ apiKey: this.apiKeyInput.value.trim() }))
+    const setApiKey = (rawVal: string, notify = false) => {
+      const cleanVal = rawVal.trim().replace(/^["']|["']$/g, '')
+      this.apiKeyInput.value = cleanVal
+      this.apiKeyEasyInput.value = cleanVal
+      this.callbacks.onSettingsChange({ apiKey: cleanVal })
+      if (notify) {
+        this.setStatus('Chave de API salva com sucesso!', 'success')
+      }
+    }
+
+    this.apiKeyInput.addEventListener('input', () => setApiKey(this.apiKeyInput.value, false))
+    this.apiKeyEasyInput.addEventListener('input', () => setApiKey(this.apiKeyEasyInput.value, false))
+
+    this.saveKeyAdvBtn.addEventListener('click', () => setApiKey(this.apiKeyInput.value, true))
+    this.saveKeyEasyBtn.addEventListener('click', () => setApiKey(this.apiKeyEasyInput.value, true))
+
+    const toggleVisibility = (inputEl: HTMLInputElement, btnEl: HTMLButtonElement) => {
+      const isPass = inputEl.type === 'password'
+      inputEl.type = isPass ? 'text' : 'password'
+      btnEl.textContent = isPass ? '🔒 Ocultar' : '👁️ Mostrar'
+    }
+
+    this.toggleKeyEasyBtn.addEventListener('click', () => {
+      toggleVisibility(this.apiKeyEasyInput, this.toggleKeyEasyBtn)
+    })
+    this.toggleKeyAdvBtn.addEventListener('click', () => {
+      toggleVisibility(this.apiKeyInput, this.toggleKeyAdvBtn)
+    })
+
+    const runKeyTest = async (keyToTest: string) => {
+      const cleanKey = keyToTest.trim().replace(/^["']|["']$/g, '')
+      if (!cleanKey) return this.setStatus('Informe ou cole a chave de API.', 'error')
+      setApiKey(cleanKey, false)
+      this.setStatus('Validando chave no Google AI Studio e descobrindo modelos...', 'info')
+      this.testKeyBtn.disabled = true
+      this.testKeyEasyBtn.disabled = true
+      try {
+        const res = await testApiKey(cleanKey)
+        this.setStatus(res.message, res.ok ? 'success' : 'error')
+        if (res.ok && res.models && res.models.length > 0) {
+          this.updateModelSelect(res.models)
+        }
+      } finally {
+        this.testKeyBtn.disabled = false
+        this.testKeyEasyBtn.disabled = false
+      }
+    }
+
+    this.testKeyBtn.addEventListener('click', () => runKeyTest(this.apiKeyInput.value))
+    this.testKeyEasyBtn.addEventListener('click', () => runKeyTest(this.apiKeyEasyInput.value))
+
     this.modelSelect.addEventListener('change', () => this.callbacks.onSettingsChange({ model: this.modelSelect.value }))
     this.modeSelect.addEventListener('change', () => this.callbacks.onSettingsChange({ modeHint: this.modeSelect.value as any }))
     this.engineSelect.addEventListener('change', () => this.callbacks.onSettingsChange({ engine: this.engineSelect.value as any }))
@@ -342,22 +429,6 @@ export class EasyQuizPanel {
       const v = this.hostDarkModeCheckbox.checked
       this.callbacks.onSettingsChange({ hostDarkMode: v })
       this.applyHostDarkMode(v)
-    })
-
-    this.testKeyBtn.addEventListener('click', async () => {
-      const key = this.apiKeyInput.value.trim()
-      if (!key) return this.setStatus('Informe a chave de API.', 'error')
-      this.setStatus('Validando chave e descobrindo modelos...', 'info')
-      this.testKeyBtn.disabled = true
-      try {
-        const res = await testApiKey(key)
-        this.setStatus(res.message, res.ok ? 'success' : 'error')
-        if (res.ok && res.models && res.models.length > 0) {
-          this.updateModelSelect(res.models)
-        }
-      } finally {
-        this.testKeyBtn.disabled = false
-      }
     })
 
     this.analyzeBtn.addEventListener('click', () => this.callbacks.onAnalyze())

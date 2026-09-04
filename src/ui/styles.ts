@@ -266,7 +266,7 @@ export const PANEL_STYLES = `
 
   .eq-input-action-btn {
     height: 38px;
-    padding: 0 12px;
+    padding: 0 10px;
     background: #1a1a1a;
     border: 1px solid #333333;
     border-left: none;
@@ -277,12 +277,38 @@ export const PANEL_STYLES = `
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     white-space: nowrap;
+    transition: background 0.15s;
   }
 
   .eq-input-action-btn:hover {
-    background: #222222;
+    background: #252525;
+  }
+
+  .eq-input-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .eq-mini-btn {
+    background: transparent;
+    border: none;
+    color: #00ffcc;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: inherit;
+    padding: 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    transition: opacity 0.15s;
+  }
+
+  .eq-mini-btn:hover {
+    opacity: 0.8;
+    text-decoration: underline;
   }
 
   .eq-select {
