@@ -1,5 +1,6 @@
 import type { AnalysisPlan, EasyQuizSettings, ResponseMode, ExecutionEngine } from '../core/types'
 import { AVAILABLE_MODELS, testApiKey } from '../core/gemini'
+import { Autopilot, type AutopilotStatus } from '../dom/autopilot'
 import { ICONS } from './icons'
 import { PANEL_STYLES } from './styles'
 
@@ -29,6 +30,8 @@ export class EasyQuizPanel {
   private host: HTMLElement
   private shadow: ShadowRoot
   private callbacks: PanelCallbacks
+  private autopilot: Autopilot
+  private initialSettings: EasyQuizSettings
 
   private launcherBtn: HTMLButtonElement
   private panelEl: HTMLElement
@@ -46,8 +49,38 @@ export class EasyQuizPanel {
   private analyzeBtn: HTMLButtonElement
   private applyBtn: HTMLButtonElement
 
+  // novos binds
+  private tabEasyBtn: HTMLButtonElement
+  private tabAdvBtn: HTMLButtonElement
+  private contentEasy: HTMLElement
+  private contentAdv: HTMLElement
+  private apToggleBtn: HTMLButtonElement
+  private apConsole: HTMLElement
+
   constructor(initialSettings: EasyQuizSettings, callbacks: PanelCallbacks) {
+    this.initialSettings = initialSettings
     this.callbacks = callbacks
+    this.autopilot = new Autopilot({
+      onStatusChange: (status, msg) => {
+        if (this.apConsole) {
+          const entry = document.createElement('div')
+          entry.textContent = msg
+          this.apConsole.appendChild(entry)
+          this.apConsole.scrollTop = this.apConsole.scrollHeight
+        }
+        if (status === 'analyzing') {
+          this.setBusy(true, 'Autopilot: IA analisando...')
+        } else if (status === 'advancing' || status === 'waiting') {
+          this.setBusy(false)
+        }
+      },
+      onRequestAnalysis: async () => {
+        try {
+          await this.callbacks.onAnalyze() // O index.ts cuida de chamar o gemini e aplicar (autoApply e autoAdvance já devem estar ativados internamente)
+        } catch (e) {}
+      }
+    })
+
     this.host = document.createElement('div')
     this.host.id = 'easyquiz-shadow-root'
     
@@ -81,8 +114,27 @@ export class EasyQuizPanel {
             <button class="eq-icon-btn" id="eq-close-btn" type="button" title="Fechar">${ICONS.close}</button>
           </div>
         </header>
+        
+        <div class="eq-tabs">
+          <button class="eq-tab-btn" id="eq-tab-easy">Modo Fácil (Autopilot)</button>
+          <button class="eq-tab-btn" id="eq-tab-advanced">Avançado</button>
+        </div>
 
-        <div class="eq-content">
+        <!-- MODO FÁCIL -->
+        <div class="eq-content" id="eq-content-easy" style="display: none;">
+          <div class="eq-autopilot-container">
+            <button class="eq-btn-primary eq-pulse" id="eq-ap-toggle-btn" type="button">
+              INICIAR AUTOPILOT
+            </button>
+            <div class="eq-ap-console" id="eq-ap-console">
+              > [SYS] Pronto para ligar...
+            </div>
+          </div>
+          <div class="eq-footer-note">Híbrido 3.0 • Brute Force + AI</div>
+        </div>
+
+        <!-- MODO AVANÇADO -->
+        <div class="eq-content" id="eq-content-advanced" style="display: none;">
           <div class="eq-field-group">
             <div class="eq-section-title">
               <span>Chave Gemini (API Key)</span>
@@ -160,6 +212,13 @@ export class EasyQuizPanel {
       </section>
     `
 
+    this.tabEasyBtn = this.shadow.querySelector('#eq-tab-easy') as HTMLButtonElement
+    this.tabAdvBtn = this.shadow.querySelector('#eq-tab-advanced') as HTMLButtonElement
+    this.contentEasy = this.shadow.querySelector('#eq-content-easy') as HTMLElement
+    this.contentAdv = this.shadow.querySelector('#eq-content-advanced') as HTMLElement
+    this.apToggleBtn = this.shadow.querySelector('#eq-ap-toggle-btn') as HTMLButtonElement
+    this.apConsole = this.shadow.querySelector('#eq-ap-console') as HTMLElement
+
     this.launcherBtn = this.shadow.querySelector('.eq-launcher') as HTMLButtonElement
     this.panelEl = this.shadow.querySelector('.eq-panel') as HTMLElement
     this.statusBox = this.shadow.querySelector('#eq-status') as HTMLElement
@@ -189,13 +248,56 @@ export class EasyQuizPanel {
     this.setupEventListeners()
     document.body.appendChild(this.host)
     this.applyHostDarkMode(initialSettings.hostDarkMode)
+    this.switchMode(initialSettings.uiMode)
 
     // Tornar painel e launcher arrastáveis
     this.makeDraggable(this.panelEl, this.shadow.querySelector('.eq-header') as HTMLElement)
     this.makeDraggable(this.launcherBtn, this.launcherBtn)
   }
 
+  private switchMode(mode: 'easy' | 'advanced') {
+    this.callbacks.onSettingsChange({ uiMode: mode })
+    if (mode === 'easy') {
+      this.tabEasyBtn.classList.add('active')
+      this.tabAdvBtn.classList.remove('active')
+      this.contentEasy.style.display = 'block'
+      this.contentAdv.style.display = 'none'
+      // No modo fácil, forçar auto apply e advance
+      this.initialSettings.autoApply = true
+      this.initialSettings.autoAdvance = true
+      this.callbacks.onSettingsChange({ autoApply: true, autoAdvance: true })
+    } else {
+      this.autopilot.stop()
+      this.apToggleBtn.textContent = 'INICIAR AUTOPILOT'
+      this.apToggleBtn.classList.remove('active')
+      
+      this.tabEasyBtn.classList.remove('active')
+      this.tabAdvBtn.classList.add('active')
+      this.contentEasy.style.display = 'none'
+      this.contentAdv.style.display = 'block'
+    }
+  }
+
   private setupEventListeners(): void {
+    this.tabEasyBtn.addEventListener('click', () => this.switchMode('easy'))
+    this.tabAdvBtn.addEventListener('click', () => this.switchMode('advanced'))
+
+    this.apToggleBtn.addEventListener('click', () => {
+      if (this.autopilot.isActive()) {
+        this.autopilot.stop()
+        this.apToggleBtn.textContent = 'INICIAR AUTOPILOT'
+        this.apToggleBtn.classList.remove('active')
+      } else {
+        if (!this.apiKeyInput.value.trim()) {
+           this.apConsole.innerHTML = '<span style="color:#ff6b6b">> [ERRO] Chave API requerida no Modo Avançado!</span>'
+           return
+        }
+        this.autopilot.start()
+        this.apToggleBtn.textContent = 'PARAR AUTOPILOT'
+        this.apToggleBtn.classList.add('active')
+      }
+    })
+
     this.launcherBtn.addEventListener('click', () => this.toggle())
     this.shadow.querySelector('#eq-min-btn')?.addEventListener('click', () => this.toggle(false))
     this.shadow.querySelector('#eq-close-btn')?.addEventListener('click', () => this.toggle(false))
@@ -368,6 +470,7 @@ export class EasyQuizPanel {
   }
 
   public destroy(): void {
+    this.autopilot.stop()
     this.applyHostDarkMode(false)
     this.callbacks.onDestroy()
     this.host.remove()

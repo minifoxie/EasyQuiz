@@ -59,6 +59,75 @@ export const PANEL_STYLES = `
     box-shadow: 2px 2px 0px rgba(0,0,0,1);
   }
 
+  .eq-tabs {
+    display: flex;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: #151515;
+  }
+  .eq-tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #888;
+    padding: 10px;
+    font-size: 13px;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .eq-tab-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .eq-tab-btn.active {
+    color: #00ffcc;
+    border-bottom: 2px solid #00ffcc;
+  }
+
+  .eq-autopilot-container {
+    padding: 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
+  }
+  #eq-ap-toggle-btn {
+    font-size: 16px;
+    padding: 15px;
+    width: 100%;
+  }
+  #eq-ap-toggle-btn.active {
+    background: #ff4757;
+    box-shadow: 0 0 15px rgba(255, 71, 87, 0.4);
+    animation: none;
+  }
+  .eq-pulse {
+    animation: eq-pulse-anim 2s infinite;
+  }
+  @keyframes eq-pulse-anim {
+    0% { box-shadow: 0 0 0 0 rgba(0, 255, 204, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(0, 255, 204, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 255, 204, 0); }
+  }
+
+  .eq-ap-console {
+    width: 100%;
+    background: #000;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: #00ffcc;
+    height: 120px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: left;
+  }
+
   .eq-panel {
     pointer-events: auto;
     position: fixed;

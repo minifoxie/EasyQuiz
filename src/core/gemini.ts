@@ -3,14 +3,15 @@ import { buildUserPrompt, SYSTEM_PROMPT } from './prompt'
 
 export const AVAILABLE_MODELS: ModelOption[] = [
   { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Recomendado)', description: 'Ultrapoderoso, hiper-rápido modelo 2026 para agents.' },
-  { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', description: 'Alta velocidade para tarefas simples.' },
-  { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', description: 'Raciocínio longo de elite.' },
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Modelo rápido de geração anterior.' }
+  { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', description: 'Alta velocidade para tarefas simples e fallback.' },
+  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', description: 'Velocidade e estabilidade.' },
+  { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', description: 'Raciocínio longo de elite.' }
 ]
 
 const GEMINI_JSON_SCHEMA = {
   type: 'OBJECT',
   properties: {
+    pageType: { type: 'STRING', enum: ['question', 'info', 'start', 'conclusion'] },
     mode: {
       type: 'STRING',
       enum: ['texto_livre', 'escolha_unica', 'escolha_multipla', 'verdadeiro_falso', 'preenchimento', 'acao_sem_resposta'],
@@ -35,7 +36,7 @@ const GEMINI_JSON_SCHEMA = {
       },
     },
   },
-  required: ['mode', 'confidence', 'summary', 'rationale', 'needsMoreContext', 'actions'],
+  required: ['pageType', 'mode', 'confidence', 'summary', 'rationale', 'needsMoreContext', 'actions'],
 }
 
 function normalizeModel(model: string): string {
@@ -92,12 +93,11 @@ export async function analyzeWithGemini(
   context: CapturedContext,
   images: CapturedImage[],
   settings: EasyQuizSettings,
-): Promise<{ plan: AnalysisPlan; rawUsage?: unknown }> {
+): Promise<{ plan: AnalysisPlan; rawUsage?: unknown; usedModel?: string }> {
   const key = settings.apiKey.trim()
   if (!key) throw new Error('Chave de API não configurada.')
 
   const model = normalizeModel(settings.model)
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`
 
   const userText = buildUserPrompt(context, images, settings)
 
@@ -118,33 +118,57 @@ export async function analyzeWithGemini(
     },
   }
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(parseGeminiError(errorText, response.status))
+  const modelsToTry = settings.uiMode === 'easy' ? AVAILABLE_MODELS.map(m => m.id) : [model]
+  if (settings.uiMode === 'easy' && !modelsToTry.includes(model)) {
+    modelsToTry.unshift(model) // Prioridade para o modelo escolhido
   }
 
-  const data = await response.json()
-  const candidate = data.candidates?.[0]
-  if (!candidate || !candidate.content?.parts?.[0]?.text) {
-    throw new Error('A IA não retornou uma resposta estruturada válida.')
+  let lastError = new Error('Nenhum modelo tentado.')
+  
+  for (const currentModel of new Set(modelsToTry)) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${encodeURIComponent(key)}`
+    
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        const parsedErrorMsg = parseGeminiError(errorText, response.status)
+        throw new Error(parsedErrorMsg)
+      }
+
+      const data = await response.json()
+      const candidate = data.candidates?.[0]
+      if (!candidate || !candidate.content?.parts?.[0]?.text) {
+        throw new Error('A IA não retornou uma resposta estruturada válida.')
+      }
+
+      let parsedPlan: AnalysisPlan
+      try {
+        parsedPlan = JSON.parse(candidate.content.parts[0].text) as AnalysisPlan
+      } catch {
+        throw new Error('Falha ao decodificar o plano JSON da IA.')
+      }
+
+      if (!Array.isArray(parsedPlan.actions)) parsedPlan.actions = []
+      if (!Array.isArray(parsedPlan.warnings)) parsedPlan.warnings = []
+      if (typeof parsedPlan.confidence !== 'number') parsedPlan.confidence = 0.8
+
+      return { plan: parsedPlan, rawUsage: data.usageMetadata, usedModel: currentModel }
+    } catch (err) {
+      lastError = err as Error
+      // Se não for modo fácil ou for erro de chave inválida, aborta cascata
+      if (settings.uiMode !== 'easy' || lastError.message.includes('inválida')) {
+        throw lastError
+      }
+      console.warn(`[EasyQuiz] Fallback: Falha no modelo ${currentModel}. Tentando próximo...`, err)
+    }
   }
 
-  let parsedPlan: AnalysisPlan
-  try {
-    parsedPlan = JSON.parse(candidate.content.parts[0].text) as AnalysisPlan
-  } catch {
-    throw new Error('Falha ao decodificar o plano JSON da IA.')
-  }
-
-  if (!Array.isArray(parsedPlan.actions)) parsedPlan.actions = []
-  if (!Array.isArray(parsedPlan.warnings)) parsedPlan.warnings = []
-  if (typeof parsedPlan.confidence !== 'number') parsedPlan.confidence = 0.8
-
-  return { plan: parsedPlan, rawUsage: data.usageMetadata }
+  throw lastError
 }
+

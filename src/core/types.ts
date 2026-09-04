@@ -57,6 +57,7 @@ export type DeclarativeAction =
   | { t: 'js'; v: string } // custom_js execution (using $eq)
 
 export interface AnalysisPlan {
+  pageType: 'question' | 'info' | 'start' | 'conclusion'
   mode: ResponseMode
   confidence: number
   summary: string
@@ -75,6 +76,7 @@ export interface ModelOption {
 export interface EasyQuizSettings {
   apiKey: string
   model: string
+  uiMode: 'easy' | 'advanced'
   modeHint: ResponseMode | ''
   engine: ExecutionEngine
   dryRun: boolean
@@ -87,6 +89,7 @@ export interface EasyQuizSettings {
 export const DEFAULT_SETTINGS: EasyQuizSettings = {
   apiKey: '',
   model: 'gemini-3.8-flash',
+  uiMode: 'advanced',
   modeHint: '',
   engine: 'smart',
   dryRun: false,
@@ -95,3 +98,4 @@ export const DEFAULT_SETTINGS: EasyQuizSettings = {
   hostDarkMode: true,
   confidenceThreshold: 0.8,
 }
+

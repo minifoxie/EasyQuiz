@@ -1,8 +1,9 @@
 import type { AnalysisPlan, DeclarativeAction } from '../core/types'
+import { saveDomainCache } from '../core/storage'
 import { NAVIGATION_PATTERN } from './controls'
 
 // ---- MOTOR DE BUSCA ROBUSTA ----
-function findElementExt(idOrLabel: string): HTMLElement | null {
+export function findElementExt(idOrLabel: string): HTMLElement | null {
   const escaped = CSS.escape(idOrLabel)
   // 1. Tenta por ID estrito gerado
   let el = document.querySelector(`[data-easyquiz-id="${escaped}"]`) as HTMLElement
@@ -27,7 +28,7 @@ function dispatchEventSequence(element: HTMLElement, events: string[]): void {
   }
 }
 
-function simulatePointerClick(element: HTMLElement, coords?: [number, number]): void {
+export function simulatePointerClick(element: HTMLElement, coords?: [number, number]): void {
   let cx = 0
   let cy = 0
   if (coords && coords.length === 2) {
@@ -170,14 +171,22 @@ function executeDeclarativeAction(action: DeclarativeAction): void {
       if (element) simulatePointerClick(element, action.co)
       break
     case 'adv':
-      if (element) {
-        simulatePointerClick(element)
-      } else {
+      let targetEl = element
+      if (!targetEl) {
         // Tenta achar qualquer botão de navegação
         const navs = Array.from(document.querySelectorAll('button, a, input[type="submit"]'))
           .filter(e => NAVIGATION_PATTERN.test(e.textContent || (e as HTMLInputElement).value || ''))
-        if (navs.length) simulatePointerClick(navs[0] as HTMLElement)
-        else throw new Error('Botão de avanço não encontrado.')
+        if (navs.length) targetEl = navs[0] as HTMLElement
+      }
+      
+      if (targetEl) {
+        const heuristic = action.id || targetEl.textContent?.trim() || (targetEl as HTMLInputElement).value?.trim() || ''
+        if (heuristic) {
+          saveDomainCache(window.location.hostname, { advanceSelector: heuristic })
+        }
+        simulatePointerClick(targetEl)
+      } else {
+        throw new Error('Botão de avanço não encontrado.')
       }
       break
   }

@@ -18,6 +18,7 @@ export function loadSettings(): EasyQuizSettings {
     return {
       apiKey: typeof parsed.apiKey === 'string' ? parsed.apiKey.trim() : DEFAULT_SETTINGS.apiKey,
       model: typeof parsed.model === 'string' && parsed.model ? parsed.model : DEFAULT_SETTINGS.model,
+      uiMode: (parsed.uiMode === 'easy' || parsed.uiMode === 'advanced') ? parsed.uiMode : DEFAULT_SETTINGS.uiMode,
       modeHint: (parsed.modeHint ?? '') as ResponseMode | '',
       engine: (parsed.engine ?? 'smart') as ExecutionEngine,
       dryRun: Boolean(parsed.dryRun),
@@ -33,6 +34,30 @@ export function loadSettings(): EasyQuizSettings {
     return { ...DEFAULT_SETTINGS }
   }
 }
+
+export interface DomainCache {
+  advanceSelector?: string
+}
+
+export function loadDomainCache(hostname: string): DomainCache {
+  try {
+    const raw = localStorage.getItem('eq_domain_cache_' + hostname)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveDomainCache(hostname: string, data: Partial<DomainCache>): void {
+  const current = loadDomainCache(hostname)
+  const updated = { ...current, ...data }
+  try {
+    localStorage.setItem('eq_domain_cache_' + hostname, JSON.stringify(updated))
+  } catch (error) {
+    console.warn('[EasyQuiz] Erro cache de dominio:', error)
+  }
+}
+
 
 export function saveSettings(settings: Partial<EasyQuizSettings>): EasyQuizSettings {
   const current = loadSettings()
