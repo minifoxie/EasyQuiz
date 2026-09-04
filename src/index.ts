@@ -68,9 +68,16 @@ async function initEasyQuiz(): Promise<void> {
 
     try {
       let context = captureCurrentContext(false)
+      
+      if (!context) {
+        panel.setStatus('Nenhum bloco de controles encontrado. Capturando tela inteira como fallback...', 'info')
+        const { captureFullPageText } = require('./dom/detector')
+        context = captureFullPageText()
+      } else {
+        panel.setStatus(`Questão localizada (${context.controls.length} controles). Otimizando imagens...`, 'info')
+      }
+      
       highlightScope(context.scope)
-
-      panel.setStatus(`Questão localizada (${context.controls.length} controles). Otimizando imagens...`, 'info')
       let images = await captureImages(context.scope)
 
       panel.setStatus(
@@ -78,16 +85,21 @@ async function initEasyQuiz(): Promise<void> {
         'info',
       )
 
-      let { plan } = await analyzeWithGemini(context, images, settings)
+      let { plan, usedModel } = await analyzeWithGemini(context, images, settings)
+      if (usedModel) plan.usedModel = usedModel
 
       // Se a IA pediu mais contexto ao redor da questão
       if (plan.needsMoreContext) {
         panel.setStatus('Expandindo contexto ao redor da questão para maior assertividade...', 'info')
-        context = captureCurrentContext(true)
-        highlightScope(context.scope)
-        images = await captureImages(context.scope)
-        const recheck = await analyzeWithGemini(context, images, settings)
-        plan = recheck.plan
+        const expandedCtx = captureCurrentContext(true)
+        if (expandedCtx) {
+          context = expandedCtx
+          highlightScope(context.scope)
+          images = await captureImages(context.scope)
+          const recheck = await analyzeWithGemini(context, images, settings)
+          plan = recheck.plan
+          if (recheck.usedModel) plan.usedModel = recheck.usedModel
+        }
       }
 
       latestPlan = plan

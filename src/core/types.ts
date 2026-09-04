@@ -60,11 +60,11 @@ export interface AnalysisPlan {
   pageType: 'question' | 'info' | 'start' | 'conclusion'
   mode: ResponseMode
   confidence: number
-  summary: string
   rationale: string
   needsMoreContext: boolean
   warnings: string[]
   actions: DeclarativeAction[]
+  usedModel?: string
 }
 
 export interface ModelOption {

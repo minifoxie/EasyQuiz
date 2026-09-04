@@ -28,8 +28,10 @@ export function highlightScope(scope: HTMLElement): void {
 
 export function highlightTargetActions(actions: DeclarativeAction[]): void {
   for (const action of actions) {
-    if (action.type === 'advance') continue
-    const escaped = CSS.escape(action.targetId)
+    if (action.t === 'adv') continue
+    const targetId = action.id
+    if (!targetId) continue
+    const escaped = CSS.escape(targetId)
     const element = document.querySelector(`[data-easyquiz-id="${escaped}"]`) as HTMLElement | null
     if (!element) continue
 

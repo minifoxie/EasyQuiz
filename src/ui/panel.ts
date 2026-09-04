@@ -448,10 +448,11 @@ export class EasyQuizPanel {
       <span class="eq-badge highlight">${plan.mode.replace('_', ' ')}</span>
       <span class="eq-badge ${plan.confidence >= 0.8 ? 'success' : ''}">${Math.round(plan.confidence * 100)}% Confiança</span>
       <span class="eq-badge">${plan.actions.length} Cmds</span>
+      <span class="eq-badge" style="border-color:#5bc0eb; color:#5bc0eb;">${plan.usedModel || 'Gemini'}</span>
     `
 
     const rationaleEl = this.shadow.querySelector('#eq-rationale-text') as HTMLElement
-    rationaleEl.textContent = plan.rationale || plan.summary
+    rationaleEl.textContent = plan.rationale || 'Nenhuma justificativa fornecida.'
 
     const actionsListEl = this.shadow.querySelector('#eq-actions-list') as HTMLElement
     actionsListEl.innerHTML = ''

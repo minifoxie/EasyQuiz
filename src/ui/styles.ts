@@ -120,7 +120,7 @@ export const PANEL_STYLES = `
     font-family: 'Courier New', monospace;
     font-size: 11px;
     color: #00ffcc;
-    height: 120px;
+    height: 160px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -130,6 +130,7 @@ export const PANEL_STYLES = `
   .text-blue { color: #5bc0eb; }
   .text-yellow { color: #fde74c; }
   .text-red { color: #ff4757; }
+  .text-green { color: #00ff55; }
 
   .eq-panel {
     pointer-events: auto;

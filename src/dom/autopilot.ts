@@ -1,6 +1,6 @@
 import type { AnalysisPlan } from '../core/types'
 import { loadDomainCache } from '../core/storage'
-import { captureCurrentContext } from './detector'
+import { captureCurrentContext, captureFullPageText } from './detector'
 import { findElementExt, simulatePointerClick } from './executor'
 
 export type AutopilotStatus = 'idle' | 'waiting' | 'analyzing' | 'advancing' | 'error'
@@ -17,6 +17,7 @@ export class Autopilot {
   private lastRunTime = 0
   private lastActionTime = 0
   private isProcessing = false
+  private errorCount = 0
 
   constructor(callbacks: AutopilotCallbacks) {
     this.callbacks = callbacks
@@ -60,7 +61,12 @@ export class Autopilot {
       try {
         context = captureCurrentContext(false)
       } catch (err) {
-        // Se falhar em capturar (não achou main), ignora e espera
+        // Agora o detector não joga throw, retorna null
+      }
+
+      if (!context) {
+        // Tenta captura global
+        context = captureFullPageText()
       }
 
       if (context) {
@@ -69,15 +75,29 @@ export class Autopilot {
         const inputControls = context.controls.filter(c => c.tag !== 'button' && c.type !== 'submit')
         const cache = loadDomainCache(window.location.hostname)
         
-        if (inputControls.length > 0) {
-          // TEM QUESTÃO NA TELA!
-          this.callbacks.onStatusChange('analyzing', '> [IA] Questão detectada. Consultando Gemini...', 'text-blue')
+        if (inputControls.length > 0 || context.htmlSnippet === '') {
+          // TEM QUESTÃO NA TELA OU ESTAMOS EM FALLBACK TOTAL!
+          this.callbacks.onStatusChange('analyzing', '> [IA] Analisando contexto...', 'text-blue')
           await new Promise(r => setTimeout(r, 800))
           const plan = await this.callbacks.onRequestAnalysis()
           if (plan) {
+            this.errorCount = 0
+            if (plan.pageType === 'conclusion') {
+              this.callbacks.onStatusChange('idle', '> [IA] ✓ Atividade concluída! Autopilot encerrando.', 'text-green')
+              this.stop()
+              return
+            }
             this.callbacks.onStatusChange('analyzing', `> [IA] Confiança: ${(plan.confidence * 100).toFixed(1)}% | Modo: ${plan.mode}`, 'text-blue')
             this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
+            this.callbacks.onStatusChange('analyzing', `> [IA] Modelo: ${plan.usedModel || 'Desconhecido'}`, 'text-blue')
             this.callbacks.onStatusChange('analyzing', `> [IA] Ações geradas: ${plan.actions.length}`, 'text-blue')
+          } else {
+            this.errorCount++
+            if (this.errorCount >= 3) {
+               this.callbacks.onStatusChange('error', '> [SYS] Múltiplas falhas detectadas. Autopilot interrompido.', 'text-red')
+               this.stop()
+               return
+            }
           }
           this.lastActionTime = Date.now()
         } else if (cache.advanceSelector && findElementExt(cache.advanceSelector)) {
@@ -96,9 +116,23 @@ export class Autopilot {
           await new Promise(r => setTimeout(r, 800))
           const plan = await this.callbacks.onRequestAnalysis()
           if (plan) {
+            this.errorCount = 0
+            if (plan.pageType === 'conclusion') {
+              this.callbacks.onStatusChange('idle', '> [IA] ✓ Atividade concluída! Autopilot encerrando.', 'text-green')
+              this.stop()
+              return
+            }
             this.callbacks.onStatusChange('analyzing', `> [IA] Confiança: ${(plan.confidence * 100).toFixed(1)}% | Modo: ${plan.mode}`, 'text-blue')
             this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
+            this.callbacks.onStatusChange('analyzing', `> [IA] Modelo: ${plan.usedModel || 'Desconhecido'}`, 'text-blue')
             this.callbacks.onStatusChange('analyzing', `> [IA] Ações geradas: ${plan.actions.length}`, 'text-blue')
+          } else {
+            this.errorCount++
+            if (this.errorCount >= 3) {
+               this.callbacks.onStatusChange('error', '> [SYS] Múltiplas falhas detectadas. Autopilot interrompido.', 'text-red')
+               this.stop()
+               return
+            }
           }
           this.lastActionTime = Date.now()
         }

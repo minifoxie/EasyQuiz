@@ -17,7 +17,6 @@ const GEMINI_JSON_SCHEMA = {
       enum: ['texto_livre', 'escolha_unica', 'escolha_multipla', 'verdadeiro_falso', 'preenchimento', 'acao_sem_resposta'],
     },
     confidence: { type: 'NUMBER' },
-    summary: { type: 'STRING' },
     rationale: { type: 'STRING' },
     needsMoreContext: { type: 'BOOLEAN' },
     warnings: { type: 'ARRAY', items: { type: 'STRING' } },
@@ -36,7 +35,7 @@ const GEMINI_JSON_SCHEMA = {
       },
     },
   },
-  required: ['pageType', 'mode', 'confidence', 'summary', 'rationale', 'needsMoreContext', 'actions'],
+  required: ['pageType', 'mode', 'confidence', 'rationale', 'needsMoreContext', 'actions'],
 }
 
 function normalizeModel(model: string): string {
@@ -113,6 +112,7 @@ export async function analyzeWithGemini(
     contents: [{ role: 'user', parts }],
     generationConfig: {
       temperature: 0.05, // Extremamente baixo para manter previsibilidade
+      maxOutputTokens: 400, // Limita resposta e economiza tokens na saída
       response_mime_type: 'application/json',
       response_schema: GEMINI_JSON_SCHEMA,
     },

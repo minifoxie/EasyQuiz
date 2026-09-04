@@ -164,7 +164,7 @@ export function extractNavigationControls(scope: HTMLElement): ControlDescriptor
   return controls
 }
 
-export function captureCurrentContext(expanded = false): CapturedContext {
+export function captureCurrentContext(expanded = false): CapturedContext | null {
   let scope = findActiveScope()
   if (expanded && scope.parentElement && scope.parentElement !== document.body) {
     scope = scope.parentElement
@@ -176,9 +176,7 @@ export function captureCurrentContext(expanded = false): CapturedContext {
   const controls = [...answers, ...navs].slice(0, 120)
 
   if (!questionText || !controls.length) {
-    throw new Error(
-      'Nenhum bloco de questão com controles visíveis foi detectado. Clique ou foque na questão e tente novamente.',
-    )
+    return null
   }
 
   return {
@@ -187,6 +185,19 @@ export function captureCurrentContext(expanded = false): CapturedContext {
     questionText,
     htmlSnippet: sanitizeHtml(scope),
     controls,
+    scope,
+  }
+}
+
+export function captureFullPageText(): CapturedContext {
+  const scope = document.body
+  const questionText = cleanText(scope.innerText, 8_000) // Fallback hard
+  return {
+    sourceUrl: window.location.href.slice(0, 2_000),
+    pageTitle: document.title.slice(0, 500) || 'Página Inteira (Fallback)',
+    questionText,
+    htmlSnippet: '', // sem HTML para economizar tokens nesse caso extremo
+    controls: [],
     scope,
   }
 }
