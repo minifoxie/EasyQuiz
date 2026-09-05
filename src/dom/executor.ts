@@ -255,20 +255,15 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
     element.click()
   } catch {}
 
-  // 7. Se o elemento for filho de um botão ou link clicável, clica também no pai
-  const clickableParent = element.closest('button, a, [role="button"], [role="radio"], [role="checkbox"], label') as HTMLElement | null
-  if (clickableParent && clickableParent !== element) {
-    try {
-      clickableParent.click()
-    } catch {}
-  }
-
-  // 8. Se o elemento tiver um radio ou checkbox interno, clica nele diretamente
-  const innerInput = element.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null
-  if (innerInput && innerInput !== element) {
-    try {
-      innerInput.click()
-    } catch {}
+  // 7. Se o elemento for filho de um botão ou link clicável (e não for um label que já ativa o input), clica também no pai
+  const isLabelOrInput = element instanceof HTMLInputElement || element instanceof HTMLLabelElement
+  if (!isLabelOrInput) {
+    const clickableParent = element.closest('button, a, [role="button"], [role="radio"], [role="checkbox"]') as HTMLElement | null
+    if (clickableParent && clickableParent !== element) {
+      try {
+        clickableParent.click()
+      } catch {}
+    }
   }
 }
 
@@ -298,11 +293,32 @@ function setNativeValue(element: HTMLElement, value: string): void {
 }
 
 function setCheckedState(element: HTMLElement, checked: boolean): void {
-  const inputEl =
+  const cardParent = (element.closest(
+    '.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], li',
+  ) || element) as HTMLElement
+
+  let inputEl =
     element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
       ? element
-      : (element.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null)
+      : (cardParent.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null)
 
+  if (!inputEl && cardParent.hasAttribute('for')) {
+    const forId = cardParent.getAttribute('for')
+    if (forId) {
+      inputEl = cardParent.ownerDocument.getElementById(forId) as HTMLInputElement | null
+    }
+  }
+
+  // 1. Atualizar atributos de acessibilidade e classes no container visual
+  if (cardParent) {
+    cardParent.setAttribute('aria-checked', checked ? 'true' : 'false')
+    cardParent.setAttribute('aria-selected', checked ? 'true' : 'false')
+    cardParent.classList.toggle('selected', checked)
+    cardParent.classList.toggle('active', checked)
+    cardParent.classList.toggle('checked', checked)
+  }
+
+  // 2. Se houver input nativo (checkbox ou radio)
   if (inputEl && ['checkbox', 'radio'].includes(inputEl.type)) {
     inputEl.checked = checked
 
@@ -316,34 +332,57 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
       setter?.call(inputEl, checked)
     } catch {}
 
+    inputEl.checked = checked
+    dispatchEventSequence(inputEl, ['input', 'change'])
+  }
+
+  // 3. Simular interação com o elemento clicável mais evidente (container ou próprio input)
+  // para que frameworks reativos (React, Vue, Angular, Svelte) acionem seus listeners de clique
+  const clickTarget = cardParent && cardParent !== inputEl ? cardParent : (inputEl || element)
+  if (clickTarget) {
     try {
-      inputEl.click()
+      clickTarget.focus?.()
     } catch {}
 
-    inputEl.checked = checked
-
-    const cardParent = inputEl.closest('.option-card, label, [role="radio"], [role="checkbox"]') as HTMLElement | null
-    if (cardParent) {
-      cardParent.setAttribute('aria-checked', checked ? 'true' : 'false')
-      cardParent.classList.toggle('selected', checked)
-      cardParent.classList.toggle('active', checked)
+    const rect = clickTarget.getBoundingClientRect()
+    const cx = Math.round(rect.left + Math.max(1, rect.width / 2))
+    const cy = Math.round(rect.top + Math.max(1, rect.height / 2))
+    const commonProps = {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      view: window,
+      clientX: cx,
+      clientY: cy,
     }
 
-    dispatchEventSequence(inputEl, ['input', 'change'])
-    return
+    try {
+      clickTarget.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 }))
+    } catch {}
+    clickTarget.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 }))
+    try {
+      clickTarget.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 0 }))
+    } catch {}
+    clickTarget.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 }))
+    clickTarget.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 }))
   }
 
-  const role = element.getAttribute('role')
-  if (role === 'radio' || role === 'checkbox') {
-    element.setAttribute('aria-checked', checked ? 'true' : 'false')
-    element.classList.toggle('selected', checked)
-    element.classList.toggle('active', checked)
-    dispatchEventSequence(element, ['input', 'change'])
-    simulatePointerClick(element)
-    return
+  // 4. Garantia final de persistência do estado checked no input nativo
+  if (inputEl && ['checkbox', 'radio'].includes(inputEl.type)) {
+    if (inputEl.checked !== checked) {
+      inputEl.checked = checked
+      try {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
+        setter?.call(inputEl, checked)
+      } catch {}
+      dispatchEventSequence(inputEl, ['input', 'change'])
+    }
+    if (cardParent) {
+      cardParent.classList.toggle('selected', checked)
+      cardParent.classList.toggle('active', checked)
+      cardParent.classList.toggle('checked', checked)
+    }
   }
-
-  simulatePointerClick(element)
 }
 
 function selectValues(element: HTMLElement, values: string[]): void {
@@ -615,13 +654,14 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1):
       break
     case 'clk':
       if (element) {
-        const inputEl =
-          element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
-            ? element
-            : (element.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null)
+        const isOptionCard = Boolean(
+          element.closest('.option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice') ||
+          element.querySelector('input[type="radio"], input[type="checkbox"]') ||
+          (element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type))
+        )
 
-        if (inputEl) {
-          setCheckedState(inputEl, true)
+        if (isOptionCard) {
+          setCheckedState(element, true)
         } else {
           simulatePointerClick(element, action.co)
         }
@@ -768,36 +808,31 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
       const normExp = expected.replace(',', '.').toLowerCase()
       return normCur === normExp || normCur.includes(normExp) || cur.toLowerCase() === expected.toLowerCase()
     }
-    if (action.t === 'chk') {
-      const el = findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))
-      if (!el) return false
-      const inputEl =
-        el instanceof HTMLInputElement && ['checkbox', 'radio'].includes(el.type)
-          ? el
-          : (el.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null)
-      if (inputEl) {
-        return inputEl.checked === Boolean(action.c)
-      }
-      const isAria = el.getAttribute('aria-checked') === 'true'
-      return isAria === Boolean(action.c)
-    }
     if (action.t === 'sel') {
       const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLSelectElement | null
       if (!el || !(el instanceof HTMLSelectElement)) return false
       const values = Array.isArray(action.v) ? action.v : [String(action.v)]
       return Array.from(el.options).some((o) => o.selected && values.includes(o.value))
     }
-    if (action.t === 'clk') {
+    if (action.t === 'chk' || action.t === 'clk') {
       const el = findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))
       if (!el) return false
+      const card = el.closest(
+        '.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, li',
+      ) || el
       const inputEl =
         el instanceof HTMLInputElement && ['checkbox', 'radio'].includes(el.type)
           ? el
-          : (el.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null)
-      if (inputEl) return inputEl.checked
-      const isAria = el.getAttribute('aria-checked') === 'true' || el.getAttribute('aria-selected') === 'true'
-      const hasClass = /active|selected|checked|picked/i.test(el.className || '')
-      return isAria || hasClass || true
+          : (card.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null) ||
+            (card.getAttribute('for') ? (card.ownerDocument.getElementById(card.getAttribute('for')!) as HTMLInputElement | null) : null)
+
+      if (inputEl && ['checkbox', 'radio'].includes(inputEl.type)) {
+        const expected = action.t === 'chk' ? Boolean(action.c) : true
+        return inputEl.checked === expected
+      }
+      const isAria = card.getAttribute('aria-checked') === 'true' || card.getAttribute('aria-selected') === 'true'
+      const hasClass = /active|selected|checked|picked/i.test(card.className || '')
+      return isAria || hasClass || action.t === 'clk'
     }
     if (action.t === 'drag') {
       const fromEl = findElementExt(action.from) || findElementExt(cleanSearchTerm(action.from))

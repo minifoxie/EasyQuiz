@@ -104,7 +104,7 @@ export const DEFAULT_SETTINGS: EasyQuizSettings = {
   modeHint: '',
   engine: 'smart',
   dryRun: false,
-  autoApply: false,
+  autoApply: true,
   autoAdvance: false,
   hostDarkMode: true,
   useVision: false,

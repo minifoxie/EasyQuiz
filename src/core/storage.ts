@@ -26,7 +26,7 @@ export function loadSettings(): EasyQuizSettings {
       modeHint: (parsed.modeHint ?? '') as ResponseMode | '',
       engine: (parsed.engine ?? 'smart') as ExecutionEngine,
       dryRun: Boolean(parsed.dryRun),
-      autoApply: Boolean(parsed.autoApply),
+      autoApply: parsed.autoApply !== undefined ? Boolean(parsed.autoApply) : true,
       autoAdvance: Boolean(parsed.autoAdvance),
       hostDarkMode: parsed.hostDarkMode !== undefined ? Boolean(parsed.hostDarkMode) : true,
       useVision: Boolean(parsed.useVision),

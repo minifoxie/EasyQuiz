@@ -772,7 +772,12 @@ export class EasyQuizPanel {
       this.applyHostDarkMode(v)
     })
 
-    this.analyzeBtn.addEventListener('click', () => this.callbacks.onAnalyze())
+    this.analyzeBtn.addEventListener('click', async () => {
+      const plan = await this.callbacks.onAnalyze()
+      if (plan && !this.dryRunCheckbox.checked && !this.autoApplyCheckbox.checked) {
+        this.callbacks.onApply()
+      }
+    })
     this.applyBtn.addEventListener('click', () => this.callbacks.onApply())
   }
 
