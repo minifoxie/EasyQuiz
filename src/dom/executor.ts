@@ -1,6 +1,10 @@
 import type { AnalysisPlan, DeclarativeAction } from '../core/types'
-import { saveDomainCache } from '../core/storage'
-import { cleanText, isVisible, NAVIGATION_PATTERN } from './controls'
+import { loadDomainCache, saveDomainCache } from '../core/storage'
+import { cleanText, isNavigationControl, isVisible, NAVIGATION_PATTERN } from './controls'
+
+export function isInsideEasyQuiz(el: HTMLElement): boolean {
+  return Boolean(el.closest('#easyquiz-shadow-root, .eq-sidebar, .eq-launcher'))
+}
 
 // ---- MOTOR DE BUSCA ROBUSTA DE ELEMENTOS ----
 export function findElementExt(idOrLabel: string): HTMLElement | null {
@@ -11,30 +15,33 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
   // 1. Tenta por ID estrito gerado pelo EasyQuiz
   const escaped = CSS.escape(trimmed)
   let el = document.querySelector(`[data-easyquiz-id="${escaped}"]`) as HTMLElement | null
-  if (el) return el
+  if (el && !isInsideEasyQuiz(el)) return el
 
   // 2. Tenta como seletor CSS direto
   try {
     el = document.querySelector(trimmed) as HTMLElement | null
-    if (el) return el
+    if (el && !isInsideEasyQuiz(el)) return el
   } catch {}
 
   // 3. Tenta por ID real, name ou value
   try {
     el = document.querySelector(`#${escaped}, [name="${escaped}"], [value="${escaped}"]`) as HTMLElement | null
-    if (el) return el
+    if (el && !isInsideEasyQuiz(el)) return el
   } catch {}
 
-  // 4. Tenta via XPath para texto exato, aria-label, data-category ou data-testid
+  // 4. Tenta via XPath para texto exato no nó ou descendentes
   try {
     const cleanXpath = trimmed.replace(/"/g, '')
-    const xpath = `//*[normalize-space(text())="${cleanXpath}"] | //*[@aria-label="${cleanXpath}"] | //*[@data-category="${cleanXpath}"] | //*[@data-testid="${cleanXpath}"]`
+    const xpath = `//*[normalize-space(.)="${cleanXpath}"] | //*[@aria-label="${cleanXpath}"] | //*[@data-category="${cleanXpath}"] | //*[@data-testid="${cleanXpath}"]`
     const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null)
     if (result.singleNodeValue) {
       const node = result.singleNodeValue as HTMLElement
-      // Se achou um heading/label dentro de um container de categoria, retorna o container ou o elemento
-      const categoryContainer = node.closest('[data-role="dropzone"], [class*="category" i], [class*="bucket" i], [class*="column" i], [class*="drop" i]') as HTMLElement | null
-      return categoryContainer || node
+      if (!isInsideEasyQuiz(node)) {
+        const categoryContainer = node.closest(
+          '[data-role="dropzone"], [class*="category" i], [class*="bucket" i], [class*="column" i], [class*="drop" i]',
+        ) as HTMLElement | null
+        return categoryContainer || node
+      }
     }
   } catch {}
 
@@ -46,18 +53,31 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
     ),
   ) as HTMLElement[]
 
-  // Prioridade A: Correspondência exata em texto ou atributos
+  // Prioridade A: Correspondência exata em texto, atributos ou prefixo de alternativa (ex: "A)", "B.", "1)")
   for (const item of candidates) {
-    if (!isVisible(item)) continue
+    if (!isVisible(item) || isInsideEasyQuiz(item)) continue
     const txt = cleanText(item.textContent).toLowerCase().replace(/['"“”«»]/g, '')
     const aria = cleanText(item.getAttribute('aria-label')).toLowerCase().replace(/['"“”«»]/g, '')
     const cat = cleanText(item.getAttribute('data-category')).toLowerCase().replace(/['"“”«»]/g, '')
     const rawVal = item instanceof HTMLInputElement || item instanceof HTMLButtonElement ? item.value : ''
     const val = cleanText(rawVal).toLowerCase()
 
-    if (txt === targetClean || aria === targetClean || (cat && cat === targetClean) || (val && val === targetClean)) {
-      // Retorna o item clicável mais próximo se for um texto interno
-      const clickableParent = item.closest('button, [role="button"], [draggable="true"], [class*="card" i], [class*="option" i], [class*="item" i], li') as HTMLElement | null
+    const prefixMatch =
+      txt.startsWith(targetClean + ')') ||
+      txt.startsWith(targetClean + '.') ||
+      txt.startsWith(targetClean + ' -') ||
+      txt.startsWith(targetClean + ':')
+
+    if (
+      txt === targetClean ||
+      aria === targetClean ||
+      (cat && cat === targetClean) ||
+      (val && val === targetClean) ||
+      prefixMatch
+    ) {
+      const clickableParent = item.closest(
+        'button, a, [role="button"], [role="radio"], [role="checkbox"], [draggable="true"], [class*="card" i], [class*="option" i], [class*="item" i], label, li',
+      ) as HTMLElement | null
       return clickableParent || item
     }
   }
@@ -65,12 +85,14 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
   // Prioridade B: Contenção de substring para cards com badges ou numerações
   if (targetClean.length >= 3) {
     for (const item of candidates) {
-      if (!isVisible(item)) continue
+      if (!isVisible(item) || isInsideEasyQuiz(item)) continue
       if (item.children.length > 5) continue // Evita containers gigantes da página inteira
       const txt = cleanText(item.textContent).toLowerCase().replace(/['"“”«»]/g, '')
       const aria = cleanText(item.getAttribute('aria-label')).toLowerCase().replace(/['"“”«»]/g, '')
       if (txt.includes(targetClean) || aria.includes(targetClean)) {
-        const clickableParent = item.closest('button, [role="button"], [draggable="true"], [class*="card" i], [class*="option" i], [class*="item" i], li') as HTMLElement | null
+        const clickableParent = item.closest(
+          'button, a, [role="button"], [role="radio"], [role="checkbox"], [draggable="true"], [class*="card" i], [class*="option" i], [class*="item" i], label, li',
+        ) as HTMLElement | null
         return clickableParent || item
       }
     }
@@ -87,6 +109,14 @@ function dispatchEventSequence(element: HTMLElement, events: string[]): void {
 }
 
 export function simulatePointerClick(element: HTMLElement, coords?: [number, number]): void {
+  if (!element) return
+
+  // 1. Scroll suave e centralizado para garantir visibilidade
+  try {
+    element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' as any })
+  } catch {}
+
+  // 2. Coordenadas exatas no viewport após o scroll
   let cx = 0
   let cy = 0
   if (coords && coords.length === 2) {
@@ -94,14 +124,11 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
     cy = coords[1]
   } else {
     const rect = element.getBoundingClientRect()
-    cx = rect.left + rect.width / 2
-    cy = rect.top + rect.height / 2
+    cx = Math.round(rect.left + Math.max(1, rect.width / 2))
+    cy = Math.round(rect.top + Math.max(1, rect.height / 2))
   }
 
-  try {
-    element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' as any })
-  } catch {}
-
+  // 3. Foco no elemento
   try {
     element.focus?.()
   } catch {}
@@ -117,17 +144,90 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
     screenY: cy,
   }
 
-  element.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, isPrimary: true, button: 0, buttons: 1 }))
+  // 4. Pointer Events (Padrão W3C com mouse pointerType e pointerId)
+  try {
+    element.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        ...commonProps,
+        isPrimary: true,
+        pointerId: 1,
+        pointerType: 'mouse',
+        width: 1,
+        height: 1,
+        pressure: 0.5,
+        button: 0,
+        buttons: 1,
+      }),
+    )
+  } catch {}
+
   element.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 }))
-  element.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, isPrimary: true, button: 0, buttons: 0 }))
+
+  try {
+    element.dispatchEvent(
+      new PointerEvent('pointerup', {
+        ...commonProps,
+        isPrimary: true,
+        pointerId: 1,
+        pointerType: 'mouse',
+        width: 1,
+        height: 1,
+        pressure: 0.5,
+        button: 0,
+        buttons: 0,
+      }),
+    )
+  } catch {}
+
   element.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 }))
   element.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 }))
 
+  // 5. Touch Events (para frameworks com event listeners de toque/mobile)
+  try {
+    const touch = new Touch({
+      identifier: Date.now(),
+      target: element,
+      clientX: cx,
+      clientY: cy,
+      screenX: cx,
+      screenY: cy,
+      pageX: cx + (window.scrollX || 0),
+      pageY: cy + (window.scrollY || 0),
+    })
+    element.dispatchEvent(
+      new TouchEvent('touchstart', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        touches: [touch],
+        targetTouches: [touch],
+      }),
+    )
+    element.dispatchEvent(
+      new TouchEvent('touchend', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        touches: [],
+        targetTouches: [],
+      }),
+    )
+  } catch {}
+
+  // 6. Chamada direta do método .click() nativo
   try {
     element.click()
   } catch {}
 
-  // Se o elemento tiver um radio ou checkbox interno, clica nele diretamente
+  // 7. Se o elemento for filho de um botão ou link clicável, clica também no pai
+  const clickableParent = element.closest('button, a, [role="button"], [role="radio"], [role="checkbox"], label') as HTMLElement | null
+  if (clickableParent && clickableParent !== element) {
+    try {
+      clickableParent.click()
+    } catch {}
+  }
+
+  // 8. Se o elemento tiver um radio ou checkbox interno, clica nele diretamente
   const innerInput = element.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null
   if (innerInput && innerInput !== element) {
     try {
@@ -394,30 +494,133 @@ async function executeDeclarativeAction(action: DeclarativeAction): Promise<void
       }
       break
     case 'clk':
-      if (element) simulatePointerClick(element, action.co)
+      if (element) {
+        simulatePointerClick(element, action.co)
+        const innerRadio = element.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null
+        if (innerRadio && !innerRadio.checked) {
+          setCheckedState(innerRadio, true)
+        }
+      }
       break
     case 'adv':
-      let targetEl = element
-      if (!targetEl) {
-        const navs = Array.from(document.querySelectorAll('button, a, input[type="submit"]')).filter((e) => {
-          const val = e instanceof HTMLInputElement || e instanceof HTMLButtonElement ? e.value : ''
-          return NAVIGATION_PATTERN.test(e.textContent || val || '')
-        })
-        if (navs.length) targetEl = navs[0] as HTMLElement
-      }
-
-      if (targetEl) {
-        const val = targetEl instanceof HTMLInputElement || targetEl instanceof HTMLButtonElement ? targetEl.value.trim() : ''
-        const heuristic = action.id || targetEl.textContent?.trim() || val || ''
+      const targetNav = findBestNavigationButton(action.id)
+      if (targetNav) {
+        await waitForEnabled(targetNav, 1200)
+        const heuristic = action.id || targetNav.textContent?.trim() || ''
         if (heuristic) {
           saveDomainCache(window.location.hostname, { advanceSelector: heuristic })
         }
-        simulatePointerClick(targetEl)
+        simulatePointerClick(targetNav)
       } else {
         console.warn('[EasyQuiz] Botão de avanço não localizado.')
       }
       break
   }
+}
+
+// ---- LOCALIZAÇÃO INTELIGENTE DE BOTÕES DE CHECAGEM E AVANÇO ----
+export function findCheckButton(): HTMLElement | null {
+  const query = [
+    'button',
+    'a',
+    '[role="button"]',
+    'input[type="submit"]',
+    'input[type="button"]',
+    '[data-testid*="check" i]',
+    '[data-test-id*="check" i]',
+  ].join(',')
+
+  const candidates = Array.from(document.querySelectorAll(query)) as HTMLElement[]
+  return (
+    candidates.find((b) => {
+      if (!isVisible(b) || isInsideEasyQuiz(b)) return false
+      const val = b instanceof HTMLInputElement || b instanceof HTMLButtonElement ? b.value : ''
+      const text = (b.textContent || val || b.getAttribute('aria-label') || '').trim()
+      return /(verificar|checar|check|conferir|validar|enviar|responder)/i.test(text)
+    }) || null
+  )
+}
+
+export function findBestNavigationButton(preferredId?: string): HTMLElement | null {
+  // 1. Seletor ou ID preferencial informado pela IA
+  if (preferredId) {
+    const el = findElementExt(preferredId)
+    if (el && isVisible(el) && !isInsideEasyQuiz(el)) return el
+  }
+
+  // 2. Cache de domínio salvo de execuções anteriores bem-sucedidas
+  try {
+    const cache = loadDomainCache(window.location.hostname)
+    if (cache.advanceSelector) {
+      const cached = findElementExt(cache.advanceSelector)
+      if (cached && isVisible(cached) && !isInsideEasyQuiz(cached)) return cached
+    }
+  } catch {}
+
+  // 3. Consulta de elementos interativos e links em toda a página
+  const query = [
+    'button',
+    'a',
+    '[role="button"]',
+    '[role="link"]',
+    'input[type="button"]',
+    'input[type="submit"]',
+    '[data-testid*="next" i]',
+    '[data-testid*="continue" i]',
+    '[data-testid*="check" i]',
+    '[data-test-id*="next" i]',
+    '[data-test-id*="continue" i]',
+    '[data-test-id*="check" i]',
+    '[class*="next" i]',
+    '[class*="continue" i]',
+    '[class*="proximo" i]',
+    '[class*="avancar" i]',
+  ].join(',')
+
+  const all = Array.from(document.querySelectorAll(query)) as HTMLElement[]
+  const candidates = all.filter((el) => isVisible(el) && !isInsideEasyQuiz(el))
+
+  // Prioridade A: Satisfaz isNavigationControl
+  for (const el of candidates) {
+    if (isNavigationControl(el)) return el
+  }
+
+  // Prioridade B: Match com NAVIGATION_PATTERN em texto, valor ou aria-label
+  for (const el of candidates) {
+    const val = el instanceof HTMLInputElement || el instanceof HTMLButtonElement ? el.value : ''
+    const text = (el.textContent || val || el.getAttribute('aria-label') || '').trim()
+    if (NAVIGATION_PATTERN.test(text)) return el
+  }
+
+  // Prioridade C: Seletor genérico por atributo de acessibilidade ou teste
+  const genericNext = document.querySelector(
+    '[data-test-id*="next" i], [data-testid*="next" i], [aria-label*="next" i], [aria-label*="próxim" i], [aria-label*="avançar" i], [aria-label*="continuar" i]',
+  ) as HTMLElement | null
+  if (genericNext && isVisible(genericNext) && !isInsideEasyQuiz(genericNext)) {
+    return genericNext
+  }
+
+  return null
+}
+
+export async function waitForEnabled(el: HTMLElement, maxMs = 1500): Promise<void> {
+  const start = Date.now()
+  while (Date.now() - start < maxMs) {
+    const isDisabled =
+      (el as any).disabled === true ||
+      el.getAttribute('aria-disabled') === 'true' ||
+      el.classList.contains('disabled') ||
+      el.getAttribute('disabled') !== null
+    if (!isDisabled) return
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  // Se ainda estiver marcado como disabled após o timeout, tenta remover os atributos para permitir o clique
+  try {
+    el.removeAttribute('disabled')
+    el.removeAttribute('aria-disabled')
+    el.classList.remove('disabled')
+    ;(el as any).disabled = false
+  } catch {}
 }
 
 export async function executePlan(
@@ -436,38 +639,34 @@ export async function executePlan(
 
   let advanced = false
   if (allowAdvance) {
-    // 1. Em questões regulares, verifica se há um botão intermediário de "Verificar" / "Check"
-    const checkBtn =
-      plan.pageType === 'info'
-        ? undefined
-        : (Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"], a')).find((b) => {
-            const val = b instanceof HTMLInputElement || b instanceof HTMLButtonElement ? b.value : ''
-            return /(verificar|checar|check|conferir|validar|enviar|responder)/i.test(
-              b.textContent || val || b.getAttribute('aria-label') || '',
-            )
-          }) as HTMLElement | undefined)
+    // Aguarda o framework hospedeiro (React, Vue, etc.) registrar o input/seleção
+    await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 500 : 200))
 
-    if (checkBtn && isVisible(checkBtn)) {
-      simulatePointerClick(checkBtn)
-      await new Promise((resolve) => setTimeout(resolve, 800))
+    // 1. Em questões com etapa intermediária de checagem ("Verificar", "Check", "Conferir")
+    if (plan.pageType !== 'info') {
+      const checkBtn = findCheckButton()
+      if (checkBtn && isVisible(checkBtn)) {
+        await waitForEnabled(checkBtn, 1200)
+        simulatePointerClick(checkBtn)
+        // Aguarda animação e feedback do quiz
+        await new Promise((resolve) => setTimeout(resolve, 800))
+      }
     }
 
-    if (advanceActions.length > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 400))
-      await executeDeclarativeAction(advanceActions[0])
-      advanced = true
-    } else if (checkBtn || plan.pageType === 'info' || plan.pageType === 'start') {
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      const nextBtn = Array.from(document.querySelectorAll('button, [role="button"], a, input[type="submit"]')).find(
-        (b) => {
-          const val = b instanceof HTMLInputElement || b instanceof HTMLButtonElement ? b.value : ''
-          return NAVIGATION_PATTERN.test(b.textContent || val || b.getAttribute('aria-label') || '')
-        },
-      ) as HTMLElement | undefined
-      if (nextBtn && isVisible(nextBtn)) {
-        simulatePointerClick(nextBtn)
-        advanced = true
+    // 2. Acionamento do botão de avanço final ("Continuar", "Próxima tarefa", "Avançar", "Próxima pergunta")
+    const preferredId = advanceActions.length > 0 ? advanceActions[0].id : undefined
+    const navBtn = findBestNavigationButton(preferredId)
+
+    if (navBtn) {
+      await waitForEnabled(navBtn, 1200)
+      const heuristic = preferredId || navBtn.textContent?.trim() || ''
+      if (heuristic) {
+        saveDomainCache(window.location.hostname, { advanceSelector: heuristic })
       }
+      simulatePointerClick(navBtn)
+      advanced = true
+    } else {
+      console.warn('[EasyQuiz] Nenhum botão de avanço encontrado na página.')
     }
   }
 
