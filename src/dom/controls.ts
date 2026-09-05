@@ -45,8 +45,23 @@ export function isVisible(element: Element): boolean {
   )
 }
 
-export function cleanText(value: string | null | undefined, max = 500): string {
-  return (value ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
+export function safeString(value: any): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (value instanceof Node) return value.textContent || ''
+  try {
+    if (typeof value?.toString === 'function') {
+      const res = value.toString()
+      if (typeof res === 'string') return res
+    }
+  } catch {}
+  return ''
+}
+
+export function cleanText(value: any, max = 500): string {
+  const str = safeString(value)
+  return str.replace(/\s+/g, ' ').trim().slice(0, max)
 }
 
 export function easyQuizId(element: HTMLElement): string {
@@ -58,20 +73,22 @@ export function easyQuizId(element: HTMLElement): string {
 }
 
 export function isNavigationControl(element: HTMLElement): boolean {
+  if (!element || !(element instanceof Element)) return false
+  const rawValue = element instanceof HTMLInputElement || element instanceof HTMLButtonElement ? element.value : ''
   const text = cleanText(
-    element.getAttribute('aria-label') ||
+    element.getAttribute?.('aria-label') ||
       element.textContent ||
-      element.getAttribute('value') ||
-      (element as HTMLInputElement).value,
+      element.getAttribute?.('value') ||
+      rawValue,
   )
-  const type = (element as HTMLButtonElement).type
+  const type = (element as any).type
   const testableText = text.replace(/[\d\(\)\[\]→\>\•\-\/\\]+/g, ' ').trim()
-  const testId = (
-    element.getAttribute('data-testid') ||
-    element.getAttribute('data-test-id') ||
-    element.getAttribute('id') ||
-    element.getAttribute('href') ||
-    ''
+  const testId = String(
+    element.getAttribute?.('data-testid') ||
+      element.getAttribute?.('data-test-id') ||
+      element.getAttribute?.('id') ||
+      element.getAttribute?.('href') ||
+      '',
   ).toLowerCase()
 
   return (
@@ -121,11 +138,12 @@ export function labelForControl(element: HTMLElement): string {
   }
 
   // 5. Placeholder ou título
+  const rawVal = element instanceof HTMLInputElement || element instanceof HTMLButtonElement ? element.value : ''
   const fallback =
     element.getAttribute('placeholder') ||
     element.getAttribute('title') ||
     element.textContent ||
-    (element as HTMLInputElement).value ||
+    rawVal ||
     ''
 
   return cleanText(fallback)
@@ -155,7 +173,13 @@ export function describeControl(element: HTMLElement, role: 'answer' | 'navigati
     const isChecked = input.checked || element.getAttribute('aria-checked') === 'true'
     currentValue = isChecked ? 'checked' : 'unchecked'
   } else {
-    currentValue = cleanText(input.value || element.getAttribute('data-category') || element.textContent || '', 2000)
+    const rawVal =
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLTextAreaElement ||
+      element instanceof HTMLSelectElement
+        ? element.value
+        : ''
+    currentValue = cleanText(rawVal || element.getAttribute('data-category') || element.textContent || '', 2000)
   }
 
   const options: Array<{ value: string; label: string }> = []

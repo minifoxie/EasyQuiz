@@ -51,10 +51,10 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
     if (!isVisible(item)) continue
     const txt = cleanText(item.textContent).toLowerCase().replace(/['"“”«»]/g, '')
     const aria = cleanText(item.getAttribute('aria-label')).toLowerCase().replace(/['"“”«»]/g, '')
-    const cat = cleanText(item.getAttribute('data-category')).toLowerCase().replace(/['"“”«»]/g, '')
-    const val = cleanText((item as HTMLInputElement).value).toLowerCase()
+    const rawVal = item instanceof HTMLInputElement || item instanceof HTMLButtonElement ? item.value : ''
+    const val = cleanText(rawVal).toLowerCase()
 
-    if (txt === targetClean || aria === targetClean || cat === targetClean || val === targetClean) {
+    if (txt === targetClean || aria === targetClean || cat === targetClean || (val && val === targetClean)) {
       // Retorna o item clicável mais próximo se for um texto interno
       const clickableParent = item.closest('button, [role="button"], [draggable="true"], [class*="card" i], [class*="option" i], [class*="item" i], li') as HTMLElement | null
       return clickableParent || item
@@ -398,14 +398,16 @@ async function executeDeclarativeAction(action: DeclarativeAction): Promise<void
     case 'adv':
       let targetEl = element
       if (!targetEl) {
-        const navs = Array.from(document.querySelectorAll('button, a, input[type="submit"]')).filter((e) =>
-          NAVIGATION_PATTERN.test(e.textContent || (e as HTMLInputElement).value || ''),
-        )
+        const navs = Array.from(document.querySelectorAll('button, a, input[type="submit"]')).filter((e) => {
+          const val = e instanceof HTMLInputElement || e instanceof HTMLButtonElement ? e.value : ''
+          return NAVIGATION_PATTERN.test(e.textContent || val || '')
+        })
         if (navs.length) targetEl = navs[0] as HTMLElement
       }
 
       if (targetEl) {
-        const heuristic = action.id || targetEl.textContent?.trim() || (targetEl as HTMLInputElement).value?.trim() || ''
+        const val = targetEl instanceof HTMLInputElement || targetEl instanceof HTMLButtonElement ? targetEl.value.trim() : ''
+        const heuristic = action.id || targetEl.textContent?.trim() || val || ''
         if (heuristic) {
           saveDomainCache(window.location.hostname, { advanceSelector: heuristic })
         }
@@ -437,11 +439,12 @@ export async function executePlan(
     const checkBtn =
       plan.pageType === 'info'
         ? undefined
-        : (Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"], a')).find((b) =>
-            /(verificar|checar|check|conferir|validar|enviar|responder)/i.test(
-              b.textContent || (b as HTMLInputElement).value || b.getAttribute('aria-label') || '',
-            ),
-          ) as HTMLElement | undefined)
+        : (Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"], a')).find((b) => {
+            const val = b instanceof HTMLInputElement || b instanceof HTMLButtonElement ? b.value : ''
+            return /(verificar|checar|check|conferir|validar|enviar|responder)/i.test(
+              b.textContent || val || b.getAttribute('aria-label') || '',
+            )
+          }) as HTMLElement | undefined)
 
     if (checkBtn && isVisible(checkBtn)) {
       simulatePointerClick(checkBtn)
@@ -455,10 +458,10 @@ export async function executePlan(
     } else if (checkBtn || plan.pageType === 'info' || plan.pageType === 'start') {
       await new Promise((resolve) => setTimeout(resolve, 500))
       const nextBtn = Array.from(document.querySelectorAll('button, [role="button"], a, input[type="submit"]')).find(
-        (b) =>
-          NAVIGATION_PATTERN.test(
-            b.textContent || (b as HTMLInputElement).value || b.getAttribute('aria-label') || '',
-          ),
+        (b) => {
+          const val = b instanceof HTMLInputElement || b instanceof HTMLButtonElement ? b.value : ''
+          return NAVIGATION_PATTERN.test(b.textContent || val || b.getAttribute('aria-label') || '')
+        },
       ) as HTMLElement | undefined
       if (nextBtn && isVisible(nextBtn)) {
         simulatePointerClick(nextBtn)
