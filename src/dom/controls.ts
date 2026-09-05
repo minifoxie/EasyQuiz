@@ -264,6 +264,9 @@ export function describeControl(element: HTMLElement, role: 'answer' | 'navigati
   if (input.type === 'checkbox' || input.type === 'radio' || customRole === 'radio' || customRole === 'checkbox') {
     const isChecked = input.checked || element.getAttribute('aria-checked') === 'true'
     currentValue = isChecked ? 'checked' : 'unchecked'
+  } else if (tag === 'button' || tagName === 'a' || role === 'navigation' || isNavigationControl(element)) {
+    // Botões e links de navegação NÃO possuem valor de preenchimento de formulário!
+    currentValue = ''
   } else {
     const rawVal =
       element instanceof HTMLInputElement ||
@@ -271,7 +274,7 @@ export function describeControl(element: HTMLElement, role: 'answer' | 'navigati
       element instanceof HTMLSelectElement
         ? element.value
         : ''
-    currentValue = cleanText(rawVal || element.getAttribute('data-category') || element.textContent || '', 2000)
+    currentValue = cleanText(rawVal || element.getAttribute('data-category') || '', 2000)
   }
 
   const options: Array<{ value: string; label: string }> = []

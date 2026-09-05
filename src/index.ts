@@ -1,4 +1,5 @@
 import { analyzeWithGemini } from './core/gemini'
+import { buildUserPrompt } from './core/prompt'
 import { addSessionMemory, loadSettings, saveSettings } from './core/storage'
 import type { AnalysisPlan, EasyQuizSettings } from './core/types'
 import { captureCurrentContext, captureFullPageText } from './dom/detector'
@@ -97,6 +98,10 @@ async function initEasyQuiz(): Promise<void> {
         'info',
       )
 
+      // Atualiza o Inspetor de Prompt em tempo real antes da resposta da API
+      const promptPreview = buildUserPrompt(context, images, settings)
+      panel.setInspectorPrompt(promptPreview, settings.model)
+
       let { plan, usedModel } = await analyzeWithGemini(context, images, settings, (msg, type) => {
         panel.setStatus(msg, type === 'warning' ? 'info' : type)
       })
@@ -113,6 +118,10 @@ async function initEasyQuiz(): Promise<void> {
         panel.updateContext(context)
         images = await captureImages(context.scope, settings.useVision)
         panel.setStatus(`Reconsultando IA com escopo ampliado (${context.controls.length} controles)...`, 'info')
+
+        const expandedPromptPreview = buildUserPrompt(context, images, settings)
+        panel.setInspectorPrompt(expandedPromptPreview, settings.model)
+
         const recheck = await analyzeWithGemini(context, images, settings, (msg, type) => {
           panel.setStatus(msg, type === 'warning' ? 'info' : type)
         })
@@ -201,10 +210,10 @@ async function initEasyQuiz(): Promise<void> {
 
     try {
       const result = await executePlan(latestPlan, canAdvance, attemptCount)
-      if (result.success) {
+      if (result.success || result.advanced) {
         panel.setProgress(100, 'Sucesso! Respostas preenchidas e validadas!')
         panel.logToConsole(
-          `> [VERIF] ✓ Sucesso absoluto no DOM: ${result.verified}/${result.applied} ações validadas com sucesso!`,
+          `> [VERIF] ✓ Sucesso no DOM: ${result.verified}/${result.applied} ações validadas com sucesso!`,
           'text-green',
         )
         if (result.advanced) {
@@ -216,22 +225,46 @@ async function initEasyQuiz(): Promise<void> {
         )
         panel.hideFloatingAnswers()
       } else {
-        panel.setProgress(0)
-        panel.logToConsole(
-          `> [VERIF] ⚠️ Formulário requer intervenção direta (${result.verified}/${result.applied} validadas no DOM). Abrindo Gabarito Flutuante.`,
-          'text-yellow',
-        )
-        panel.setStatus(
-          `Aviso: O formulário requer interação manual direta (${result.verified}/${result.applied} validadas). Gabarito Flutuante exibido na tela.`,
-          'info',
-        )
-        panel.showFloatingAnswers(latestPlan)
+        // Se aplicou e verificou alternativas no DOM, NÃO abre o gabarito desnecessariamente
+        if (result.verified > 0) {
+          panel.setProgress(90, 'Respostas preenchidas!')
+          panel.logToConsole(
+            `> [VERIF] ✓ Alternativa(s) marcada(s) no DOM (${result.verified}/${result.applied} validadas). Pronto para prosseguir!`,
+            'text-green',
+          )
+          panel.setStatus(
+            `Respostas preenchidas (${result.verified}/${result.applied} validadas no DOM).`,
+            'success',
+          )
+          panel.hideFloatingAnswers()
+        } else {
+          // O gabarito só abre se a IA tiver certeza de que NADA pôde ser marcado (verified === 0) ou após 3 tentativas
+          const shouldShowGabarito = latestPlan.pageType === 'question' && (result.verified === 0 || attemptCount >= 3)
+          if (shouldShowGabarito) {
+            panel.setProgress(0)
+            panel.logToConsole(
+              `> [VERIF] ⚠️ Nenhuma ação pôde ser validada no DOM (${result.verified}/${result.applied}). Abrindo Gabarito Flutuante para auxílio manual.`,
+              'text-yellow',
+            )
+            panel.setStatus(
+              `Aviso: O formulário requer interação manual direta. Gabarito Flutuante exibido na tela.`,
+              'info',
+            )
+            panel.showFloatingAnswers(latestPlan)
+          } else {
+            panel.hideFloatingAnswers()
+          }
+        }
       }
     } catch (error) {
       panel.setProgress(0)
       const msg = error instanceof Error ? error.message : 'Falha ao aplicar plano.'
       panel.setStatus(msg, 'error')
-      panel.showFloatingAnswers(latestPlan)
+      if (latestPlan.pageType === 'question' && attemptCount >= 3) {
+        panel.showFloatingAnswers(latestPlan)
+      } else {
+        panel.hideFloatingAnswers()
+      }
     } finally {
       panel.setBusy(false)
     }

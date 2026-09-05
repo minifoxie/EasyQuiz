@@ -206,7 +206,11 @@ export class FloatingAnswersHud {
 
     const plan = this.currentPlan
     const dragActions = plan.actions.filter((a) => a.t === 'drag')
-    const valActions = plan.actions.filter((a) => a.t === 'val')
+    const valActions = plan.actions.filter((a): a is { t: 'val'; id: string; v: any } => {
+      if (a.t !== 'val') return false
+      const label = cleanSearchTerm((a as any).id || '').toLowerCase()
+      return !/continu|avan[cç]|pr[oó]xim|submet|enviar|check|verific/i.test(label)
+    })
     const choiceActions = plan.actions.filter((a) => a.t === 'clk' || a.t === 'chk')
 
     let totalAnswersCount = dragActions.length || valActions.length || choiceActions.length

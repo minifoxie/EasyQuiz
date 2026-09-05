@@ -44,6 +44,7 @@ export class EasyQuizPanel {
   private stopwatchStartTime: number = 0
   private latestPlan: AnalysisPlan | null = null
   private latestContext: CapturedContext | null = null
+  private latestPromptText: string = ''
 
   // Barra de Progresso
   private progressContainer: HTMLElement
@@ -593,6 +594,8 @@ export class EasyQuizPanel {
       this.callbacks.onSettingsChange({ autoApply: true, autoAdvance: true })
     } else if (tab === 'context') {
       this.renderContextTree()
+    } else if (tab === 'inspector') {
+      this.refreshInspectorView()
     }
   }
 
@@ -917,6 +920,8 @@ export class EasyQuizPanel {
     if (plan) this.latestPlan = plan
     if (this.activeTab === 'context') {
       this.renderContextTree()
+    } else if (this.activeTab === 'inspector' && plan) {
+      this.refreshInspectorView()
     }
   }
 
@@ -940,11 +945,15 @@ export class EasyQuizPanel {
 
     // Pasta 2: Controles Detectados no Formulário
     const controls = ctx ? ctx.controls : []
-    const controlsChildren = controls.map((c, idx) => ({
-      label: `[#${idx + 1}] ${c.type.toUpperCase()}`,
-      value: `${c.label || c.id || c.name || '(Sem rótulo)'} ${c.value ? `[val: "${c.value}"]` : ''}`,
-      badge: c.role || c.type,
-    }))
+    const controlsChildren = controls.map((c, idx) => {
+      const isNav = c.role === 'navigation' || c.type === 'button'
+      const valStr = !isNav && c.value ? ` [val: "${c.value}"]` : ''
+      return {
+        label: `[#${idx + 1}] ${c.type.toUpperCase()}`,
+        value: `${c.label || c.id || c.name || '(Sem rótulo)'}${valStr}`.trim(),
+        badge: isNav ? 'Navegação' : c.role || c.type,
+      }
+    })
 
     const controlsNode = this.createTreeFolder(`🎛️ CONTROLES DETECTADOS (${controls.length})`, controls.length > 0, controlsChildren)
     this.contextTreeContainer.appendChild(controlsNode)
@@ -1110,23 +1119,45 @@ export class EasyQuizPanel {
 
     this.applyBtn.disabled = !canApply || !plan.actions.length
 
-    // Atualiza Inspetor de IA
-    this.inspModel.textContent = plan.usedModel || this.initialSettings.model
-    this.inspLatency.textContent = plan.durationMs ? `${plan.durationMs}ms` : '--'
-    this.inspTokens.textContent = plan.tokensUsed ? `${plan.tokensUsed}` : '--'
-    this.inspPrompt.textContent = plan.promptSent || 'Prompt não registrado para esta requisição.'
-    this.inspRationale.textContent = plan.rationale
+    // Atualiza Inspetor de IA em Tempo Real
+    this.refreshInspectorView()
+  }
 
-    this.inspActions.innerHTML = ''
-    if (plan.actions.length > 0) {
-      for (const act of plan.actions) {
-        const item = document.createElement('div')
-        item.className = 'eq-action-item'
-        item.textContent = JSON.stringify(act)
-        this.inspActions.appendChild(item)
+  public setInspectorPrompt(promptText: string, model?: string): void {
+    this.latestPromptText = promptText
+    if (this.inspPrompt) {
+      this.inspPrompt.textContent = promptText
+    }
+    if (model && this.inspModel) {
+      this.inspModel.textContent = model
+    }
+    if (this.inspLatency) {
+      this.inspLatency.textContent = 'Aguardando IA...'
+    }
+  }
+
+  public refreshInspectorView(): void {
+    const plan = this.latestPlan
+    if (plan) {
+      this.inspModel.textContent = plan.usedModel || this.initialSettings.model
+      this.inspLatency.textContent = plan.durationMs ? `${plan.durationMs}ms` : '--'
+      this.inspTokens.textContent = plan.tokensUsed ? `${plan.tokensUsed}` : '--'
+      this.inspPrompt.textContent = plan.promptSent || this.latestPromptText || 'Prompt não registrado para esta requisição.'
+      this.inspRationale.textContent = plan.rationale
+
+      this.inspActions.innerHTML = ''
+      if (plan.actions.length > 0) {
+        for (const act of plan.actions) {
+          const item = document.createElement('div')
+          item.className = 'eq-action-item'
+          item.textContent = JSON.stringify(act)
+          this.inspActions.appendChild(item)
+        }
+      } else {
+        this.inspActions.innerHTML = '<div class="text-muted" style="padding: 4px;">Nenhuma ação prescrita pela IA.</div>'
       }
-    } else {
-      this.inspActions.innerHTML = '<div class="text-muted" style="padding: 4px;">Nenhuma ação prescrita pela IA.</div>'
+    } else if (this.latestPromptText) {
+      this.inspPrompt.textContent = this.latestPromptText
     }
   }
 

@@ -1,47 +1,49 @@
 import type { CapturedContext, CapturedImage, EasyQuizSettings } from './types'
 import { getSessionMemories } from './storage'
 
-export const SYSTEM_PROMPT = `Você é o EasyQuiz Engine v4.8 Supreme. Responda estritamente em JSON válido.
+export const SYSTEM_PROMPT = `Você é o EasyQuiz Supreme Engine v5.0. Responda estritamente em JSON válido conforme o schema exigido.
 
-Regras de Classificação ("pageType"):
-1. "info" (PÁGINA DE CONTEXTO / LEITURA / TEORIA):
-   - Se a tela apresentar texto teórico, instrução de leitura, artigo, caso clínico, história, tutorial ou vídeo explicativo SEM alternativas para marcar ou campos de exercício:
-   - REGRA OBRIGATÓRIA 1: Defina "pageType": "info".
-   - REGRA OBRIGATÓRIA 2: NUNCA marque "needsMoreContext": true para textos teóricos.
-   - REGRA OBRIGATÓRIA 3: Resuma detalhadamente em "memoryToStore" todos os conceitos-chave, dados, regras, definições e fórmulas apresentados no texto. Esse resumo será automaticamente injetado no prompt de todas as questões seguintes!
-   - REGRA OBRIGATÓRIA 4: Em "actions", retorne [ { "t": "adv" } ] para acionar o botão de continuar/avançar/próximo e prosseguir automaticamente.
-   - Defina "confidence": 1.0.
+DIRETRIZES DE FLUXO, SEGURANÇA E PRECISÃO ANALÍTICA:
 
-2. "question" (EXERCÍCIO / QUESTÃO ATIVA):
-   - Há opções de resposta, múltipla escolha, campos de texto, associação, categorização ou ordenação.
-   - Em "actions", gere os comandos necessários para preencher/marcar/arrastar todas as respostas corretas.
-   - Ao final das ações, sempre inclua { "t": "adv" } para confirmar/submeter/avançar.
+1. CLASSIFICAÇÃO DA PÁGINA ("pageType"):
+   - "info" (TELA TEÓRICA / ARTIGO / LEITURA / CONTEXTO / TUTORIAL / HISTÓRIA):
+     * Ocorre quando a tela apresenta texto explicativo, aula, artigo, instruções ou vídeo SEM perguntas com opções para responder.
+     * Botões como "Continuar", "Avançar", "Continuar para as questões →", "Próxima tarefa" são botões de navegação, NÃO exercícios!
+     * REGRA 1: Defina "pageType": "info".
+     * REGRA 2: "needsMoreContext": false.
+     * REGRA 3: Resuma detalhadamente em "memoryToStore" todos os conceitos, regras, fatos, fórmulas e definições do texto. Esse resumo será injetado automaticamente na memória RAG das questões seguintes!
+     * REGRA 4: Em "actions", retorne APENAS [ { "t": "adv" } ] para acionar o botão de continuar. NUNCA use "val" em botões de avanço!
+     * "confidence": 1.0.
 
-3. "start" (TELA INICIAL):
-   - Tela de introdução antes do início do questionário. Retorne actions: [ { "t": "adv" } ].
+   - "question" (EXERCÍCIO / QUESTÃO ATIVA):
+     * Há alternativas de marcar, caixas de seleção, campos de preenchimento, matrizes numéricas, associação ou arrastar e soltar.
+     * Gere os comandos necessários para resolver completamente o exercício.
+     * Ao final dos comandos, adicione { "t": "adv" } para conferir/avançar.
 
-4. "conclusion" (TELA FINAL):
-   - Resumo de notas, parabéns ou final da atividade. Retorne actions: [].
+   - "start" (TELA INICIAL / BOAS-VINDAS):
+     * Tela de abertura de módulo antes de iniciar o questionário. Retorne actions: [ { "t": "adv" } ].
 
-Regras para Múltipla Escolha e Múltipla Seleção:
-- Se a questão permitir mais de uma resposta ou usar caixas de seleção (checkboxes, 'assinale todas as corretas', 'quais afirmações são verdadeiras'):
-- OBRIGATÓRIO: Gere um comando individual { "t": "chk", "id": "identificador_ou_texto", "c": true } para CADA UMA das alternativas corretas! Nunca marque apenas uma se houver mais de uma verdadeira!
-- Para questões de escolha única (rádios A, B, C, D): gere { "t": "chk", "id": "...", "c": true } ou { "t": "clk", "id": "..." } para a melhor alternativa.
+   - "conclusion" (TELA FINAL / PARABÉNS / NOTA):
+     * Fim da atividade. Retorne actions: [].
 
-Regras para Categorização e Arrastar-e-Soltar:
-- Para cada item a categorizar, gere { "t": "drag", "from": "texto_identificador_do_item", "to": "nome_da_categoria" }.
-- Em "from", use o texto limpo ou as primeiras 4-8 palavras do item (NUNCA inclua reticências "..." ou "…" no valor de "from").
-- Em "to", use o nome exato da categoria ou coluna destino (ex: "Fato", "Opinião", "Verdadeiro", "Falso", etc.).
-- O motor executará automaticamente a estratégia híbrida: botões de categoria no card, clique-no-item + clique-no-destino, arrasto de ponteiro e drag-and-drop nativo seguro.
-- Sempre finalize com { "t": "adv" } para acionar o botão de conferir/avançar.
+2. REGRAS PARA CADA TIPO DE COMANDO ("actions"):
+   - { "t": "clk", "id": "rotulo_ou_texto" }:
+     * Clique em alternativas de escolha única (rádios A, B, C, D) ou botões interativos de opção.
+   - { "t": "chk", "id": "rotulo_ou_texto", "c": true }:
+     * Caixas de seleção (checkboxes).
+     * REGRA CRÍTICA DE MÚLTIPLA SELEÇÃO: Se a questão permitir mais de uma resposta ("selecione todas as corretas", "quais afirmações são verdadeiras"), gere um comando individual { "t": "chk", "id": "...", "c": true } para CADA UMA das alternativas corretas! NUNCA marque apenas uma!
+   - { "t": "val", "id": "id_ou_rotulo", "v": "texto_ou_numero" }:
+     * Preenchimento EXCLUSIVO de campos de texto editáveis (<input type="text">, <textarea>, células de matriz matemática 3x3).
+     * PROIBIÇÃO ABSOLUTA: NUNCA gere ação "val" para botões, links ou avanços! Botões de "Continuar", "Avançar", etc., NUNCA devem receber "val"!
+   - { "t": "sel", "id": "id_ou_rotulo", "v": "texto_opcao" }:
+     * Seleção em menus dropdown (<select>).
+   - { "t": "drag", "from": "texto_do_item", "to": "nome_da_categoria" }:
+     * Categorização ou ordenação arrastar-e-soltar. "from" = texto do item (sem reticências); "to" = nome da coluna destino.
+   - { "t": "adv" }:
+     * Acionamento do botão de avanço/conferir (sempre no final).
 
-Comandos declarativos ("actions"):
-- { "t": "val", "id": "id_ou_rotulo", "v": "texto_a_injetar" }
-- { "t": "chk", "id": "id_ou_rotulo", "c": true }
-- { "t": "sel", "id": "id_ou_rotulo", "v": ["valor"] }
-- { "t": "clk", "id": "id_ou_rotulo" }
-- { "t": "drag", "from": "texto_item", "to": "texto_categoria" }
-- { "t": "adv" } (aciona botão de avanço/próxima)`
+3. RACIOCÍNIO ("rationale"):
+   * Seja analítico, rápido e conciso (máximo 1 a 2 frases diretas explicando o porquê da resposta).`
 
 export function buildUserPrompt(
   context: CapturedContext,
@@ -58,7 +60,7 @@ export function buildUserPrompt(
   const shouldIncludeHtml = context.questionText.length < 120 || isComplexWidget || context.controls.length < 3
 
   const htmlBlock = shouldIncludeHtml
-    ? `\n[HTML FRAGMENT (Estrutura DOM/Widgets)]:\n${context.htmlSnippet.slice(0, 5000)}`
+    ? `\n[HTML FRAGMENT (Estrutura DOM/Widgets)]:\n${context.htmlSnippet.slice(0, 4500)}`
     : `\n[HTML FRAGMENT]: Omitido (Texto e controles são suficientes).`
 
   const memories = getSessionMemories()
@@ -67,10 +69,12 @@ export function buildUserPrompt(
     memoryBlock = `\n[MEMÓRIA DE CONTEXTO ATIVA (RAG)]:\n${memories.map((m) => `- ${m}`).join('\n')}\n`
   }
 
-  return `--- NOVA ANÁLISE DE PÁGINA ---
-[MODO REQUERIDO]: ${settings.engine}
-[DICA]: ${settings.modeHint || 'Auto'}
-[SIMULAÇÃO]: ${settings.dryRun ? 'ON' : 'OFF'}
+  // Separação estrita entre campos de resposta e botões de navegação
+  const answerControls = context.controls.filter((c) => c.role !== 'navigation')
+  const navControls = context.controls.filter((c) => c.role === 'navigation')
+
+  return `--- ANÁLISE DE PÁGINA ---
+[MODO CONFIGURADO]: ${settings.engine} | Dica: ${settings.modeHint || 'Auto'}
 [URL]: ${context.sourceUrl}
 [PÁGINA]: ${context.pageTitle}
 ${memoryBlock}
@@ -78,20 +82,31 @@ ${memoryBlock}
 ${context.questionText}
 ${htmlBlock}
 
-[CONTROLES DETECTADOS]:
-${JSON.stringify(
-  context.controls.map((c) => ({
-    id: c.id,
-    type: c.type,
-    name: c.name || undefined,
-    lbl: c.label,
-    val: c.value,
-    opt: c.options.length ? c.options : undefined,
-  })),
-  null,
-  0,
-)}
+[CAMPOS DE RESPOSTA / EXERCÍCIO DETECTADOS]:
+${
+  answerControls.length > 0
+    ? JSON.stringify(
+        answerControls.map((c) => ({
+          id: c.id,
+          type: c.type,
+          name: c.name || undefined,
+          lbl: c.label,
+          val: c.value || undefined,
+          opt: c.options.length ? c.options : undefined,
+        })),
+        null,
+        0,
+      )
+    : '(Nenhum campo de resposta - página teórica de leitura/artigo ou introdução)'
+}
+
+[BOTÕES DE NAVEGAÇÃO / AVANÇO DISPONÍVEIS]:
+${
+  navControls.length > 0
+    ? navControls.map((n) => `- "${n.label || n.id}" [tipo: ${n.type}]`).join('\n')
+    : '(Nenhum botão de navegação explícito no escopo local)'
+}
 
 [IMAGENS ANEXADAS]: ${images.length}
-Responda estritamente em JSON.`
+Responda estritamente em JSON válido conforme o schema.`
 }

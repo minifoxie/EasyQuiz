@@ -62,7 +62,15 @@ export function resolveTargetControlOrCard(element: HTMLElement): HTMLElement {
   }
 
   const clickable = element.closest('button, a, [role="button"], [draggable="true"]') as HTMLElement | null
-  return clickable || element
+  if (clickable) return clickable
+
+  // NUNCA retorna containers globais como body/html/main quando há controles internos
+  if (['body', 'html', 'main', 'section', 'article', 'form'].includes(element.tagName.toLowerCase())) {
+    const inner = element.querySelector('button, [role="button"], a, input:not([type="hidden"]), select, textarea, [role="radio"], [role="checkbox"], .option-card, label') as HTMLElement | null
+    if (inner) return resolveTargetControlOrCard(inner)
+  }
+
+  return element
 }
 
 // ---- MOTOR DE BUSCA ROBUSTA DE ELEMENTOS ----
@@ -124,14 +132,18 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
     } catch {}
   }
 
-  // 5. Tenta via XPath para texto exato no nó ou descendentes
+  // 5. Tenta via XPath para texto exato no nó folha ou controle direto
   try {
     const cleanXpath = trimmed.replace(/"/g, '')
-    const xpath = `//*[normalize-space(.)="${cleanXpath}"] | //*[@aria-label="${cleanXpath}"] | //*[@data-category="${cleanXpath}"] | //*[@data-testid="${cleanXpath}"]`
+    const xpath = `//button[normalize-space(.)="${cleanXpath}"] | //a[normalize-space(.)="${cleanXpath}"] | //*[not(*) and normalize-space(.)="${cleanXpath}"] | //*[@aria-label="${cleanXpath}"] | //*[@data-category="${cleanXpath}"] | //*[@data-testid="${cleanXpath}"]`
     const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null)
     if (result.singleNodeValue) {
       const node = result.singleNodeValue as HTMLElement
       if (!isInsideEasyQuiz(node)) {
+        if (['body', 'html'].includes(node.tagName.toLowerCase())) {
+          const inner = node.querySelector('button, [role="button"], a, input, [role="radio"], [role="checkbox"], label') as HTMLElement | null
+          if (inner) return resolveTargetControlOrCard(inner)
+        }
         const categoryContainer = node.closest(
           '[data-role="dropzone"], [class*="category" i], [class*="bucket" i], [class*="column" i], [class*="drop" i]',
         ) as HTMLElement | null
@@ -288,26 +300,39 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
     )
   } catch {}
 
-  element.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 }))
-
   try {
-    element.dispatchEvent(
-      new PointerEvent('pointerup', {
-        ...commonProps,
-        isPrimary: true,
-        pointerId: 1,
-        pointerType: 'mouse',
-        width: 1,
-        height: 1,
-        pressure: 0.5,
-        button: 0,
-        buttons: 0,
-      }),
-    )
+    const MouseEventCtor = element.ownerDocument?.defaultView?.MouseEvent || window.MouseEvent
+    if (MouseEventCtor) {
+      element.dispatchEvent(new MouseEventCtor('mousedown', { ...commonProps, button: 0, buttons: 1 }))
+    }
   } catch {}
 
-  element.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 }))
-  element.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 }))
+  try {
+    const PointerEventCtor = element.ownerDocument?.defaultView?.PointerEvent || window.PointerEvent
+    if (PointerEventCtor) {
+      element.dispatchEvent(
+        new PointerEventCtor('pointerup', {
+          ...commonProps,
+          isPrimary: true,
+          pointerId: 1,
+          pointerType: 'mouse',
+          width: 1,
+          height: 1,
+          pressure: 0.5,
+          button: 0,
+          buttons: 0,
+        }),
+      )
+    }
+  } catch {}
+
+  try {
+    const MouseEventCtor = element.ownerDocument?.defaultView?.MouseEvent || window.MouseEvent
+    if (MouseEventCtor) {
+      element.dispatchEvent(new MouseEventCtor('mouseup', { ...commonProps, button: 0, buttons: 0 }))
+      element.dispatchEvent(new MouseEventCtor('click', { ...commonProps, button: 0, buttons: 0 }))
+    }
+  } catch {}
 
   // 5. Touch Events (para frameworks com event listeners de toque/mobile)
   try {
@@ -367,6 +392,21 @@ function setNativeValue(element: HTMLElement, value: string): void {
     if (inner) {
       target = inner
     }
+  }
+
+  // Se o elemento for um botão, link ou controle de navegação, auto-corrige para clique
+  const isBtnTarget =
+    target instanceof HTMLButtonElement ||
+    target.tagName.toLowerCase() === 'a' ||
+    target.getAttribute('role') === 'button' ||
+    target.getAttribute('role') === 'link' ||
+    (target instanceof HTMLInputElement && ['button', 'submit'].includes(target.type)) ||
+    isNavigationControl(target)
+
+  if (isBtnTarget) {
+    console.log(`[EasyQuiz] Auto-correção em setNativeValue: elemento é botão/navegação. Clicando...`)
+    simulatePointerClick(target)
+    return
   }
 
   // Se o elemento for um <select>, redireciona para selectValues
@@ -968,7 +1008,22 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1):
 
   switch (action.t) {
     case 'val':
-      if (element) setNativeValue(element, String(action.v))
+      if (element) {
+        const isBtn =
+          element instanceof HTMLButtonElement ||
+          element.tagName.toLowerCase() === 'a' ||
+          element.getAttribute('role') === 'button' ||
+          element.getAttribute('role') === 'link' ||
+          (element instanceof HTMLInputElement && ['button', 'submit'].includes(element.type)) ||
+          isNavigationControl(element)
+
+        if (isBtn) {
+          console.log(`[EasyQuiz] Auto-correção: Ação 'val' direcionada a botão/link '${action.id}'. Clicando...`)
+          simulatePointerClick(element)
+        } else {
+          setNativeValue(element, String(action.v))
+        }
+      }
       break
     case 'chk':
       if (element) setCheckedState(element, Boolean(action.c))
@@ -1297,6 +1352,16 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
     if (action.t === 'val') {
       const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLElement | null
       if (!el) return false
+
+      // Se for botão, link ou navegação, a ação foi auto-corrigida para clique
+      const isBtn =
+        el instanceof HTMLButtonElement ||
+        el.tagName.toLowerCase() === 'a' ||
+        el.getAttribute('role') === 'button' ||
+        el.getAttribute('role') === 'link' ||
+        (el instanceof HTMLInputElement && ['button', 'submit'].includes(el.type)) ||
+        isNavigationControl(el)
+      if (isBtn) return true
 
       const expected = String(action.v ?? '').trim()
 

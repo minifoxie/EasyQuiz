@@ -3,34 +3,29 @@ import { buildUserPrompt, SYSTEM_PROMPT } from './prompt'
 
 export const AVAILABLE_MODELS: ModelOption[] = [
   {
-    id: 'gemini-3.5-flash',
-    name: 'Gemini 3.5 Flash (Padrão 2026 - Alta Velocidade)',
-    description: 'Frontier model com alta inteligência multimodal otimizado para velocidade.',
-  },
-  {
-    id: 'gemini-3.1-flash-lite',
-    name: 'Gemini 3.1 Flash Lite (Ultra Eficiente e Estável)',
-    description: 'Equilíbrio ideal entre inteligência e economia extrema de cota.',
-  },
-  {
     id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash (Compatibilidade)',
-    description: 'Modelo rápido para contas com acesso ativo.',
+    name: 'Gemini 2.5 Flash (Recomendado - Ultra Rápido)',
+    description: 'Modelo de última geração com suporte nativo e latência inferior a 1 segundo.',
+  },
+  {
+    id: 'gemini-2.0-flash',
+    name: 'Gemini 2.0 Flash (Padrão Estável)',
+    description: 'Alta velocidade e excelente precisão para provas e formulários.',
+  },
+  {
+    id: 'gemini-1.5-flash',
+    name: 'Gemini 1.5 Flash (Universal Legado)',
+    description: 'Compatibilidade total em todas as contas e versões de chave do Google AI Studio.',
   },
   {
     id: 'gemini-2.5-pro',
     name: 'Gemini 2.5 Pro (Raciocínio Avançado)',
-    description: 'Alta capacidade de raciocínio lógico, problemas complexos e STEM.',
+    description: 'Maior capacidade analítica para questões complexas, STEM e matemática profunda.',
   },
   {
-    id: 'gemini-3.1-pro',
-    name: 'Gemini 3.1 Pro (Raciocínio Profundo)',
-    description: 'Modelo avançado para raciocínio em múltiplos passos e código.',
-  },
-  {
-    id: 'gemini-1.5-flash',
-    name: 'Gemini 1.5 Flash (Legado Universal)',
-    description: 'Suporte universal de alta compatibilidade em contas com endpoints legados.',
+    id: 'gemini-1.5-pro',
+    name: 'Gemini 1.5 Pro (Legado Pro)',
+    description: 'Modelo de raciocínio profundo legado.',
   },
 ]
 
@@ -243,7 +238,7 @@ export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message
   }
 
   // 2. Teste direto nos modelos mais compatíveis em v1beta e v1
-  const testCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.5-flash']
+  const testCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
   for (const modelId of testCandidates) {
     for (const apiVer of ['v1beta', 'v1']) {
       const endpoint = `https://generativelanguage.googleapis.com/${apiVer}/models/${modelId}:generateContent?key=${encodeURIComponent(key)}`
@@ -323,8 +318,7 @@ export async function analyzeWithGemini(
     'gemini-2.0-flash',
     'gemini-1.5-flash',
     'gemini-2.5-pro',
-    'gemini-3.5-flash',
-    'gemini-3.1-flash-lite',
+    'gemini-1.5-pro',
   ]
   const modelsToTry = Array.from(new Set(rawFallback)).filter((m) => !blacklistedModels.has(m))
 
