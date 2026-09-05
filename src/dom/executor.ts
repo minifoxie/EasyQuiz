@@ -14,12 +14,55 @@ export function isInsideEasyQuiz(el: HTMLElement | null): boolean {
 export function cleanSearchTerm(term: string): string {
   if (!term) return ''
   return term
-    // Remove prefixos como "1. ", "2) ", "1 - ", "A) ", "(A) ", mas preserva números puros como "1", "-1" ou "282.6"
-    .replace(/^(\([0-9a-zA-Z]{1,2}\)|[0-9]{1,3}|[a-zA-Z])[\.\)\-\:\s]+\s+/, '')
+    // Remove prefixos estritos de numeração de questão/alternativa como "1. ", "2) ", "1 - ", "A) ", "(A) ", "A: "
+    .replace(/^(\([0-9a-zA-Z]{1,2}\)|[0-9]{1,3}|[a-zA-Z])[\.\)\-\:]\s+/, '')
     .replace(/[\.\u2026]{2,}/g, ' ') // Remove reticências como "..." ou "…"
     .replace(/['"“”«»]/g, '') // Remove aspas
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+// ---- RESOLUÇÃO ROBUSTA DE CONTROLE OU CARD VERDADEIRO ----
+export function resolveTargetControlOrCard(element: HTMLElement): HTMLElement {
+  if (!element) return element
+
+  // 1. Se já for um controle de entrada direto ou item arrastável/dropzone
+  if (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLSelectElement ||
+    element instanceof HTMLTextAreaElement ||
+    element.getAttribute('draggable') === 'true' ||
+    element.classList.contains('dnd-card') ||
+    element.hasAttribute('data-category') ||
+    element.hasAttribute('data-dropzone')
+  ) {
+    return element
+  }
+
+  // 2. Se o próprio elemento tiver atributo 'for', busca o input correspondente
+  if (element.hasAttribute('for')) {
+    const forId = element.getAttribute('for')
+    if (forId) {
+      const forEl = element.ownerDocument.getElementById(forId)
+      if (forEl) return forEl
+    }
+  }
+
+  // 3. Procura container de alternativa/questão verdadeiro (evita match prematuro em .option-text, .option-badge e NUNCA sobe para article/section/main)
+  const trueCard = element.closest(
+    'label, .option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, tr, li, .dnd-card, [class*="option-card" i], [class*="choice-card" i]',
+  ) as HTMLElement | null
+
+  if (trueCard && !['article', 'section', 'main', 'form', 'body'].includes(trueCard.tagName.toLowerCase())) {
+    const forId = trueCard.getAttribute('for')
+    const forInput = forId ? (trueCard.ownerDocument.getElementById(forId) as HTMLInputElement | null) : null
+    const innerInput = (forInput || trueCard.querySelector('input:not([type="hidden"]), select, textarea')) as HTMLElement | null
+    if (innerInput) return innerInput
+    return trueCard
+  }
+
+  const clickable = element.closest('button, a, [role="button"], [draggable="true"]') as HTMLElement | null
+  return clickable || element
 }
 
 // ---- MOTOR DE BUSCA ROBUSTA DE ELEMENTOS ----
@@ -31,21 +74,57 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
   // 1. Tenta por ID estrito gerado pelo EasyQuiz
   const escaped = CSS.escape(trimmed)
   let el = document.querySelector(`[data-easyquiz-id="${escaped}"]`) as HTMLElement | null
-  if (el && !isInsideEasyQuiz(el)) return el
+  if (el && !isInsideEasyQuiz(el)) return resolveTargetControlOrCard(el)
 
-  // 2. Tenta como seletor CSS direto
+  // 2. Se for uma letra ou código curto (ex: "A", "B", "C", "D", "E", "1", "2", "PA", "PG")
+  // Busca diretamente por input de formulário, badge associado ou dropzone de categoria ANTES de testar como seletor
+  if (/^[a-zA-Z0-9]{1,2}$/.test(trimmed)) {
+    const radioMatch = document.querySelector(
+      `input[type="radio"][value="${escaped}" i], input[type="checkbox"][value="${escaped}" i], [role="radio"][value="${escaped}" i], [data-value="${escaped}" i], input[id$="-${escaped}" i], input[id*="opt-${escaped}" i]`,
+    ) as HTMLElement | null
+    if (radioMatch && !isInsideEasyQuiz(radioMatch)) {
+      return radioMatch
+    }
+
+    const dropzoneMatch = document.querySelector(
+      `[data-category="${escaped}" i], [data-dropzone="${escaped}" i], [data-role="dropzone"][data-category="${escaped}" i]`,
+    ) as HTMLElement | null
+    if (dropzoneMatch && !isInsideEasyQuiz(dropzoneMatch)) {
+      return dropzoneMatch
+    }
+
+    const badgeMatch = Array.from(
+      document.querySelectorAll('.option-badge, [class*="badge" i], [class*="letter" i], .option-card span, label span'),
+    ).find((b) => {
+      const t = cleanSearchTerm(b.textContent).toLowerCase()
+      return t === trimmed.toLowerCase() || t === trimmed.toLowerCase() + ')'
+    }) as HTMLElement | undefined
+    if (badgeMatch && !isInsideEasyQuiz(badgeMatch)) {
+      return resolveTargetControlOrCard(badgeMatch)
+    }
+  }
+
+  // 3. Tenta por ID real, name, value, data-category, data-dropzone, data-testid, aria-label
   try {
-    el = document.querySelector(trimmed) as HTMLElement | null
-    if (el && !isInsideEasyQuiz(el)) return el
+    el = document.querySelector(
+      `#${escaped}, [name="${escaped}"], [value="${escaped}"], [data-category="${escaped}" i], [data-dropzone="${escaped}" i], [data-testid="${escaped}" i], [data-test-id="${escaped}" i], [aria-label="${escaped}" i]`,
+    ) as HTMLElement | null
+    if (el && !isInsideEasyQuiz(el)) {
+      const isDrop = el.hasAttribute('data-category') || el.hasAttribute('data-dropzone') || el.classList.contains('dnd-zone')
+      return isDrop ? el : resolveTargetControlOrCard(el)
+    }
   } catch {}
 
-  // 3. Tenta por ID real, name ou value
-  try {
-    el = document.querySelector(`#${escaped}, [name="${escaped}"], [value="${escaped}"]`) as HTMLElement | null
-    if (el && !isInsideEasyQuiz(el)) return el
-  } catch {}
+  // 4. Tenta como seletor CSS composto (NUNCA tags simples como "b", "a", "p" para não colidir com alternativas)
+  const isLikelyCssSelector = /^[.#\[]|\s|[>+~:]/.test(trimmed)
+  if (isLikelyCssSelector) {
+    try {
+      el = document.querySelector(trimmed) as HTMLElement | null
+      if (el && !isInsideEasyQuiz(el)) return resolveTargetControlOrCard(el)
+    } catch {}
+  }
 
-  // 4. Tenta via XPath para texto exato no nó ou descendentes
+  // 5. Tenta via XPath para texto exato no nó ou descendentes
   try {
     const cleanXpath = trimmed.replace(/"/g, '')
     const xpath = `//*[normalize-space(.)="${cleanXpath}"] | //*[@aria-label="${cleanXpath}"] | //*[@data-category="${cleanXpath}"] | //*[@data-testid="${cleanXpath}"]`
@@ -56,12 +135,12 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
         const categoryContainer = node.closest(
           '[data-role="dropzone"], [class*="category" i], [class*="bucket" i], [class*="column" i], [class*="drop" i]',
         ) as HTMLElement | null
-        return categoryContainer || node
+        return categoryContainer || resolveTargetControlOrCard(node)
       }
     }
   } catch {}
 
-  // 5. Busca flexível por candidatos visíveis com correspondência textual e por tokens
+  // 6. Busca flexível por candidatos visíveis com correspondência textual e por tokens
   const targetClean = cleanSearchTerm(trimmed).toLowerCase()
   const candidates = Array.from(
     document.querySelectorAll(
@@ -71,7 +150,14 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
 
   // Prioridade A: Correspondência exata em texto, atributos ou prefixo de alternativa (ex: "A)", "B.", "1)")
   for (const item of candidates) {
-    if (!isVisible(item) || isInsideEasyQuiz(item)) continue
+    if (!isVisible(item) || isInsideEasyQuiz(item) || item.closest('header, nav, .stepper, .step-item, .progress-bar-container')) continue
+
+    const isContainerOfOptions = Boolean(
+      item.matches('article, section, form, main, [class*="container" i], [class*="grid" i], .dnd-pool, .dnd-zones') ||
+      item.querySelector('label, [role="radio"], [role="checkbox"], .dnd-card, [draggable="true"], .option-card, tr')
+    )
+    if (isContainerOfOptions && !item.matches('.dnd-zone, [data-category], [data-dropzone]')) continue
+
     const txt = cleanSearchTerm(item.textContent).toLowerCase()
     const aria = cleanSearchTerm(item.getAttribute('aria-label') || '').toLowerCase()
     const cat = cleanSearchTerm(item.getAttribute('data-category') || '').toLowerCase()
@@ -95,29 +181,37 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
       const categoryContainer = item.closest(
         '[data-role="dropzone"], [class*="category" i], [class*="bucket" i], [class*="column" i], [class*="drop" i]',
       ) as HTMLElement | null
-      const clickableParent = item.closest(
-        'button, a, [role="button"], [role="radio"], [role="checkbox"], [draggable="true"], [class*="card" i], [class*="option" i], [class*="item" i], label, li',
-      ) as HTMLElement | null
-      return categoryContainer || clickableParent || item
+      return categoryContainer || resolveTargetControlOrCard(item)
     }
   }
 
   // Prioridade B: Contenção de substring ou palavras-chave
   if (targetClean.length >= 3) {
     for (const item of candidates) {
-      if (!isVisible(item) || isInsideEasyQuiz(item)) continue
+      if (!isVisible(item) || isInsideEasyQuiz(item) || item.closest('header, nav, .stepper, .step-item, .progress-bar-container')) continue
+
+      const isContainerOfOptions = Boolean(
+        item.matches('article, section, form, main, [class*="container" i], [class*="grid" i], .dnd-pool, .dnd-zones') ||
+        item.querySelector('label, [role="radio"], [role="checkbox"], .dnd-card, [draggable="true"], .option-card, tr')
+      )
+      if (isContainerOfOptions && !item.matches('.dnd-zone, [data-category], [data-dropzone]')) continue
+
       const txt = cleanSearchTerm(item.textContent).toLowerCase()
       const aria = cleanSearchTerm(item.getAttribute('aria-label') || '').toLowerCase()
 
-      // Substring direta
-      if (txt.includes(targetClean) || aria.includes(targetClean) || (targetClean.length > 8 && txt && targetClean.includes(txt))) {
+      // Substring direta onde o texto do elemento contém o termo de busca
+      if (txt.includes(targetClean) || aria.includes(targetClean)) {
+        // Se algum elemento filho também contém o termo de busca, pula o container pai para pegar o nó folha mais específico
+        const hasChildMatching = Array.from(item.children).some((child) => {
+          const cTxt = cleanSearchTerm(child.textContent).toLowerCase()
+          return cTxt && cTxt.includes(targetClean)
+        })
+        if (hasChildMatching) continue
+
         const categoryContainer = item.closest(
           '[data-role="dropzone"], [class*="category" i], [class*="bucket" i], [class*="column" i], [class*="drop" i]',
         ) as HTMLElement | null
-        const clickableParent = item.closest(
-          'button, a, [role="button"], [role="radio"], [role="checkbox"], [draggable="true"], [class*="card" i], [class*="option" i], [class*="item" i], label, li',
-        ) as HTMLElement | null
-        return categoryContainer || clickableParent || item
+        return categoryContainer || resolveTargetControlOrCard(item)
       }
 
       // Correspondência pelas primeiras 3 a 5 palavras significativas (para frases longas que a IA resumiu)
@@ -125,10 +219,7 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
       if (words.length >= 3) {
         const leadingTokens = words.slice(0, Math.min(4, words.length)).join(' ')
         if (txt.includes(leadingTokens) || aria.includes(leadingTokens)) {
-          const clickableParent = item.closest(
-            'button, a, [role="button"], [role="radio"], [role="checkbox"], [draggable="true"], [class*="card" i], [class*="option" i], [class*="item" i], label, li',
-          ) as HTMLElement | null
-          return clickableParent || item
+          return resolveTargetControlOrCard(item)
         }
       }
     }
@@ -268,28 +359,81 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
 }
 
 function setNativeValue(element: HTMLElement, value: string): void {
-  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+  let target: HTMLElement = element
+  if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement) && !(target instanceof HTMLSelectElement) && !target.isContentEditable) {
+    const inner = element.querySelector('input:not([type="hidden"]), textarea, select, [contenteditable="true"]') as HTMLElement | null
+    if (inner) {
+      target = inner
+    }
+  }
+
+  // Se o elemento for um <select>, redireciona para selectValues
+  if (target instanceof HTMLSelectElement) {
+    selectValues(target, [value])
+    return
+  }
+
+  // Se o elemento for um radio ou checkbox
+  if (target instanceof HTMLInputElement && ['checkbox', 'radio'].includes(target.type)) {
+    const shouldCheck = ['true', '1', 'checked', 'yes', 'sim'].includes(value.toLowerCase()) || value === target.value
+    setCheckedState(target, shouldCheck)
+    return
+  }
+
+  // 1. Foco no elemento
+  try {
+    target.focus?.()
+  } catch {}
+
+  // 2. Evento BeforeInput (para frameworks modernos como React 18, Vue 3, Draft.js, ProseMirror)
+  try {
+    target.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, composed: true, data: value }))
+  } catch {}
+
+  // 3. Inputs ou Textareas padrão
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
     try {
-      const tracker = (element as any)._valueTracker
+      const tracker = (target as any)._valueTracker
       if (tracker) tracker.setValue('')
     } catch {}
 
-    const prototype = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+    const prototype = target instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
     const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
     if (setter) {
-      setter.call(element, value)
+      setter.call(target, value)
     } else {
-      element.value = value
+      target.value = value
     }
-    dispatchEventSequence(element, ['input', 'change', 'blur'])
+
+    try {
+      const tracker = (target as any)._valueTracker
+      if (tracker) tracker.setValue(value)
+    } catch {}
+
+    dispatchEventSequence(target, ['input', 'change', 'blur'])
     return
   }
-  if (element.isContentEditable) {
-    element.textContent = value
-    dispatchEventSequence(element, ['input', 'change', 'blur'])
+
+  // 4. ContentEditable ou editores baseados em nós de texto
+  if (target.isContentEditable) {
+    try {
+      document.execCommand?.('selectAll', false, undefined)
+      document.execCommand?.('insertText', false, value)
+    } catch {}
+    if (target.textContent?.trim() !== value.trim()) {
+      target.textContent = value
+      try { (target as any).innerText = value } catch {}
+    }
+    dispatchEventSequence(target, ['input', 'change', 'blur'])
     return
   }
-  throw new Error(`Não é possível injetar texto em <${element.tagName.toLowerCase()}>`)
+
+  // 5. Fallback genérico para elementos customizados com atributo value ou textContent
+  try {
+    (target as any).value = value
+    target.textContent = value
+    dispatchEventSequence(target, ['input', 'change', 'blur'])
+  } catch {}
 }
 
 function setCheckedState(element: HTMLElement, checked: boolean): void {
@@ -318,7 +462,7 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
     cardParent.classList.toggle('checked', checked)
   }
 
-  // 2. Se houver input nativo (checkbox ou radio)
+  // 2. Caminho Primário: Se houver input nativo (checkbox ou radio)
   if (inputEl && ['checkbox', 'radio'].includes(inputEl.type)) {
     inputEl.checked = checked
 
@@ -336,15 +480,13 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
     dispatchEventSequence(inputEl, ['input', 'change'])
   }
 
-  // 3. Simular interação com o elemento clicável mais evidente (container ou próprio input)
-  // para que frameworks reativos (React, Vue, Angular, Svelte) acionem seus listeners de clique
-  const clickTarget = cardParent && cardParent !== inputEl ? cardParent : (inputEl || element)
-  if (clickTarget) {
-    try {
-      clickTarget.focus?.()
-    } catch {}
+  // 3. Caminho Redundante de Eventos de Ponteiro (Dispara no Container E no Input)
+  const targetsToClick = [cardParent, inputEl].filter((t, idx, arr) => Boolean(t) && arr.indexOf(t) === idx) as HTMLElement[]
 
-    const rect = clickTarget.getBoundingClientRect()
+  for (const target of targetsToClick) {
+    try { target.focus?.() } catch {}
+
+    const rect = target.getBoundingClientRect()
     const cx = Math.round(rect.left + Math.max(1, rect.width / 2))
     const cy = Math.round(rect.top + Math.max(1, rect.height / 2))
     const commonProps = {
@@ -357,24 +499,45 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
     }
 
     try {
-      clickTarget.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 }))
+      target.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 }))
     } catch {}
-    clickTarget.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 }))
+    target.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 }))
     try {
-      clickTarget.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 0 }))
+      target.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 0 }))
     } catch {}
-    clickTarget.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 }))
-    clickTarget.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 }))
+    target.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 }))
+    target.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 }))
+
+    try {
+      target.click()
+    } catch {}
   }
 
-  // 4. Garantia final de persistência do estado checked no input nativo
+  // 4. Caminho Redundante de Teclado (Space / Enter)
+  try {
+    const focusTarget = inputEl || cardParent
+    focusTarget?.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true }))
+    focusTarget?.dispatchEvent(new KeyboardEvent('keyup', { key: ' ', code: 'Space', bubbles: true }))
+  } catch {}
+
+  // 5. Chamada de Handlers Nativos Inline (onclick, onchange)
+  try { (cardParent as any).onclick?.() } catch {}
+  try { (inputEl as any)?.onclick?.() } catch {}
+  try { (inputEl as any)?.onchange?.() } catch {}
+
+  // 6. GARANTIA MÁXIMA DE PERSISTÊNCIA: Revalida e trava o estado no input nativo
   if (inputEl && ['checkbox', 'radio'].includes(inputEl.type)) {
     if (inputEl.checked !== checked) {
       inputEl.checked = checked
       try {
+        const tracker = (inputEl as any)._valueTracker
+        if (tracker) tracker.setValue(!checked)
+      } catch {}
+      try {
         const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
         setter?.call(inputEl, checked)
       } catch {}
+      inputEl.checked = checked
       dispatchEventSequence(inputEl, ['input', 'change'])
     }
     if (cardParent) {
@@ -386,14 +549,69 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
 }
 
 function selectValues(element: HTMLElement, values: string[]): void {
-  if (element instanceof HTMLSelectElement) {
-    for (const option of Array.from(element.options)) {
-      option.selected = values.includes(option.value)
+  const selectEl =
+    element instanceof HTMLSelectElement
+      ? element
+      : (element.querySelector('select') as HTMLSelectElement | null)
+
+  if (selectEl) {
+    const normValues = values.map((v) => cleanSearchTerm(v).toLowerCase())
+    let matched = false
+
+    // Passagem 1: Correspondência exata em value ou textContent
+    for (let i = 0; i < selectEl.options.length; i++) {
+      const option = selectEl.options[i]
+      const optVal = option.value.toLowerCase()
+      const optTxt = cleanSearchTerm(option.textContent).toLowerCase()
+
+      const isExact = normValues.some((v) => v === optVal || v === optTxt)
+      if (isExact) {
+        option.selected = true
+        selectEl.selectedIndex = i
+        matched = true
+        if (!selectEl.multiple) break
+      } else if (!selectEl.multiple) {
+        option.selected = false
+      }
     }
-    dispatchEventSequence(element, ['input', 'change'])
-    return
+
+    // Passagem 2: Correspondência parcial por contenção (apenas se a exata não encontrou nada)
+    if (!matched) {
+      for (let i = 0; i < selectEl.options.length; i++) {
+        const option = selectEl.options[i]
+        const optVal = option.value.toLowerCase()
+        const optTxt = cleanSearchTerm(option.textContent).toLowerCase()
+
+        const isPartial = normValues.some(
+          (v) => optVal.includes(v) || optTxt.includes(v) || (v.length > 3 && (v.includes(optVal) || v.includes(optTxt))),
+        )
+        if (isPartial) {
+          option.selected = true
+          selectEl.selectedIndex = i
+          matched = true
+          if (!selectEl.multiple) break
+        }
+      }
+    }
+
+    if (matched) {
+      dispatchEventSequence(selectEl, ['input', 'change', 'blur'])
+      return
+    }
   }
-  throw new Error('Elemento não é select.')
+
+  // Fallback para menu suspenso / combobox customizado
+  const combobox = element.closest('[role="combobox"], [class*="select" i], [class*="dropdown" i]') as HTMLElement | null
+  if (combobox) {
+    simulatePointerClick(combobox)
+    for (const v of values) {
+      const optItem = findElementExt(v)
+      if (optItem) {
+        simulatePointerClick(optItem)
+        return
+      }
+    }
+  }
 }
 
 function getSafeDataTransfer(text: string, html: string): DataTransfer | null {
@@ -575,6 +793,7 @@ export const EqAPI = {
     if (el) setCheckedState(el, checked)
     else console.warn(`$eq.check: Elemento '${idOrLabel}' não encontrado`)
   },
+  find: (idOrLabel: string) => findElementExt(idOrLabel),
   drag: (idOrigem: string, idDest: string) => {
     const origin = findElementExt(idOrigem)
     const dest = findElementExt(idDest)
@@ -632,6 +851,44 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1):
   let element = findElementExt(elId)
   if (!element && elId) {
     element = findElementExt(cleanSearchTerm(elId))
+  }
+
+  // Resolução inteligente de rádio por valor/opção (ex: tabela VF, grupo de opções com name compartilhado)
+  const valHint = (action as any).v !== undefined ? String((action as any).v).trim() : ''
+  if (element && valHint) {
+    if (element instanceof HTMLInputElement && element.type === 'radio' && element.name) {
+      if (cleanSearchTerm(element.value).toLowerCase() !== cleanSearchTerm(valHint).toLowerCase()) {
+        const groupRadio = document.querySelector(
+          `input[type="radio"][name="${CSS.escape(element.name)}"][value="${CSS.escape(valHint)}" i]`,
+        ) as HTMLInputElement | null
+        if (groupRadio) {
+          element = groupRadio
+        } else {
+          const allInGroup = Array.from(
+            document.querySelectorAll(`input[type="radio"][name="${CSS.escape(element.name)}"]`),
+          ) as HTMLInputElement[]
+          const matched = allInGroup.find((r) => {
+            const card = r.closest('label, .vf-label, .option-card, tr, td, div')
+            return card && cleanSearchTerm(card.textContent).toLowerCase().includes(cleanSearchTerm(valHint).toLowerCase())
+          })
+          if (matched) element = matched
+        }
+      }
+    } else if (!(element instanceof HTMLInputElement) && !(element instanceof HTMLSelectElement) && !(element instanceof HTMLTextAreaElement)) {
+      const directMatch = element.querySelector(
+        `input[value="${CSS.escape(valHint)}" i], [data-value="${CSS.escape(valHint)}" i]`,
+      ) as HTMLElement | null
+      if (directMatch) {
+        element = directMatch
+      } else {
+        const innerInputs = Array.from(element.querySelectorAll('input[type="radio"], input[type="checkbox"]')) as HTMLInputElement[]
+        const matched = innerInputs.find((r) => {
+          const card = r.closest('label, .vf-label, .option-card, td, div')
+          return card && cleanSearchTerm(card.textContent).toLowerCase().includes(cleanSearchTerm(valHint).toLowerCase())
+        })
+        if (matched) element = matched
+      }
+    }
   }
 
   if (!element && action.t !== 'adv') {
@@ -795,45 +1052,277 @@ export interface ExecutionResult {
   advanced: boolean
 }
 
+// ---- ROTA ALTERNATIVA DE APLICAÇÃO (AUTO-CURA RESILIENTE MULTI-CAMINHO) ----
+async function executeAlternativeActionPath(action: DeclarativeAction): Promise<void> {
+  if (action.t === 'js' || action.t === 'adv') return
+
+  if (action.t === 'drag') {
+    const fromEl = findElementExt(action.from) || findElementExt(cleanSearchTerm(action.from))
+    const toEl = findElementExt(action.to) || findElementExt(cleanSearchTerm(action.to))
+    if (fromEl && toEl) {
+      await simulateDragAndCategorize(fromEl, toEl, 2)
+    }
+    return
+  }
+
+  const elId = action.id || ''
+  let el = findElementExt(elId) || findElementExt(cleanSearchTerm(elId))
+
+  if (action.t === 'clk' || action.t === 'chk') {
+    // 1. Tentar localizar o elemento por prefixos alternativos de alternativas se o seletor padrão falhou
+    if (!el && elId) {
+      const candidates = Array.from(
+        document.querySelectorAll('input, label, button, [role="radio"], [role="checkbox"], .option-card, [class*="option" i], [class*="choice" i]'),
+      ) as HTMLElement[]
+      const clean = cleanSearchTerm(elId).toLowerCase()
+      el = candidates.find((c) => {
+        const txt = cleanSearchTerm(c.textContent).toLowerCase()
+        const val = cleanSearchTerm((c as any).value || '').toLowerCase()
+        return txt.includes(clean) || val === clean || txt.startsWith(clean + ')') || txt.startsWith('(' + clean + ')')
+      }) || null
+    }
+
+    // Resolução inteligente de rádio por valor/opção (ex: tabela VF, grupo com name compartilhado)
+    const valHint = (action as any).v !== undefined ? String((action as any).v).trim() : ''
+    if (el && valHint) {
+      if (el instanceof HTMLInputElement && el.type === 'radio' && el.name) {
+        if (cleanSearchTerm(el.value).toLowerCase() !== cleanSearchTerm(valHint).toLowerCase()) {
+          const groupRadio = document.querySelector(
+            `input[type="radio"][name="${CSS.escape(el.name)}"][value="${CSS.escape(valHint)}" i]`,
+          ) as HTMLInputElement | null
+          if (groupRadio) {
+            el = groupRadio
+          } else {
+            const allInGroup = Array.from(
+              document.querySelectorAll(`input[type="radio"][name="${CSS.escape(el.name)}"]`),
+            ) as HTMLInputElement[]
+            const matched = allInGroup.find((r) => {
+              const card = r.closest('label, .vf-label, .option-card, tr, td, div')
+              return card && cleanSearchTerm(card.textContent).toLowerCase().includes(cleanSearchTerm(valHint).toLowerCase())
+            })
+            if (matched) el = matched
+          }
+        }
+      } else if (!(el instanceof HTMLInputElement) && !(el instanceof HTMLSelectElement) && !(el instanceof HTMLTextAreaElement)) {
+        const directMatch = el.querySelector(
+          `input[value="${CSS.escape(valHint)}" i], [data-value="${CSS.escape(valHint)}" i]`,
+        ) as HTMLElement | null
+        if (directMatch) {
+          el = directMatch
+        } else {
+          const innerInputs = Array.from(el.querySelectorAll('input[type="radio"], input[type="checkbox"]')) as HTMLInputElement[]
+          const matched = innerInputs.find((r) => {
+            const card = r.closest('label, .vf-label, .option-card, td, div')
+            return card && cleanSearchTerm(card.textContent).toLowerCase().includes(cleanSearchTerm(valHint).toLowerCase())
+          })
+          if (matched) el = matched
+        }
+      }
+    }
+
+    if (el) {
+      const card = (el.closest('.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, li') || el) as HTMLElement
+      const input = el instanceof HTMLInputElement && ['radio', 'checkbox'].includes(el.type)
+        ? el
+        : (card.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null) ||
+          (card.getAttribute('for') ? (card.ownerDocument.getElementById(card.getAttribute('for')!) as HTMLInputElement | null) : null)
+      const shouldCheck = action.t === 'chk' ? Boolean(action.c) : true
+
+      // Executa o motor central de 6 vias de persistência
+      setCheckedState(input || card, shouldCheck)
+
+      // Rota de contingência extra 1: atribuição no input e disparos nativos diretos
+      if (input) {
+        try {
+          input.checked = shouldCheck
+          try {
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
+            setter?.call(input, shouldCheck)
+          } catch {}
+          input.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
+          input.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
+          input.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
+        } catch {}
+      }
+
+      // Rota de contingência extra 2: clique de ponteiro forçado no card/label
+      try {
+        card.focus?.()
+        card.setAttribute('aria-checked', shouldCheck ? 'true' : 'false')
+        card.classList.toggle('selected', shouldCheck)
+        card.classList.toggle('active', shouldCheck)
+        card.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
+      } catch {}
+
+      // Rota de contingência extra 3: tecla Space / Enter no elemento focado
+      try {
+        card.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true }))
+        card.dispatchEvent(new KeyboardEvent('keyup', { key: ' ', code: 'Space', bubbles: true }))
+      } catch {}
+
+      // Rota de contingência extra 4: invocar handlers diretos
+      try { (card as any).onclick?.() } catch {}
+      try { (input as any)?.onclick?.() } catch {}
+      try { (input as any)?.onchange?.() } catch {}
+    }
+    return
+  }
+
+  if (action.t === 'val') {
+    if (!el && elId) {
+      const inputs = Array.from(
+        document.querySelectorAll('input:not([type="hidden"]), textarea, [contenteditable="true"]'),
+      ) as HTMLElement[]
+      const clean = cleanSearchTerm(elId).toLowerCase()
+      el = inputs.find((i) => {
+        const ph = (i.getAttribute('placeholder') || '').toLowerCase()
+        const name = ((i as any).name || '').toLowerCase()
+        const id = (i.id || '').toLowerCase()
+        const aria = (i.getAttribute('aria-label') || '').toLowerCase()
+        return ph.includes(clean) || name.includes(clean) || id.includes(clean) || aria.includes(clean)
+      }) || null
+    }
+
+    if (el) {
+      const input =
+        el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
+          ? el
+          : (el.querySelector('input:not([type="hidden"]), textarea, [contenteditable="true"]') as HTMLElement | null)
+      const target = input || el
+      const val = String(action.v ?? '')
+
+      try {
+        target.focus?.()
+        document.execCommand?.('selectAll', false, undefined)
+        document.execCommand?.('insertText', false, val)
+      } catch {}
+
+      setNativeValue(target, val)
+    }
+    return
+  }
+
+  if (action.t === 'sel') {
+    if (!el && elId) {
+      const selects = Array.from(document.querySelectorAll('select')) as HTMLSelectElement[]
+      const clean = cleanSearchTerm(elId).toLowerCase()
+      el = selects.find((s) => {
+        const name = (s.name || '').toLowerCase()
+        const id = (s.id || '').toLowerCase()
+        const aria = (s.getAttribute('aria-label') || '').toLowerCase()
+        return name.includes(clean) || id.includes(clean) || aria.includes(clean)
+      }) || null
+    }
+
+    if (el) {
+      const arr = Array.isArray(action.v) ? action.v : [String(action.v)]
+      selectValues(el, arr as string[])
+    }
+    return
+  }
+}
+
 export function verifyActionApplied(action: DeclarativeAction): boolean {
   try {
     if (action.t === 'val') {
-      const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLInputElement | null
+      const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLElement | null
       if (!el) return false
-      const cur = (el.value ?? el.textContent ?? '').trim()
+
       const expected = String(action.v ?? '').trim()
+
+      // Se for rádio ou grupo de rádios
+      const radioInput =
+        el instanceof HTMLInputElement && el.type === 'radio'
+          ? el
+          : (el.querySelector('input[type="radio"]') as HTMLInputElement | null)
+
+      if (radioInput && radioInput.name) {
+        const checkedRadio = document.querySelector(
+          `input[type="radio"][name="${CSS.escape(radioInput.name)}"]:checked`,
+        ) as HTMLInputElement | null
+        if (!checkedRadio) return false
+        const valCur = cleanSearchTerm(checkedRadio.value).toLowerCase()
+        const valExp = cleanSearchTerm(expected).toLowerCase()
+        const labelCur = cleanSearchTerm(checkedRadio.closest('label, .vf-label, .option-card, tr, td, div')?.textContent || '').toLowerCase()
+        return valCur === valExp || labelCur === valExp || labelCur.includes(valExp)
+      }
+
+      const targetInput =
+        el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
+          ? el
+          : (el.querySelector('input:not([type="hidden"]), textarea, [contenteditable="true"]') as HTMLInputElement | HTMLTextAreaElement | null)
+
+      const cur = (targetInput ? (targetInput.value ?? targetInput.textContent ?? '') : (el.textContent ?? '')).trim()
       if (!cur && !expected) return true
       if (!cur && expected) return false
       const normCur = cur.replace(',', '.').toLowerCase()
       const normExp = expected.replace(',', '.').toLowerCase()
       return normCur === normExp || normCur.includes(normExp) || cur.toLowerCase() === expected.toLowerCase()
     }
+
     if (action.t === 'sel') {
-      const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLSelectElement | null
-      if (!el || !(el instanceof HTMLSelectElement)) return false
+      const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLElement | null
+      if (!el) return false
+      const selectEl = el instanceof HTMLSelectElement ? el : (el.querySelector('select') as HTMLSelectElement | null)
+      if (!selectEl) return false
       const values = Array.isArray(action.v) ? action.v : [String(action.v)]
-      return Array.from(el.options).some((o) => o.selected && values.includes(o.value))
+      const normValues = values.map((v) => cleanSearchTerm(v).toLowerCase())
+      return Array.from(selectEl.options).some((o) => {
+        if (!o.selected) return false
+        const optVal = o.value.toLowerCase()
+        const optTxt = cleanSearchTerm(o.textContent).toLowerCase()
+        return normValues.some((v) => v === optVal || v === optTxt || optVal.includes(v) || optTxt.includes(v))
+      })
     }
+
     if (action.t === 'chk' || action.t === 'clk') {
       const el = findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))
       if (!el) return false
-      const card = el.closest(
+      const card = (el.closest(
         '.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, li',
-      ) || el
+      ) || el) as HTMLElement
+
       const inputEl =
         el instanceof HTMLInputElement && ['checkbox', 'radio'].includes(el.type)
           ? el
           : (card.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null) ||
             (card.getAttribute('for') ? (card.ownerDocument.getElementById(card.getAttribute('for')!) as HTMLInputElement | null) : null)
 
+      const expected = action.t === 'chk' ? Boolean(action.c) : true
+
+      // Se houver valor esperado em grupo de rádio
+      if (inputEl && inputEl.type === 'radio' && (action as any).v) {
+        const expectedVal = cleanSearchTerm(String((action as any).v)).toLowerCase()
+        if (inputEl.name) {
+          const checkedRadio = document.querySelector(
+            `input[type="radio"][name="${CSS.escape(inputEl.name)}"]:checked`,
+          ) as HTMLInputElement | null
+          if (!checkedRadio) return false
+          const valCur = cleanSearchTerm(checkedRadio.value).toLowerCase()
+          return valCur === expectedVal
+        }
+      }
+
       if (inputEl && ['checkbox', 'radio'].includes(inputEl.type)) {
-        const expected = action.t === 'chk' ? Boolean(action.c) : true
         return inputEl.checked === expected
       }
-      const isAria = card.getAttribute('aria-checked') === 'true' || card.getAttribute('aria-selected') === 'true'
-      const hasClass = /active|selected|checked|picked/i.test(card.className || '')
-      return isAria || hasClass || action.t === 'clk'
+
+      const isAria = card.getAttribute('aria-checked') === String(expected) || card.getAttribute('aria-selected') === String(expected)
+      const hasClass = expected
+        ? /active|selected|checked|picked/i.test(card.className || '')
+        : !/active|selected|checked|picked/i.test(card.className || '')
+
+      if (isAria || hasClass) return true
+
+      // Se for um botão de ação genérica que não possui estado persistente (ex: submit, reset)
+      const isActionButton = card instanceof HTMLButtonElement || card.getAttribute('role') === 'button'
+      if (isActionButton && action.t === 'clk') {
+        return true
+      }
+
+      return false
     }
+
     if (action.t === 'drag') {
       const fromEl = findElementExt(action.from) || findElementExt(cleanSearchTerm(action.from))
       const toEl = findElementExt(action.to) || findElementExt(cleanSearchTerm(action.to))
@@ -858,35 +1347,81 @@ export async function executePlan(
 
   let appliedCount = 0
 
+  // 1. PRIMEIRA PASSAGEM: Execução declarativa principal
   for (const action of regularActions) {
     try {
       await executeDeclarativeAction(action, attempt)
       appliedCount++
     } catch (err) {
-      console.warn('[EasyQuiz] Ação declarativa falhou com segurança:', action, err)
+      console.warn('[EasyQuiz] Ação declarativa primária falhou com segurança:', action, err)
     }
     if (action.t === 'drag') {
       await new Promise((resolve) => setTimeout(resolve, 250))
     }
   }
 
-  // Verificação pós-execução do estado do DOM
+  // 2. SEGUNDA PASSAGEM: Verificação e Auto-Cura Multi-Caminho (Self-Healing Contingency Retries)
   await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 300 : 50))
   let verifiedCount = 0
+
   for (const action of regularActions) {
     if (verifyActionApplied(action)) {
+      verifiedCount++
+      continue
+    }
+
+    // Se não verificou no DOM, tenta IMEDIATAMENTE a rota alternativa/contingência
+    console.warn(
+      `[EasyQuiz Auto-Cura] Ação '${action.t}' no alvo '${(action as any).id || (action as any).from || ''}' não verificada no DOM. Disparando Passagem 2 de contingência...`,
+    )
+    try {
+      await executeAlternativeActionPath(action)
+    } catch (err) {
+      console.warn('[EasyQuiz Auto-Cura] Rota alternativa falhou:', err)
+    }
+
+    await new Promise((r) => setTimeout(r, 180))
+    if (verifyActionApplied(action)) {
+      console.log(`[EasyQuiz Auto-Cura] ✓ Ação recuperada com sucesso pela rota de contingência!`)
       verifiedCount++
     }
   }
 
-  // Considerado sucesso se não havia ações regulares ou se as ações foram validadas no DOM
+  // 3. TERCEIRA PASSAGEM ULTRA-RESILIENTE (se ainda houver ações pendentes)
+  if (verifiedCount < regularActions.length && regularActions.length > 0) {
+    console.warn(
+      `[EasyQuiz Auto-Cura] ${regularActions.length - verifiedCount} de ${regularActions.length} ação(ões) ainda não verificadas. Disparando Passagem 3 final...`,
+    )
+    await new Promise((r) => setTimeout(r, 200))
+    for (const action of regularActions) {
+      if (!verifyActionApplied(action)) {
+        try {
+          await executeAlternativeActionPath(action)
+        } catch {}
+      }
+    }
+    await new Promise((r) => setTimeout(r, 200))
+
+    // Recalcula contagem real verificada após passagem 3
+    verifiedCount = 0
+    for (const action of regularActions) {
+      if (verifyActionApplied(action)) {
+        verifiedCount++
+      }
+    }
+  }
+
+  // Validação estrita: 100% das ações devem estar validadas no DOM para quizzes comuns (até 4 ações)
+  // Para questões com 5+ ações simultâneas (ex: matriz 3x3 com 9 células), toleramos >= 85%
   const isQuestion = plan.pageType === 'question'
+  const requiredRatio = regularActions.length <= 4 ? 1.0 : 0.85
   const success =
     !isQuestion || regularActions.length === 0
       ? true
-      : appliedCount > 0 && verifiedCount > 0 && verifiedCount >= Math.ceil(regularActions.length * 0.35)
+      : appliedCount > 0 && verifiedCount >= Math.ceil(regularActions.length * requiredRatio)
 
   let advanced = false
+  // SÓ AVANÇA SE AS RESPOSTAS FORAM DE FATO APLICADAS E VALIDADAS NO DOM!
   if ((allowAdvance || attempt >= 2) && (success || !isQuestion)) {
     // Aguarda o framework hospedeiro (React, Vue, etc.) registrar o input/seleção
     await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 500 : 200))

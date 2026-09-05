@@ -33,16 +33,70 @@ let idSequence = 0
 
 export function isVisible(element: Element): boolean {
   const node = element as HTMLElement
-  if (!node || typeof node.getBoundingClientRect !== 'function') return false
-  const rect = node.getBoundingClientRect()
-  const style = window.getComputedStyle(node)
-  return (
-    rect.width > 0 &&
-    rect.height > 0 &&
-    style.display !== 'none' &&
-    style.visibility !== 'hidden' &&
-    Number(style.opacity || '1') > 0
-  )
+  if (!node) return false
+  if (typeof node.isConnected === 'boolean' && !node.isConnected) return false
+
+  // 1. Padrão Moderno W3C (Chrome, Firefox, Safari, Edge)
+  if (typeof (node as any).checkVisibility === 'function') {
+    try {
+      const vis = (node as any).checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+      if (!vis) return false
+    } catch {}
+  }
+
+  // 2. Verificação de estilos computados
+  try {
+    const style = window.getComputedStyle ? window.getComputedStyle(node) : (node.style as any)
+    if (style) {
+      if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || '1') <= 0) {
+        return false
+      }
+    }
+  } catch {}
+
+  // 3. Verificação de ancestrais ocultos por display: none ou atributo hidden
+  try {
+    const hiddenAncestor = node.closest('[hidden], [style*="display: none"], [style*="display:none"]')
+    if (hiddenAncestor && !isInsideEasyQuiz(hiddenAncestor as HTMLElement)) {
+      return false
+    }
+  } catch {}
+
+  // 4. Bounding Client Rect quando disponível
+  try {
+    if (typeof node.getBoundingClientRect === 'function') {
+      const rect = node.getBoundingClientRect()
+      if (rect.width > 0 || rect.height > 0) {
+        return true
+      }
+    }
+  } catch {}
+
+  // 5. Se getClientRects() tiver dimensões
+  try {
+    if (typeof node.getClientRects === 'function' && node.getClientRects().length > 0) {
+      return true
+    }
+  } catch {}
+
+  // 6. Suporte para inputs acessíveis (escondidos com width:0 / opacity:0 dentro de labels/cards visíveis)
+  const tag = node.tagName?.toLowerCase()
+  if (['input', 'select', 'textarea', 'button'].includes(tag)) {
+    const parentLabel = node.closest('label, .option-card, .quiz-option, [class*="option" i], [class*="choice" i], tr, div')
+    if (parentLabel && parentLabel !== node) {
+      return isVisible(parentLabel)
+    }
+  }
+
+  // 7. Fallback para JSDOM ou elementos com conteúdo textual
+  if (node.ownerDocument && node.ownerDocument.defaultView) {
+    const isJsdom = /jsdom/i.test(node.ownerDocument.defaultView.navigator?.userAgent || '')
+    if (isJsdom) {
+      return !node.closest('[style*="display: none"], [style*="display:none"], [hidden]')
+    }
+  }
+
+  return (node.textContent || '').trim().length > 0
 }
 
 export function safeString(value: any): string {
@@ -118,11 +172,22 @@ export function isNavigationControl(element: HTMLElement): boolean {
 }
 
 export function labelForControl(element: HTMLElement): string {
-  // 1. aria-label direto
+  // 1. Contexto específico para tabelas (ex: Verdadeiro/Falso, matriz de julgamento)
+  const tr = element.closest('tr')
+  if (tr) {
+    const rowHeader = tr.querySelector('th, td:first-child')
+    const rowTitle = rowHeader && rowHeader !== element.closest('td') ? cleanText(rowHeader.textContent, 100) : ''
+    const localText = cleanText(element.closest('label, td')?.textContent || '', 50)
+    if (rowTitle && localText) {
+      return `${rowTitle}: ${localText}`
+    }
+  }
+
+  // 2. aria-label direto
   const aria = element.getAttribute('aria-label')
   if (aria) return cleanText(aria)
 
-  // 2. aria-labelledby
+  // 3. aria-labelledby
   const labelledBy = element.getAttribute('aria-labelledby')
   if (labelledBy) {
     const text = labelledBy
@@ -133,7 +198,7 @@ export function labelForControl(element: HTMLElement): string {
     if (text.trim()) return cleanText(text)
   }
 
-  // 3. Labels associados nativamente
+  // 4. Labels associados nativamente
   if ('labels' in element && (element as HTMLInputElement).labels) {
     const labels = Array.from((element as HTMLInputElement).labels ?? [])
       .map((label) => label.textContent)
@@ -141,16 +206,16 @@ export function labelForControl(element: HTMLElement): string {
     if (labels.trim()) return cleanText(labels)
   }
 
-  // 4. Se for radio/checkbox em container personalizado (Google Forms, Moodle, etc.)
+  // 5. Se for radio/checkbox em container personalizado (Google Forms, Moodle, Khan, etc.)
   const parentContainer = element.closest(
-    '.docssharedWizToggleLabeledContainer, [role="listitem"], .answer, label, .quiz-option, .form-check',
+    '.docssharedWizToggleLabeledContainer, [role="listitem"], .answer, label, .quiz-option, .form-check, .option-card',
   )
   if (parentContainer && parentContainer !== element) {
     const parentText = cleanText(parentContainer.textContent)
     if (parentText) return parentText
   }
 
-  // 5. Placeholder ou título
+  // 6. Placeholder ou título
   const rawVal = element instanceof HTMLInputElement || element instanceof HTMLButtonElement ? element.value : ''
   const fallback =
     element.getAttribute('placeholder') ||

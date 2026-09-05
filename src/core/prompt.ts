@@ -78,6 +78,7 @@ ${JSON.stringify(
   context.controls.map((c) => ({
     id: c.id,
     type: c.type,
+    name: c.name || undefined,
     lbl: c.label,
     val: c.value,
     opt: c.options.length ? c.options : undefined,

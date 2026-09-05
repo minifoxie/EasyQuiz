@@ -3,3 +3,4 @@ node_modules/
 *.log
 mock-quiz/
 iniciar_simulado.bat
+scratch/
