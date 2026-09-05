@@ -120,6 +120,10 @@ async function initEasyQuiz(): Promise<void> {
 
       if (plan.pageType === 'conclusion') {
         panel.setStatus('Atividade concluída ou tela final detectada pela IA.', 'success')
+      } else if (plan.pageType === 'info') {
+        panel.setStatus('📘 Conteúdo de contexto absorvido na memória RAG. Avançando...', 'success')
+      } else if (plan.pageType === 'start') {
+        panel.setStatus('Início de atividade detectado. Iniciando...', 'info')
       } else {
         panel.setStatus(
           settings.dryRun
@@ -155,8 +159,9 @@ async function initEasyQuiz(): Promise<void> {
       return
     }
 
+    const isInfoOrStart = latestPlan.pageType === 'info' || latestPlan.pageType === 'start'
     const canAdvance =
-      settings.autoAdvance &&
+      (settings.autoAdvance || isInfoOrStart) &&
       latestPlan.confidence >= settings.confidenceThreshold &&
       !latestPlan.needsMoreContext
 

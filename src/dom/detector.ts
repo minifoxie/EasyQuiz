@@ -44,8 +44,9 @@ function scoreCandidate(element: HTMLElement): number {
   const controls = Array.from(element.querySelectorAll(CONTROL_SELECTOR)).filter(isVisible)
   const textLength = cleanText(element.innerText, 4000).length
 
-  // Não é questão se não tiver controles ou não tiver texto
-  if (!controls.length || textLength < 10) return -Infinity
+  // Não pontua se texto for vazio ou se não tiver controles nem texto explicativo
+  if (textLength < 10) return -Infinity
+  if (!controls.length && textLength < 60) return -Infinity
 
   const viewportArea = Math.max(1, window.innerWidth * window.innerHeight)
   const elementArea = Math.max(1, rect.width * rect.height)

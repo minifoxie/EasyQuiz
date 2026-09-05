@@ -98,6 +98,10 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
   }
 
   try {
+    element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' as any })
+  } catch {}
+
+  try {
     element.focus?.()
   } catch {}
 
@@ -121,10 +125,23 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
   try {
     element.click()
   } catch {}
+
+  // Se o elemento tiver um radio ou checkbox interno, clica nele diretamente
+  const innerInput = element.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null
+  if (innerInput && innerInput !== element) {
+    try {
+      innerInput.click()
+    } catch {}
+  }
 }
 
 function setNativeValue(element: HTMLElement, value: string): void {
   if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+    try {
+      const tracker = (element as any)._valueTracker
+      if (tracker) tracker.setValue('')
+    } catch {}
+
     const prototype = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
     const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
     if (setter) {
@@ -144,12 +161,19 @@ function setNativeValue(element: HTMLElement, value: string): void {
 }
 
 function setCheckedState(element: HTMLElement, checked: boolean): void {
-  if (element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)) {
-    if (element.checked !== checked) element.click()
-    if (element.checked !== checked) {
+  const inputEl = element instanceof HTMLInputElement ? element : (element.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null)
+
+  if (inputEl && ['checkbox', 'radio'].includes(inputEl.type)) {
+    if (inputEl.checked !== checked) inputEl.click()
+    if (inputEl.checked !== checked) {
+      try {
+        const tracker = (inputEl as any)._valueTracker
+        if (tracker) tracker.setValue('')
+      } catch {}
+
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
-      setter?.call(element, checked)
-      dispatchEventSequence(element, ['input', 'change'])
+      setter?.call(inputEl, checked)
+      dispatchEventSequence(inputEl, ['input', 'change'])
     }
     return
   }
@@ -409,10 +433,15 @@ export async function executePlan(
 
   let advanced = false
   if (allowAdvance) {
-    // 1. Verifica se há um botão intermediário de "Verificar" / "Check"
-    const checkBtn = Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"]')).find((b) =>
-      /(verificar|checar|check|conferir|validar|enviar|responder)/i.test(b.textContent || (b as HTMLInputElement).value || ''),
-    ) as HTMLElement | undefined
+    // 1. Em questões regulares, verifica se há um botão intermediário de "Verificar" / "Check"
+    const checkBtn =
+      plan.pageType === 'info'
+        ? undefined
+        : (Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"], a')).find((b) =>
+            /(verificar|checar|check|conferir|validar|enviar|responder)/i.test(
+              b.textContent || (b as HTMLInputElement).value || b.getAttribute('aria-label') || '',
+            ),
+          ) as HTMLElement | undefined)
 
     if (checkBtn && isVisible(checkBtn)) {
       simulatePointerClick(checkBtn)
@@ -420,13 +449,16 @@ export async function executePlan(
     }
 
     if (advanceActions.length > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 600))
+      await new Promise((resolve) => setTimeout(resolve, 400))
       await executeDeclarativeAction(advanceActions[0])
       advanced = true
-    } else if (checkBtn) {
-      await new Promise((resolve) => setTimeout(resolve, 600))
+    } else if (checkBtn || plan.pageType === 'info' || plan.pageType === 'start') {
+      await new Promise((resolve) => setTimeout(resolve, 500))
       const nextBtn = Array.from(document.querySelectorAll('button, [role="button"], a, input[type="submit"]')).find(
-        (b) => /(próxim[oa]|next|continuar|avançar|mostrar resumo)/i.test(b.textContent || (b as HTMLInputElement).value || ''),
+        (b) =>
+          NAVIGATION_PATTERN.test(
+            b.textContent || (b as HTMLInputElement).value || b.getAttribute('aria-label') || '',
+          ),
       ) as HTMLElement | undefined
       if (nextBtn && isVisible(nextBtn)) {
         simulatePointerClick(nextBtn)
