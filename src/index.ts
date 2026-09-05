@@ -3,7 +3,7 @@ import { buildUserPrompt } from './core/prompt'
 import { addSessionMemory, loadSettings, saveSettings } from './core/storage'
 import type { AnalysisPlan, EasyQuizSettings } from './core/types'
 import { captureCurrentContext, captureFullPageText } from './dom/detector'
-import { executePlan } from './dom/executor'
+import { executePlan, setupSmartOptionInterceptors } from './dom/executor'
 import { clearHighlights, highlightScope, highlightTargetActions } from './dom/highlighter'
 import { captureImages } from './media/capture'
 import { EasyQuizPanel } from './ui/panel'
@@ -18,6 +18,9 @@ type EasyQuizWindow = Window & {
 
 async function initEasyQuiz(): Promise<void> {
   const eqWindow = window as EasyQuizWindow
+
+  // Instala proteção inteligente de cliques em opções para evitar inversão ou cancelamento por listeners do host
+  setupSmartOptionInterceptors()
 
   // Se já existir uma instância rodando, apenas alterna a visualização
   if (eqWindow.__easyquiz) {
@@ -273,6 +276,9 @@ async function initEasyQuiz(): Promise<void> {
   // Abrir o painel logo ao injetar sempre (feedback visual imediato)
   panel.toggle(true)
 }
+
+// Instala proteção inteligente de opções sincronamente na inicialização do bundle
+setupSmartOptionInterceptors()
 
 // Iniciar
 void initEasyQuiz().catch((err) => {

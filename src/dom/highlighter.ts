@@ -15,6 +15,7 @@ export function clearHighlights(): void {
     el.style.removeProperty('outline')
     el.style.removeProperty('outline-offset')
     el.style.removeProperty('background-color')
+    el.style.removeProperty('box-shadow')
     el.removeAttribute('data-easyquiz-highlight')
   }
   highlightedElements = []
@@ -60,6 +61,18 @@ export function highlightTargetActions(actions: DeclarativeAction[]): void {
     target.style.backgroundColor = 'rgba(0, 255, 136, 0.12)'
     target.setAttribute('data-easyquiz-highlight', 'true')
     highlightedElements.push(target)
+
+    // Realça também o exato quadradinho do checkbox ou bolinha de rádio com brilho neon
+    const innerBox = (element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
+      ? element
+      : target.querySelector('input[type="checkbox"], input[type="radio"]')) as HTMLElement | null
+    if (innerBox && innerBox !== target) {
+      innerBox.style.outline = '2px solid #00ff88'
+      innerBox.style.outlineOffset = '2px'
+      innerBox.style.boxShadow = '0 0 10px rgba(0, 255, 136, 0.8)'
+      innerBox.setAttribute('data-easyquiz-highlight', 'true')
+      highlightedElements.push(innerBox)
+    }
   }
 }
 

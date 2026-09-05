@@ -275,10 +275,10 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
         return categoryContainer || resolveTargetControlOrCard(item)
       }
 
-      // Correspondência pelas primeiras 3 a 5 palavras significativas (para frases longas que a IA resumiu)
-      const words = targetClean.split(' ').filter((w) => w.length > 2)
+      // Correspondência pelas primeiras 3 a 5 palavras da frase (para frases longas ou fórmulas)
+      const words = targetClean.split(/\s+/).filter(Boolean)
       if (words.length >= 3) {
-        const leadingTokens = words.slice(0, Math.min(4, words.length)).join(' ')
+        const leadingTokens = words.slice(0, Math.min(5, words.length)).join(' ')
         if (txt.includes(leadingTokens) || aria.includes(leadingTokens)) {
           return resolveTargetControlOrCard(item)
         }
@@ -298,6 +298,25 @@ function dispatchEventSequence(element: HTMLElement, events: string[]): void {
 
 export function simulatePointerClick(element: HTMLElement, coords?: [number, number]): void {
   if (!element) return
+
+  // Se o elemento for um container de opção (card/label) com checkbox ou rádio interno:
+  // Redireciona com precisão máxima para o input nativo (o quadradinho ou bolinha) para não colidir com listeners do quiz
+  const innerInput =
+    element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
+      ? element
+      : (element.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null) ||
+        (element.hasAttribute('for') ? (element.ownerDocument.getElementById(element.getAttribute('for')!) as HTMLInputElement | null) : null)
+
+  if (innerInput && element !== innerInput) {
+    if (innerInput.type === 'checkbox') {
+      setCheckedState(innerInput, !innerInput.checked)
+      return
+    }
+    if (innerInput.type === 'radio') {
+      setCheckedState(innerInput, true)
+      return
+    }
+  }
 
   // 1. Scroll suave e centralizado para garantir visibilidade
   try {
@@ -619,9 +638,18 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
       cardParent.classList.toggle('checked', checked)
     }
 
-    // 6ª VIA: Se o estado não foi atingido, aciona clique nativo
+    // 6ª VIA: Se o estado ainda divergir, dispara sequência física cirúrgica nas coordenadas exatas do quadradinho do input
     if (inputEl.checked !== checked) {
       try {
+        const rect = inputEl.getBoundingClientRect()
+        const cx = Math.round(rect.left + Math.max(1, rect.width / 2))
+        const cy = Math.round(rect.top + Math.max(1, rect.height / 2))
+        const common = { bubbles: true, cancelable: true, composed: true, view: window, clientX: cx, clientY: cy }
+        inputEl.dispatchEvent(new PointerEvent('pointerdown', { ...common, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 }))
+        inputEl.dispatchEvent(new MouseEvent('mousedown', { ...common, button: 0, buttons: 1 }))
+        inputEl.dispatchEvent(new PointerEvent('pointerup', { ...common, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 0 }))
+        inputEl.dispatchEvent(new MouseEvent('mouseup', { ...common, button: 0, buttons: 0 }))
+        inputEl.dispatchEvent(new MouseEvent('click', { ...common, button: 0, buttons: 0 }))
         inputEl.click()
       } catch {}
     }
@@ -1316,7 +1344,7 @@ async function executeAlternativeActionPath(action: DeclarativeAction): Promise<
         card.classList.toggle('selected', shouldCheck)
         card.classList.toggle('active', shouldCheck)
         card.classList.toggle('checked', shouldCheck)
-        if (!input || input.checked !== shouldCheck) {
+        if (!input) {
           card.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
         }
       } catch {}
@@ -1663,3 +1691,71 @@ export async function executePlan(
     advanced,
   }
 }
+
+// ---- INTERCEPTADOR INTELIGENTE DE CLIQUES EM OPÇÕES (PREVENÇÃO DE INVERSÃO/DOUBLE-TOGGLE) ----
+let interceptorInstalled = false
+let justHandledOptionInput: HTMLElement | null = null
+
+export function setupSmartOptionInterceptors(): void {
+  const doc = typeof window !== 'undefined' && window.document ? window.document : (typeof document !== 'undefined' ? document : null)
+  if (!doc || interceptorInstalled) return
+  interceptorInstalled = true
+
+  doc.addEventListener(
+    'click',
+    (e) => {
+      const target = e.target as HTMLElement | null
+      if (!target || isInsideEasyQuiz(target)) return
+
+      // Suprime cliques sintéticos duplicados gerados pela ativação nativa de <label> após o card já ter sido tratado
+      if (justHandledOptionInput && (target === justHandledOptionInput || target.contains(justHandledOptionInput))) {
+        e.preventDefault()
+        e.stopPropagation()
+        e.stopImmediatePropagation?.()
+        return
+      }
+
+      // Se o clique foi diretamente no input do checkbox/rádio por ação direta do usuário, permite ação nativa
+      if (target instanceof HTMLInputElement && ['checkbox', 'radio'].includes(target.type)) {
+        return
+      }
+
+      // Procura container de opção ou label
+      const card = target.closest(
+        'label, .option-card, [role="radio"], [role="checkbox"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i]',
+      ) as HTMLElement | null
+      if (!card || isInsideEasyQuiz(card)) return
+
+      // Procura input interno ou associado por 'for'
+      let input = card.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null
+      if (!input && card.hasAttribute('for')) {
+        const forId = card.getAttribute('for')
+        if (forId) input = card.ownerDocument.getElementById(forId) as HTMLInputElement | null
+      }
+      if (!input) return
+
+      // Intercepta e previne double-toggles / cancelamentos causados por handlers customizados da página hospedeira
+      if (input.type === 'checkbox') {
+        e.preventDefault()
+        e.stopPropagation()
+        e.stopImmediatePropagation?.()
+        justHandledOptionInput = input
+        setTimeout(() => {
+          if (justHandledOptionInput === input) justHandledOptionInput = null
+        }, 70)
+        setCheckedState(input, !input.checked)
+      } else if (input.type === 'radio') {
+        e.preventDefault()
+        e.stopPropagation()
+        e.stopImmediatePropagation?.()
+        justHandledOptionInput = input
+        setTimeout(() => {
+          if (justHandledOptionInput === input) justHandledOptionInput = null
+        }, 70)
+        setCheckedState(input, true)
+      }
+    },
+    true, // FASE DE CAPTURA (intercepta antes de qualquer listener do quiz)
+  )
+}
+
