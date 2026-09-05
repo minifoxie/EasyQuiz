@@ -44,6 +44,7 @@ export class EasyQuizPanel {
 
   // Elementos do Layout
   private launcherBtn: HTMLButtonElement
+  private launcherDot: HTMLElement
   private dockToggleBtn: HTMLButtonElement
   private sidebarEl: HTMLElement
   private apToggleBtn: HTMLButtonElement
@@ -68,6 +69,8 @@ export class EasyQuizPanel {
 
   // Form Controls
   private apiKeyInput: HTMLInputElement
+  private keyContextMenu: HTMLElement
+  private keyMoreBtn: HTMLButtonElement
   private modelSelect: HTMLSelectElement
   private modeSelect: HTMLSelectElement
   private engineSelect: HTMLSelectElement
@@ -118,10 +121,11 @@ export class EasyQuizPanel {
     this.shadow.innerHTML = `
       <style>${PANEL_STYLES}</style>
 
-      <!-- Botão Flutuante Inferior -->
-      <button class="eq-launcher" type="button" title="Abrir EasyQuiz (Alt+Q)">
-        ${ICONS.logo}
-        <span>EQ</span>
+      <!-- Botão Flutuante Inferior Renovado (Cápsula com Status ao Vivo) -->
+      <button class="eq-launcher" type="button" title="Abrir / Recolher EasyQuiz (Alt+Q)">
+        <span class="eq-launcher-icon">${ICONS.logo}</span>
+        <span>EasyQuiz</span>
+        <span class="eq-launcher-dot" id="eq-launcher-dot"></span>
       </button>
 
       <!-- Sidebar Fixa Lateral Direita Estilo VS Code -->
@@ -132,249 +136,291 @@ export class EasyQuizPanel {
           <span class="eq-dock-toggle-label">EQ</span>
         </button>
 
-        <!-- Cabeçalho VS Code -->
-        <header class="eq-header">
-          <div class="eq-brand">
-            ${ICONS.logo}
-            <span>EasyQuiz</span>
-            <span class="eq-brand-badge">2.0 SUPREME</span>
-          </div>
-          <div class="eq-header-tools">
-            <button class="eq-icon-btn" id="eq-min-btn" type="button" title="Minimizar (Alt+Q)">${ICONS.chevronRight}</button>
-            <button class="eq-icon-btn" id="eq-close-btn" type="button" title="Fechar">${ICONS.close}</button>
-          </div>
-        </header>
+        <!-- Activity Bar Vertical na Esquerda (Estilo VS Code) -->
+        <nav class="eq-activity-bar" role="tablist" aria-label="Atalhos">
+          <div class="eq-activity-top">
+            <button class="eq-activity-btn active" id="eq-tab-autopilot" role="tab" title="Autopilot (Automação Contínua)">
+              <span class="eq-activity-indicator"></span>
+              <span class="eq-activity-icon">${ICONS.rocket}</span>
+              <span class="eq-activity-label">Auto</span>
+            </button>
 
-        <!-- Activity Bar Rail (Abas) -->
-        <nav class="eq-activity-bar" role="tablist">
-          <button class="eq-tab-btn active" id="eq-tab-autopilot" role="tab" title="Modo Autopilot Contínuo">
-            ${ICONS.rocket}
-            <span>Autopilot</span>
-          </button>
-          <button class="eq-tab-btn" id="eq-tab-advanced" role="tab" title="Modo Manual e Avançado">
-            ${ICONS.code}
-            <span>Avançado</span>
-          </button>
-          <button class="eq-tab-btn" id="eq-tab-inspector" role="tab" title="Inspetor de Prompt & IA">
-            ${ICONS.inspector}
-            <span>Inspetor IA</span>
-          </button>
-          <button class="eq-tab-btn" id="eq-tab-settings" role="tab" title="Configurações & Chaves">
-            ${ICONS.settings}
-            <span>Configurações</span>
-          </button>
+            <button class="eq-activity-btn" id="eq-tab-advanced" role="tab" title="Avançado (Modo Manual)">
+              <span class="eq-activity-indicator"></span>
+              <span class="eq-activity-icon">${ICONS.code}</span>
+              <span class="eq-activity-label">Avanç</span>
+            </button>
+
+            <button class="eq-activity-btn" id="eq-tab-inspector" role="tab" title="Inspetor de Prompt e IA">
+              <span class="eq-activity-indicator"></span>
+              <span class="eq-activity-icon">${ICONS.inspector}</span>
+              <span class="eq-activity-label">Inspet</span>
+            </button>
+          </div>
+
+          <div class="eq-activity-bottom">
+            <button class="eq-activity-btn" id="eq-tab-settings" role="tab" title="Configurações & Chaves">
+              <span class="eq-activity-indicator"></span>
+              <span class="eq-activity-icon">${ICONS.settings}</span>
+              <span class="eq-activity-label">Config</span>
+            </button>
+          </div>
         </nav>
 
-        <!-- TAB 1: AUTOPILOT -->
-        <div class="eq-view-container" id="eq-view-autopilot">
-          <div style="display: flex; gap: 8px; width: 100%;">
-            <button class="eq-btn-primary" id="eq-ap-toggle-btn" type="button" style="flex: 1;">
-              ${ICONS.play} INICIAR AUTOPILOT
-            </button>
-            <button class="eq-btn-secondary" id="eq-ap-clear-memory" type="button" title="Limpar Memória da Sessão Atual">
-              ${ICONS.eraser} Memória
-            </button>
-          </div>
+        <!-- Corpo Principal da Sidebar -->
+        <main class="eq-sidebar-body">
+          <!-- Cabeçalho VS Code -->
+          <header class="eq-header">
+            <div class="eq-brand">
+              <span class="eq-brand-icon">${ICONS.logo}</span>
+              <span class="eq-brand-name">EasyQuiz</span>
+              <span class="eq-brand-badge">2.0 SUPREME</span>
+            </div>
+            <div class="eq-header-tools">
+              <button class="eq-icon-btn" id="eq-min-btn" type="button" title="Minimizar (Alt+Q)">${ICONS.chevronRight}</button>
+              <button class="eq-icon-btn" id="eq-close-btn" type="button" title="Fechar">${ICONS.close}</button>
+            </div>
+          </header>
 
-          <!-- Status & Stopwatch Timeline Card -->
-          <div class="eq-status-card">
-            <div class="eq-status-card-header">
-              <div class="eq-ai-indicator">
-                <span class="eq-dot-pulse" id="eq-dot-ap"></span>
-                <span>Status da IA</span>
+          <div class="eq-views-wrapper">
+            <!-- TAB 1: AUTOPILOT -->
+            <div class="eq-view-pane" id="eq-view-autopilot">
+              <div style="display: flex; gap: 8px; width: 100%;">
+                <button class="eq-btn-primary" id="eq-ap-toggle-btn" type="button" style="flex: 1;">
+                  ${ICONS.play} INICIAR AUTOPILOT
+                </button>
+                <button class="eq-btn-secondary" id="eq-ap-clear-memory" type="button" title="Limpar Memória da Sessão Atual">
+                  ${ICONS.eraser} Memória
+                </button>
               </div>
-              <div class="eq-stopwatch" id="eq-stopwatch-ap">
-                ${ICONS.clock} <span>0.00s</span>
+
+              <!-- Status & Stopwatch Card -->
+              <div class="eq-status-card">
+                <div class="eq-status-card-header">
+                  <div class="eq-ai-indicator">
+                    <span class="eq-dot-pulse" id="eq-dot-ap"></span>
+                    <span>Status da IA</span>
+                  </div>
+                  <div class="eq-stopwatch" id="eq-stopwatch-ap">
+                    ${ICONS.clock} <span>0.00s</span>
+                  </div>
+                </div>
+                <div class="eq-status-text" id="eq-status-text-ap">
+                  Pronto para iniciar. O Autopilot responderá e avançará as questões de forma automática.
+                </div>
               </div>
-            </div>
-            <div class="eq-status-text" id="eq-status-text-ap">
-              Pronto para iniciar. O Autopilot responderá e avançará as questões de forma automática.
-            </div>
-          </div>
 
-          <!-- Console Terminal -->
-          <div class="eq-section-title">
-            <span>Terminal de Operações</span>
-            <span style="font-size: 10px; color: #666;">Live Event Stream</span>
-          </div>
-          <div class="eq-terminal" id="eq-ap-console">
-            <div class="text-blue">> [SYS] EasyQuiz 2.0 Supreme inicializado.</div>
-            <div class="text-muted">> [SYS] Conexão com a API do Google Gemini pronta.</div>
-          </div>
-
-          <div class="eq-footer-note">Híbrido 4.0 • RAG + AST + Vision (Opt-in)</div>
-        </div>
-
-        <!-- TAB 2: AVANÇADO -->
-        <div class="eq-view-container" id="eq-view-advanced" style="display: none;">
-          <button class="eq-btn-primary" id="eq-analyze-btn" type="button">
-            ${ICONS.analyze} Analisar & Resolver Questão
-          </button>
-
-          <!-- Status & Stopwatch Adv -->
-          <div class="eq-status-card">
-            <div class="eq-status-card-header">
-              <div class="eq-ai-indicator">
-                <span class="eq-dot-pulse" id="eq-dot-adv"></span>
-                <span>Processamento Manual</span>
+              <!-- Console Terminal -->
+              <div class="eq-section-title">
+                <span>Terminal de Operações</span>
+                <span style="font-size: 10px; color: #666;">Live Event Stream</span>
               </div>
-              <div class="eq-stopwatch" id="eq-stopwatch-adv">
-                ${ICONS.clock} <span>0.00s</span>
+              <div class="eq-terminal" id="eq-ap-console">
+                <div class="text-blue">> [SYS] EasyQuiz 2.0 Supreme inicializado.</div>
+                <div class="text-muted">> [SYS] Conexão com a API do Google Gemini pronta.</div>
               </div>
+
+              <div class="eq-footer-note">Híbrido 4.0 • RAG + AST + Vision (Opt-in)</div>
             </div>
-            <div class="eq-status-text" id="eq-status-text-adv">
-              Clique em Analisar para inspecionar a questão atual na tela.
-            </div>
-          </div>
 
-          <div class="eq-grid-2">
-            <div class="eq-field-group">
-              <div class="eq-section-title">Modo da Questão</div>
-              <select id="eq-mode-select" class="eq-select"></select>
-            </div>
-            <div class="eq-field-group">
-              <div class="eq-section-title">Motor de Execução</div>
-              <select id="eq-engine-select" class="eq-select"></select>
-            </div>
-          </div>
-
-          <div class="eq-grid-2">
-            <label class="eq-checkbox-label">
-              <input id="eq-dry-run" type="checkbox" />
-              <span>Simular (Dry-Run)</span>
-            </label>
-            <label class="eq-checkbox-label">
-              <input id="eq-auto-apply" type="checkbox" />
-              <span>Auto Aplicar</span>
-            </label>
-          </div>
-          <label class="eq-checkbox-label">
-            <input id="eq-auto-advance" type="checkbox" />
-            <span>Auto Avançar Após Injetar</span>
-          </label>
-
-          <!-- Painel de Resultados Manuais -->
-          <div id="eq-result" style="display: none; flex-direction: column; gap: 10px;">
-            <div class="eq-section-title">Plano Gerado</div>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap;" id="eq-badges"></div>
-
-            <div class="eq-rationale-card" id="eq-rationale-text"></div>
-
-            <div class="eq-action-list" id="eq-actions-list"></div>
-
-            <button class="eq-btn-secondary" id="eq-apply-btn" type="button">
-              ${ICONS.apply} Injetar Resposta na Página
-            </button>
-          </div>
-
-          <div class="eq-footer-note">Modo Manual • Controle Total dos Elementos</div>
-        </div>
-
-        <!-- TAB 3: INSPETOR IA -->
-        <div class="eq-view-container" id="eq-view-inspector" style="display: none;">
-          <div class="eq-inspector-meta">
-            <div class="eq-meta-box">
-              <div class="eq-meta-title">Modelo IA</div>
-              <div class="eq-meta-val" id="eq-insp-model">--</div>
-            </div>
-            <div class="eq-meta-box">
-              <div class="eq-meta-title">Latência</div>
-              <div class="eq-meta-val" id="eq-insp-latency">--</div>
-            </div>
-            <div class="eq-meta-box">
-              <div class="eq-meta-title">Tokens</div>
-              <div class="eq-meta-val" id="eq-insp-tokens">--</div>
-            </div>
-          </div>
-
-          <div class="eq-field-group">
-            <div class="eq-section-title">
-              <span>Prompt Enviado para a IA</span>
-              <button class="eq-btn-tool" id="eq-copy-prompt-btn" type="button" title="Copiar Prompt Completo">
-                ${ICONS.copy} Copiar
+            <!-- TAB 2: AVANÇADO -->
+            <div class="eq-view-pane" id="eq-view-advanced" style="display: none;">
+              <button class="eq-btn-primary" id="eq-analyze-btn" type="button">
+                ${ICONS.analyze} Analisar & Resolver Questão
               </button>
-            </div>
-            <div class="eq-code-block" id="eq-insp-prompt">Nenhuma consulta realizada ainda. Execute uma análise no Autopilot ou Avançado para inspecionar os dados enviados.</div>
-          </div>
 
-          <div class="eq-field-group">
-            <div class="eq-section-title">Raciocínio Detalhado</div>
-            <div class="eq-rationale-card" id="eq-insp-rationale">Aguardando resposta da IA...</div>
-          </div>
-
-          <div class="eq-field-group">
-            <div class="eq-section-title">Comandos Gerados</div>
-            <div class="eq-action-list" id="eq-insp-actions">
-              <div class="text-muted" style="padding: 6px;">Nenhuma ação no momento.</div>
-            </div>
-          </div>
-
-          <div class="eq-footer-note">Inspetor em Tempo Real • 100% Transparente</div>
-        </div>
-
-        <!-- TAB 4: CONFIGURAÇÕES -->
-        <div class="eq-view-container" id="eq-view-settings" style="display: none;">
-          <!-- API Key Section -->
-          <div class="eq-field-group">
-            <div class="eq-section-title">
-              <span>Chave Gemini (Google AI Studio)</span>
-              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: #00ffcc; text-decoration: none; font-size: 11px; font-weight: 700;">
-                Obter Grátis ↗
-              </a>
-            </div>
-
-            <div class="eq-input-box">
-              <div class="eq-input-wrap">
-                <input id="eq-api-key" class="eq-input" type="password" placeholder="Cole sua chave AIzaSy..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+              <!-- Status & Stopwatch Adv -->
+              <div class="eq-status-card">
+                <div class="eq-status-card-header">
+                  <div class="eq-ai-indicator">
+                    <span class="eq-dot-pulse" id="eq-dot-adv"></span>
+                    <span>Processamento Manual</span>
+                  </div>
+                  <div class="eq-stopwatch" id="eq-stopwatch-adv">
+                    ${ICONS.clock} <span>0.00s</span>
+                  </div>
+                </div>
+                <div class="eq-status-text" id="eq-status-text-adv">
+                  Clique em Analisar para inspecionar a questão atual na tela.
+                </div>
               </div>
-              <div class="eq-input-actions">
-                <button class="eq-btn-tool" id="eq-key-toggle" type="button">${ICONS.eye} Mostrar</button>
-                <button class="eq-btn-tool primary" id="eq-key-save" type="button">${ICONS.save} Salvar</button>
-                <button class="eq-btn-tool" id="eq-key-prompt" type="button" title="Abre janela nativa que não sofre bloqueio do site">${ICONS.edit} Inserir via Janela</button>
-                <button class="eq-btn-tool" id="eq-key-paste" type="button" title="Colar direto do clipboard">${ICONS.paste} Colar</button>
-                <button class="eq-btn-tool" id="eq-key-clear" type="button" title="Limpar campo">${ICONS.eraser} Limpar</button>
-                <button class="eq-btn-tool" id="eq-key-test" type="button" title="Testar chave no Google">${ICONS.key} Testar Conexão</button>
+
+              <div class="eq-grid-2">
+                <div class="eq-field-group">
+                  <div class="eq-section-title">Modo da Questão</div>
+                  <select id="eq-mode-select" class="eq-select"></select>
+                </div>
+                <div class="eq-field-group">
+                  <div class="eq-section-title">Motor de Execução</div>
+                  <select id="eq-engine-select" class="eq-select"></select>
+                </div>
               </div>
+
+              <div class="eq-grid-2">
+                <label class="eq-checkbox-label">
+                  <input id="eq-dry-run" type="checkbox" />
+                  <span>Simular (Dry-Run)</span>
+                </label>
+                <label class="eq-checkbox-label">
+                  <input id="eq-auto-apply" type="checkbox" />
+                  <span>Auto Aplicar</span>
+                </label>
+              </div>
+              <label class="eq-checkbox-label">
+                <input id="eq-auto-advance" type="checkbox" />
+                <span>Auto Avançar Após Injetar</span>
+              </label>
+
+              <!-- Painel de Resultados Manuais -->
+              <div id="eq-result" style="display: none; flex-direction: column; gap: 10px;">
+                <div class="eq-section-title">Plano Gerado</div>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;" id="eq-badges"></div>
+
+                <div class="eq-rationale-card" id="eq-rationale-text"></div>
+
+                <div class="eq-action-list" id="eq-actions-list"></div>
+
+                <button class="eq-btn-secondary" id="eq-apply-btn" type="button">
+                  ${ICONS.apply} Injetar Resposta na Página
+                </button>
+              </div>
+
+              <div class="eq-footer-note">Modo Manual • Controle Total dos Elementos</div>
+            </div>
+
+            <!-- TAB 3: INSPETOR IA -->
+            <div class="eq-view-pane" id="eq-view-inspector" style="display: none;">
+              <div class="eq-inspector-meta">
+                <div class="eq-meta-box">
+                  <div class="eq-meta-title">Modelo IA</div>
+                  <div class="eq-meta-val" id="eq-insp-model">--</div>
+                </div>
+                <div class="eq-meta-box">
+                  <div class="eq-meta-title">Latência</div>
+                  <div class="eq-meta-val" id="eq-insp-latency">--</div>
+                </div>
+                <div class="eq-meta-box">
+                  <div class="eq-meta-title">Tokens</div>
+                  <div class="eq-meta-val" id="eq-insp-tokens">--</div>
+                </div>
+              </div>
+
+              <div class="eq-field-group">
+                <div class="eq-section-title">
+                  <span>Prompt Enviado para a IA</span>
+                  <button class="eq-btn-secondary" id="eq-copy-prompt-btn" type="button" style="height: 26px; padding: 0 8px; font-size: 11px;">
+                    ${ICONS.copy} Copiar
+                  </button>
+                </div>
+                <div class="eq-code-block" id="eq-insp-prompt">Nenhuma consulta realizada ainda. Execute uma análise no Autopilot ou Avançado para inspecionar os dados enviados.</div>
+              </div>
+
+              <div class="eq-field-group">
+                <div class="eq-section-title">Raciocínio Detalhado</div>
+                <div class="eq-rationale-card" id="eq-insp-rationale">Aguardando resposta da IA...</div>
+              </div>
+
+              <div class="eq-field-group">
+                <div class="eq-section-title">Comandos Gerados</div>
+                <div class="eq-action-list" id="eq-insp-actions">
+                  <div class="text-muted" style="padding: 6px;">Nenhuma ação no momento.</div>
+                </div>
+              </div>
+
+              <div class="eq-footer-note">Inspetor em Tempo Real • 100% Transparente</div>
+            </div>
+
+            <!-- TAB 4: CONFIGURAÇÕES -->
+            <div class="eq-view-pane" id="eq-view-settings" style="display: none;">
+              <!-- Seção da Chave de API com Menu de 3 Pontinhos (⋮) -->
+              <div class="eq-field-group">
+                <div class="eq-section-title">
+                  <span>Chave Gemini (Google AI Studio)</span>
+                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: #00ffcc; text-decoration: none; font-size: 11px; font-weight: 700;">
+                    Obter Grátis ↗
+                  </a>
+                </div>
+
+                <div class="eq-key-input-container">
+                  <div class="eq-input-wrap">
+                    <span class="eq-input-prefix-icon">${ICONS.key}</span>
+                    <input id="eq-api-key" class="eq-input" type="password" placeholder="Cole sua chave AIzaSy..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+                    <button class="eq-icon-btn" id="eq-key-save" type="button" title="Salvar Chave">${ICONS.save}</button>
+                    <button class="eq-icon-btn" id="eq-key-more-btn" type="button" title="Mais Opções da Chave">${ICONS.moreVertical}</button>
+                  </div>
+
+                  <!-- Context Menu Suspenso Dinâmico -->
+                  <div class="eq-context-menu" id="eq-key-context-menu" hidden>
+                    <button class="eq-context-item" id="eq-menu-prompt" type="button">
+                      <span class="eq-item-icon">${ICONS.edit}</span>
+                      <span class="eq-item-text">Inserir via Janela Nativa</span>
+                      <span class="eq-item-badge">Bypass</span>
+                    </button>
+                    <button class="eq-context-item" id="eq-menu-paste" type="button">
+                      <span class="eq-item-icon">${ICONS.paste}</span>
+                      <span class="eq-item-text">Colar da Área de Transferência</span>
+                    </button>
+                    <button class="eq-context-item" id="eq-menu-toggle-vis" type="button">
+                      <span class="eq-item-icon" id="eq-menu-vis-icon">${ICONS.eye}</span>
+                      <span class="eq-item-text" id="eq-menu-vis-text">Mostrar Chave</span>
+                    </button>
+                    <button class="eq-context-item" id="eq-menu-clear" type="button">
+                      <span class="eq-item-icon">${ICONS.eraser}</span>
+                      <span class="eq-item-text">Limpar Campo</span>
+                    </button>
+                    <div class="eq-context-divider"></div>
+                    <button class="eq-context-item" id="eq-menu-test" type="button">
+                      <span class="eq-item-icon">${ICONS.key}</span>
+                      <span class="eq-item-text">Testar Conexão no Google</span>
+                    </button>
+                    <button class="eq-context-item danger" id="eq-menu-reset" type="button">
+                      <span class="eq-item-icon">${ICONS.trash}</span>
+                      <span class="eq-item-text">Resetar Dados e Cache</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Seleção de Modelos -->
+              <div class="eq-field-group">
+                <div class="eq-section-title">Modelo Padrão</div>
+                <select id="eq-model-select" class="eq-select"></select>
+              </div>
+
+              <!-- Preferências do Sistema -->
+              <div class="eq-field-group" style="gap: 8px; margin-top: 4px;">
+                <label class="eq-checkbox-label">
+                  <input id="eq-use-vision" type="checkbox" />
+                  <span>Visão Computacional (Imagens)</span>
+                </label>
+                <div style="font-size: 11px; color: #888888; margin-left: 24px; line-height: 1.3;">
+                  Desativado por padrão: O EasyQuiz analisa o DOM estruturado diretamente, respondendo ultrarrápido sem gastar cota com capturas de tela.
+                </div>
+
+                <label class="eq-checkbox-label" style="margin-top: 6px;">
+                  <input id="eq-host-dark" type="checkbox" />
+                  <span style="color: #00ffcc;">Habilitar Smart Dark Mode no Site</span>
+                </label>
+              </div>
+
+              <!-- Zona de Redefinição -->
+              <div class="eq-field-group" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #282828;">
+                <div class="eq-section-title" style="color: #ff5555;">Zona de Redefinição</div>
+                <button class="eq-btn-secondary" id="eq-reset-all-btn" type="button" style="border-color: #662222; color: #ff8888;">
+                  ${ICONS.trash} Resetar Todos os Dados e Memória
+                </button>
+              </div>
+
+              <div class="eq-footer-note">Configurações salvas localmente no navegador</div>
             </div>
           </div>
-
-          <!-- Model Selection -->
-          <div class="eq-field-group">
-            <div class="eq-section-title">Modelo Padrão</div>
-            <select id="eq-model-select" class="eq-select"></select>
-          </div>
-
-          <!-- System Preferences -->
-          <div class="eq-field-group" style="gap: 8px; margin-top: 4px;">
-            <label class="eq-checkbox-label">
-              <input id="eq-use-vision" type="checkbox" />
-              <span>Visão Computacional (Imagens)</span>
-            </label>
-            <div style="font-size: 11px; color: #888888; margin-left: 24px; line-height: 1.3;">
-              Desativado por padrão: A IA analisa o DOM estruturado diretamente, respondendo muito mais rápido e sem gastar cota com capturas de tela.
-            </div>
-
-            <label class="eq-checkbox-label" style="margin-top: 6px;">
-              <input id="eq-host-dark" type="checkbox" />
-              <span style="color: #00ffcc;">Habilitar Smart Dark Mode no Site</span>
-            </label>
-          </div>
-
-          <!-- Danger Zone -->
-          <div class="eq-field-group" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #2d2d30;">
-            <div class="eq-section-title" style="color: #ff5555;">Zona de Redefinição</div>
-            <button class="eq-btn-tool danger" id="eq-reset-all-btn" type="button" style="height: 34px; justify-content: center;">
-              ${ICONS.trash} Resetar Todos os Dados e Memória
-            </button>
-          </div>
-
-          <div class="eq-footer-note">Configurações salvas localmente no navegador</div>
-        </div>
+        </main>
       </aside>
     `
 
     // Bindings de Layout
     this.launcherBtn = this.shadow.querySelector('.eq-launcher') as HTMLButtonElement
+    this.launcherDot = this.shadow.querySelector('#eq-launcher-dot') as HTMLElement
     this.dockToggleBtn = this.shadow.querySelector('#eq-dock-toggle') as HTMLButtonElement
     this.sidebarEl = this.shadow.querySelector('.eq-sidebar') as HTMLElement
     this.apToggleBtn = this.shadow.querySelector('#eq-ap-toggle-btn') as HTMLButtonElement
@@ -397,8 +443,10 @@ export class EasyQuizPanel {
     this.inspActions = this.shadow.querySelector('#eq-insp-actions') as HTMLElement
     this.copyPromptBtn = this.shadow.querySelector('#eq-copy-prompt-btn') as HTMLButtonElement
 
-    // Controles de Formulário
+    // Controles de Formulário e Chave
     this.apiKeyInput = this.shadow.querySelector('#eq-api-key') as HTMLInputElement
+    this.keyContextMenu = this.shadow.querySelector('#eq-key-context-menu') as HTMLElement
+    this.keyMoreBtn = this.shadow.querySelector('#eq-key-more-btn') as HTMLButtonElement
     this.modelSelect = this.shadow.querySelector('#eq-model-select') as HTMLSelectElement
     this.modeSelect = this.shadow.querySelector('#eq-mode-select') as HTMLSelectElement
     this.engineSelect = this.shadow.querySelector('#eq-engine-select') as HTMLSelectElement
@@ -428,7 +476,7 @@ export class EasyQuizPanel {
     document.body.appendChild(this.host)
     this.applyHostDarkMode(initialSettings.hostDarkMode)
 
-    // Se chave existir, listar modelos
+    // Se chave existir, listar modelos da conta do usuário
     if (initialSettings.apiKey) {
       fetchAvailableModels(initialSettings.apiKey)
         .then((models) => {
@@ -453,11 +501,11 @@ export class EasyQuizPanel {
       const btn = this.shadow.querySelector(`#eq-tab-${t}`) as HTMLElement
       const view = this.shadow.querySelector(`#eq-view-${t}`) as HTMLElement
       if (t === tab) {
-        btn.classList.add('active')
-        view.style.display = 'flex'
+        btn?.classList.add('active')
+        if (view) view.style.display = 'flex'
       } else {
-        btn.classList.remove('active')
-        view.style.display = 'none'
+        btn?.classList.remove('active')
+        if (view) view.style.display = 'none'
       }
     }
 
@@ -467,13 +515,13 @@ export class EasyQuizPanel {
   }
 
   private setupEventListeners(): void {
-    // Abas do Activity Bar
+    // Abas do Activity Bar Vertical
     this.shadow.querySelector('#eq-tab-autopilot')?.addEventListener('click', () => this.switchTab('autopilot'))
     this.shadow.querySelector('#eq-tab-advanced')?.addEventListener('click', () => this.switchTab('advanced'))
     this.shadow.querySelector('#eq-tab-inspector')?.addEventListener('click', () => this.switchTab('inspector'))
     this.shadow.querySelector('#eq-tab-settings')?.addEventListener('click', () => this.switchTab('settings'))
 
-    // Toggle da Sidebar e Launcher
+    // Toggle da Sidebar (Aba lateral e Launcher Flutuante)
     this.launcherBtn.addEventListener('click', () => this.toggle())
     this.dockToggleBtn.addEventListener('click', () => this.toggle())
     this.shadow.querySelector('#eq-min-btn')?.addEventListener('click', () => this.toggle(false))
@@ -492,12 +540,9 @@ export class EasyQuizPanel {
     )
 
     // ==== BLINDAGEM COMPLETA DE TECLADO CONTRA SITES DE EXAMES ====
-    // Sites de prova interceptam backspace no document/window se o elemento parecer uma DIV (Shadow DOM retargeting).
-    // Interceptamos na fase de captura (useCapture: true) no window para impedir qualquer preventDefault() do host.
     const keyboardCaptureShield = (e: KeyboardEvent) => {
       const path = e.composedPath()
       if (path.includes(this.sidebarEl) || path.includes(this.host)) {
-        // Permite navegação nativa de texto e impede scripts do site pai de capturarem o evento
         e.stopImmediatePropagation()
       }
     }
@@ -511,26 +556,34 @@ export class EasyQuizPanel {
       this.callbacks.onSettingsChange({ apiKey: cleanVal })
     })
 
-    // Botão Salvar Chave
+    // Botão Salvar Direto da Chave
     const saveKeyBtn = this.shadow.querySelector('#eq-key-save') as HTMLButtonElement
     saveKeyBtn.addEventListener('click', () => {
       const cleanVal = this.apiKeyInput.value.trim().replace(/^["']|["']$/g, '')
       this.apiKeyInput.value = cleanVal
       this.callbacks.onSettingsChange({ apiKey: cleanVal })
       this.setStatus('Chave Gemini salva com sucesso!', 'success')
+      this.keyContextMenu.hidden = true
     })
 
-    // Botão Mostrar/Ocultar Chave
-    const toggleKeyBtn = this.shadow.querySelector('#eq-key-toggle') as HTMLButtonElement
-    toggleKeyBtn.addEventListener('click', () => {
-      const isPass = this.apiKeyInput.type === 'password'
-      this.apiKeyInput.type = isPass ? 'text' : 'password'
-      toggleKeyBtn.innerHTML = isPass ? `${ICONS.eyeOff} Ocultar` : `${ICONS.eye} Mostrar`
+    // Toggle do Menu de 3 Pontinhos (⋮)
+    this.keyMoreBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      this.keyContextMenu.hidden = !this.keyContextMenu.hidden
     })
 
-    // Botão Inserir via Janela Nativa (100% imune a qualquer bloqueio de DOM do site)
-    const promptKeyBtn = this.shadow.querySelector('#eq-key-prompt') as HTMLButtonElement
-    promptKeyBtn.addEventListener('click', () => {
+    // Fechar menu de 3 pontinhos se clicar fora
+    this.shadow.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('#eq-key-context-menu') && !target.closest('#eq-key-more-btn')) {
+        this.keyContextMenu.hidden = true
+      }
+    })
+
+    // Itens do Menu de 3 Pontinhos
+    // 1. Inserir via Janela Nativa (Bypass total contra scripts de bloqueio)
+    this.shadow.querySelector('#eq-menu-prompt')?.addEventListener('click', () => {
+      this.keyContextMenu.hidden = true
       const current = this.apiKeyInput.value.trim()
       const entered = window.prompt('Cole sua Chave API do Google Gemini (AI Studio):', current)
       if (entered !== null) {
@@ -541,9 +594,9 @@ export class EasyQuizPanel {
       }
     })
 
-    // Botão Colar do Clipboard Nativo
-    const pasteKeyBtn = this.shadow.querySelector('#eq-key-paste') as HTMLButtonElement
-    pasteKeyBtn.addEventListener('click', async () => {
+    // 2. Colar do Clipboard Nativo
+    this.shadow.querySelector('#eq-menu-paste')?.addEventListener('click', async () => {
+      this.keyContextMenu.hidden = true
       try {
         const text = await navigator.clipboard.readText()
         if (text) {
@@ -553,41 +606,58 @@ export class EasyQuizPanel {
           this.setStatus('Chave colada e salva com sucesso!', 'success')
         }
       } catch {
-        promptKeyBtn.click()
+        const current = this.apiKeyInput.value.trim()
+        const entered = window.prompt('Cole sua Chave API do Google Gemini (AI Studio):', current)
+        if (entered !== null) {
+          const clean = entered.trim().replace(/^["']|["']$/g, '')
+          this.apiKeyInput.value = clean
+          this.callbacks.onSettingsChange({ apiKey: clean })
+          this.setStatus('Chave Gemini inserida e salva com sucesso!', 'success')
+        }
       }
     })
 
-    // Botão Limpar Campo
-    const clearKeyBtn = this.shadow.querySelector('#eq-key-clear') as HTMLButtonElement
-    clearKeyBtn.addEventListener('click', () => {
+    // 3. Mostrar / Ocultar Chave
+    this.shadow.querySelector('#eq-menu-toggle-vis')?.addEventListener('click', () => {
+      this.keyContextMenu.hidden = true
+      const isPass = this.apiKeyInput.type === 'password'
+      this.apiKeyInput.type = isPass ? 'text' : 'password'
+      const iconEl = this.shadow.querySelector('#eq-menu-vis-icon') as HTMLElement
+      const textEl = this.shadow.querySelector('#eq-menu-vis-text') as HTMLElement
+      if (iconEl) iconEl.innerHTML = isPass ? ICONS.eyeOff : ICONS.eye
+      if (textEl) textEl.textContent = isPass ? 'Ocultar Chave' : 'Mostrar Chave'
+    })
+
+    // 4. Limpar Campo
+    this.shadow.querySelector('#eq-menu-clear')?.addEventListener('click', () => {
+      this.keyContextMenu.hidden = true
       this.apiKeyInput.value = ''
       this.callbacks.onSettingsChange({ apiKey: '' })
       this.setStatus('Campo limpo. Cole a nova chave e clique em Salvar.', 'info')
       this.apiKeyInput.focus()
     })
 
-    // Botão Testar Conexão
-    const testKeyBtn = this.shadow.querySelector('#eq-key-test') as HTMLButtonElement
-    testKeyBtn.addEventListener('click', async () => {
+    // 5. Testar Conexão Google
+    this.shadow.querySelector('#eq-menu-test')?.addEventListener('click', async () => {
+      this.keyContextMenu.hidden = true
       const key = this.apiKeyInput.value.trim().replace(/^["']|["']$/g, '')
       if (!key) return this.setStatus('Insira ou cole a chave de API.', 'error')
 
       this.setStatus('Testando chave e descobrindo modelos autorizados...', 'info')
-      testKeyBtn.disabled = true
       try {
         const res = await testApiKey(key)
         this.setStatus(res.message, res.ok ? 'success' : 'error')
         if (res.ok && res.models && res.models.length > 0) {
           this.updateModelSelect(res.models)
         }
-      } finally {
-        testKeyBtn.disabled = false
+      } catch (e) {
+        this.setStatus('Erro ao validar chave: ' + (e as Error).message, 'error')
       }
     })
 
-    // Resetar Todos os Dados
-    const resetAllBtn = this.shadow.querySelector('#eq-reset-all-btn') as HTMLButtonElement
-    resetAllBtn.addEventListener('click', () => {
+    // 6. Resetar Todos os Dados
+    const handleResetAll = () => {
+      this.keyContextMenu.hidden = true
       const confirmed = window.confirm('Deseja realmente resetar todos os dados, chaves e memória de sessão do EasyQuiz?')
       if (confirmed) {
         resetAllData()
@@ -596,7 +666,9 @@ export class EasyQuizPanel {
         this.setStatus('Todos os dados do EasyQuiz foram limpos.', 'info')
         this.logToConsole('> [SYS] Armazenamento local resetado.', 'text-yellow')
       }
-    })
+    }
+    this.shadow.querySelector('#eq-menu-reset')?.addEventListener('click', handleResetAll)
+    this.shadow.querySelector('#eq-reset-all-btn')?.addEventListener('click', handleResetAll)
 
     // Botão Iniciar/Parar Autopilot
     this.apToggleBtn.addEventListener('click', () => {
@@ -725,11 +797,13 @@ export class EasyQuizPanel {
       this.startStopwatch()
       this.dotPulseAp.className = 'eq-dot-pulse busy'
       this.dotPulseAdv.className = 'eq-dot-pulse busy'
+      this.launcherDot.className = 'eq-launcher-dot busy'
       if (message) this.setStatus(message, 'info')
     } else {
       this.stopStopwatch()
       this.dotPulseAp.className = 'eq-dot-pulse'
       this.dotPulseAdv.className = 'eq-dot-pulse'
+      this.launcherDot.className = 'eq-launcher-dot'
     }
   }
 
@@ -740,9 +814,11 @@ export class EasyQuizPanel {
     if (type === 'error') {
       this.dotPulseAp.className = 'eq-dot-pulse error'
       this.dotPulseAdv.className = 'eq-dot-pulse error'
+      this.launcherDot.className = 'eq-launcher-dot error'
     } else if (type === 'success') {
       this.dotPulseAp.className = 'eq-dot-pulse'
       this.dotPulseAdv.className = 'eq-dot-pulse'
+      this.launcherDot.className = 'eq-launcher-dot'
     }
 
     const isFallback = message.includes('Alternando') || message.includes('indisponível') || message.includes('fallback') || message.includes('alternativo')
@@ -763,9 +839,9 @@ export class EasyQuizPanel {
     const badgesEl = this.shadow.querySelector('#eq-badges') as HTMLElement
     badgesEl.innerHTML = `
       <span class="eq-brand-badge">${plan.mode.replace('_', ' ')}</span>
-      <span class="eq-brand-badge" style="color: #00ff55; border-color: #00ff55;">${Math.round(plan.confidence * 100)}% Confiança</span>
+      <span class="eq-brand-badge" style="color: #00ff55; border-color: rgba(0, 255, 85, 0.4);">${Math.round(plan.confidence * 100)}% Confiança</span>
       <span class="eq-brand-badge">${plan.actions.length} Cmds</span>
-      ${plan.usedModel ? `<span class="eq-brand-badge" style="border-color: #5bc0eb; color: #5bc0eb;">${plan.usedModel}</span>` : ''}
+      ${plan.usedModel ? `<span class="eq-brand-badge" style="border-color: rgba(91, 192, 235, 0.5); color: #5bc0eb;">${plan.usedModel}</span>` : ''}
     `
 
     const rationaleEl = this.shadow.querySelector('#eq-rationale-text') as HTMLElement
