@@ -29,9 +29,10 @@ DIRETRIZES DE FLUXO, SEGURANÇA E PRECISÃO ANALÍTICA:
 2. REGRAS PARA CADA TIPO DE COMANDO ("actions"):
    - { "t": "clk", "id": "rotulo_ou_texto" }:
      * Clique em alternativas de escolha única (rádios A, B, C, D) ou botões interativos de opção.
-   - { "t": "chk", "id": "rotulo_ou_texto", "c": true }:
+   - { "t": "chk", "id": "id_ou_rotulo", "c": true }:
      * Caixas de seleção (checkboxes).
      * REGRA CRÍTICA DE MÚLTIPLA SELEÇÃO: Se a questão permitir mais de uma resposta ("selecione todas as corretas", "quais afirmações são verdadeiras"), gere um comando individual { "t": "chk", "id": "...", "c": true } para CADA UMA das alternativas corretas! NUNCA marque apenas uma!
+     * Para o campo "id", use PREFERENCIALMENTE o "id" exato listado em [CAMPOS DE RESPOSTA] (ex: "chk-comb-1", "chk-comb-3"), OU o texto visível da alternativa, OU o número ordinal ("1", "3", "Item 1", "Item 3").
    - { "t": "val", "id": "id_ou_rotulo", "v": "texto_ou_numero" }:
      * Preenchimento EXCLUSIVO de campos de texto editáveis (<input type="text">, <textarea>, células de matriz matemática 3x3).
      * PROIBIÇÃO ABSOLUTA: NUNCA gere ação "val" para botões, links ou avanços! Botões de "Continuar", "Avançar", etc., NUNCA devem receber "val"!

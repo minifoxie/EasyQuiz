@@ -290,8 +290,11 @@ export function describeControl(element: HTMLElement, role: 'answer' | 'navigati
   const required = Boolean(input.required || element.getAttribute('aria-required') === 'true')
   const disabled = Boolean(input.disabled || element.getAttribute('aria-disabled') === 'true')
 
+  const eqId = easyQuizId(element)
+  const effectiveId = element.id || eqId
+
   return {
-    id: easyQuizId(element),
+    id: effectiveId,
     tag,
     type: inputType,
     label: labelForControl(element),

@@ -79,70 +79,119 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
   const trimmed = idOrLabel.trim().replace(/^["'“”«»]+|["'“”«»]+$/g, '')
   if (!trimmed) return null
 
-  // 1. Tenta por ID estrito gerado pelo EasyQuiz
+  // 1. Tenta por ID estrito gerado pelo EasyQuiz (garantindo visibilidade)
   const escaped = CSS.escape(trimmed)
   let el = document.querySelector(`[data-easyquiz-id="${escaped}"]`) as HTMLElement | null
-  if (el && !isInsideEasyQuiz(el)) return resolveTargetControlOrCard(el)
+  if (el && !isInsideEasyQuiz(el) && isVisible(el)) return resolveTargetControlOrCard(el)
 
-  // 2. Se for uma letra ou código curto (ex: "A", "B", "C", "D", "E", "1", "2", "PA", "PG")
-  // Busca diretamente por input de formulário, badge associado ou dropzone de categoria ANTES de testar como seletor
-  if (/^[a-zA-Z0-9]{1,2}$/.test(trimmed)) {
-    const radioMatch = document.querySelector(
-      `input[type="radio"][value="${escaped}" i], input[type="checkbox"][value="${escaped}" i], [role="radio"][value="${escaped}" i], [data-value="${escaped}" i], input[id$="-${escaped}" i], input[id*="opt-${escaped}" i]`,
-    ) as HTMLElement | null
-    if (radioMatch && !isInsideEasyQuiz(radioMatch)) {
-      return radioMatch
+  // 2. Tenta por ID real nativo no DOM se estiver visível (O(1) instantâneo)
+  try {
+    const elById = document.getElementById(trimmed)
+    if (elById && !isInsideEasyQuiz(elById) && isVisible(elById)) {
+      const isDrop = elById.hasAttribute('data-category') || elById.hasAttribute('data-dropzone') || elById.classList.contains('dnd-zone')
+      return isDrop ? elById : resolveTargetControlOrCard(elById)
     }
+  } catch {}
 
-    const dropzoneMatch = document.querySelector(
-      `[data-category="${escaped}" i], [data-dropzone="${escaped}" i], [data-role="dropzone"][data-category="${escaped}" i]`,
-    ) as HTMLElement | null
-    if (dropzoneMatch && !isInsideEasyQuiz(dropzoneMatch)) {
-      return dropzoneMatch
+  // 3. Resolução Ordinal / Numérica Direta (ex: "1", "3", "Item 1", "Opção 3", "Afirmação 1", "Alternativa 2")
+  // Mapeia diretamente para o N-ésimo input visível no formulário ativo
+  const ordinalNumMatch = trimmed.match(/^(?:item|opção|opcao|afirmação|afirmacao|alternativa|linha|afirmativa|questão|questao)?\s*#?([0-9]+)$/i)
+  if (ordinalNumMatch) {
+    const targetIdx = parseInt(ordinalNumMatch[1], 10) - 1
+    if (targetIdx >= 0) {
+      const visibleChoices = Array.from(
+        document.querySelectorAll(
+          'input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"]',
+        ),
+      ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
+
+      if (targetIdx < visibleChoices.length) {
+        return resolveTargetControlOrCard(visibleChoices[targetIdx])
+      }
     }
+  }
+
+  // 4. Resolução Ordinal Alfabética Direta (ex: "A", "B", "C", "D", "Alternativa B")
+  const ordinalLetterMatch = trimmed.match(/^(?:item|opção|opcao|afirmação|afirmacao|alternativa|linha|afirmativa|questão|questao)?\s*#?([a-eA-E])$/i)
+  if (ordinalLetterMatch) {
+    const letterIdx = ordinalLetterMatch[1].toUpperCase().charCodeAt(0) - 65
+    if (letterIdx >= 0) {
+      const visibleChoices = Array.from(
+        document.querySelectorAll(
+          'input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"]',
+        ),
+      ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
+
+      if (letterIdx < visibleChoices.length) {
+        return resolveTargetControlOrCard(visibleChoices[letterIdx])
+      }
+    }
+  }
+
+  // 5. Se for uma letra, código, categoria ou valor curto (ex: "PA", "PG", "chk1")
+  // Busca em elementos ESTREITAMENTE VISÍVEIS para não colidir com etapas ocultas
+  if (/^[a-zA-Z0-9_-]{1,10}$/.test(trimmed)) {
+    const dropzoneCandidates = Array.from(
+      document.querySelectorAll(
+        `[data-category="${escaped}" i], [data-dropzone="${escaped}" i], [data-role="dropzone"][data-category="${escaped}" i]`,
+      ),
+    ) as HTMLElement[]
+    const dropzoneMatch = dropzoneCandidates.find((d) => isVisible(d) && !isInsideEasyQuiz(d))
+    if (dropzoneMatch) return dropzoneMatch
+
+    const inputCandidates = Array.from(
+      document.querySelectorAll(
+        `input[value="${escaped}" i], [data-value="${escaped}" i], input[id="${escaped}" i]`,
+      ),
+    ) as HTMLElement[]
+    const inputMatch = inputCandidates.find((i) => isVisible(i) && !isInsideEasyQuiz(i))
+    if (inputMatch) return resolveTargetControlOrCard(inputMatch)
 
     const badgeMatch = Array.from(
       document.querySelectorAll('.option-badge, [class*="badge" i], [class*="letter" i], .option-card span, label span'),
     ).find((b) => {
+      if (!isVisible(b as HTMLElement) || isInsideEasyQuiz(b as HTMLElement)) return false
       const t = cleanSearchTerm(b.textContent).toLowerCase()
       return t === trimmed.toLowerCase() || t === trimmed.toLowerCase() + ')'
     }) as HTMLElement | undefined
-    if (badgeMatch && !isInsideEasyQuiz(badgeMatch)) {
-      return resolveTargetControlOrCard(badgeMatch)
-    }
+    if (badgeMatch) return resolveTargetControlOrCard(badgeMatch)
   }
 
-  // 3. Tenta por ID real, name, value, data-category, data-dropzone, data-testid, aria-label
+  // 6. Tenta por name, value, data-category, data-dropzone, data-testid, aria-label em elementos visíveis
   try {
-    el = document.querySelector(
-      `#${escaped}, [name="${escaped}"], [value="${escaped}"], [data-category="${escaped}" i], [data-dropzone="${escaped}" i], [data-testid="${escaped}" i], [data-test-id="${escaped}" i], [aria-label="${escaped}" i]`,
-    ) as HTMLElement | null
-    if (el && !isInsideEasyQuiz(el)) {
-      const isDrop = el.hasAttribute('data-category') || el.hasAttribute('data-dropzone') || el.classList.contains('dnd-zone')
-      return isDrop ? el : resolveTargetControlOrCard(el)
+    const attrCandidates = Array.from(
+      document.querySelectorAll(
+        `[name="${escaped}"], [value="${escaped}"], [data-category="${escaped}" i], [data-dropzone="${escaped}" i], [data-testid="${escaped}" i], [data-test-id="${escaped}" i], [aria-label="${escaped}" i]`,
+      ),
+    ) as HTMLElement[]
+    const attrMatch = attrCandidates.find((item) => isVisible(item) && !isInsideEasyQuiz(item))
+    if (attrMatch) {
+      const isDrop = attrMatch.hasAttribute('data-category') || attrMatch.hasAttribute('data-dropzone') || attrMatch.classList.contains('dnd-zone')
+      return isDrop ? attrMatch : resolveTargetControlOrCard(attrMatch)
     }
   } catch {}
 
-  // 4. Tenta como seletor CSS composto (NUNCA tags simples como "b", "a", "p" para não colidir com alternativas)
+  // 7. Tenta como seletor CSS composto (NUNCA tags simples como "b", "a", "p" para não colidir com alternativas)
   const isLikelyCssSelector = /^[.#\[]|\s|[>+~:]/.test(trimmed)
   if (isLikelyCssSelector) {
     try {
-      el = document.querySelector(trimmed) as HTMLElement | null
-      if (el && !isInsideEasyQuiz(el)) return resolveTargetControlOrCard(el)
+      const cssCandidates = Array.from(document.querySelectorAll(trimmed)) as HTMLElement[]
+      const cssMatch = cssCandidates.find((item) => isVisible(item) && !isInsideEasyQuiz(item))
+      if (cssMatch) return resolveTargetControlOrCard(cssMatch)
     } catch {}
   }
 
-  // 5. Tenta via XPath para texto exato no nó folha ou controle direto
+  // 8. Tenta via XPath para texto exato no nó folha ou controle direto visível
   try {
     const cleanXpath = trimmed.replace(/"/g, '')
     const xpath = `//button[normalize-space(.)="${cleanXpath}"] | //a[normalize-space(.)="${cleanXpath}"] | //*[not(*) and normalize-space(.)="${cleanXpath}"] | //*[@aria-label="${cleanXpath}"] | //*[@data-category="${cleanXpath}"] | //*[@data-testid="${cleanXpath}"]`
-    const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null)
-    if (result.singleNodeValue) {
-      const node = result.singleNodeValue as HTMLElement
-      if (!isInsideEasyQuiz(node)) {
+    const result = document.evaluate(xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)
+    for (let i = 0; i < result.snapshotLength; i++) {
+      const node = result.snapshotItem(i) as HTMLElement
+      if (node && isVisible(node) && !isInsideEasyQuiz(node)) {
         if (['body', 'html'].includes(node.tagName.toLowerCase())) {
           const inner = node.querySelector('button, [role="button"], a, input, [role="radio"], [role="checkbox"], label') as HTMLElement | null
-          if (inner) return resolveTargetControlOrCard(inner)
+          if (inner && isVisible(inner)) return resolveTargetControlOrCard(inner)
         }
         const categoryContainer = node.closest(
           '[data-role="dropzone"], [class*="category" i], [class*="bucket" i], [class*="column" i], [class*="drop" i]',
@@ -922,6 +971,7 @@ export const EqAPI = {
     }
     await simulateDragAndCategorize(item, cat)
   },
+  execute: (plan: AnalysisPlan, allowAdvance = false, attempt = 1) => executePlan(plan, allowAdvance, attempt),
 }
 ;(window as any).$eq = EqAPI
 
@@ -1264,19 +1314,24 @@ async function executeAlternativeActionPath(action: DeclarativeAction): Promise<
             const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
             setter?.call(input, shouldCheck)
           } catch {}
-          input.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
+          if (input.type !== 'checkbox' || input.checked !== shouldCheck) {
+            input.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
+          }
           input.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
           input.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
         } catch {}
       }
 
-      // Rota de contingência extra 2: clique de ponteiro forçado no card/label
+      // Rota de contingência extra 2: clique de ponteiro forçado no card/label (se não houver input ou estado ainda divergente)
       try {
         card.focus?.()
         card.setAttribute('aria-checked', shouldCheck ? 'true' : 'false')
         card.classList.toggle('selected', shouldCheck)
         card.classList.toggle('active', shouldCheck)
-        card.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
+        card.classList.toggle('checked', shouldCheck)
+        if (!input || input.checked !== shouldCheck) {
+          card.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
+        }
       } catch {}
 
       // Rota de contingência extra 3: tecla Space / Enter no elemento focado
