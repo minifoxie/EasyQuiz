@@ -1,6 +1,6 @@
 import type { AnalysisPlan } from '../core/types'
 import { loadDomainCache } from '../core/storage'
-import { captureCurrentContext } from './detector'
+import { captureCurrentContext, captureFullPageText } from './detector'
 import { findElementExt, simulatePointerClick } from './executor'
 
 export type AutopilotStatus = 'idle' | 'waiting' | 'analyzing' | 'advancing' | 'error'
@@ -60,8 +60,6 @@ export class Autopilot {
       
       let context = captureCurrentContext(false)
       if (!context) {
-        // Fallback supremo de tela inteira
-        const { captureFullPageText } = await import('./detector')
         context = captureFullPageText()
       }
 
@@ -137,8 +135,10 @@ export class Autopilot {
 
             if (plan.pageType === 'info') {
               this.callbacks.onStatusChange('advancing', '> [IA] 📖 Leitura concluída. Avançando automaticamente...', 'text-green')
+              await new Promise((r) => setTimeout(r, 1800))
             } else if (plan.pageType === 'start') {
               this.callbacks.onStatusChange('advancing', '> [SYS] Início de módulo detectado. Iniciando...', 'text-blue')
+              await new Promise((r) => setTimeout(r, 1800))
             } else if (plan.pageType === 'conclusion') {
               this.callbacks.onStatusChange('idle', '> [SYS] Atividade concluída! Desligando Autopilot.', 'text-green')
               this.stop()
@@ -172,9 +172,16 @@ export class Autopilot {
           this.stop()
           return
         }
+      } else {
+        this.callbacks.onStatusChange(
+          'waiting',
+          '> [SYS] Monitorando página... Aguardando carregamento dos elementos.',
+        )
       }
     } catch (err) {
+      const errText = err instanceof Error ? err.message : String(err)
       console.warn('[EasyQuiz Autopilot]', err)
+      this.callbacks.onStatusChange('error', `> [ERRO NO AUTOPILOT] ${errText}`, 'text-red')
     } finally {
       this.isProcessing = false
     }

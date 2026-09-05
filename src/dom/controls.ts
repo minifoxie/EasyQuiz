@@ -5,7 +5,9 @@ export const CONTROL_SELECTOR = [
   'textarea',
   'select',
   'button',
+  'a',
   '[role="button"]',
+  '[role="link"]',
   '[role="radio"]',
   '[role="checkbox"]',
   '[role="option"]',
@@ -25,7 +27,7 @@ export const CONTROL_SELECTOR = [
 ].join(',')
 
 export const NAVIGATION_PATTERN =
-  /(verificar|checar|check|conferir|validar|próxim[oa]|next|continuar|continue|avançar|prosseguir|enviar|submit|concluir|finalizar|terminar|começar|iniciar|start|vamos lá|próxima tarefa|next task|próxima pergunta|next question|marcar como concluíd[oa]|mostrar resumo|entendi|compreendi|ok|leitura concluída|seguir)/i
+  /(verificar|checar|check|conferir|validar|próxim[oa]|next|continuar|continue|avançar|prosseguir|enviar|submit|concluir|finalizar|terminar|começar|iniciar|start|vamos lá|próxima tarefa|next task|próxima pergunta|next question|marcar como concluíd[oa]|mostrar resumo|entendi|compreendi|ok|leitura concluída|seguir|ir para o exercício|fazer o teste|próximo artigo|ir para a aula)/i
 
 let idSequence = 0
 
@@ -64,12 +66,23 @@ export function isNavigationControl(element: HTMLElement): boolean {
   )
   const type = (element as HTMLButtonElement).type
   const testableText = text.replace(/[\d\(\)\[\]→\>\•\-\/\\]+/g, ' ').trim()
+  const testId = (
+    element.getAttribute('data-testid') ||
+    element.getAttribute('data-test-id') ||
+    element.getAttribute('id') ||
+    element.getAttribute('href') ||
+    ''
+  ).toLowerCase()
+
   return (
     NAVIGATION_PATTERN.test(testableText) ||
     NAVIGATION_PATTERN.test(text) ||
     type === 'submit' ||
-    element.getAttribute('data-testid')?.toLowerCase().includes('next') ||
-    element.getAttribute('data-testid')?.toLowerCase().includes('check') ||
+    testId.includes('next') ||
+    testId.includes('check') ||
+    testId.includes('continue') ||
+    testId.includes('proximo') ||
+    testId.includes('forward') ||
     false
   )
 }

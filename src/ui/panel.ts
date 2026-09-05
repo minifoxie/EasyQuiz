@@ -687,6 +687,9 @@ export class EasyQuizPanel {
           this.apiKeyInput.focus()
           return
         }
+        this.callbacks.onSettingsChange({ autoApply: true, autoAdvance: true })
+        this.autoApplyCheckbox.checked = true
+        this.autoAdvanceCheckbox.checked = true
         this.autopilot.start()
         this.apToggleBtn.innerHTML = `${ICONS.stop} PARAR AUTOPILOT`
         this.apToggleBtn.classList.add('danger')

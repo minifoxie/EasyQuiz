@@ -200,7 +200,20 @@ export function sanitizeHtml(scope: HTMLElement): string {
 
 export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
   return Array.from(scope.querySelectorAll(CONTROL_SELECTOR))
-    .filter((el) => isVisible(el) && !isNavigationControl(el as HTMLElement))
+    .filter((el) => {
+      if (!isVisible(el) || isNavigationControl(el as HTMLElement)) return false
+      if (el.tagName.toLowerCase() === 'a') {
+        const role = el.getAttribute('role')
+        const isOption =
+          role === 'button' ||
+          role === 'radio' ||
+          role === 'checkbox' ||
+          role === 'option' ||
+          el.closest('[class*="choice" i], [class*="option" i], [class*="answer" i], [data-testid*="option" i]')
+        return Boolean(isOption)
+      }
+      return true
+    })
     .slice(0, 100)
     .map((el) => describeControl(el as HTMLElement, 'answer'))
 }
@@ -233,7 +246,8 @@ export function captureCurrentContext(expanded = false): CapturedContext | null 
     scope = expandToGeneralSelection(scope)
   }
 
-  const questionText = cleanText(scope.innerText, 16_000)
+  const rawText = scope.innerText && scope.innerText.trim().length > 0 ? scope.innerText : scope.textContent || ''
+  const questionText = cleanText(rawText, 16_000)
   const answers = extractAnswerControls(scope)
   let navs = extractNavigationControls(scope)
 
@@ -247,6 +261,10 @@ export function captureCurrentContext(expanded = false): CapturedContext | null 
   // Se tem texto explicativo relevante (> 30 chars), mesmo sem controles de resposta direta,
   // é uma página de leitura/contexto/artigo válida!
   if (!questionText || (controls.length === 0 && questionText.length < 30)) {
+    const fullBodyText = cleanText(document.body.innerText || document.body.textContent || '', 16_000)
+    if (fullBodyText.length >= 30) {
+      return captureFullPageText()
+    }
     return null
   }
 
@@ -261,16 +279,17 @@ export function captureCurrentContext(expanded = false): CapturedContext | null 
 }
 
 export function captureFullPageText(): CapturedContext {
-  const rawText = document.body.innerText || document.documentElement.innerText
-  const questionText = cleanText(rawText, 8000)
+  const rawText = document.body.innerText || document.body.textContent || document.documentElement.textContent || ''
+  const questionText = cleanText(rawText, 14_000)
   const navs = extractNavigationControls(document.body)
-  const mainEl = (document.querySelector('main, article, [role="main"]') || document.body) as HTMLElement
+  const mainEl = (document.querySelector('main, article, [role="main"], [data-test-id*="content" i], [class*="content" i]') ||
+    document.body) as HTMLElement
 
   return {
     sourceUrl: window.location.href.slice(0, 2_000),
-    pageTitle: document.title.slice(0, 500) || 'Página Inteira',
+    pageTitle: document.title.slice(0, 500) || 'Página de Leitura/Contexto',
     questionText,
-    htmlSnippet: sanitizeHtml(mainEl).slice(0, 10_000),
+    htmlSnippet: sanitizeHtml(mainEl).slice(0, 15_000),
     controls: navs,
     scope: mainEl,
   }

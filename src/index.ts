@@ -1,7 +1,7 @@
 import { analyzeWithGemini } from './core/gemini'
-import { loadSettings, saveSettings } from './core/storage'
+import { addSessionMemory, loadSettings, saveSettings } from './core/storage'
 import type { AnalysisPlan, EasyQuizSettings } from './core/types'
-import { captureCurrentContext } from './dom/detector'
+import { captureCurrentContext, captureFullPageText } from './dom/detector'
 import { executePlan } from './dom/executor'
 import { clearHighlights, highlightScope, highlightTargetActions } from './dom/highlighter'
 import { captureImages } from './media/capture'
@@ -71,7 +71,6 @@ async function initEasyQuiz(): Promise<void> {
       
       if (!context) {
         panel.setStatus('Nenhum controle detectado. Tentando captura de tela inteira...', 'info')
-        const { captureFullPageText } = await import('./dom/detector')
         context = captureFullPageText()
       }
 
@@ -96,7 +95,6 @@ async function initEasyQuiz(): Promise<void> {
         panel.setStatus('Enunciado ou contexto isolado detectado pela IA. Acionando Seleção Geral Expandida...', 'info')
         context = captureCurrentContext(true)
         if (!context) {
-          const { captureFullPageText } = await import('./dom/detector')
           context = captureFullPageText()
         }
         highlightScope(context.scope)
@@ -109,7 +107,6 @@ async function initEasyQuiz(): Promise<void> {
       }
 
       if (plan.memoryToStore) {
-        const { addSessionMemory } = await import('./core/storage')
         addSessionMemory(plan.memoryToStore)
         console.log('[EasyQuiz] Memória de sessão armazenada:', plan.memoryToStore)
       }
