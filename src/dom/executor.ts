@@ -298,32 +298,51 @@ function setNativeValue(element: HTMLElement, value: string): void {
 }
 
 function setCheckedState(element: HTMLElement, checked: boolean): void {
-  const inputEl = element instanceof HTMLInputElement ? element : (element.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null)
+  const inputEl =
+    element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
+      ? element
+      : (element.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null)
 
   if (inputEl && ['checkbox', 'radio'].includes(inputEl.type)) {
-    if (inputEl.checked !== checked) inputEl.click()
-    if (inputEl.checked !== checked) {
-      try {
-        const tracker = (inputEl as any)._valueTracker
-        if (tracker) tracker.setValue('')
-      } catch {}
+    inputEl.checked = checked
 
+    try {
+      const tracker = (inputEl as any)._valueTracker
+      if (tracker) tracker.setValue(!checked)
+    } catch {}
+
+    try {
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
       setter?.call(inputEl, checked)
-      dispatchEventSequence(inputEl, ['input', 'change'])
+    } catch {}
+
+    try {
+      inputEl.click()
+    } catch {}
+
+    inputEl.checked = checked
+
+    const cardParent = inputEl.closest('.option-card, label, [role="radio"], [role="checkbox"]') as HTMLElement | null
+    if (cardParent) {
+      cardParent.setAttribute('aria-checked', checked ? 'true' : 'false')
+      cardParent.classList.toggle('selected', checked)
+      cardParent.classList.toggle('active', checked)
     }
+
+    dispatchEventSequence(inputEl, ['input', 'change'])
     return
   }
+
   const role = element.getAttribute('role')
   if (role === 'radio' || role === 'checkbox') {
-    const isChecked = element.getAttribute('aria-checked') === 'true'
-    if (isChecked !== checked) {
-      simulatePointerClick(element)
-      element.setAttribute('aria-checked', checked ? 'true' : 'false')
-      dispatchEventSequence(element, ['input', 'change'])
-    }
+    element.setAttribute('aria-checked', checked ? 'true' : 'false')
+    element.classList.toggle('selected', checked)
+    element.classList.toggle('active', checked)
+    dispatchEventSequence(element, ['input', 'change'])
+    simulatePointerClick(element)
     return
   }
+
   simulatePointerClick(element)
 }
 
@@ -596,10 +615,15 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1):
       break
     case 'clk':
       if (element) {
-        simulatePointerClick(element, action.co)
-        const innerRadio = element.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null
-        if (innerRadio && !innerRadio.checked) {
-          setCheckedState(innerRadio, true)
+        const inputEl =
+          element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
+            ? element
+            : (element.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null)
+
+        if (inputEl) {
+          setCheckedState(inputEl, true)
+        } else {
+          simulatePointerClick(element, action.co)
         }
       }
       break
@@ -745,10 +769,17 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
       return normCur === normExp || normCur.includes(normExp) || cur.toLowerCase() === expected.toLowerCase()
     }
     if (action.t === 'chk') {
-      const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLInputElement | null
+      const el = findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))
       if (!el) return false
-      const checked = el.checked ?? (el.getAttribute('aria-checked') === 'true')
-      return checked === Boolean(action.c)
+      const inputEl =
+        el instanceof HTMLInputElement && ['checkbox', 'radio'].includes(el.type)
+          ? el
+          : (el.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null)
+      if (inputEl) {
+        return inputEl.checked === Boolean(action.c)
+      }
+      const isAria = el.getAttribute('aria-checked') === 'true'
+      return isAria === Boolean(action.c)
     }
     if (action.t === 'sel') {
       const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLSelectElement | null
@@ -759,8 +790,11 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
     if (action.t === 'clk') {
       const el = findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))
       if (!el) return false
-      const radio = el.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null
-      if (radio) return radio.checked
+      const inputEl =
+        el instanceof HTMLInputElement && ['checkbox', 'radio'].includes(el.type)
+          ? el
+          : (el.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null)
+      if (inputEl) return inputEl.checked
       const isAria = el.getAttribute('aria-checked') === 'true' || el.getAttribute('aria-selected') === 'true'
       const hasClass = /active|selected|checked|picked/i.test(el.className || '')
       return isAria || hasClass || true
