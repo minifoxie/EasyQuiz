@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         EasyQuiz Pro
 // @namespace    https://github.com/minifoxie/EasyQuiz
-// @version      1.0.0
+// @version      2.1.0
 // @description  Resolução inteligente e preenchimento de questões e formulários com IA
 // @author       minifoxie
 // @match        *://*/*
+// @updateURL    https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/easyquiz.user.js
+// @downloadURL  https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/easyquiz.user.js
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==

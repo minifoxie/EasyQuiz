@@ -40,13 +40,18 @@ const bookmarkletCode = `javascript:fetch('${rawUrl}?t='+Date.now()).then(r=>r.t
 await writeFile(path.join(dist, 'bookmarklet.txt'), `${bookmarkletCode}\n`, 'utf-8')
 
 // Userscript para Tampermonkey / Violentmonkey
+const pkg = JSON.parse(await import('node:fs').then((fs) => fs.readFileSync(path.join(root, 'package.json'), 'utf-8')))
+const version = pkg.version || '2.1.0'
+
 const userscriptHeader = `// ==UserScript==
 // @name         EasyQuiz Pro
 // @namespace    https://github.com/${githubRepo}
-// @version      1.0.0
+// @version      ${version}
 // @description  Resolução inteligente e preenchimento de questões e formulários com IA
 // @author       minifoxie
 // @match        *://*/*
+// @updateURL    https://raw.githubusercontent.com/${githubRepo}/main/dist/easyquiz.user.js
+// @downloadURL  https://raw.githubusercontent.com/${githubRepo}/main/dist/easyquiz.user.js
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
