@@ -16,8 +16,8 @@ export function loadSettings(): EasyQuizSettings {
     }
     const parsed = JSON.parse(raw) as Partial<EasyQuizSettings>
     let model = typeof parsed.model === 'string' && parsed.model ? parsed.model : DEFAULT_SETTINGS.model
-    if (model.includes('3.8') || model.includes('3.7') || model.includes('3.6') || model.includes('3.5') || model.includes('3.1')) {
-      model = DEFAULT_SETTINGS.model
+    if (model === 'gemini-2.5-flash') {
+      model = 'gemini-3.5-flash'
     }
     return {
       apiKey: typeof parsed.apiKey === 'string' ? parsed.apiKey.trim() : DEFAULT_SETTINGS.apiKey,

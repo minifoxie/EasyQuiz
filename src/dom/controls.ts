@@ -160,11 +160,25 @@ export function describeControl(element: HTMLElement, role: 'answer' | 'navigati
     : 'other'
 
   const customRole = element.getAttribute('role') || ''
-  const isDraggable = element.getAttribute('draggable') === 'true' || element.classList.contains('perseus-drag-item')
+  const testId = (element.getAttribute('data-testid') || element.getAttribute('data-test-id') || '').toLowerCase()
+  const classStr = (element.className && typeof element.className === 'string' ? element.className : '').toLowerCase()
+
+  const isDraggable =
+    element.getAttribute('draggable') === 'true' ||
+    element.classList.contains('perseus-drag-item') ||
+    element.classList.contains('sortable-item') ||
+    Boolean(element.getAttribute('aria-grabbed')) ||
+    /drag|card|option|item/i.test(testId) ||
+    /drag|card-item|sortable/i.test(classStr)
+
   const isDropzone =
     element.getAttribute('data-role') === 'dropzone' ||
     element.classList.contains('category-container') ||
-    element.hasAttribute('data-category')
+    element.hasAttribute('data-category') ||
+    Boolean(element.getAttribute('aria-dropeffect')) ||
+    /drop|category|bucket/i.test(testId) ||
+    /dropzone|category-box|bucket|target-zone/i.test(classStr)
+
   const widgetHint = isDraggable ? 'draggable' : isDropzone ? 'dropzone' : ''
   const inputType = cleanText(widgetHint || input.type || customRole || tag, 40)
 

@@ -3,19 +3,19 @@ import { buildUserPrompt, SYSTEM_PROMPT } from './prompt'
 
 export const AVAILABLE_MODELS: ModelOption[] = [
   {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash (Padrão Oficial 2026)',
-    description: 'Mais rápido, econômico e amplamente disponível em contas Google AI Studio.',
-  },
-  {
     id: 'gemini-3.5-flash',
-    name: 'Gemini 3.5 Flash (Geração 3 - Alta Velocidade)',
+    name: 'Gemini 3.5 Flash (Padrão 2026 - Alta Velocidade)',
     description: 'Frontier model com alta inteligência multimodal otimizado para velocidade.',
   },
   {
     id: 'gemini-3.1-flash-lite',
-    name: 'Gemini 3.1 Flash Lite (Ultra Eficiente)',
+    name: 'Gemini 3.1 Flash Lite (Ultra Eficiente e Estável)',
     description: 'Equilíbrio ideal entre inteligência e economia extrema de cota.',
+  },
+  {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash (Compatibilidade)',
+    description: 'Modelo rápido para contas com acesso ativo.',
   },
   {
     id: 'gemini-2.5-pro',
@@ -29,7 +29,7 @@ export const AVAILABLE_MODELS: ModelOption[] = [
   },
   {
     id: 'gemini-1.5-flash',
-    name: 'Gemini 1.5 Flash (Compatibilidade Ampla)',
+    name: 'Gemini 1.5 Flash (Legado Universal)',
     description: 'Suporte universal de alta compatibilidade em contas com endpoints legados.',
   },
 ]
@@ -79,7 +79,8 @@ const GEMINI_JSON_SCHEMA = {
 
 function normalizeModel(model: string): string {
   const clean = model.trim().replace(/^google\//, '').replace(/^models\//, '')
-  return clean || 'gemini-2.5-flash'
+  if (clean === 'gemini-2.5-flash') return 'gemini-3.5-flash'
+  return clean || 'gemini-3.5-flash'
 }
 
 function parseGeminiError(errorText: string, status: number): string {
@@ -311,9 +312,9 @@ export async function analyzeWithGemini(
   const rawFallback = [
     chosenModel,
     ...(discoveredModelsCache?.map((m) => m.id) || []),
-    'gemini-2.5-flash',
     'gemini-3.5-flash',
     'gemini-3.1-flash-lite',
+    'gemini-2.5-flash',
     'gemini-2.5-pro',
     'gemini-3.1-pro',
     'gemini-1.5-flash',
@@ -385,6 +386,9 @@ export async function analyzeWithGemini(
 
         if (currentModel !== chosenModel) {
           onProgress?.(`Resolvido com sucesso pelo fallback '${currentModel}' (${apiVer})!`, 'info')
+          try {
+            settings.model = currentModel
+          } catch {}
         }
 
         return { plan: parsedPlan, rawUsage: data.usageMetadata, usedModel: currentModel }

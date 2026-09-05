@@ -6,6 +6,16 @@ export function isInsideEasyQuiz(el: HTMLElement): boolean {
   return Boolean(el.closest('#easyquiz-shadow-root, .eq-sidebar, .eq-launcher'))
 }
 
+export function cleanSearchTerm(term: string): string {
+  if (!term) return ''
+  return term
+    .replace(/^[\d\.\-\)\s]+/, '') // Remove prefixos como "1. ", "2) ", "1 - ", "A) "
+    .replace(/[\.\u2026]{2,}/g, ' ') // Remove reticências como "..." ou "…"
+    .replace(/['"“”«»]/g, '') // Remove aspas
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 // ---- MOTOR DE BUSCA ROBUSTA DE ELEMENTOS ----
 export function findElementExt(idOrLabel: string): HTMLElement | null {
   if (!idOrLabel) return null
@@ -45,8 +55,8 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
     }
   } catch {}
 
-  // 5. Busca flexível por candidatos visíveis
-  const targetClean = cleanText(trimmed).toLowerCase().replace(/['"“”«»]/g, '')
+  // 5. Busca flexível por candidatos visíveis com correspondência textual e por tokens
+  const targetClean = cleanSearchTerm(trimmed).toLowerCase()
   const candidates = Array.from(
     document.querySelectorAll(
       'button, a, div, span, li, p, label, input, [draggable="true"], [data-testid], [class*="option" i], [class*="card" i], [class*="item" i], [class*="choice" i], [class*="category" i], [class*="bucket" i]',
@@ -56,11 +66,11 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
   // Prioridade A: Correspondência exata em texto, atributos ou prefixo de alternativa (ex: "A)", "B.", "1)")
   for (const item of candidates) {
     if (!isVisible(item) || isInsideEasyQuiz(item)) continue
-    const txt = cleanText(item.textContent).toLowerCase().replace(/['"“”«»]/g, '')
-    const aria = cleanText(item.getAttribute('aria-label')).toLowerCase().replace(/['"“”«»]/g, '')
-    const cat = cleanText(item.getAttribute('data-category')).toLowerCase().replace(/['"“”«»]/g, '')
+    const txt = cleanSearchTerm(item.textContent).toLowerCase()
+    const aria = cleanSearchTerm(item.getAttribute('aria-label') || '').toLowerCase()
+    const cat = cleanSearchTerm(item.getAttribute('data-category') || '').toLowerCase()
     const rawVal = item instanceof HTMLInputElement || item instanceof HTMLButtonElement ? item.value : ''
-    const val = cleanText(rawVal).toLowerCase()
+    const val = cleanSearchTerm(rawVal).toLowerCase()
 
     const prefixMatch =
       txt.startsWith(targetClean + ')') ||
@@ -75,25 +85,45 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
       (val && val === targetClean) ||
       prefixMatch
     ) {
+      // Se for uma categoria, procura o container/dropzone pai
+      const categoryContainer = item.closest(
+        '[data-role="dropzone"], [class*="category" i], [class*="bucket" i], [class*="column" i], [class*="drop" i]',
+      ) as HTMLElement | null
       const clickableParent = item.closest(
         'button, a, [role="button"], [role="radio"], [role="checkbox"], [draggable="true"], [class*="card" i], [class*="option" i], [class*="item" i], label, li',
       ) as HTMLElement | null
-      return clickableParent || item
+      return categoryContainer || clickableParent || item
     }
   }
 
-  // Prioridade B: Contenção de substring para cards com badges ou numerações
+  // Prioridade B: Contenção de substring ou palavras-chave
   if (targetClean.length >= 3) {
     for (const item of candidates) {
       if (!isVisible(item) || isInsideEasyQuiz(item)) continue
-      if (item.children.length > 5) continue // Evita containers gigantes da página inteira
-      const txt = cleanText(item.textContent).toLowerCase().replace(/['"“”«»]/g, '')
-      const aria = cleanText(item.getAttribute('aria-label')).toLowerCase().replace(/['"“”«»]/g, '')
-      if (txt.includes(targetClean) || aria.includes(targetClean)) {
+      const txt = cleanSearchTerm(item.textContent).toLowerCase()
+      const aria = cleanSearchTerm(item.getAttribute('aria-label') || '').toLowerCase()
+
+      // Substring direta
+      if (txt.includes(targetClean) || aria.includes(targetClean) || (targetClean.length > 8 && txt && targetClean.includes(txt))) {
+        const categoryContainer = item.closest(
+          '[data-role="dropzone"], [class*="category" i], [class*="bucket" i], [class*="column" i], [class*="drop" i]',
+        ) as HTMLElement | null
         const clickableParent = item.closest(
           'button, a, [role="button"], [role="radio"], [role="checkbox"], [draggable="true"], [class*="card" i], [class*="option" i], [class*="item" i], label, li',
         ) as HTMLElement | null
-        return clickableParent || item
+        return categoryContainer || clickableParent || item
+      }
+
+      // Correspondência pelas primeiras 3 a 5 palavras significativas (para frases longas que a IA resumiu)
+      const words = targetClean.split(' ').filter((w) => w.length > 2)
+      if (words.length >= 3) {
+        const leadingTokens = words.slice(0, Math.min(4, words.length)).join(' ')
+        if (txt.includes(leadingTokens) || aria.includes(leadingTokens)) {
+          const clickableParent = item.closest(
+            'button, a, [role="button"], [role="radio"], [role="checkbox"], [draggable="true"], [class*="card" i], [class*="option" i], [class*="item" i], label, li',
+          ) as HTMLElement | null
+          return clickableParent || item
+        }
       }
     }
   }
@@ -302,47 +332,68 @@ function selectValues(element: HTMLElement, values: string[]): void {
   throw new Error('Elemento não é select.')
 }
 
-function createMockDataTransfer(): DataTransfer {
-  const store: Record<string, string> = {}
-  return {
-    dropEffect: 'move',
-    effectAllowed: 'all',
-    files: [] as any,
-    items: [] as any,
-    types: ['text/plain'],
-    clearData: (format?: string) => {
-      if (format) delete store[format]
-      else Object.keys(store).forEach((k) => delete store[k])
-    },
-    getData: (format: string) => store[format] || '',
-    setData: (format: string, data: string) => {
-      store[format] = data
-    },
-    setDragImage: () => {},
-  } as unknown as DataTransfer
+function getSafeDataTransfer(text: string, html: string): DataTransfer | null {
+  try {
+    const dt = new DataTransfer()
+    try {
+      dt.setData('text/plain', text)
+    } catch {}
+    try {
+      dt.setData('text/html', html)
+    } catch {}
+    return dt
+  } catch {
+    return null
+  }
 }
 
-// ---- SIMULAÇÃO HÍBRIDA MULTI-ESTÁGIO DE ARRASTO E CATEGORIZAÇÃO ----
-export async function simulateDragAndCategorize(origin: HTMLElement, dest: HTMLElement): Promise<void> {
+// ---- SIMULAÇÃO HÍBRIDA MULTI-ESTÁGIO E ADAPTATIVA DE ARRASTO E CATEGORIZAÇÃO ----
+export async function simulateDragAndCategorize(
+  origin: HTMLElement,
+  dest: HTMLElement,
+  attempt = 1,
+): Promise<void> {
+  // 1. Garante que os elementos estejam centralizados e visíveis
+  try {
+    origin.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' as any })
+  } catch {}
+
   const originRect = origin.getBoundingClientRect()
   const destRect = dest.getBoundingClientRect()
 
-  const startX = originRect.left + originRect.width / 2
-  const startY = originRect.top + originRect.height / 2
-  const endX = destRect.left + destRect.width / 2
-  const endY = destRect.top + destRect.height / 2
+  const startX = Math.round(originRect.left + Math.max(1, originRect.width / 2))
+  const startY = Math.round(originRect.top + Math.max(1, originRect.height / 2))
+  const endX = Math.round(destRect.left + Math.max(1, destRect.width / 2))
+  const endY = Math.round(destRect.top + Math.max(1, destRect.height / 2))
 
-  // ---- ESTÁGIO 1: PADRÃO CLICK-TO-SELECT E CLICK-TO-PLACE ----
-  // A esmagadora maioria dos sites web modernos de quiz (Quizizz, Educaplay, Wordwall)
-  // aceita clicar na opção e depois clicar na categoria de destino!
+  // ---- ESTRATÉGIA A: BOTÃO, RÁDIO OU SELECT DA CATEGORIA EMBUTIDO NO CARD DE ORIGEM ----
+  const destClean = cleanSearchTerm(dest.textContent).toLowerCase()
+  if (destClean) {
+    const directControls = Array.from(
+      origin.querySelectorAll('button, [role="button"], input[type="radio"], input[type="checkbox"], option, .btn, [class*="tag" i]'),
+    ) as HTMLElement[]
+
+    const matchedCtrl = directControls.find((ctrl) => {
+      const txt = cleanSearchTerm(ctrl.textContent).toLowerCase()
+      const val = ctrl instanceof HTMLInputElement || ctrl instanceof HTMLOptionElement ? cleanSearchTerm(ctrl.value).toLowerCase() : ''
+      return (txt && (destClean.includes(txt) || txt.includes(destClean))) || (val && (destClean.includes(val) || val.includes(destClean)))
+    })
+
+    if (matchedCtrl) {
+      simulatePointerClick(matchedCtrl)
+      await new Promise((r) => setTimeout(r, 120))
+    }
+  }
+
+  // ---- ESTRATÉGIA B: PADRÃO CLICK-TO-SELECT E CLICK-TO-PLACE (DOMINANTE EM QUIZZES MODERNOS) ----
   simulatePointerClick(origin, [startX, startY])
-  await new Promise((r) => setTimeout(r, 120))
+  await new Promise((r) => setTimeout(r, 140))
 
   simulatePointerClick(dest, [endX, endY])
 
   // Se o destino tiver um container dropzone interno específico, clica nele também
   const dropInner = dest.querySelector(
-    '[data-role="dropzone"], [class*="bucket" i], [class*="slot" i], [class*="drop" i], [class*="target" i], ul',
+    '[data-role="dropzone"], [class*="bucket" i], [class*="slot" i], [class*="drop" i], [class*="target" i], [class*="items" i], ul, ol',
   ) as HTMLElement | null
   if (dropInner && dropInner !== dest) {
     simulatePointerClick(dropInner)
@@ -350,8 +401,7 @@ export async function simulateDragAndCategorize(origin: HTMLElement, dest: HTMLE
 
   await new Promise((r) => setTimeout(r, 100))
 
-  // ---- ESTÁGIO 2: ARRASTO COM MOUSE & POINTER EVENTS INTERMEDIÁRIOS ----
-  // Simula o movimento físico do cursor com mousedown + mousemove + mouseup
+  // ---- ESTRATÉGIA C: ARRASTO FÍSICO COM POINTER EVENTS & MOUSE EVENTS ----
   const pStart = {
     bubbles: true,
     cancelable: true,
@@ -359,19 +409,26 @@ export async function simulateDragAndCategorize(origin: HTMLElement, dest: HTMLE
     view: window,
     clientX: startX,
     clientY: startY,
+    screenX: startX,
+    screenY: startY,
     button: 0,
     buttons: 1,
   }
 
-  origin.dispatchEvent(new PointerEvent('pointerdown', { ...pStart, isPrimary: true }))
+  try {
+    origin.dispatchEvent(new PointerEvent('pointerdown', { ...pStart, isPrimary: true, pointerId: 1, pointerType: 'mouse', pressure: 0.5 }))
+  } catch {}
   origin.dispatchEvent(new MouseEvent('mousedown', pStart))
 
-  // Dispara 3 coordenadas de movimento intermediárias (necessário para bibliotecas JS como SortableJS)
-  for (let step = 1; step <= 3; step++) {
-    const curX = startX + (endX - startX) * (step / 3)
-    const curY = startY + (endY - startY) * (step / 3)
-    const moveProps = { ...pStart, clientX: curX, clientY: curY }
-    origin.dispatchEvent(new PointerEvent('pointermove', { ...moveProps, isPrimary: true }))
+  // Dispara coordenadas de movimento intermediárias
+  const steps = 4
+  for (let step = 1; step <= steps; step++) {
+    const curX = Math.round(startX + (endX - startX) * (step / steps))
+    const curY = Math.round(startY + (endY - startY) * (step / steps))
+    const moveProps = { ...pStart, clientX: curX, clientY: curY, screenX: curX, screenY: curY }
+    try {
+      origin.dispatchEvent(new PointerEvent('pointermove', { ...moveProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', pressure: 0.5 }))
+    } catch {}
     document.dispatchEvent(new MouseEvent('mousemove', moveProps))
   }
 
@@ -382,25 +439,38 @@ export async function simulateDragAndCategorize(origin: HTMLElement, dest: HTMLE
     view: window,
     clientX: endX,
     clientY: endY,
+    screenX: endX,
+    screenY: endY,
     button: 0,
     buttons: 0,
   }
 
-  dest.dispatchEvent(new PointerEvent('pointerup', { ...pEnd, isPrimary: true }))
+  try {
+    dest.dispatchEvent(new PointerEvent('pointerup', { ...pEnd, isPrimary: true, pointerId: 1, pointerType: 'mouse', pressure: 0 }))
+  } catch {}
   dest.dispatchEvent(new MouseEvent('mouseup', pEnd))
+  dest.dispatchEvent(new MouseEvent('click', pEnd))
 
-  // ---- ESTÁGIO 3: HTML5 DRAG & DROP EVENTS COM DATA-TRANSFER ----
-  const dataTransfer = createMockDataTransfer()
-  dataTransfer.setData('text/plain', origin.textContent || '')
-  dataTransfer.setData('text/html', origin.outerHTML)
+  // ---- ESTRATÉGIA D: HTML5 DRAG & DROP NATIVO SEGURO ----
+  try {
+    const dt = getSafeDataTransfer(cleanText(origin.textContent), origin.outerHTML)
+    const dragStartInit: DragEventInit = { ...pStart }
+    const dragEndInit: DragEventInit = { ...pEnd }
+    if (dt) {
+      dragStartInit.dataTransfer = dt
+      dragEndInit.dataTransfer = dt
+    }
 
-  origin.dispatchEvent(new DragEvent('dragstart', { ...pStart, dataTransfer }))
-  dest.dispatchEvent(new DragEvent('dragenter', { ...pEnd, dataTransfer }))
-  dest.dispatchEvent(new DragEvent('dragover', { ...pEnd, dataTransfer }))
-  dest.dispatchEvent(new DragEvent('drop', { ...pEnd, dataTransfer }))
-  origin.dispatchEvent(new DragEvent('dragend', { ...pStart, dataTransfer }))
+    origin.dispatchEvent(new DragEvent('dragstart', dragStartInit))
+    dest.dispatchEvent(new DragEvent('dragenter', dragEndInit))
+    dest.dispatchEvent(new DragEvent('dragover', dragEndInit))
+    dest.dispatchEvent(new DragEvent('drop', dragEndInit))
+    origin.dispatchEvent(new DragEvent('dragend', dragStartInit))
+  } catch (dragErr) {
+    console.warn('[EasyQuiz] DragEvent ignorado com segurança:', dragErr)
+  }
 
-  // ---- ESTÁGIO 4: TOUCH EVENTS (Para frameworks com detecção touch/mobile) ----
+  // ---- ESTRATÉGIA E: TOUCH EVENTS (Para frameworks com detecção touch/mobile) ----
   try {
     const touchStart = new Touch({ identifier: 1, target: origin, clientX: startX, clientY: startY })
     const touchEnd = new Touch({ identifier: 1, target: dest, clientX: endX, clientY: endY })
@@ -409,6 +479,19 @@ export async function simulateDragAndCategorize(origin: HTMLElement, dest: HTMLE
     dest.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, cancelable: true, touches: [touchEnd] }))
     dest.dispatchEvent(new TouchEvent('touchend', { bubbles: true, cancelable: true, touches: [] }))
   } catch {}
+
+  // ---- ESTRATÉGIA F: RETENTATIVAS ADAPTATIVAS (TECLADO SPACE/ENTER) ----
+  if (attempt >= 2 && !dest.contains(origin)) {
+    try {
+      origin.focus?.()
+      origin.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true }))
+      origin.dispatchEvent(new KeyboardEvent('keyup', { key: ' ', code: 'Space', bubbles: true }))
+      await new Promise((r) => setTimeout(r, 80))
+      dest.focus?.()
+      dest.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }))
+      dest.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }))
+    } catch {}
+  }
 }
 
 // ---- API GLOBAL $eq ----
@@ -450,7 +533,7 @@ export const EqAPI = {
 ;(window as any).$eq = EqAPI
 
 // ---- EXECUTOR DECLARATIVO ----
-async function executeDeclarativeAction(action: DeclarativeAction): Promise<void> {
+async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1): Promise<void> {
   if (action.t === 'js') {
     const code = String(action.v || '')
     try {
@@ -463,10 +546,18 @@ async function executeDeclarativeAction(action: DeclarativeAction): Promise<void
   }
 
   if (action.t === 'drag') {
-    const fromEl = findElementExt(action.from)
-    const toEl = findElementExt(action.to)
+    let fromEl = findElementExt(action.from)
+    let toEl = findElementExt(action.to)
+
+    if (!fromEl && action.from) {
+      fromEl = findElementExt(cleanSearchTerm(action.from))
+    }
+    if (!toEl && action.to) {
+      toEl = findElementExt(cleanSearchTerm(action.to))
+    }
+
     if (fromEl && toEl) {
-      await simulateDragAndCategorize(fromEl, toEl)
+      await simulateDragAndCategorize(fromEl, toEl, attempt)
     } else {
       console.warn(`[EasyQuiz] Drag: alvo não encontrado ('${action.from}' -> '${action.to}')`)
     }
@@ -474,7 +565,11 @@ async function executeDeclarativeAction(action: DeclarativeAction): Promise<void
   }
 
   const elId = action.id || ''
-  const element = findElementExt(elId)
+  let element = findElementExt(elId)
+  if (!element && elId) {
+    element = findElementExt(cleanSearchTerm(elId))
+  }
+
   if (!element && action.t !== 'adv') {
     console.warn(`[EasyQuiz] Alvo '${elId}' não encontrado para ação '${action.t}'. Prosseguindo...`)
     return
@@ -626,19 +721,27 @@ export async function waitForEnabled(el: HTMLElement, maxMs = 1500): Promise<voi
 export async function executePlan(
   plan: AnalysisPlan,
   allowAdvance: boolean,
+  attempt = 1,
 ): Promise<{ applied: number; advanced: boolean }> {
   const regularActions = plan.actions.filter((a) => a.t !== 'adv')
   const advanceActions = plan.actions.filter((a) => a.t === 'adv')
 
+  let appliedCount = 0
+
   for (const action of regularActions) {
-    await executeDeclarativeAction(action)
+    try {
+      await executeDeclarativeAction(action, attempt)
+      appliedCount++
+    } catch (err) {
+      console.warn('[EasyQuiz] Ação declarativa falhou com segurança:', action, err)
+    }
     if (action.t === 'drag') {
-      await new Promise((resolve) => setTimeout(resolve, 380))
+      await new Promise((resolve) => setTimeout(resolve, 250))
     }
   }
 
   let advanced = false
-  if (allowAdvance) {
+  if (allowAdvance || attempt >= 2) {
     // Aguarda o framework hospedeiro (React, Vue, etc.) registrar o input/seleção
     await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 500 : 200))
 
@@ -671,7 +774,7 @@ export async function executePlan(
   }
 
   return {
-    applied: regularActions.length,
+    applied: appliedCount,
     advanced,
   }
 }

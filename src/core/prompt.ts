@@ -24,9 +24,11 @@ Regras de Classificação ("pageType"):
    - Resumo de notas, parabéns ou final da atividade. Retorne actions: [].
 
 Regras para Categorização e Arrastar-e-Soltar:
-- Para cada item a categorizar, gere { "t": "drag", "from": "texto_exato_do_item", "to": "texto_exato_da_categoria" }.
-- O motor executará automaticamente a sequência híbrida: clique na opção -> clique na categoria de destino + arrasto de ponteiro.
-- Sempre finalize com { "t": "adv" }.
+- Para cada item a categorizar, gere { "t": "drag", "from": "texto_identificador_do_item", "to": "nome_da_categoria" }.
+- Em "from", use o texto limpo ou as primeiras 4-8 palavras do item (NUNCA inclua reticências "..." ou "…" no valor de "from").
+- Em "to", use o nome exato da categoria ou coluna destino (ex: "Fato", "Opinião", "Verdadeiro", "Falso", etc.).
+- O motor executará automaticamente a estratégia híbrida: botões de categoria no card, clique-no-item + clique-no-destino, arrasto de ponteiro e drag-and-drop nativo seguro.
+- Sempre finalize com { "t": "adv" } para acionar o botão de conferir/avançar.
 
 Comandos declarativos ("actions"):
 - { "t": "val", "id": "id_ou_rotulo", "v": "texto_a_injetar" }

@@ -1,13 +1,13 @@
 import type { AnalysisPlan } from '../core/types'
 import { loadDomainCache } from '../core/storage'
 import { captureCurrentContext, captureFullPageText } from './detector'
-import { findElementExt, simulatePointerClick } from './executor'
+import { findElementExt, findBestNavigationButton, simulatePointerClick } from './executor'
 
 export type AutopilotStatus = 'idle' | 'waiting' | 'analyzing' | 'advancing' | 'error'
 
 export interface AutopilotCallbacks {
   onStatusChange: (status: AutopilotStatus, message: string, colorClass?: string) => void
-  onRequestAnalysis: () => Promise<AnalysisPlan | null>
+  onRequestAnalysis: (attempt?: number) => Promise<AnalysisPlan | null>
 }
 
 export class Autopilot {
@@ -41,6 +41,8 @@ export class Autopilot {
   }
 
   private errorCount = 0
+  private lastPageSig = ''
+  private samePageCount = 0
 
   private async loop() {
     if (!this.active) return
@@ -64,6 +66,37 @@ export class Autopilot {
       }
 
       if (context) {
+        const currentSig = `${context.pageTitle}_${context.questionText.slice(0, 80)}_${context.controls.length}`
+        if (currentSig === this.lastPageSig) {
+          this.samePageCount++
+        } else {
+          this.lastPageSig = currentSig
+          this.samePageCount = 1
+        }
+
+        if (this.samePageCount > 1) {
+          this.callbacks.onStatusChange(
+            'analyzing',
+            `> [AUTOPILOT] Repetição detectada (${this.samePageCount}ª tentativa). Ativando modo adaptativo resiliente...`,
+            'text-yellow',
+          )
+        }
+
+        if (this.samePageCount >= 4) {
+          const fallbackNav = findBestNavigationButton()
+          if (fallbackNav) {
+            this.callbacks.onStatusChange(
+              'advancing',
+              '> [SYS] Forçando acionamento de botão de avanço para desbloquear questão...',
+              'text-yellow',
+            )
+            simulatePointerClick(fallbackNav)
+            this.samePageCount = 0
+            await new Promise((r) => setTimeout(r, 2000))
+            return
+          }
+        }
+
         const answerControls = context.controls.filter((c) => c.role === 'answer')
         const cache = loadDomainCache(window.location.hostname)
 
@@ -71,7 +104,7 @@ export class Autopilot {
           // TEM QUESTÃO / EXERCÍCIO NA TELA (Múltipla escolha, texto, categorização, arrastar-soltar)
           this.callbacks.onStatusChange('analyzing', '> [IA] Questão/Exercício detectado. Consultando IA...', 'text-blue')
           await new Promise((r) => setTimeout(r, 600))
-          const plan = await this.callbacks.onRequestAnalysis()
+          const plan = await this.callbacks.onRequestAnalysis(this.samePageCount)
           if (plan) {
             this.callbacks.onStatusChange(
               'analyzing',
@@ -120,7 +153,7 @@ export class Autopilot {
             'text-blue',
           )
           await new Promise((r) => setTimeout(r, 600))
-          const plan = await this.callbacks.onRequestAnalysis()
+          const plan = await this.callbacks.onRequestAnalysis(this.samePageCount)
           if (plan) {
             this.callbacks.onStatusChange(
               'analyzing',

@@ -6,8 +6,8 @@ import { ICONS } from './icons'
 import { PANEL_STYLES } from './styles'
 
 export interface PanelCallbacks {
-  onAnalyze: () => Promise<AnalysisPlan | void>
-  onApply: () => void
+  onAnalyze: (attempt?: number) => Promise<AnalysisPlan | void>
+  onApply: (attempt?: number) => void
   onDestroy: () => void
   onSettingsChange: (settings: Partial<EasyQuizSettings>) => void
 }
@@ -96,9 +96,9 @@ export class EasyQuizPanel {
           this.setBusy(false)
         }
       },
-      onRequestAnalysis: async () => {
+      onRequestAnalysis: async (attempt?: number) => {
         try {
-          const plan = await this.callbacks.onAnalyze()
+          const plan = await this.callbacks.onAnalyze(attempt)
           return plan || null
         } catch {
           return null

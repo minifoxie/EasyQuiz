@@ -28,8 +28,8 @@ async function initEasyQuiz(): Promise<void> {
   let latestPlan: AnalysisPlan | null = null
 
   const panel = new EasyQuizPanel(settings, {
-    onAnalyze: () => runAnalysis(),
-    onApply: () => void runApply(),
+    onAnalyze: (attempt = 1) => runAnalysis(attempt),
+    onApply: (attempt = 1) => void runApply(attempt),
     onDestroy: () => {
       clearHighlights()
       delete eqWindow.__easyquiz
@@ -58,7 +58,7 @@ async function initEasyQuiz(): Promise<void> {
     }
   })
 
-  async function runAnalysis(): Promise<AnalysisPlan | void> {
+  async function runAnalysis(attemptCount = 1): Promise<AnalysisPlan | void> {
     if (!settings.apiKey) {
       panel.setStatus('Configure sua chave de API Gemini acima para começar.', 'error')
       panel.toggle(true)
@@ -134,7 +134,7 @@ async function initEasyQuiz(): Promise<void> {
 
       // Auto aplicação opcional
       if (settings.autoApply && !settings.dryRun) {
-        await runApply()
+        await runApply(attemptCount)
       }
       return plan
     } catch (error) {
@@ -147,7 +147,7 @@ async function initEasyQuiz(): Promise<void> {
     }
   }
 
-  async function runApply(): Promise<void> {
+  async function runApply(attemptCount = 1): Promise<void> {
     if (!latestPlan) {
       panel.setStatus('Nenhum plano disponível para aplicar. Execute a análise primeiro.', 'error')
       return
@@ -160,14 +160,14 @@ async function initEasyQuiz(): Promise<void> {
 
     const isInfoOrStart = latestPlan.pageType === 'info' || latestPlan.pageType === 'start'
     const canAdvance =
-      (settings.autoAdvance || isInfoOrStart) &&
+      (settings.autoAdvance || isInfoOrStart || attemptCount >= 2) &&
       latestPlan.confidence >= settings.confidenceThreshold &&
       !latestPlan.needsMoreContext
 
     panel.setBusy(true, 'Aplicando respostas no formulário...')
 
     try {
-      const result = await executePlan(latestPlan, canAdvance)
+      const result = await executePlan(latestPlan, canAdvance, attemptCount)
       panel.setStatus(
         `Sucesso: ${result.applied} resposta(s) preenchida(s)${result.advanced ? ' e próxima questão acionada' : ''}.`,
         'success',
