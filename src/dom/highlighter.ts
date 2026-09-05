@@ -1,4 +1,5 @@
 import type { DeclarativeAction } from '../core/types'
+import { findElementExt } from './executor'
 
 let highlightedScope: HTMLElement | null = null
 let highlightedElements: HTMLElement[] = []
@@ -14,6 +15,7 @@ export function clearHighlights(): void {
     el.style.removeProperty('outline')
     el.style.removeProperty('outline-offset')
     el.style.removeProperty('background-color')
+    el.removeAttribute('data-easyquiz-highlight')
   }
   highlightedElements = []
 }
@@ -21,7 +23,6 @@ export function clearHighlights(): void {
 export function highlightScope(scope: HTMLElement): void {
   clearHighlights()
   highlightedScope = scope
-  // Estilo estritamente sólido, quadrado e nítido
   scope.style.outline = '2px solid #00e5ff'
   scope.style.outlineOffset = '4px'
 }
@@ -31,12 +32,8 @@ export function highlightTargetActions(actions: DeclarativeAction[]): void {
     if (action.t === 'adv' || action.t === 'js') continue
     if (action.t === 'drag') {
       try {
-        const fromEl =
-          (document.querySelector(`[data-easyquiz-id="${CSS.escape(action.from)}"]`) as HTMLElement | null) ||
-          (document.querySelector(action.from) as HTMLElement | null)
-        const toEl =
-          (document.querySelector(`[data-easyquiz-id="${CSS.escape(action.to)}"]`) as HTMLElement | null) ||
-          (document.querySelector(action.to) as HTMLElement | null)
+        const fromEl = findElementExt(action.from)
+        const toEl = findElementExt(action.to)
         if (fromEl) {
           fromEl.style.outline = '2px solid #00ff88'
           highlightedElements.push(fromEl)
@@ -48,16 +45,21 @@ export function highlightTargetActions(actions: DeclarativeAction[]): void {
       } catch {}
       continue
     }
+
     if (!action.id) continue
-    const escaped = CSS.escape(action.id)
-    const element = document.querySelector(`[data-easyquiz-id="${escaped}"]`) as HTMLElement | null
+    const element = findElementExt(action.id)
     if (!element) continue
 
-    // Elemento alvo ou seu wrapper mais visível
-    const target = (element.closest('label, [role="listitem"], .answer, .form-check') || element) as HTMLElement
+    // Elemento alvo ou seu wrapper de card/opção visível
+    const target = (element.closest(
+      'label, .option-card, [role="radio"], [role="checkbox"], [role="listitem"], .answer, .quiz-option, .form-check, [class*="option" i], [class*="choice" i], tr, li',
+    ) || element) as HTMLElement
+
     target.style.outline = '2px solid #00ff88'
     target.style.outlineOffset = '2px'
-    target.style.backgroundColor = 'rgba(0, 255, 136, 0.08)'
+    target.style.backgroundColor = 'rgba(0, 255, 136, 0.12)'
+    target.setAttribute('data-easyquiz-highlight', 'true')
     highlightedElements.push(target)
   }
 }
+

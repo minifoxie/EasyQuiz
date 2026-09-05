@@ -592,53 +592,40 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
     cardParent.classList.toggle('checked', checked)
   }
 
-  // 2. Se for CHECKBOX: CUIDADO EXTREMO COM TOGGLE!
+  // 2. Se for CHECKBOX:
   if (inputEl && inputEl.type === 'checkbox') {
-    // Se o checkbox já estiver no estado desejado, NÃO DISPARA CLIQUE para não desmarcar!
-    if (inputEl.checked === checked) {
-      return
+    // 1ª VIA: Atribuição direta da propriedade checked
+    inputEl.checked = checked
+
+    // 2ª VIA: Invocação do prototype setter nativo (para furar wrappers de frameworks)
+    try {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
+      setter?.call(inputEl, checked)
+    } catch {}
+
+    // 3ª VIA: React internal valueTracker
+    try {
+      const tracker = (inputEl as any)._valueTracker
+      if (tracker) tracker.setValue(!checked)
+    } catch {}
+
+    // 4ª VIA: Disparo de eventos nativos de formulário
+    dispatchEventSequence(inputEl, ['input', 'change'])
+
+    // 5ª VIA: Sincronização visual no card pai
+    if (cardParent && cardParent !== inputEl) {
+      cardParent.classList.toggle('selected', checked)
+      cardParent.classList.toggle('active', checked)
+      cardParent.classList.toggle('checked', checked)
     }
 
-    // Dispara UMA ÚNICA sequência de clique no alvo primário (input nativo preferencial, ou card se input não puder ser focado)
-    const clickTarget = inputEl.isConnected ? inputEl : cardParent
-    try { clickTarget.focus?.() } catch {}
-
-    const rect = clickTarget.getBoundingClientRect()
-    const cx = Math.round(rect.left + Math.max(1, rect.width / 2))
-    const cy = Math.round(rect.top + Math.max(1, rect.height / 2))
-    const commonProps = {
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-      view: window,
-      clientX: cx,
-      clientY: cy,
-    }
-
-    try {
-      clickTarget.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 }))
-    } catch {}
-    clickTarget.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 }))
-    try {
-      clickTarget.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 0 }))
-    } catch {}
-    clickTarget.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 }))
-    clickTarget.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 }))
-
-    // Se após a simulação de clique o estado ainda não for o desejado, força atribuição nativa e React tracker
+    // 6ª VIA: Se o estado não foi atingido, aciona clique nativo
     if (inputEl.checked !== checked) {
-      inputEl.checked = checked
       try {
-        const tracker = (inputEl as any)._valueTracker
-        if (tracker) tracker.setValue(!checked)
+        inputEl.click()
       } catch {}
-      try {
-        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
-        setter?.call(inputEl, checked)
-      } catch {}
-      inputEl.checked = checked
-      dispatchEventSequence(inputEl, ['input', 'change'])
     }
+
     return
   }
 
@@ -1334,11 +1321,13 @@ async function executeAlternativeActionPath(action: DeclarativeAction): Promise<
         }
       } catch {}
 
-      // Rota de contingência extra 3: tecla Space / Enter no elemento focado
-      try {
-        card.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true }))
-        card.dispatchEvent(new KeyboardEvent('keyup', { key: ' ', code: 'Space', bubbles: true }))
-      } catch {}
+      // Rota de contingência extra 3: tecla Space / Enter no elemento focado (apenas se divergente)
+      if (!input || input.checked !== shouldCheck) {
+        try {
+          card.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true }))
+          card.dispatchEvent(new KeyboardEvent('keyup', { key: ' ', code: 'Space', bubbles: true }))
+        } catch {}
+      }
 
       // Rota de contingência extra 4: invocar handlers diretos
       try { (card as any).onclick?.() } catch {}

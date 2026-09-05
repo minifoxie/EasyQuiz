@@ -87,11 +87,12 @@ ${htmlBlock}
 ${
   answerControls.length > 0
     ? JSON.stringify(
-        answerControls.map((c) => ({
+        answerControls.map((c, idx) => ({
+          item: idx + 1,
           id: c.id,
-          type: c.type,
+          tipo: c.type,
           name: c.name || undefined,
-          lbl: c.label,
+          texto: c.label,
           val: c.value || undefined,
           opt: c.options.length ? c.options : undefined,
         })),
