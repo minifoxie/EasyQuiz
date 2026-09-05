@@ -8,6 +8,8 @@ export type AutopilotStatus = 'idle' | 'waiting' | 'analyzing' | 'advancing' | '
 export interface AutopilotCallbacks {
   onStatusChange: (status: AutopilotStatus, message: string, colorClass?: string) => void
   onRequestAnalysis: (attempt?: number) => Promise<AnalysisPlan | null>
+  isManualModeActive?: () => boolean
+  onPageAdvance?: () => void
 }
 
 export class Autopilot {
@@ -79,13 +81,26 @@ export class Autopilot {
               '> [SYS] Avanço de página detectado! Retomando monitoramento automático...',
               'text-green',
             )
+            this.callbacks.onPageAdvance?.()
           }
+        }
+
+        // Se o gabarito manual estiver aberto na tela (resolução manual pelo usuário),
+        // aguarda o usuário posicionar e avançar a tela, sem gastar tokens da IA nem forçar skip!
+        if (this.callbacks.isManualModeActive?.()) {
+          this.callbacks.onStatusChange(
+            'waiting',
+            '> [SYS] Gabarito manual ativo na tela. Aguardando você posicionar as respostas e avançar a página...',
+            'text-yellow',
+          )
+          this.lastRunTime = Date.now()
+          return
         }
 
         if (this.samePageCount > 1) {
           this.callbacks.onStatusChange(
             'waiting',
-            `> [AUTOPILOT] Resolução manual necessária (${this.samePageCount}ª tentativa). Gabarito flutuante ativo na tela. Conclua e avance para prosseguir...`,
+            `> [AUTOPILOT] Resolução pendente (${this.samePageCount}ª verificação). Conclua e avance para prosseguir...`,
             'text-yellow',
           )
           await new Promise((r) => setTimeout(r, 4000))

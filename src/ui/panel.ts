@@ -106,6 +106,12 @@ export class EasyQuizPanel {
           return null
         }
       },
+      isManualModeActive: () => {
+        return this.floatingAnswers?.isOpen() ?? false
+      },
+      onPageAdvance: () => {
+        this.floatingAnswers?.hide()
+      },
     })
 
     this.host = document.createElement('div')

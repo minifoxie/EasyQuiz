@@ -24,6 +24,31 @@ export class FloatingAnswersHud {
     // Detecta navegação nativa do usuário (SPA ou clique de avanço)
     window.addEventListener('popstate', () => this.handlePageNavigated())
     window.addEventListener('hashchange', () => this.handlePageNavigated())
+
+    // Detecta clique do usuário em botões de avanço da plataforma hospedeira
+    document.addEventListener(
+      'click',
+      (e) => {
+        if (!this.isOpen()) return
+        const target = e.target as HTMLElement | null
+        if (!target) return
+        if (this.shadow.contains(target) || target.closest('#easyquiz-shadow-root')) return
+
+        const navBtn = target.closest('button, [role="button"], a, input[type="submit"]')
+        if (navBtn) {
+          const text = (navBtn.textContent || (navBtn as HTMLInputElement).value || '').toLowerCase()
+          const isAdvance = /pr[oó]xim|avan[cç]|continu|verific|enviar|submit|confirm|checar|validar|next/i.test(text)
+          if (isAdvance) {
+            setTimeout(() => {
+              if (this.isOpen()) {
+                this.handlePageNavigated()
+              }
+            }, 800)
+          }
+        }
+      },
+      true,
+    )
   }
 
   private handlePageNavigated(): void {
@@ -402,10 +427,14 @@ export class FloatingAnswersHud {
     const md = this.generateMarkdown()
     if (!md) return
     navigator.clipboard.writeText(md).then(() => {
-      const originalText = btn.textContent
-      btn.textContent = '✓ Copiado!'
+      const originalHtml = btn.innerHTML
+      if (btn.id === 'eq-fah-copy-md-btn') {
+        btn.innerHTML = '<span style="font-size:10px; color:#00ffcc; font-weight:bold;">✓</span>'
+      } else {
+        btn.innerHTML = '✓ Copiado!'
+      }
       setTimeout(() => {
-        btn.textContent = originalText
+        btn.innerHTML = originalHtml
       }, 1500)
     })
   }
