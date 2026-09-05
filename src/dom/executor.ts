@@ -2,14 +2,20 @@ import type { AnalysisPlan, DeclarativeAction } from '../core/types'
 import { loadDomainCache, saveDomainCache } from '../core/storage'
 import { cleanText, isNavigationControl, isVisible, NAVIGATION_PATTERN } from './controls'
 
-export function isInsideEasyQuiz(el: HTMLElement): boolean {
-  return Boolean(el.closest('#easyquiz-shadow-root, .eq-sidebar, .eq-launcher'))
+export function isInsideEasyQuiz(el: HTMLElement | null): boolean {
+  if (!el) return false
+  return Boolean(
+    el.closest(
+      '#easyquiz-shadow-root, .eq-sidebar, .eq-launcher, [data-easyquiz-ignore="true"], .btn-inject-eq, #btn-inject-script',
+    ) || el.getAttribute?.('data-easyquiz-ignore') === 'true',
+  )
 }
 
 export function cleanSearchTerm(term: string): string {
   if (!term) return ''
   return term
-    .replace(/^[\d\.\-\)\s]+/, '') // Remove prefixos como "1. ", "2) ", "1 - ", "A) "
+    // Remove prefixos como "1. ", "2) ", "1 - ", "A) ", "(A) ", mas preserva números puros como "1", "-1" ou "282.6"
+    .replace(/^(\([0-9a-zA-Z]{1,2}\)|[0-9]{1,3}|[a-zA-Z])[\.\)\-\:\s]+\s+/, '')
     .replace(/[\.\u2026]{2,}/g, ' ') // Remove reticências como "..." ou "…"
     .replace(/['"“”«»]/g, '') // Remove aspas
     .replace(/\s+/g, ' ')
@@ -628,7 +634,7 @@ export function findCheckButton(): HTMLElement | null {
   const candidates = Array.from(document.querySelectorAll(query)) as HTMLElement[]
   return (
     candidates.find((b) => {
-      if (!isVisible(b) || isInsideEasyQuiz(b)) return false
+      if (!isVisible(b) || isInsideEasyQuiz(b) || b.closest('header, nav, aside')) return false
       const val = b instanceof HTMLInputElement || b instanceof HTMLButtonElement ? b.value : ''
       const text = (b.textContent || val || b.getAttribute('aria-label') || '').trim()
       return /(verificar|checar|check|conferir|validar|enviar|responder)/i.test(text)
@@ -673,7 +679,7 @@ export function findBestNavigationButton(preferredId?: string): HTMLElement | nu
   ].join(',')
 
   const all = Array.from(document.querySelectorAll(query)) as HTMLElement[]
-  const candidates = all.filter((el) => isVisible(el) && !isInsideEasyQuiz(el))
+  const candidates = all.filter((el) => isVisible(el) && !isInsideEasyQuiz(el) && !el.closest('header, nav, aside'))
 
   // Prioridade A: Satisfaz isNavigationControl
   for (const el of candidates) {
@@ -730,8 +736,13 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
     if (action.t === 'val') {
       const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLInputElement | null
       if (!el) return false
-      const cur = el.value ?? el.textContent ?? ''
-      return cleanSearchTerm(cur) === cleanSearchTerm(String(action.v)) || cur.includes(String(action.v))
+      const cur = (el.value ?? el.textContent ?? '').trim()
+      const expected = String(action.v ?? '').trim()
+      if (!cur && !expected) return true
+      if (!cur && expected) return false
+      const normCur = cur.replace(',', '.').toLowerCase()
+      const normExp = expected.replace(',', '.').toLowerCase()
+      return normCur === normExp || normCur.includes(normExp) || cur.toLowerCase() === expected.toLowerCase()
     }
     if (action.t === 'chk') {
       const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLInputElement | null

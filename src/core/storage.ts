@@ -65,13 +65,24 @@ export interface DomainCache {
 export function loadDomainCache(hostname: string): DomainCache {
   try {
     const raw = localStorage.getItem('eq_domain_cache_' + hostname)
-    return raw ? JSON.parse(raw) : {}
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as DomainCache
+    if (parsed.advanceSelector && /inject|injetar/i.test(parsed.advanceSelector)) {
+      parsed.advanceSelector = undefined
+      try {
+        localStorage.removeItem('eq_domain_cache_' + hostname)
+      } catch {}
+    }
+    return parsed
   } catch {
     return {}
   }
 }
 
 export function saveDomainCache(hostname: string, data: Partial<DomainCache>): void {
+  if (data.advanceSelector && /inject|injetar/i.test(data.advanceSelector)) {
+    return
+  }
   const current = loadDomainCache(hostname)
   const updated = { ...current, ...data }
   try {

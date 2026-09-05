@@ -72,8 +72,21 @@ export function easyQuizId(element: HTMLElement): string {
   return id
 }
 
+export function isInsideEasyQuiz(el: HTMLElement | null): boolean {
+  if (!el) return false
+  return Boolean(
+    el.closest(
+      '#easyquiz-shadow-root, .eq-sidebar, .eq-launcher, [data-easyquiz-ignore="true"], .btn-inject-eq, #btn-inject-script',
+    ) || el.getAttribute?.('data-easyquiz-ignore') === 'true',
+  )
+}
+
 export function isNavigationControl(element: HTMLElement): boolean {
   if (!element || !(element instanceof Element)) return false
+  if (isInsideEasyQuiz(element)) return false
+  // Botões de navegação da prova nunca ficam no cabeçalho ou barra de topo do site
+  if (element.closest('header, nav, aside')) return false
+
   const rawValue = element instanceof HTMLInputElement || element instanceof HTMLButtonElement ? element.value : ''
   const text = cleanText(
     element.getAttribute?.('aria-label') ||
