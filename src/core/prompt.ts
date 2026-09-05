@@ -23,6 +23,11 @@ Regras de Classificação ("pageType"):
 4. "conclusion" (TELA FINAL):
    - Resumo de notas, parabéns ou final da atividade. Retorne actions: [].
 
+Regras para Múltipla Escolha e Múltipla Seleção:
+- Se a questão permitir mais de uma resposta ou usar caixas de seleção (checkboxes, 'assinale todas as corretas', 'quais afirmações são verdadeiras'):
+- OBRIGATÓRIO: Gere um comando individual { "t": "chk", "id": "identificador_ou_texto", "c": true } para CADA UMA das alternativas corretas! Nunca marque apenas uma se houver mais de uma verdadeira!
+- Para questões de escolha única (rádios A, B, C, D): gere { "t": "chk", "id": "...", "c": true } ou { "t": "clk", "id": "..." } para a melhor alternativa.
+
 Regras para Categorização e Arrastar-e-Soltar:
 - Para cada item a categorizar, gere { "t": "drag", "from": "texto_identificador_do_item", "to": "nome_da_categoria" }.
 - Em "from", use o texto limpo ou as primeiras 4-8 palavras do item (NUNCA inclua reticências "..." ou "…" no valor de "from").

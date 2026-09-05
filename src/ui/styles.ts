@@ -1151,6 +1151,108 @@ export const PANEL_STYLES = `
     background: #33ffdd;
   }
 
+  /* ===== BARRA DE CARREGAMENTO DINÂMICA ===== */
+  .eq-progress-container {
+    padding: 6px 14px;
+    background: #111113;
+    border-bottom: 1px solid #222226;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: all 0.2s ease;
+  }
+  .eq-progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #00ffcc;
+  }
+  .eq-progress-track {
+    width: 100%;
+    height: 4px;
+    background: #1e1e22;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .eq-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #00b4d8, #00ffcc);
+    box-shadow: 0 0 10px rgba(0, 255, 204, 0.7);
+    border-radius: 2px;
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ===== EXPLORADOR DE CONTEXTO & RAG (ESTILO VS CODE) ===== */
+  .eq-tree-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: #cccccc;
+  }
+  .eq-tree-node {
+    display: flex;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid #25252a;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .eq-tree-header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 10px;
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    user-select: none;
+    font-weight: 700;
+    color: #e0e0e0;
+    transition: background 0.15s, color 0.15s;
+  }
+  .eq-tree-header:hover {
+    background: rgba(0, 255, 204, 0.08);
+    color: #00ffcc;
+  }
+  .eq-tree-arrow {
+    font-size: 9px;
+    color: #888888;
+    transition: transform 0.2s;
+  }
+  .eq-tree-content {
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 11px;
+    color: #aaaaaa;
+    border-top: 1px solid #1e1e24;
+    background: #0d0d10;
+  }
+  .eq-tree-leaf {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 3px 0;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+  }
+  .eq-tree-leaf:last-child {
+    border-bottom: none;
+  }
+  .eq-tree-badge {
+    font-size: 9.5px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(0, 255, 204, 0.12);
+    color: #00ffcc;
+    font-weight: 700;
+    border: 1px solid rgba(0, 255, 204, 0.25);
+    white-space: nowrap;
+  }
+
   @media (max-width: 480px) {
     .eq-sidebar {
       width: 100vw;

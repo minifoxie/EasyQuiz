@@ -341,10 +341,12 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
     )
   } catch {}
 
-  // 6. Chamada direta do método .click() nativo
-  try {
-    element.click()
-  } catch {}
+  // 6. Chamada direta do método .click() nativo (apenas se não for checkbox que inverte estado com clique duplicado)
+  if (!(element instanceof HTMLInputElement && element.type === 'checkbox')) {
+    try {
+      element.click()
+    } catch {}
+  }
 
   // 7. Se o elemento for filho de um botão ou link clicável (e não for um label que já ativa o input), clica também no pai
   const isLabelOrInput = element instanceof HTMLInputElement || element instanceof HTMLLabelElement
@@ -436,6 +438,41 @@ function setNativeValue(element: HTMLElement, value: string): void {
   } catch {}
 }
 
+export function getHumanReadableLabel(idOrQuery: string, fallback = ''): string {
+  if (!idOrQuery) return fallback
+  const clean = cleanSearchTerm(idOrQuery)
+  const el = findElementExt(idOrQuery) || findElementExt(clean)
+  if (!el) return clean || fallback
+
+  // 1. Se houver label associado ou container de opção
+  const labelParent = el.closest('label, .option-card, [class*="choice" i], [class*="option" i], .quiz-option, tr')
+  if (labelParent) {
+    const txt = cleanSearchTerm(labelParent.textContent)
+    if (txt && txt.length > 0 && txt.length < 150) return txt
+  }
+
+  if (el.id) {
+    const labelFor = document.querySelector(`label[for="${CSS.escape(el.id)}"]`)
+    if (labelFor) {
+      const txt = cleanSearchTerm(labelFor.textContent)
+      if (txt && txt.length > 0 && txt.length < 150) return txt
+    }
+  }
+
+  // 2. Placeholder ou aria-label
+  const aria = el.getAttribute('aria-label')
+  if (aria) return cleanSearchTerm(aria)
+
+  const ph = el.getAttribute('placeholder')
+  if (ph) return cleanSearchTerm(ph)
+
+  // 3. TextContent do próprio elemento se conciso
+  const text = cleanSearchTerm(el.textContent)
+  if (text && text.length > 0 && text.length < 120) return text
+
+  return clean || fallback
+}
+
 function setCheckedState(element: HTMLElement, checked: boolean): void {
   const cardParent = (element.closest(
     '.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], li',
@@ -453,40 +490,31 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
     }
   }
 
-  // 1. Atualizar atributos de acessibilidade e classes no container visual
+  // 1. Atualizar atributos de acessibilidade e classes visuais
   if (cardParent) {
     cardParent.setAttribute('aria-checked', checked ? 'true' : 'false')
     cardParent.setAttribute('aria-selected', checked ? 'true' : 'false')
+    cardParent.setAttribute('aria-pressed', checked ? 'true' : 'false')
+    cardParent.setAttribute('data-selected', checked ? 'true' : 'false')
+    cardParent.setAttribute('data-checked', checked ? 'true' : 'false')
+    cardParent.setAttribute('data-state', checked ? 'checked' : 'unchecked')
     cardParent.classList.toggle('selected', checked)
     cardParent.classList.toggle('active', checked)
     cardParent.classList.toggle('checked', checked)
   }
 
-  // 2. Caminho Primário: Se houver input nativo (checkbox ou radio)
-  if (inputEl && ['checkbox', 'radio'].includes(inputEl.type)) {
-    inputEl.checked = checked
+  // 2. Se for CHECKBOX: CUIDADO EXTREMO COM TOGGLE!
+  if (inputEl && inputEl.type === 'checkbox') {
+    // Se o checkbox já estiver no estado desejado, NÃO DISPARA CLIQUE para não desmarcar!
+    if (inputEl.checked === checked) {
+      return
+    }
 
-    try {
-      const tracker = (inputEl as any)._valueTracker
-      if (tracker) tracker.setValue(!checked)
-    } catch {}
+    // Dispara UMA ÚNICA sequência de clique no alvo primário (input nativo preferencial, ou card se input não puder ser focado)
+    const clickTarget = inputEl.isConnected ? inputEl : cardParent
+    try { clickTarget.focus?.() } catch {}
 
-    try {
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
-      setter?.call(inputEl, checked)
-    } catch {}
-
-    inputEl.checked = checked
-    dispatchEventSequence(inputEl, ['input', 'change'])
-  }
-
-  // 3. Caminho Redundante de Eventos de Ponteiro (Dispara no Container E no Input)
-  const targetsToClick = [cardParent, inputEl].filter((t, idx, arr) => Boolean(t) && arr.indexOf(t) === idx) as HTMLElement[]
-
-  for (const target of targetsToClick) {
-    try { target.focus?.() } catch {}
-
-    const rect = target.getBoundingClientRect()
+    const rect = clickTarget.getBoundingClientRect()
     const cx = Math.round(rect.left + Math.max(1, rect.width / 2))
     const cy = Math.round(rect.top + Math.max(1, rect.height / 2))
     const commonProps = {
@@ -499,34 +527,16 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
     }
 
     try {
-      target.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 }))
+      clickTarget.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 }))
     } catch {}
-    target.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 }))
+    clickTarget.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 }))
     try {
-      target.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 0 }))
+      clickTarget.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 0 }))
     } catch {}
-    target.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 }))
-    target.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 }))
+    clickTarget.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 }))
+    clickTarget.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 }))
 
-    try {
-      target.click()
-    } catch {}
-  }
-
-  // 4. Caminho Redundante de Teclado (Space / Enter)
-  try {
-    const focusTarget = inputEl || cardParent
-    focusTarget?.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true }))
-    focusTarget?.dispatchEvent(new KeyboardEvent('keyup', { key: ' ', code: 'Space', bubbles: true }))
-  } catch {}
-
-  // 5. Chamada de Handlers Nativos Inline (onclick, onchange)
-  try { (cardParent as any).onclick?.() } catch {}
-  try { (inputEl as any)?.onclick?.() } catch {}
-  try { (inputEl as any)?.onchange?.() } catch {}
-
-  // 6. GARANTIA MÁXIMA DE PERSISTÊNCIA: Revalida e trava o estado no input nativo
-  if (inputEl && ['checkbox', 'radio'].includes(inputEl.type)) {
+    // Se após a simulação de clique o estado ainda não for o desejado, força atribuição nativa e React tracker
     if (inputEl.checked !== checked) {
       inputEl.checked = checked
       try {
@@ -540,12 +550,60 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
       inputEl.checked = checked
       dispatchEventSequence(inputEl, ['input', 'change'])
     }
-    if (cardParent) {
-      cardParent.classList.toggle('selected', checked)
-      cardParent.classList.toggle('active', checked)
-      cardParent.classList.toggle('checked', checked)
-    }
+    return
   }
+
+  // 3. Se for RADIO:
+  if (inputEl && inputEl.type === 'radio') {
+    if (inputEl.checked === true && checked === true) {
+      return
+    }
+
+    inputEl.checked = checked
+    try {
+      const tracker = (inputEl as any)._valueTracker
+      if (tracker) tracker.setValue(!checked)
+    } catch {}
+    try {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
+      setter?.call(inputEl, checked)
+    } catch {}
+    inputEl.checked = checked
+    dispatchEventSequence(inputEl, ['input', 'change'])
+
+    // Dispara clique no card ou rádio
+    const clickTarget = cardParent !== inputEl ? cardParent : inputEl
+    try { clickTarget.focus?.() } catch {}
+    clickTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
+    try { (clickTarget as any).onclick?.() } catch {}
+    return
+  }
+
+  // 4. Se NÃO houver input nativo (ex: card personalizado, li, button estilizado):
+  const clickTarget = cardParent
+  try { clickTarget.focus?.() } catch {}
+  const rect = clickTarget.getBoundingClientRect()
+  const cx = Math.round(rect.left + Math.max(1, rect.width / 2))
+  const cy = Math.round(rect.top + Math.max(1, rect.height / 2))
+  const commonProps = {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    view: window,
+    clientX: cx,
+    clientY: cy,
+  }
+
+  try {
+    clickTarget.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 }))
+  } catch {}
+  clickTarget.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 }))
+  try {
+    clickTarget.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 0 }))
+  } catch {}
+  clickTarget.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 }))
+  clickTarget.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 }))
+  try { (clickTarget as any).onclick?.() } catch {}
 }
 
 function selectValues(element: HTMLElement, values: string[]): void {
@@ -785,8 +843,20 @@ export const EqAPI = {
   },
   click: (idOrLabel: string) => {
     const el = findElementExt(idOrLabel)
-    if (el) simulatePointerClick(el)
-    else console.warn(`$eq.click: Elemento '${idOrLabel}' não encontrado`)
+    if (el) {
+      const isOption = Boolean(
+        el.closest('.option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i]') ||
+        el.querySelector('input[type="radio"], input[type="checkbox"]') ||
+        (el instanceof HTMLInputElement && ['checkbox', 'radio'].includes(el.type))
+      )
+      if (isOption) {
+        setCheckedState(el, true)
+      } else {
+        simulatePointerClick(el)
+      }
+    } else {
+      console.warn(`$eq.click: Elemento '${idOrLabel}' não encontrado`)
+    }
   },
   check: (idOrLabel: string, checked: boolean) => {
     const el = findElementExt(idOrLabel)
@@ -1307,16 +1377,39 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
         return inputEl.checked === expected
       }
 
-      const isAria = card.getAttribute('aria-checked') === String(expected) || card.getAttribute('aria-selected') === String(expected)
+      const isAria =
+        card.getAttribute('aria-checked') === String(expected) ||
+        card.getAttribute('aria-selected') === String(expected) ||
+        card.getAttribute('aria-pressed') === String(expected)
+
+      const hasDataAttr = expected
+        ? card.getAttribute('data-selected') === 'true' ||
+          card.getAttribute('data-checked') === 'true' ||
+          card.getAttribute('data-active') === 'true' ||
+          card.getAttribute('data-state') === 'checked' ||
+          card.getAttribute('data-state') === 'on'
+        : card.getAttribute('data-selected') === 'false' ||
+          card.getAttribute('data-checked') === 'false' ||
+          card.getAttribute('data-state') === 'unchecked'
+
       const hasClass = expected
-        ? /active|selected|checked|picked/i.test(card.className || '')
-        : !/active|selected|checked|picked/i.test(card.className || '')
+        ? /active|selected|checked|picked|correct|is-selected|choice-selected|selected-option|is-checked|chosen|current|highlight|ring|border-primary/i.test(
+            card.className || '',
+          )
+        : !/active|selected|checked|picked|correct|is-selected|choice-selected|selected-option|is-checked|chosen|current|highlight|ring|border-primary/i.test(
+            card.className || '',
+          )
 
-      if (isAria || hasClass) return true
+      if (isAria || hasDataAttr || hasClass) return true
 
-      // Se for um botão de ação genérica que não possui estado persistente (ex: submit, reset)
+      // Se for botão de ação ou seletor de clique genérico
       const isActionButton = card instanceof HTMLButtonElement || card.getAttribute('role') === 'button'
       if (isActionButton && action.t === 'clk') {
+        return true
+      }
+
+      // Se for clique e o elemento foi clicado com sucesso sem ter input nativo interno de checagem
+      if (action.t === 'clk' && !inputEl) {
         return true
       }
 

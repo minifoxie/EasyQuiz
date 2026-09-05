@@ -1,6 +1,6 @@
-import type { AnalysisPlan, EasyQuizSettings, ResponseMode, ExecutionEngine, ModelOption } from '../core/types'
+import type { AnalysisPlan, CapturedContext, EasyQuizSettings, ResponseMode, ExecutionEngine, ModelOption } from '../core/types'
 import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey } from '../core/gemini'
-import { clearSessionMemories, resetAllData } from '../core/storage'
+import { clearSessionMemories, getSessionMemories, resetAllData } from '../core/storage'
 import { Autopilot } from '../dom/autopilot'
 import { FloatingAnswersHud } from './floatingHud'
 import { ICONS } from './icons'
@@ -39,10 +39,20 @@ export class EasyQuizPanel {
   private floatingAnswers: FloatingAnswersHud
   private initialSettings: EasyQuizSettings
   private isCollapsed: boolean = false
-  private activeTab: 'autopilot' | 'advanced' | 'inspector' | 'settings' = 'autopilot'
+  private activeTab: 'autopilot' | 'context' | 'advanced' | 'inspector' | 'settings' = 'autopilot'
   private stopwatchInterval: any = null
   private stopwatchStartTime: number = 0
   private latestPlan: AnalysisPlan | null = null
+  private latestContext: CapturedContext | null = null
+
+  // Barra de Progresso
+  private progressContainer: HTMLElement
+  private progressBar: HTMLElement
+  private progressLabel: HTMLElement
+  private progressVal: HTMLElement
+
+  // Árvore de Contexto
+  private contextTreeContainer: HTMLElement
 
   // Elementos do Layout
   private launcherBtn: HTMLButtonElement
@@ -152,6 +162,11 @@ export class EasyQuizPanel {
               <span class="eq-activity-icon">${ICONS.rocket}</span>
             </button>
 
+            <button class="eq-activity-btn" id="eq-tab-context" role="tab" title="Contexto (Hierarquia e RAG em Tempo Real)">
+              <span class="eq-activity-indicator"></span>
+              <span class="eq-activity-icon">${ICONS.folderTree}</span>
+            </button>
+
             <button class="eq-activity-btn" id="eq-tab-advanced" role="tab" title="Avançado (Modo Manual)">
               <span class="eq-activity-indicator"></span>
               <span class="eq-activity-icon">${ICONS.code}</span>
@@ -186,7 +201,36 @@ export class EasyQuizPanel {
             </div>
           </header>
 
+          <!-- Barra de Carregamento / Progresso Dinâmica -->
+          <div class="eq-progress-container" id="eq-progress-container" style="display: none;">
+            <div class="eq-progress-info">
+              <span class="eq-progress-label" id="eq-progress-label">Processando...</span>
+              <span class="eq-progress-val" id="eq-progress-val">0%</span>
+            </div>
+            <div class="eq-progress-track">
+              <div class="eq-progress-bar" id="eq-progress-bar" style="width: 0%;"></div>
+            </div>
+          </div>
+
           <div class="eq-views-wrapper">
+            <!-- TAB: CONTEXTO (EXPLORADOR VS CODE) -->
+            <div class="eq-view-pane" id="eq-view-context" style="display: none; flex-direction: column; gap: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="eq-section-title" style="margin: 0;">
+                  <span>Explorador de Contexto & RAG</span>
+                </div>
+                <button class="eq-icon-btn" id="eq-refresh-context-btn" type="button" title="Atualizar Varredura em Tempo Real" style="width: 28px; height: 28px;">
+                  ${ICONS.refresh}
+                </button>
+              </div>
+
+              <div class="eq-tree-container" id="eq-tree-container">
+                <div class="text-muted" style="padding: 8px 0;">Aguardando primeira leitura de tela ou análise do exercício...</div>
+              </div>
+
+              <div class="eq-footer-note">Hierarquia do DOM e Memória RAG • 0 Tokens Gastos</div>
+            </div>
+
             <!-- TAB 1: AUTOPILOT -->
             <div class="eq-view-pane" id="eq-view-autopilot">
               <div style="display: flex; gap: 8px; width: 100%; align-items: center;">
@@ -438,6 +482,15 @@ export class EasyQuizPanel {
     this.apToggleBtn = this.shadow.querySelector('#eq-ap-toggle-btn') as HTMLButtonElement
     this.apConsole = this.shadow.querySelector('#eq-ap-console') as HTMLElement
 
+    // Barra de Progresso
+    this.progressContainer = this.shadow.querySelector('#eq-progress-container') as HTMLElement
+    this.progressBar = this.shadow.querySelector('#eq-progress-bar') as HTMLElement
+    this.progressLabel = this.shadow.querySelector('#eq-progress-label') as HTMLElement
+    this.progressVal = this.shadow.querySelector('#eq-progress-val') as HTMLElement
+
+    // Árvore de Contexto
+    this.contextTreeContainer = this.shadow.querySelector('#eq-tree-container') as HTMLElement
+
     // Status & Stopwatch
     this.dotPulseAp = this.shadow.querySelector('#eq-dot-ap') as HTMLElement
     this.statusTextAp = this.shadow.querySelector('#eq-status-text-ap') as HTMLElement
@@ -514,10 +567,11 @@ export class EasyQuizPanel {
     }
   }
 
-  private switchTab(tab: 'autopilot' | 'advanced' | 'inspector' | 'settings') {
+  private switchTab(tab: 'autopilot' | 'context' | 'advanced' | 'inspector' | 'settings') {
     this.activeTab = tab
-    const tabs: Array<'autopilot' | 'advanced' | 'inspector' | 'settings'> = [
+    const tabs: Array<'autopilot' | 'context' | 'advanced' | 'inspector' | 'settings'> = [
       'autopilot',
+      'context',
       'advanced',
       'inspector',
       'settings',
@@ -537,15 +591,22 @@ export class EasyQuizPanel {
 
     if (tab === 'autopilot') {
       this.callbacks.onSettingsChange({ autoApply: true, autoAdvance: true })
+    } else if (tab === 'context') {
+      this.renderContextTree()
     }
   }
 
   private setupEventListeners(): void {
     // Abas do Activity Bar Vertical
     this.shadow.querySelector('#eq-tab-autopilot')?.addEventListener('click', () => this.switchTab('autopilot'))
+    this.shadow.querySelector('#eq-tab-context')?.addEventListener('click', () => this.switchTab('context'))
     this.shadow.querySelector('#eq-tab-advanced')?.addEventListener('click', () => this.switchTab('advanced'))
     this.shadow.querySelector('#eq-tab-inspector')?.addEventListener('click', () => this.switchTab('inspector'))
     this.shadow.querySelector('#eq-tab-settings')?.addEventListener('click', () => this.switchTab('settings'))
+
+    this.shadow.querySelector('#eq-refresh-context-btn')?.addEventListener('click', () => {
+      this.renderContextTree()
+    })
 
     // Toggle da Sidebar (Aba lateral e Launcher Flutuante)
     this.launcherBtn.addEventListener('click', () => this.toggle())
@@ -805,13 +866,150 @@ export class EasyQuizPanel {
     }
   }
 
-  private logToConsole(message: string, colorClass?: string) {
+  public logToConsole(message: string, colorClass?: string) {
     if (!this.apConsole) return
     const entry = document.createElement('div')
-    entry.textContent = message
+    const now = new Date()
+    const ts = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(Math.floor(now.getMilliseconds() / 100))}`
+
+    let formatted = message
+    if (message.startsWith('>')) {
+      formatted = `> [${ts}] ${message.slice(1).trim()}`
+    } else {
+      formatted = `[${ts}] ${message}`
+    }
+
+    entry.textContent = formatted
     if (colorClass) entry.className = colorClass
     this.apConsole.appendChild(entry)
     this.apConsole.scrollTop = this.apConsole.scrollHeight
+
+    while (this.apConsole.children.length > 150) {
+      this.apConsole.removeChild(this.apConsole.firstChild!)
+    }
+  }
+
+  public setProgress(percent: number, label?: string): void {
+    if (!this.progressContainer || !this.progressBar) return
+    if (percent <= 0) {
+      this.progressContainer.style.display = 'none'
+      this.progressBar.style.width = '0%'
+      return
+    }
+
+    this.progressContainer.style.display = 'flex'
+    const clamped = Math.min(100, Math.max(0, Math.round(percent)))
+    this.progressBar.style.width = `${clamped}%`
+    if (this.progressVal) this.progressVal.textContent = `${clamped}%`
+    if (label && this.progressLabel) this.progressLabel.textContent = label
+
+    if (clamped >= 100) {
+      setTimeout(() => {
+        if (this.progressContainer && this.progressBar && this.progressBar.style.width === '100%') {
+          this.progressContainer.style.display = 'none'
+        }
+      }, 1500)
+    }
+  }
+
+  public updateContext(context: CapturedContext, plan?: AnalysisPlan): void {
+    this.latestContext = context
+    if (plan) this.latestPlan = plan
+    if (this.activeTab === 'context') {
+      this.renderContextTree()
+    }
+  }
+
+  public renderContextTree(): void {
+    if (!this.contextTreeContainer) return
+    const ctx = this.latestContext
+    const memories = getSessionMemories()
+    const plan = this.latestPlan
+
+    this.contextTreeContainer.innerHTML = ''
+
+    // Pasta 1: Escopo e Metadados da Página
+    const pageNode = this.createTreeFolder('📄 PÁGINA & ESCOPO ATUAL', true, [
+      { label: 'Título', value: document.title || 'Sem título' },
+      { label: 'URL', value: window.location.pathname || '/' },
+      { label: 'Escopo DOM', value: ctx ? `${ctx.scope.tagName.toLowerCase()}${ctx.scope.className ? '.' + ctx.scope.className.split(' ').join('.') : ''}` : 'Document' },
+      { label: 'Tamanho Texto', value: ctx ? `${ctx.questionText.length} caracteres` : 'Não analisado' },
+      { label: 'Trecho Enunciado', value: ctx ? `"${ctx.questionText.slice(0, 120)}..."` : 'Nenhum' },
+    ])
+    this.contextTreeContainer.appendChild(pageNode)
+
+    // Pasta 2: Controles Detectados no Formulário
+    const controls = ctx ? ctx.controls : []
+    const controlsChildren = controls.map((c, idx) => ({
+      label: `[#${idx + 1}] ${c.type.toUpperCase()}`,
+      value: `${c.label || c.id || c.name || '(Sem rótulo)'} ${c.value ? `[val: "${c.value}"]` : ''}`,
+      badge: c.role || c.type,
+    }))
+
+    const controlsNode = this.createTreeFolder(`🎛️ CONTROLES DETECTADOS (${controls.length})`, controls.length > 0, controlsChildren)
+    this.contextTreeContainer.appendChild(controlsNode)
+
+    // Pasta 3: Memória RAG de Sessão
+    const memoriesChildren = memories.map((m, idx) => ({
+      label: `Memória #${idx + 1}`,
+      value: m,
+      badge: 'RAG',
+    }))
+    const memoriesNode = this.createTreeFolder(`🧠 MEMÓRIA RAG ACUMULADA (${memories.length})`, memories.length > 0, memoriesChildren)
+    this.contextTreeContainer.appendChild(memoriesNode)
+
+    // Pasta 4: Último Plano da IA
+    if (plan) {
+      const planNode = this.createTreeFolder(`🤖 ÚLTIMO PLANO IA (${plan.actions.length} ações)`, true, [
+        { label: 'Tipo Página', value: plan.pageType, badge: `${(plan.confidence * 100).toFixed(0)}%` },
+        { label: 'Modo', value: plan.mode },
+        { label: 'Raciocínio', value: plan.rationale || 'N/A' },
+        ...plan.actions.map((a, i) => ({
+          label: `Ação #${i + 1} (${a.t})`,
+          value: JSON.stringify(a),
+        })),
+      ])
+      this.contextTreeContainer.appendChild(planNode)
+    }
+  }
+
+  private createTreeFolder(title: string, startExpanded: boolean, items: Array<{ label: string; value: string; badge?: string }>): HTMLElement {
+    const node = document.createElement('div')
+    node.className = 'eq-tree-node'
+
+    const header = document.createElement('div')
+    header.className = 'eq-tree-header'
+    header.innerHTML = `<span class="eq-tree-arrow">${startExpanded ? '▼' : '▶'}</span> <span>${title}</span>`
+
+    const content = document.createElement('div')
+    content.className = 'eq-tree-content'
+    content.style.display = startExpanded ? 'flex' : 'none'
+
+    if (items.length === 0) {
+      content.innerHTML = '<div class="text-muted" style="padding: 2px 0;">Nenhum item registrado.</div>'
+    } else {
+      for (const it of items) {
+        const leaf = document.createElement('div')
+        leaf.className = 'eq-tree-leaf'
+        leaf.innerHTML = `
+          <strong style="color:#ffffff; min-width: 80px;">${it.label}:</strong>
+          <span style="flex:1; word-break: break-word; color:#aaaaaa;">${it.value}</span>
+          ${it.badge ? `<span class="eq-tree-badge">${it.badge}</span>` : ''}
+        `
+        content.appendChild(leaf)
+      }
+    }
+
+    header.addEventListener('click', () => {
+      const isHidden = content.style.display === 'none'
+      content.style.display = isHidden ? 'flex' : 'none'
+      const arrow = header.querySelector('.eq-tree-arrow')
+      if (arrow) arrow.textContent = isHidden ? '▼' : '▶'
+    })
+
+    node.appendChild(header)
+    node.appendChild(content)
+    return node
   }
 
   public toggle(force?: boolean): void {

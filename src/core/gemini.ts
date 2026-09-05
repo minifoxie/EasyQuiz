@@ -79,8 +79,7 @@ const GEMINI_JSON_SCHEMA = {
 
 function normalizeModel(model: string): string {
   const clean = model.trim().replace(/^google\//, '').replace(/^models\//, '')
-  if (clean === 'gemini-2.5-flash') return 'gemini-3.5-flash'
-  return clean || 'gemini-3.5-flash'
+  return clean || 'gemini-2.5-flash'
 }
 
 function parseGeminiError(errorText: string, status: number): string {
@@ -130,7 +129,14 @@ function robustParsePlan(rawText: string): AnalysisPlan {
   }
 }
 
-export let discoveredModelsCache: ModelOption[] | null = null
+export let discoveredModelsCache: ModelOption[] | null = (() => {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('easyquiz_cached_models') : null
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+})()
 const blacklistedModels = new Set<string>()
 
 export async function fetchAvailableModels(apiKey: string): Promise<ModelOption[]> {
@@ -200,6 +206,11 @@ export async function fetchAvailableModels(apiKey: string): Promise<ModelOption[
             return getPriority(b.id) - getPriority(a.id)
           })
           discoveredModelsCache = validModels
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('easyquiz_cached_models', JSON.stringify(validModels))
+            }
+          } catch {}
           return validModels
         }
       }
@@ -232,7 +243,7 @@ export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message
   }
 
   // 2. Teste direto nos modelos mais compatíveis em v1beta e v1
-  const testCandidates = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-1.5-flash']
+  const testCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.5-flash']
   for (const modelId of testCandidates) {
     for (const apiVer of ['v1beta', 'v1']) {
       const endpoint = `https://generativelanguage.googleapis.com/${apiVer}/models/${modelId}:generateContent?key=${encodeURIComponent(key)}`
@@ -297,27 +308,23 @@ export async function analyzeWithGemini(
     })
   }
 
-  const payload = {
-    system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-    contents: [{ role: 'user', parts }],
-    generationConfig: {
-      temperature: 0.05, // Baixíssimo para previsibilidade
-      maxOutputTokens: 2500, // Amplo espaço para categorizações sem truncamento
-      response_mime_type: 'application/json',
-      response_schema: GEMINI_JSON_SCHEMA,
-    },
+  const genConfig: Record<string, unknown> = {
+    temperature: 0.05, // Baixíssimo para previsibilidade
+    maxOutputTokens: 2500, // Amplo espaço para categorizações sem truncamento
+    response_mime_type: 'application/json',
+    response_schema: GEMINI_JSON_SCHEMA,
   }
 
   // Lista ordenada de modelos a tentar, priorizando o escolhido e os modelos confirmados da conta
   const rawFallback = [
     chosenModel,
     ...(discoveredModelsCache?.map((m) => m.id) || []),
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-2.5-pro',
     'gemini-3.5-flash',
     'gemini-3.1-flash-lite',
-    'gemini-2.5-flash',
-    'gemini-2.5-pro',
-    'gemini-3.1-pro',
-    'gemini-1.5-flash',
   ]
   const modelsToTry = Array.from(new Set(rawFallback)).filter((m) => !blacklistedModels.has(m))
 
@@ -331,6 +338,19 @@ export async function analyzeWithGemini(
   for (let i = 0; i < modelsToTry.length; i++) {
     const currentModel = modelsToTry[i]
     const nextModel = modelsToTry[i + 1]
+
+    // Desativa thinking tokens nos modelos que suportam para resposta em <1s
+    if (currentModel.includes('2.5') || currentModel.includes('thinking')) {
+      genConfig.thinkingConfig = { thinkingBudget: 0 }
+    } else {
+      delete genConfig.thinkingConfig
+    }
+
+    const payload = {
+      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{ role: 'user', parts }],
+      generationConfig: genConfig,
+    }
 
     onProgress?.(`Aguardando resposta da API (${currentModel})...`, 'info')
 
@@ -358,6 +378,14 @@ export async function analyzeWithGemini(
 
         if (!response.ok) {
           const errorText = await response.text()
+
+          // Se rejeitou thinkingConfig com 400, remove e tenta novamente imediatamente
+          if (response.status === 400 && genConfig.thinkingConfig && /thinking/i.test(errorText)) {
+            delete genConfig.thinkingConfig
+            payload.generationConfig = genConfig
+            continue
+          }
+
           const parsedErrorMsg = parseGeminiError(errorText, response.status)
 
           // Se for 404 e ainda temos a versão v1 para tentar, continua

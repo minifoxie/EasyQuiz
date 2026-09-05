@@ -66,6 +66,7 @@ async function initEasyQuiz(): Promise<void> {
     }
 
     panel.setBusy(true, 'Identificando o bloco da questão ativa na página...')
+    panel.setProgress(20, 'Varrendo escopo do DOM e controles...')
     clearHighlights()
     panel.hideFloatingAnswers()
 
@@ -78,8 +79,15 @@ async function initEasyQuiz(): Promise<void> {
       }
 
       highlightScope(context.scope)
+      panel.updateContext(context)
+
+      panel.logToConsole(
+        `> [DOM] Escopo: <${context.scope.tagName.toLowerCase()}> com ${context.controls.length} controle(s) e ${context.questionText.length} caracteres.`,
+        'text-blue',
+      )
 
       panel.setStatus(`Questão localizada (${context.controls.length} controles). Preparando análise...`, 'info')
+      panel.setProgress(40, `Consultando Gemini (${settings.model})...`)
       let images = await captureImages(context.scope, settings.useVision)
 
       panel.setStatus(
@@ -95,12 +103,14 @@ async function initEasyQuiz(): Promise<void> {
 
       // Se a IA pediu mais contexto ou detectou que o escopo estava isolado
       if (plan.needsMoreContext) {
+        panel.setProgress(55, 'Ampliando escopo da questão...')
         panel.setStatus('Enunciado ou contexto isolado detectado pela IA. Acionando Seleção Geral Expandida...', 'info')
         context = captureCurrentContext(true)
         if (!context) {
           context = captureFullPageText()
         }
         highlightScope(context.scope)
+        panel.updateContext(context)
         images = await captureImages(context.scope, settings.useVision)
         panel.setStatus(`Reconsultando IA com escopo ampliado (${context.controls.length} controles)...`, 'info')
         const recheck = await analyzeWithGemini(context, images, settings, (msg, type) => {
@@ -109,22 +119,37 @@ async function initEasyQuiz(): Promise<void> {
         plan = recheck.plan
       }
 
+      panel.setProgress(70, 'Resposta recebida da IA! Processando plano...')
+      panel.logToConsole(
+        `> [IA] Modelo: ${usedModel || settings.model} | Modo: ${plan.mode} | Confiança: ${(plan.confidence * 100).toFixed(0)}%`,
+        'text-green',
+      )
+      if (plan.rationale) {
+        panel.logToConsole(`> [IA] Raciocínio: "${plan.rationale}"`, 'text-blue')
+      }
+      panel.logToConsole(`> [IA] ${plan.actions.length} ação(ões) prescritas no plano.`, 'text-blue')
+
       if (plan.memoryToStore) {
         addSessionMemory(plan.memoryToStore)
-        console.log('[EasyQuiz] Memória de sessão armazenada:', plan.memoryToStore)
+        panel.logToConsole(`> [RAG] 🧠 Nova memória teórica salva na sessão: "${plan.memoryToStore}"`, 'text-yellow')
       }
 
       latestPlan = plan
+      panel.updateContext(context, plan)
       highlightTargetActions(plan.actions)
       panel.setPlan(plan, !settings.dryRun)
 
       if (plan.pageType === 'conclusion') {
+        panel.setProgress(100, 'Atividade concluída!')
         panel.setStatus('Atividade concluída ou tela final detectada pela IA.', 'success')
       } else if (plan.pageType === 'info') {
+        panel.setProgress(100, 'Contexto absorvido na memória!')
         panel.setStatus('📘 Conteúdo de contexto absorvido na memória RAG. Avançando...', 'success')
       } else if (plan.pageType === 'start') {
+        panel.setProgress(100, 'Início detectado!')
         panel.setStatus('Início de atividade detectado. Iniciando...', 'info')
       } else {
+        panel.setProgress(80, 'Plano de resolução pronto!')
         panel.setStatus(
           settings.dryRun
             ? 'Simulação concluída. As respostas foram realçadas na página sem alteração.'
@@ -144,6 +169,7 @@ async function initEasyQuiz(): Promise<void> {
       return plan
     } catch (error) {
       clearHighlights()
+      panel.setProgress(0)
       const message = error instanceof Error ? error.message : 'Falha desconhecida na análise.'
       panel.setStatus(message, 'error')
       return undefined
@@ -170,16 +196,31 @@ async function initEasyQuiz(): Promise<void> {
       !latestPlan.needsMoreContext
 
     panel.setBusy(true, 'Aplicando respostas no formulário...')
+    panel.setProgress(85, `Aplicando ${latestPlan.actions.length} ação(ões) no formulário...`)
+    panel.logToConsole(`> [EXEC] Iniciando aplicação com 6 vias de persistência para ${latestPlan.actions.length} ação(ões)...`, 'text-blue')
 
     try {
       const result = await executePlan(latestPlan, canAdvance, attemptCount)
       if (result.success) {
+        panel.setProgress(100, 'Sucesso! Respostas preenchidas e validadas!')
+        panel.logToConsole(
+          `> [VERIF] ✓ Sucesso absoluto no DOM: ${result.verified}/${result.applied} ações validadas com sucesso!`,
+          'text-green',
+        )
+        if (result.advanced) {
+          panel.logToConsole(`> [NAV] ✓ Botão de confirmação/avanço acionado com sucesso!`, 'text-green')
+        }
         panel.setStatus(
           `Sucesso: ${result.applied} resposta(s) preenchida(s)${result.advanced ? ' e próxima questão acionada' : ''}.`,
           'success',
         )
         panel.hideFloatingAnswers()
       } else {
+        panel.setProgress(0)
+        panel.logToConsole(
+          `> [VERIF] ⚠️ Formulário requer intervenção direta (${result.verified}/${result.applied} validadas no DOM). Abrindo Gabarito Flutuante.`,
+          'text-yellow',
+        )
         panel.setStatus(
           `Aviso: O formulário requer interação manual direta (${result.verified}/${result.applied} validadas). Gabarito Flutuante exibido na tela.`,
           'info',
@@ -187,6 +228,7 @@ async function initEasyQuiz(): Promise<void> {
         panel.showFloatingAnswers(latestPlan)
       }
     } catch (error) {
+      panel.setProgress(0)
       const msg = error instanceof Error ? error.message : 'Falha ao aplicar plano.'
       panel.setStatus(msg, 'error')
       panel.showFloatingAnswers(latestPlan)

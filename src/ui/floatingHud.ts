@@ -1,6 +1,6 @@
 import type { AnalysisPlan } from '../core/types'
 import { ICONS } from './icons'
-import { cleanSearchTerm } from '../dom/executor'
+import { cleanSearchTerm, getHumanReadableLabel } from '../dom/executor'
 
 export class FloatingAnswersHud {
   private element: HTMLElement | null = null
@@ -295,8 +295,10 @@ export class FloatingAnswersHud {
 
         const textSpan = document.createElement('span')
         textSpan.className = 'eq-fah-item-text'
-        const label = cleanSearchTerm(act.id)
-        textSpan.innerHTML = `${label ? `<strong>${label}:</strong> ` : ''}<code style="color:#00ffcc; background:rgba(0,255,204,0.1); padding:1px 4px; border-radius:3px;">${act.v}</code>`
+        const rawLabel = getHumanReadableLabel(act.id)
+        const isTechnicalId = /^[#\.\$]|input|mat-|cell|field|q[0-9]/i.test(rawLabel)
+        const label = isTechnicalId ? '' : rawLabel
+        textSpan.innerHTML = `${label ? `<strong>${label}:</strong> ` : ''}<code style="color:#00ffcc; background:rgba(0,255,204,0.1); padding:2px 6px; border-radius:4px; font-weight:600;">${act.v}</code>`
         itemEl.appendChild(textSpan)
 
         const copyBtn = document.createElement('button')
@@ -337,8 +339,11 @@ export class FloatingAnswersHud {
 
         const textSpan = document.createElement('span')
         textSpan.className = 'eq-fah-item-text'
-        const choiceText = cleanSearchTerm(act.id)
-        textSpan.innerHTML = `<span style="color:#00ffcc; font-weight:bold; margin-right:4px;">☑</span> ${choiceText}`
+        let choiceText = getHumanReadableLabel(act.id)
+        if (/^[#\.\$]|opt|choice|radio|chk|q[0-9]/i.test(choiceText) && (act as any).v) {
+          choiceText = String((act as any).v)
+        }
+        textSpan.innerHTML = `<span style="color:#00ffcc; font-weight:bold; margin-right:6px;">☑</span> <span>${choiceText}</span>`
         itemEl.appendChild(textSpan)
 
         const copyBtn = document.createElement('button')
