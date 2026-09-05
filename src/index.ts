@@ -91,12 +91,6 @@ async function initEasyQuiz(): Promise<void> {
         panel.setStatus(msg, type === 'warning' ? 'info' : type)
       })
 
-      if (usedModel && usedModel !== settings.model) {
-        settings.model = usedModel
-        saveSettings({ model: usedModel })
-        panel.updateSelectedModel(usedModel)
-      }
-
       // Se a IA pediu mais contexto ou detectou que o escopo estava isolado
       if (plan.needsMoreContext) {
         panel.setStatus('Enunciado ou contexto isolado detectado pela IA. Acionando Seleção Geral Expandida...', 'info')
@@ -112,11 +106,6 @@ async function initEasyQuiz(): Promise<void> {
           panel.setStatus(msg, type === 'warning' ? 'info' : type)
         })
         plan = recheck.plan
-        if (recheck.usedModel && recheck.usedModel !== settings.model) {
-          settings.model = recheck.usedModel
-          saveSettings({ model: recheck.usedModel })
-          panel.updateSelectedModel(recheck.usedModel)
-        }
       }
 
       if (plan.memoryToStore) {

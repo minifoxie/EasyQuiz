@@ -1,60 +1,76 @@
 import type { AnalysisPlan, DeclarativeAction } from '../core/types'
 import { saveDomainCache } from '../core/storage'
-import { NAVIGATION_PATTERN } from './controls'
+import { cleanText, isVisible, NAVIGATION_PATTERN } from './controls'
 
-// ---- MOTOR DE BUSCA ROBUSTA ----
+// ---- MOTOR DE BUSCA ROBUSTA DE ELEMENTOS ----
 export function findElementExt(idOrLabel: string): HTMLElement | null {
   if (!idOrLabel) return null
-  const trimmed = idOrLabel.trim()
+  const trimmed = idOrLabel.trim().replace(/^["'“”«»]+|["'“”«»]+$/g, '')
+  if (!trimmed) return null
 
   // 1. Tenta por ID estrito gerado pelo EasyQuiz
   const escaped = CSS.escape(trimmed)
-  let el = document.querySelector(`[data-easyquiz-id="${escaped}"]`) as HTMLElement
+  let el = document.querySelector(`[data-easyquiz-id="${escaped}"]`) as HTMLElement | null
   if (el) return el
 
-  // 2. Tenta como seletor CSS direto (ex: ".classe", "#id", "[data-testid='...']")
+  // 2. Tenta como seletor CSS direto
   try {
-    el = document.querySelector(trimmed) as HTMLElement
+    el = document.querySelector(trimmed) as HTMLElement | null
     if (el) return el
   } catch {}
 
-  // 3. Tenta por ID real ou name
-  el = document.querySelector(`#${escaped}, [name="${escaped}"]`) as HTMLElement
-  if (el) return el
-
-  // 4. Tenta encontrar via XPath por texto exato, aria-label ou data-category
+  // 3. Tenta por ID real, name ou value
   try {
-    const cleanXpathText = trimmed.replace(/"/g, '')
-    const xpath = `//*[text()="${cleanXpathText}"] | //*[contains(text(),"${cleanXpathText}")] | //*[@aria-label="${cleanXpathText}"] | //*[@data-category="${cleanXpathText}"] | //*[@data-testid="${cleanXpathText}"]`
-    const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null)
-    if (result.singleNodeValue) return result.singleNodeValue as HTMLElement
+    el = document.querySelector(`#${escaped}, [name="${escaped}"], [value="${escaped}"]`) as HTMLElement | null
+    if (el) return el
   } catch {}
 
-  // 5. Busca flexível (case-insensitive e contenção de substring) nos elementos visíveis
+  // 4. Tenta via XPath para texto exato, aria-label, data-category ou data-testid
+  try {
+    const cleanXpath = trimmed.replace(/"/g, '')
+    const xpath = `//*[normalize-space(text())="${cleanXpath}"] | //*[@aria-label="${cleanXpath}"] | //*[@data-category="${cleanXpath}"] | //*[@data-testid="${cleanXpath}"]`
+    const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null)
+    if (result.singleNodeValue) {
+      const node = result.singleNodeValue as HTMLElement
+      // Se achou um heading/label dentro de um container de categoria, retorna o container ou o elemento
+      const categoryContainer = node.closest('[data-role="dropzone"], [class*="category" i], [class*="bucket" i], [class*="column" i], [class*="drop" i]') as HTMLElement | null
+      return categoryContainer || node
+    }
+  } catch {}
+
+  // 5. Busca flexível por candidatos visíveis
   const targetClean = cleanText(trimmed).toLowerCase().replace(/['"“”«»]/g, '')
   const candidates = Array.from(
     document.querySelectorAll(
-      'button, a, div, span, li, p, label, input, [draggable="true"], [data-testid], [class*="option"], [class*="card"]',
+      'button, a, div, span, li, p, label, input, [draggable="true"], [data-testid], [class*="option" i], [class*="card" i], [class*="item" i], [class*="choice" i], [class*="category" i], [class*="bucket" i]',
     ),
   ) as HTMLElement[]
 
+  // Prioridade A: Correspondência exata em texto ou atributos
   for (const item of candidates) {
+    if (!isVisible(item)) continue
     const txt = cleanText(item.textContent).toLowerCase().replace(/['"“”«»]/g, '')
     const aria = cleanText(item.getAttribute('aria-label')).toLowerCase().replace(/['"“”«»]/g, '')
     const cat = cleanText(item.getAttribute('data-category')).toLowerCase().replace(/['"“”«»]/g, '')
-    const testid = cleanText(item.getAttribute('data-testid')).toLowerCase()
-    if (txt === targetClean || aria === targetClean || cat === targetClean || testid === targetClean) {
-      return item
+    const val = cleanText((item as HTMLInputElement).value).toLowerCase()
+
+    if (txt === targetClean || aria === targetClean || cat === targetClean || val === targetClean) {
+      // Retorna o item clicável mais próximo se for um texto interno
+      const clickableParent = item.closest('button, [role="button"], [draggable="true"], [class*="card" i], [class*="option" i], [class*="item" i], li') as HTMLElement | null
+      return clickableParent || item
     }
   }
 
-  // Prioridade 2: elemento que contém o texto alvo (ótimo para cards com drag handle :: ou pontuação)
-  if (targetClean.length > 6) {
+  // Prioridade B: Contenção de substring para cards com badges ou numerações
+  if (targetClean.length >= 3) {
     for (const item of candidates) {
-      if (item.children.length > 6) continue // Evita pegar grandes containers
+      if (!isVisible(item)) continue
+      if (item.children.length > 5) continue // Evita containers gigantes da página inteira
       const txt = cleanText(item.textContent).toLowerCase().replace(/['"“”«»]/g, '')
-      if (txt.includes(targetClean) || (txt.length > 10 && targetClean.includes(txt))) {
-        return item
+      const aria = cleanText(item.getAttribute('aria-label')).toLowerCase().replace(/['"“”«»]/g, '')
+      if (txt.includes(targetClean) || aria.includes(targetClean)) {
+        const clickableParent = item.closest('button, [role="button"], [draggable="true"], [class*="card" i], [class*="option" i], [class*="item" i], li') as HTMLElement | null
+        return clickableParent || item
       }
     }
   }
@@ -62,7 +78,7 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
   return null
 }
 
-// ---- EVENTOS SIMULADOS ----
+// ---- EVENTOS SIMULADOS NATIVOS ----
 function dispatchEventSequence(element: HTMLElement, events: string[]): void {
   for (const eventName of events) {
     element.dispatchEvent(new Event(eventName, { bubbles: true, composed: true }))
@@ -81,15 +97,32 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
     cy = rect.top + rect.height / 2
   }
 
-  const props = { bubbles: true, cancelable: true, composed: true, clientX: cx, clientY: cy }
-  element.dispatchEvent(new PointerEvent('pointerdown', props))
-  element.dispatchEvent(new MouseEvent('mousedown', props))
-  element.dispatchEvent(new PointerEvent('pointerup', props))
-  element.dispatchEvent(new MouseEvent('mouseup', props))
-  element.click()
+  try {
+    element.focus?.()
+  } catch {}
+
+  const commonProps = {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    view: window,
+    clientX: cx,
+    clientY: cy,
+    screenX: cx,
+    screenY: cy,
+  }
+
+  element.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, isPrimary: true, button: 0, buttons: 1 }))
+  element.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 }))
+  element.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, isPrimary: true, button: 0, buttons: 0 }))
+  element.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 }))
+  element.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 }))
+
+  try {
+    element.click()
+  } catch {}
 }
 
-// ---- ACÕES NATIVAS DO MOTOR ----
 function setNativeValue(element: HTMLElement, value: string): void {
   if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
     const prototype = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
@@ -164,39 +197,93 @@ function createMockDataTransfer(): DataTransfer {
   } as unknown as DataTransfer
 }
 
-export function simulateDragDrop(origin: HTMLElement, dest: HTMLElement): void {
-  const dataTransfer = createMockDataTransfer()
+// ---- SIMULAÇÃO HÍBRIDA MULTI-ESTÁGIO DE ARRASTO E CATEGORIZAÇÃO ----
+export async function simulateDragAndCategorize(origin: HTMLElement, dest: HTMLElement): Promise<void> {
   const originRect = origin.getBoundingClientRect()
   const destRect = dest.getBoundingClientRect()
+
+  const startX = originRect.left + originRect.width / 2
+  const startY = originRect.top + originRect.height / 2
+  const endX = destRect.left + destRect.width / 2
+  const endY = destRect.top + destRect.height / 2
+
+  // ---- ESTÁGIO 1: PADRÃO CLICK-TO-SELECT E CLICK-TO-PLACE ----
+  // A esmagadora maioria dos sites web modernos de quiz (Quizizz, Educaplay, Wordwall)
+  // aceita clicar na opção e depois clicar na categoria de destino!
+  simulatePointerClick(origin, [startX, startY])
+  await new Promise((r) => setTimeout(r, 120))
+
+  simulatePointerClick(dest, [endX, endY])
+
+  // Se o destino tiver um container dropzone interno específico, clica nele também
+  const dropInner = dest.querySelector(
+    '[data-role="dropzone"], [class*="bucket" i], [class*="slot" i], [class*="drop" i], [class*="target" i], ul',
+  ) as HTMLElement | null
+  if (dropInner && dropInner !== dest) {
+    simulatePointerClick(dropInner)
+  }
+
+  await new Promise((r) => setTimeout(r, 100))
+
+  // ---- ESTÁGIO 2: ARRASTO COM MOUSE & POINTER EVENTS INTERMEDIÁRIOS ----
+  // Simula o movimento físico do cursor com mousedown + mousemove + mouseup
   const pStart = {
-    clientX: originRect.left + originRect.width / 2,
-    clientY: originRect.top + originRect.height / 2,
     bubbles: true,
     cancelable: true,
-  }
-  const pEnd = {
-    clientX: destRect.left + destRect.width / 2,
-    clientY: destRect.top + destRect.height / 2,
-    bubbles: true,
-    cancelable: true,
+    composed: true,
+    view: window,
+    clientX: startX,
+    clientY: startY,
+    button: 0,
+    buttons: 1,
   }
 
-  // Sequência de eventos de início de drag
-  origin.dispatchEvent(new PointerEvent('pointerdown', pStart))
+  origin.dispatchEvent(new PointerEvent('pointerdown', { ...pStart, isPrimary: true }))
   origin.dispatchEvent(new MouseEvent('mousedown', pStart))
-  origin.dispatchEvent(new DragEvent('dragstart', { ...pStart, dataTransfer }))
 
-  // Sequência sobre o destino
+  // Dispara 3 coordenadas de movimento intermediárias (necessário para bibliotecas JS como SortableJS)
+  for (let step = 1; step <= 3; step++) {
+    const curX = startX + (endX - startX) * (step / 3)
+    const curY = startY + (endY - startY) * (step / 3)
+    const moveProps = { ...pStart, clientX: curX, clientY: curY }
+    origin.dispatchEvent(new PointerEvent('pointermove', { ...moveProps, isPrimary: true }))
+    document.dispatchEvent(new MouseEvent('mousemove', moveProps))
+  }
+
+  const pEnd = {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    view: window,
+    clientX: endX,
+    clientY: endY,
+    button: 0,
+    buttons: 0,
+  }
+
+  dest.dispatchEvent(new PointerEvent('pointerup', { ...pEnd, isPrimary: true }))
+  dest.dispatchEvent(new MouseEvent('mouseup', pEnd))
+
+  // ---- ESTÁGIO 3: HTML5 DRAG & DROP EVENTS COM DATA-TRANSFER ----
+  const dataTransfer = createMockDataTransfer()
+  dataTransfer.setData('text/plain', origin.textContent || '')
+  dataTransfer.setData('text/html', origin.outerHTML)
+
+  origin.dispatchEvent(new DragEvent('dragstart', { ...pStart, dataTransfer }))
   dest.dispatchEvent(new DragEvent('dragenter', { ...pEnd, dataTransfer }))
   dest.dispatchEvent(new DragEvent('dragover', { ...pEnd, dataTransfer }))
-
-  // Drop no destino
   dest.dispatchEvent(new DragEvent('drop', { ...pEnd, dataTransfer }))
-
-  // Finalização do arrasto
   origin.dispatchEvent(new DragEvent('dragend', { ...pStart, dataTransfer }))
-  dest.dispatchEvent(new PointerEvent('pointerup', pEnd))
-  dest.dispatchEvent(new MouseEvent('mouseup', pEnd))
+
+  // ---- ESTÁGIO 4: TOUCH EVENTS (Para frameworks com detecção touch/mobile) ----
+  try {
+    const touchStart = new Touch({ identifier: 1, target: origin, clientX: startX, clientY: startY })
+    const touchEnd = new Touch({ identifier: 1, target: dest, clientX: endX, clientY: endY })
+
+    origin.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, cancelable: true, touches: [touchStart] }))
+    dest.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, cancelable: true, touches: [touchEnd] }))
+    dest.dispatchEvent(new TouchEvent('touchend', { bubbles: true, cancelable: true, touches: [] }))
+  } catch {}
 }
 
 // ---- API GLOBAL $eq ----
@@ -204,45 +291,37 @@ export const EqAPI = {
   fill: (idOrLabel: string, value: string) => {
     const el = findElementExt(idOrLabel)
     if (el) setNativeValue(el, value)
-    else console.warn(`$eq.fill: Elemento ${idOrLabel} não encontrado`)
+    else console.warn(`$eq.fill: Elemento '${idOrLabel}' não encontrado`)
   },
   click: (idOrLabel: string) => {
     const el = findElementExt(idOrLabel)
     if (el) simulatePointerClick(el)
-    else console.warn(`$eq.click: Elemento ${idOrLabel} não encontrado`)
+    else console.warn(`$eq.click: Elemento '${idOrLabel}' não encontrado`)
   },
   check: (idOrLabel: string, checked: boolean) => {
     const el = findElementExt(idOrLabel)
     if (el) setCheckedState(el, checked)
-    else console.warn(`$eq.check: Elemento ${idOrLabel} não encontrado`)
+    else console.warn(`$eq.check: Elemento '${idOrLabel}' não encontrado`)
   },
   drag: (idOrigem: string, idDest: string) => {
     const origin = findElementExt(idOrigem)
     const dest = findElementExt(idDest)
     if (origin && dest) {
-      simulateDragDrop(origin, dest)
+      simulateDragAndCategorize(origin, dest)
     } else {
-      console.warn(`$eq.drag: Origem ou destino não encontrado (${idOrigem} -> ${idDest})`)
+      console.warn(`$eq.drag: Origem ou destino não encontrado ('${idOrigem}' -> '${idDest}')`)
     }
   },
-  categorize: (itemQuery: string, categoryQuery: string) => {
+  categorize: async (itemQuery: string, categoryQuery: string) => {
     const item = findElementExt(itemQuery)
     const cat = findElementExt(categoryQuery)
     if (!item || !cat) {
-      console.warn(`$eq.categorize: Item ou categoria não encontrados (${itemQuery} -> ${categoryQuery})`)
+      console.warn(`$eq.categorize: Item ou categoria não encontrados ('${itemQuery}' -> '${categoryQuery}')`)
       return
     }
-    // 1. Simula arrastar e soltar
-    simulateDragDrop(item, cat)
-
-    // 2. Dispara padrão de acessibilidade (clicar no item e depois na categoria)
-    simulatePointerClick(item)
-    setTimeout(() => {
-      simulatePointerClick(cat)
-    }, 150)
+    await simulateDragAndCategorize(item, cat)
   },
 }
-// Instancia no window do hospedeiro
 ;(window as any).$eq = EqAPI
 
 // ---- EXECUTOR DECLARATIVO ----
@@ -262,16 +341,9 @@ async function executeDeclarativeAction(action: DeclarativeAction): Promise<void
     const fromEl = findElementExt(action.from)
     const toEl = findElementExt(action.to)
     if (fromEl && toEl) {
-      simulateDragDrop(fromEl, toEl)
-      simulatePointerClick(fromEl)
-      await new Promise((r) => setTimeout(r, 150))
-      simulatePointerClick(toEl)
-      const dropChild = toEl.querySelector('[data-role="dropzone"], [class*="bucket" i], [class*="drop" i]') as HTMLElement | null
-      if (dropChild && dropChild !== toEl) {
-        simulatePointerClick(dropChild)
-      }
+      await simulateDragAndCategorize(fromEl, toEl)
     } else {
-      console.warn(`[EasyQuiz] Drag: alvo não encontrado (${action.from} -> ${action.to})`)
+      console.warn(`[EasyQuiz] Drag: alvo não encontrado ('${action.from}' -> '${action.to}')`)
     }
     return
   }
@@ -331,7 +403,7 @@ export async function executePlan(
   for (const action of regularActions) {
     await executeDeclarativeAction(action)
     if (action.t === 'drag') {
-      await new Promise((resolve) => setTimeout(resolve, 350))
+      await new Promise((resolve) => setTimeout(resolve, 380))
     }
   }
 
@@ -339,7 +411,7 @@ export async function executePlan(
   if (allowAdvance) {
     // 1. Verifica se há um botão intermediário de "Verificar" / "Check"
     const checkBtn = Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"]')).find((b) =>
-      /(verificar|checar|check|conferir)/i.test(b.textContent || (b as HTMLInputElement).value || ''),
+      /(verificar|checar|check|conferir|validar|enviar|responder)/i.test(b.textContent || (b as HTMLInputElement).value || ''),
     ) as HTMLElement | undefined
 
     if (checkBtn && isVisible(checkBtn)) {
@@ -349,10 +421,9 @@ export async function executePlan(
 
     if (advanceActions.length > 0) {
       await new Promise((resolve) => setTimeout(resolve, 600))
-      executeDeclarativeAction(advanceActions[0])
+      await executeDeclarativeAction(advanceActions[0])
       advanced = true
     } else if (checkBtn) {
-      // Se clicou em verificar, busca o botão de próxima pergunta que surgiu
       await new Promise((resolve) => setTimeout(resolve, 600))
       const nextBtn = Array.from(document.querySelectorAll('button, [role="button"], a, input[type="submit"]')).find(
         (b) => /(próxim[oa]|next|continuar|avançar|mostrar resumo)/i.test(b.textContent || (b as HTMLInputElement).value || ''),

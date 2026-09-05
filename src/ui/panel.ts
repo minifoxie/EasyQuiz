@@ -136,25 +136,22 @@ export class EasyQuizPanel {
           <span class="eq-dock-toggle-label">EQ</span>
         </button>
 
-        <!-- Activity Bar Vertical na Esquerda (Estilo VS Code) -->
+        <!-- Activity Bar Vertical na Esquerda (Estilo VS Code - Apenas Ícones) -->
         <nav class="eq-activity-bar" role="tablist" aria-label="Atalhos">
           <div class="eq-activity-top">
             <button class="eq-activity-btn active" id="eq-tab-autopilot" role="tab" title="Autopilot (Automação Contínua)">
               <span class="eq-activity-indicator"></span>
               <span class="eq-activity-icon">${ICONS.rocket}</span>
-              <span class="eq-activity-label">Auto</span>
             </button>
 
             <button class="eq-activity-btn" id="eq-tab-advanced" role="tab" title="Avançado (Modo Manual)">
               <span class="eq-activity-indicator"></span>
               <span class="eq-activity-icon">${ICONS.code}</span>
-              <span class="eq-activity-label">Avanç</span>
             </button>
 
             <button class="eq-activity-btn" id="eq-tab-inspector" role="tab" title="Inspetor de Prompt e IA">
               <span class="eq-activity-indicator"></span>
               <span class="eq-activity-icon">${ICONS.inspector}</span>
-              <span class="eq-activity-label">Inspet</span>
             </button>
           </div>
 
@@ -162,7 +159,6 @@ export class EasyQuizPanel {
             <button class="eq-activity-btn" id="eq-tab-settings" role="tab" title="Configurações & Chaves">
               <span class="eq-activity-indicator"></span>
               <span class="eq-activity-icon">${ICONS.settings}</span>
-              <span class="eq-activity-label">Config</span>
             </button>
           </div>
         </nav>
@@ -185,12 +181,12 @@ export class EasyQuizPanel {
           <div class="eq-views-wrapper">
             <!-- TAB 1: AUTOPILOT -->
             <div class="eq-view-pane" id="eq-view-autopilot">
-              <div style="display: flex; gap: 8px; width: 100%;">
+              <div style="display: flex; gap: 8px; width: 100%; align-items: center;">
                 <button class="eq-btn-primary" id="eq-ap-toggle-btn" type="button" style="flex: 1;">
                   ${ICONS.play} INICIAR AUTOPILOT
                 </button>
-                <button class="eq-btn-secondary" id="eq-ap-clear-memory" type="button" title="Limpar Memória da Sessão Atual">
-                  ${ICONS.eraser} Memória
+                <button class="eq-icon-btn" id="eq-ap-clear-memory" type="button" title="Limpar Memória Contextual (RAG)" style="width: 42px; height: 42px; background: #141414; border: 1px solid #282828; border-radius: 6px; color: #aaaaaa;">
+                  ${ICONS.eraser}
                 </button>
               </div>
 
@@ -213,7 +209,12 @@ export class EasyQuizPanel {
               <!-- Console Terminal -->
               <div class="eq-section-title">
                 <span>Terminal de Operações</span>
-                <span style="font-size: 10px; color: #666;">Live Event Stream</span>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <button class="eq-icon-btn" id="eq-copy-console-btn" type="button" title="Copiar Todos os Logs do Terminal">
+                    ${ICONS.copy}
+                  </button>
+                  <span style="font-size: 10px; color: #666;">Live Event Stream</span>
+                </div>
               </div>
               <div class="eq-terminal" id="eq-ap-console">
                 <div class="text-blue">> [SYS] EasyQuiz 2.0 Supreme inicializado.</div>
@@ -702,6 +703,17 @@ export class EasyQuizPanel {
       this.setStatus('Memória contextual da sessão limpa.', 'success')
     })
 
+    // Copiar Logs do Terminal
+    const copyConsoleBtn = this.shadow.querySelector('#eq-copy-console-btn') as HTMLButtonElement
+    copyConsoleBtn?.addEventListener('click', () => {
+      const logs = this.apConsole?.innerText || ''
+      navigator.clipboard.writeText(logs).then(() => {
+        const prev = copyConsoleBtn.innerHTML
+        copyConsoleBtn.innerHTML = ICONS.check
+        setTimeout(() => (copyConsoleBtn.innerHTML = prev), 1800)
+      })
+    })
+
     // Copiar Prompt no Inspetor
     this.copyPromptBtn.addEventListener('click', () => {
       const text = this.inspPrompt.textContent || ''
@@ -888,7 +900,7 @@ export class EasyQuizPanel {
   }
 
   public updateModelSelect(models: ModelOption[], selectedId?: string): void {
-    const targetId = selectedId || this.modelSelect.value || this.initialSettings.model
+    const targetId = selectedId || this.initialSettings.model || this.modelSelect.value
     this.modelSelect.innerHTML = ''
     let matched = false
     models.forEach((m) => {
@@ -896,10 +908,10 @@ export class EasyQuizPanel {
       if (isSelected) matched = true
       this.modelSelect.add(new Option(m.name, m.id, false, isSelected))
     })
-    if (!matched && models.length > 0) {
-      this.modelSelect.selectedIndex = 0
-      this.callbacks.onSettingsChange({ model: this.modelSelect.value })
+    if (!matched && targetId) {
+      this.modelSelect.add(new Option(`Gemini (${targetId})`, targetId, false, true))
     }
+    this.modelSelect.value = targetId
   }
 
   public updateSelectedModel(modelId: string): void {

@@ -165,8 +165,8 @@ export const PANEL_STYLES = `
 
   /* ===== ACTIVITY BAR VERTICAL (COLUNA EM PÉ ESTILO VS CODE) ===== */
   .eq-activity-bar {
-    width: 52px;
-    min-width: 52px;
+    width: 48px;
+    min-width: 48px;
     background: #141414;
     border-right: 1px solid #252528;
     display: flex;
@@ -193,13 +193,11 @@ export const PANEL_STYLES = `
 
   .eq-activity-btn {
     position: relative;
-    width: 44px;
-    height: 48px;
+    width: 38px;
+    height: 38px;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
     background: transparent;
     border: none;
     border-radius: 6px;
@@ -220,9 +218,9 @@ export const PANEL_STYLES = `
 
   .eq-activity-indicator {
     position: absolute;
-    left: -4px;
-    top: 10px;
-    bottom: 10px;
+    left: -5px;
+    top: 6px;
+    bottom: 6px;
     width: 3px;
     background: #00ffcc;
     border-radius: 0 3px 3px 0;
@@ -240,15 +238,8 @@ export const PANEL_STYLES = `
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
-  }
-
-  .eq-activity-label {
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+    width: 22px;
+    height: 22px;
   }
 
   /* ===== CORPO DA SIDEBAR (PAINEL DIREITO) ===== */
@@ -773,6 +764,9 @@ export const PANEL_STYLES = `
     flex-direction: column;
     gap: 4px;
     text-align: left;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    cursor: text;
   }
 
   .eq-terminal::-webkit-scrollbar {
