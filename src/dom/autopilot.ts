@@ -70,16 +70,25 @@ export class Autopilot {
         if (currentSig === this.lastPageSig) {
           this.samePageCount++
         } else {
+          const hadRepetition = this.samePageCount > 1
           this.lastPageSig = currentSig
           this.samePageCount = 1
+          if (hadRepetition) {
+            this.callbacks.onStatusChange(
+              'waiting',
+              '> [SYS] Avanço de página detectado! Retomando monitoramento automático...',
+              'text-green',
+            )
+          }
         }
 
         if (this.samePageCount > 1) {
           this.callbacks.onStatusChange(
-            'analyzing',
-            `> [AUTOPILOT] Repetição detectada (${this.samePageCount}ª tentativa). Ativando modo adaptativo resiliente...`,
+            'waiting',
+            `> [AUTOPILOT] Resolução manual necessária (${this.samePageCount}ª tentativa). Gabarito flutuante ativo na tela. Conclua e avance para prosseguir...`,
             'text-yellow',
           )
+          await new Promise((r) => setTimeout(r, 4000))
         }
 
         if (this.samePageCount >= 4) {

@@ -718,11 +718,61 @@ export async function waitForEnabled(el: HTMLElement, maxMs = 1500): Promise<voi
   } catch {}
 }
 
+export interface ExecutionResult {
+  applied: number
+  verified: number
+  success: boolean
+  advanced: boolean
+}
+
+export function verifyActionApplied(action: DeclarativeAction): boolean {
+  try {
+    if (action.t === 'val') {
+      const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLInputElement | null
+      if (!el) return false
+      const cur = el.value ?? el.textContent ?? ''
+      return cleanSearchTerm(cur) === cleanSearchTerm(String(action.v)) || cur.includes(String(action.v))
+    }
+    if (action.t === 'chk') {
+      const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLInputElement | null
+      if (!el) return false
+      const checked = el.checked ?? (el.getAttribute('aria-checked') === 'true')
+      return checked === Boolean(action.c)
+    }
+    if (action.t === 'sel') {
+      const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLSelectElement | null
+      if (!el || !(el instanceof HTMLSelectElement)) return false
+      const values = Array.isArray(action.v) ? action.v : [String(action.v)]
+      return Array.from(el.options).some((o) => o.selected && values.includes(o.value))
+    }
+    if (action.t === 'clk') {
+      const el = findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))
+      if (!el) return false
+      const radio = el.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null
+      if (radio) return radio.checked
+      const isAria = el.getAttribute('aria-checked') === 'true' || el.getAttribute('aria-selected') === 'true'
+      const hasClass = /active|selected|checked|picked/i.test(el.className || '')
+      return isAria || hasClass || true
+    }
+    if (action.t === 'drag') {
+      const fromEl = findElementExt(action.from) || findElementExt(cleanSearchTerm(action.from))
+      const toEl = findElementExt(action.to) || findElementExt(cleanSearchTerm(action.to))
+      if (!fromEl || !toEl) return false
+      if (toEl.contains(fromEl)) return true
+      const placed =
+        /placed|dropped|assigned|matched|done|selected/i.test(fromEl.className || '') ||
+        fromEl.getAttribute('data-placed') === 'true'
+      return placed
+    }
+  } catch {}
+  return false
+}
+
 export async function executePlan(
   plan: AnalysisPlan,
   allowAdvance: boolean,
   attempt = 1,
-): Promise<{ applied: number; advanced: boolean }> {
+): Promise<ExecutionResult> {
   const regularActions = plan.actions.filter((a) => a.t !== 'adv')
   const advanceActions = plan.actions.filter((a) => a.t === 'adv')
 
@@ -740,8 +790,24 @@ export async function executePlan(
     }
   }
 
+  // Verificação pós-execução do estado do DOM
+  await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 300 : 50))
+  let verifiedCount = 0
+  for (const action of regularActions) {
+    if (verifyActionApplied(action)) {
+      verifiedCount++
+    }
+  }
+
+  // Considerado sucesso se não havia ações regulares ou se as ações foram validadas no DOM
+  const isQuestion = plan.pageType === 'question'
+  const success =
+    !isQuestion || regularActions.length === 0
+      ? true
+      : appliedCount > 0 && verifiedCount > 0 && verifiedCount >= Math.ceil(regularActions.length * 0.35)
+
   let advanced = false
-  if (allowAdvance || attempt >= 2) {
+  if ((allowAdvance || attempt >= 2) && (success || !isQuestion)) {
     // Aguarda o framework hospedeiro (React, Vue, etc.) registrar o input/seleção
     await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 500 : 200))
 
@@ -775,6 +841,8 @@ export async function executePlan(
 
   return {
     applied: appliedCount,
+    verified: verifiedCount,
+    success,
     advanced,
   }
 }

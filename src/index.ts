@@ -67,6 +67,7 @@ async function initEasyQuiz(): Promise<void> {
 
     panel.setBusy(true, 'Identificando o bloco da questão ativa na página...')
     clearHighlights()
+    panel.hideFloatingAnswers()
 
     try {
       let context = captureCurrentContext(false)
@@ -132,6 +133,10 @@ async function initEasyQuiz(): Promise<void> {
         )
       }
 
+      if (settings.dryRun && plan.pageType === 'question') {
+        panel.showFloatingAnswers(plan)
+      }
+
       // Auto aplicação opcional
       if (settings.autoApply && !settings.dryRun) {
         await runApply(attemptCount)
@@ -168,13 +173,23 @@ async function initEasyQuiz(): Promise<void> {
 
     try {
       const result = await executePlan(latestPlan, canAdvance, attemptCount)
-      panel.setStatus(
-        `Sucesso: ${result.applied} resposta(s) preenchida(s)${result.advanced ? ' e próxima questão acionada' : ''}.`,
-        'success',
-      )
+      if (result.success) {
+        panel.setStatus(
+          `Sucesso: ${result.applied} resposta(s) preenchida(s)${result.advanced ? ' e próxima questão acionada' : ''}.`,
+          'success',
+        )
+        panel.hideFloatingAnswers()
+      } else {
+        panel.setStatus(
+          `Aviso: O formulário requer interação manual direta (${result.verified}/${result.applied} validadas). Gabarito Flutuante exibido na tela.`,
+          'info',
+        )
+        panel.showFloatingAnswers(latestPlan)
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Falha ao aplicar plano.'
       panel.setStatus(msg, 'error')
+      panel.showFloatingAnswers(latestPlan)
     } finally {
       panel.setBusy(false)
     }

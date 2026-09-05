@@ -2,6 +2,7 @@ import type { AnalysisPlan, EasyQuizSettings, ResponseMode, ExecutionEngine, Mod
 import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey } from '../core/gemini'
 import { clearSessionMemories, resetAllData } from '../core/storage'
 import { Autopilot } from '../dom/autopilot'
+import { FloatingAnswersHud } from './floatingHud'
 import { ICONS } from './icons'
 import { PANEL_STYLES } from './styles'
 
@@ -35,6 +36,7 @@ export class EasyQuizPanel {
   private shadow: ShadowRoot
   private callbacks: PanelCallbacks
   private autopilot: Autopilot
+  private floatingAnswers: FloatingAnswersHud
   private initialSettings: EasyQuizSettings
   private isCollapsed: boolean = false
   private activeTab: 'autopilot' | 'advanced' | 'inspector' | 'settings' = 'autopilot'
@@ -284,6 +286,9 @@ export class EasyQuizPanel {
                 <button class="eq-btn-secondary" id="eq-apply-btn" type="button">
                   ${ICONS.apply} Injetar Resposta na Página
                 </button>
+                <button class="eq-btn-secondary" id="eq-open-hud-btn" type="button" style="background: rgba(0, 255, 204, 0.08); border-color: rgba(0, 255, 204, 0.3); color: #00ffcc;">
+                  ${ICONS.list} Ver Gabarito Flutuante (Arrastável)
+                </button>
               </div>
 
               <div class="eq-footer-note">Modo Manual • Controle Total dos Elementos</div>
@@ -459,6 +464,20 @@ export class EasyQuizPanel {
     this.analyzeBtn = this.shadow.querySelector('#eq-analyze-btn') as HTMLButtonElement
     this.applyBtn = this.shadow.querySelector('#eq-apply-btn') as HTMLButtonElement
     this.resultContainer = this.shadow.querySelector('#eq-result') as HTMLElement
+
+    // Instanciação do Gabarito Flutuante Arrastável e Minimizável
+    this.floatingAnswers = new FloatingAnswersHud(this.shadow, () => {
+      void this.callbacks.onAnalyze(1)
+    })
+
+    const openHudBtn = this.shadow.querySelector('#eq-open-hud-btn') as HTMLButtonElement | null
+    if (openHudBtn) {
+      openHudBtn.addEventListener('click', () => {
+        if (this.latestPlan) {
+          this.floatingAnswers.show(this.latestPlan)
+        }
+      })
+    }
 
     // Preencher Selects
     AVAILABLE_MODELS.forEach((m) => this.modelSelect.add(new Option(m.name, m.id, false, m.id === initialSettings.model)))
@@ -900,6 +919,21 @@ export class EasyQuizPanel {
     } else {
       this.inspActions.innerHTML = '<div class="text-muted" style="padding: 4px;">Nenhuma ação prescrita pela IA.</div>'
     }
+  }
+
+  public showFloatingAnswers(plan?: AnalysisPlan | null): void {
+    const target = plan || this.latestPlan
+    if (target) {
+      this.floatingAnswers.show(target)
+    }
+  }
+
+  public hideFloatingAnswers(): void {
+    this.floatingAnswers.hide()
+  }
+
+  public isFloatingAnswersOpen(): boolean {
+    return this.floatingAnswers.isOpen()
   }
 
   public updateModelSelect(models: ModelOption[], selectedId?: string): void {
