@@ -43,7 +43,9 @@ async function initEasyQuiz(): Promise<void> {
   eqWindow.__easyquiz = {
     toggle: () => panel.toggle(),
     destroy: () => panel.destroy(),
-    analyze: () => void runAnalysis(),
+    analyze: async () => {
+      await runAnalysis()
+    },
   }
 
   // Atalho global de teclado: Alt + Q para analisar a questão imediatamente
