@@ -1,6 +1,6 @@
 {
   "name": "easyquiz",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Ferramenta inteligente de resolução de formulários e quizzes com IA direto no navegador, sem necessidade de servidor.",
   "type": "module",
   "main": "dist/easyquiz.js",

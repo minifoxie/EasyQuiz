@@ -51,10 +51,11 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
     if (!isVisible(item)) continue
     const txt = cleanText(item.textContent).toLowerCase().replace(/['"“”«»]/g, '')
     const aria = cleanText(item.getAttribute('aria-label')).toLowerCase().replace(/['"“”«»]/g, '')
+    const cat = cleanText(item.getAttribute('data-category')).toLowerCase().replace(/['"“”«»]/g, '')
     const rawVal = item instanceof HTMLInputElement || item instanceof HTMLButtonElement ? item.value : ''
     const val = cleanText(rawVal).toLowerCase()
 
-    if (txt === targetClean || aria === targetClean || cat === targetClean || (val && val === targetClean)) {
+    if (txt === targetClean || aria === targetClean || (cat && cat === targetClean) || (val && val === targetClean)) {
       // Retorna o item clicável mais próximo se for um texto interno
       const clickableParent = item.closest('button, [role="button"], [draggable="true"], [class*="card" i], [class*="option" i], [class*="item" i], li') as HTMLElement | null
       return clickableParent || item
