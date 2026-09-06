@@ -17,11 +17,33 @@ type EasyQuizWindow = Window & {
   }
 }
 
+function injectPreconnect(): void {
+  try {
+    if (typeof document === 'undefined' || !document.head) return
+    if (document.querySelector('link[data-easyquiz-preconnect]')) return
+
+    const preconnect = document.createElement('link')
+    preconnect.rel = 'preconnect'
+    preconnect.href = 'https://generativelanguage.googleapis.com'
+    preconnect.crossOrigin = 'anonymous'
+    preconnect.setAttribute('data-easyquiz-preconnect', 'true')
+    document.head.appendChild(preconnect)
+
+    const dnsPrefetch = document.createElement('link')
+    dnsPrefetch.rel = 'dns-prefetch'
+    dnsPrefetch.href = 'https://generativelanguage.googleapis.com'
+    dnsPrefetch.setAttribute('data-easyquiz-preconnect', 'true')
+    document.head.appendChild(dnsPrefetch)
+  } catch {}
+}
+
 async function initEasyQuiz(): Promise<void> {
   const eqWindow = window as EasyQuizWindow
 
   // Instala proteção inteligente de cliques em opções para evitar inversão ou cancelamento por listeners do host
   setupSmartOptionInterceptors()
+  // Pré-aquece a conexão com a API Google Gemini (DNS prefetch + Preconnect)
+  injectPreconnect()
 
   // Se já existir uma instância rodando, apenas alterna a visualização
   if (eqWindow.__easyquiz) {
@@ -31,13 +53,32 @@ async function initEasyQuiz(): Promise<void> {
 
   let settings: EasyQuizSettings = loadSettings()
   let latestPlan: AnalysisPlan | null = null
+  let activeAnalysisController: AbortController | null = null
 
   const panel = new EasyQuizPanel(settings, {
-    onAnalyze: (attempt = 1) => runAnalysis(attempt),
+    onAnalyze: (attempt = 1, signal?: AbortSignal) => runAnalysis(attempt, signal),
     onApply: (attempt = 1) => void runApply(attempt),
     onDestroy: () => {
+      if (activeAnalysisController) {
+        try {
+          activeAnalysisController.abort()
+        } catch {}
+        activeAnalysisController = null
+      }
       clearHighlights()
       delete eqWindow.__easyquiz
+    },
+    onCancel: () => {
+      if (activeAnalysisController) {
+        try {
+          activeAnalysisController.abort()
+        } catch {}
+        activeAnalysisController = null
+      }
+      clearHighlights()
+      panel.setBusy(false)
+      panel.setProgress(0)
+      panel.logToConsole('> [SYS] Operação cancelada imediatamente pelo usuário.', 'text-yellow')
     },
     onSettingsChange: (newPartial) => {
       settings = saveSettings(newPartial)
@@ -63,10 +104,37 @@ async function initEasyQuiz(): Promise<void> {
     }
   })
 
-  async function runAnalysis(attemptCount = 1): Promise<AnalysisPlan | void> {
+  async function runAnalysis(attemptCount = 1, externalSignal?: AbortSignal): Promise<AnalysisPlan | void> {
     if (!settings.apiKey) {
       panel.setStatus('Configure sua chave de API Gemini acima para começar.', 'error')
       panel.toggle(true)
+      return
+    }
+
+    if (activeAnalysisController) {
+      try {
+        activeAnalysisController.abort()
+      } catch {}
+    }
+    activeAnalysisController = new AbortController()
+    const currentController = activeAnalysisController
+
+    const onExternalAbort = () => {
+      try {
+        currentController.abort()
+      } catch {}
+    }
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        currentController.abort()
+      } else {
+        externalSignal.addEventListener('abort', onExternalAbort, { once: true })
+      }
+    }
+
+    if (currentController.signal.aborted) {
+      panel.setBusy(false)
+      panel.setProgress(0)
       return
     }
 
@@ -95,6 +163,8 @@ async function initEasyQuiz(): Promise<void> {
       panel.setProgress(40, `Consultando Gemini (${settings.model})...`)
       let images = await captureImages(context.scope, settings.useVision)
 
+      if (currentController.signal.aborted) return undefined
+
       panel.setStatus(
         images.length > 0
           ? `Consultando Gemini (${settings.model}) com ${images.length} imagem(ns) anexada(s)...`
@@ -113,7 +183,9 @@ async function initEasyQuiz(): Promise<void> {
         panel.logToConsole(`> ${prefix} ${msg}`, color)
       }
 
-      let { plan, usedModel } = await analyzeWithGemini(context, images, settings, onProgressCallback)
+      let { plan, usedModel } = await analyzeWithGemini(context, images, settings, onProgressCallback, currentController.signal)
+
+      if (currentController.signal.aborted) return undefined
 
       // Se a IA pediu mais contexto ou detectou que o escopo estava isolado
       if (plan.needsMoreContext) {
@@ -132,9 +204,11 @@ async function initEasyQuiz(): Promise<void> {
         const expandedPromptPreview = buildUserPrompt(context, images, settings)
         panel.setInspectorPrompt(expandedPromptPreview, settings.model)
 
-        const recheck = await analyzeWithGemini(context, images, settings, onProgressCallback)
+        const recheck = await analyzeWithGemini(context, images, settings, onProgressCallback, currentController.signal)
         plan = recheck.plan
       }
+
+      if (currentController.signal.aborted) return undefined
 
       panel.setProgress(70, 'Resposta recebida da IA! Processando plano...')
       panel.logToConsole(
@@ -179,12 +253,25 @@ async function initEasyQuiz(): Promise<void> {
         panel.showFloatingAnswers(plan)
       }
 
+      if (currentController.signal.aborted) return undefined
+
       // Auto aplicação opcional
       if (settings.autoApply && !settings.dryRun) {
-        await runApply(attemptCount)
+        await runApply(attemptCount, currentController.signal)
       }
       return plan
     } catch (error) {
+      if (
+        currentController.signal.aborted ||
+        (error instanceof Error && (error.name === 'AbortError' || error.message.includes('cancelada')))
+      ) {
+        clearHighlights()
+        panel.setProgress(0)
+        panel.setBusy(false)
+        panel.setStatus('Operação cancelada pelo usuário.', 'info')
+        return undefined
+      }
+
       clearHighlights()
       panel.setProgress(0)
       const message = error instanceof Error ? error.message : 'Falha desconhecida na análise.'
@@ -193,11 +280,16 @@ async function initEasyQuiz(): Promise<void> {
       panel.setErrorDiagnostic(message, 'Análise da IA')
       return undefined
     } finally {
+      externalSignal?.removeEventListener('abort', onExternalAbort)
+      if (activeAnalysisController === currentController) {
+        activeAnalysisController = null
+      }
       panel.setBusy(false)
     }
   }
 
-  async function runApply(attemptCount = 1): Promise<void> {
+  async function runApply(attemptCount = 1, signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted) return
     if (!latestPlan) {
       panel.setStatus('Nenhum plano disponível para aplicar. Execute a análise primeiro.', 'error')
       return
@@ -220,6 +312,7 @@ async function initEasyQuiz(): Promise<void> {
 
     try {
       const result = await executePlan(latestPlan, canAdvance, attemptCount, createExecutionPolicy(settings))
+      if (signal?.aborted) return
       panel.setExecutionReport(result)
       if (result.success || result.advanced) {
         panel.setProgress(100, 'Sucesso! Respostas preenchidas e validadas!')

@@ -1,7 +1,7 @@
 import type { ActionExecutionReport, AnalysisPlan, DeclarativeAction } from '../core/types'
 import { assertActionAllowed, createExecutionPolicy, validateJavaScriptSource, type ExecutionPolicy } from '../core/policy'
 import { loadDomainCache, saveDomainCache } from '../core/storage'
-import { cleanText, isNavigationControl, isVisible, labelForControl, NAVIGATION_PATTERN, safeCssEscape } from './controls'
+import { cleanText, isNavigationControl, isUtilityOrGamificationControl, isVisible, labelForControl, NAVIGATION_PATTERN, safeCssEscape } from './controls'
 import { findActiveScope } from './detector'
 
 export function isInsideEasyQuiz(el: HTMLElement | null): boolean {
@@ -292,7 +292,7 @@ export function findElementExt(idOrLabel: unknown, valueHint?: string, preferInp
 
   // Prioridade A: Correspondência exata em texto, atributos ou prefixo de alternativa (ex: "A)", "B.", "1)")
   for (const item of candidates) {
-    if (!isVisible(item) || isInsideEasyQuiz(item) || item.closest('header, nav, .stepper, .step-item, .progress-bar-container')) continue
+    if (!isVisible(item) || isInsideEasyQuiz(item) || item.closest('header, nav, .stepper, .step-item, .progress-bar-container') || isUtilityOrGamificationControl(item)) continue
 
     const isContainerOfOptions = Boolean(
       item.matches('article, section, form, main, [class*="container" i], [class*="grid" i], .dnd-pool, .dnd-zones') ||
@@ -336,7 +336,7 @@ export function findElementExt(idOrLabel: unknown, valueHint?: string, preferInp
   // Prioridade B: Contenção de substring ou palavras-chave
   if (targetClean.length >= 3) {
     for (const item of candidates) {
-      if (!isVisible(item) || isInsideEasyQuiz(item) || item.closest('header, nav, .stepper, .step-item, .progress-bar-container')) continue
+      if (!isVisible(item) || isInsideEasyQuiz(item) || item.closest('header, nav, .stepper, .step-item, .progress-bar-container') || isUtilityOrGamificationControl(item)) continue
 
       const isContainerOfOptions = Boolean(
         item.matches('article, section, form, main, [class*="container" i], [class*="grid" i], .dnd-pool, .dnd-zones') ||
@@ -1074,7 +1074,9 @@ export const EqAPI = {
   },
   execute: (plan: AnalysisPlan, allowAdvance = false, attempt = 1) => executePlan(plan, allowAdvance, attempt),
 }
-;(window as any).$eq = EqAPI
+if (typeof window !== 'undefined') {
+  ;(window as any).$eq = EqAPI
+}
 
 // ---- EXECUTOR DECLARATIVO ----
 async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, policy = createExecutionPolicy()): Promise<void> {
@@ -1355,7 +1357,7 @@ export function findBestNavigationButton(preferredId?: string): HTMLElement | nu
   // 1. Seletor ou ID preferencial informado pela IA
   if (preferredId) {
     const el = findElementExt(preferredId)
-    if (el && isVisible(el) && !isInsideEasyQuiz(el)) return el
+    if (el && isVisible(el) && !isInsideEasyQuiz(el) && !isUtilityOrGamificationControl(el)) return el
   }
 
   // 2. Cache de domínio salvo de execuções anteriores bem-sucedidas
@@ -1363,7 +1365,7 @@ export function findBestNavigationButton(preferredId?: string): HTMLElement | nu
     const cache = loadDomainCache(window.location.hostname)
     if (cache.advanceSelector) {
       const cached = findElementExt(cache.advanceSelector)
-      if (cached && isVisible(cached) && !isInsideEasyQuiz(cached)) return cached
+      if (cached && isVisible(cached) && !isInsideEasyQuiz(cached) && !isUtilityOrGamificationControl(cached)) return cached
     }
   } catch {}
 
@@ -1388,25 +1390,25 @@ export function findBestNavigationButton(preferredId?: string): HTMLElement | nu
   ].join(',')
 
   const all = Array.from(document.querySelectorAll(query)) as HTMLElement[]
-  const candidates = all.filter((el) => isVisible(el) && !isInsideEasyQuiz(el) && !el.closest('header, nav, aside'))
+  const candidates = all.filter((el) => isVisible(el) && !isInsideEasyQuiz(el) && !el.closest('header, nav, aside') && !isUtilityOrGamificationControl(el))
 
   // Prioridade A: Satisfaz isNavigationControl
   for (const el of candidates) {
-    if (isNavigationControl(el)) return el
+    if (isNavigationControl(el) && !isUtilityOrGamificationControl(el)) return el
   }
 
   // Prioridade B: Match com NAVIGATION_PATTERN em texto, valor ou aria-label
   for (const el of candidates) {
     const val = el instanceof HTMLInputElement || el instanceof HTMLButtonElement ? el.value : ''
     const text = (el.textContent || val || el.getAttribute('aria-label') || '').trim()
-    if (NAVIGATION_PATTERN.test(text)) return el
+    if (NAVIGATION_PATTERN.test(text) && !isUtilityOrGamificationControl(el)) return el
   }
 
   // Prioridade C: Seletor genérico por atributo de acessibilidade ou teste
   const genericNext = document.querySelector(
     '[data-test-id*="next" i], [data-testid*="next" i], [aria-label*="next" i], [aria-label*="próxim" i], [aria-label*="avançar" i], [aria-label*="continuar" i]',
   ) as HTMLElement | null
-  if (genericNext && isVisible(genericNext) && !isInsideEasyQuiz(genericNext)) {
+  if (genericNext && isVisible(genericNext) && !isInsideEasyQuiz(genericNext) && !isUtilityOrGamificationControl(genericNext)) {
     return genericNext
   }
 

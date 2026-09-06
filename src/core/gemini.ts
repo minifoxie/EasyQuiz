@@ -282,7 +282,10 @@ export async function analyzeWithGemini(
   images: CapturedImage[],
   settings: EasyQuizSettings,
   onProgress?: (message: string, type?: 'info' | 'warning' | 'error') => void,
+  signal?: AbortSignal,
 ): Promise<{ plan: AnalysisPlan; rawUsage?: unknown; usedModel?: string }> {
+  if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
+
   const key = settings.apiKey.trim().replace(/^["']|["']$/g, '')
   if (!key) throw new Error('Chave de API não configurada.')
 
@@ -301,18 +304,26 @@ export async function analyzeWithGemini(
     }
   }
 
+  if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
+
   const startTime = Date.now()
   const userText = buildUserPrompt(context, images, settings)
 
+  // Intercala rótulos semânticos e dados base64 para que o Gemini saiba exatamente qual imagem pertence a qual opção/gráfico
   const parts: Array<Record<string, unknown>> = [{ text: userText }]
-  for (const img of images) {
+  for (let idx = 0; idx < images.length; idx++) {
+    const img = images[idx]
+    const label = img.associatedLabel || (img.alt ? `Imagem: ${img.alt}` : `Imagem ${idx + 1}`)
+    parts.push({
+      text: `[ANEXO VISUAL ${idx + 1} - VÍNCULO: ${label}]:`,
+    })
     parts.push({
       inline_data: { mime_type: img.mediaType, data: img.base64 },
     })
   }
 
   const genConfig: Record<string, unknown> = {
-    temperature: 0.05, // Baixíssimo para previsibilidade
+    temperature: 0.0, // Decodificação greedy: máxima velocidade de inferência e determinismo
     maxOutputTokens: 2500, // Amplo espaço para categorizações sem truncamento
     response_mime_type: 'application/json',
     response_schema: GEMINI_JSON_SCHEMA,
@@ -338,6 +349,8 @@ export async function analyzeWithGemini(
   let lastError = new Error('Nenhum modelo tentado.')
 
   for (let i = 0; i < modelsToTry.length; i++) {
+    if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
+
     const currentModel = modelsToTry[i]
     const nextModel = modelsToTry[i + 1]
 
@@ -346,6 +359,8 @@ export async function analyzeWithGemini(
       contents: [{ role: 'user', parts }],
       generationConfig: genConfig,
     }
+    const payloadStr = JSON.stringify(payload)
+    const keepalive = payloadStr.length < 60_000
 
     onProgress?.(`Consultando Gemini (${currentModel})...`, 'info')
 
@@ -353,9 +368,24 @@ export async function analyzeWithGemini(
     const versionsToTry = ['v1beta', 'v1']
 
     for (const apiVer of versionsToTry) {
+      if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
+
       const endpoint = `https://generativelanguage.googleapis.com/${apiVer}/models/${currentModel}:generateContent?key=${encodeURIComponent(key)}`
 
       const controller = new AbortController()
+      const onSignalAbort = () => {
+        try {
+          controller.abort(new Error('Operação cancelada pelo usuário.'))
+        } catch {
+          controller.abort()
+        }
+      }
+
+      if (signal) {
+        if (signal.aborted) throw new Error('Operação cancelada pelo usuário.')
+        signal.addEventListener('abort', onSignalAbort, { once: true })
+      }
+
       const timeoutId = setTimeout(() => {
         try {
           controller.abort(new Error(`Timeout de 18s excedido na API Gemini (${currentModel}). Servidor demorou a responder.`))
@@ -371,11 +401,13 @@ export async function analyzeWithGemini(
             'Content-Type': 'application/json',
             'x-goog-api-key': key,
           },
-          body: JSON.stringify(payload),
+          body: payloadStr,
           signal: controller.signal,
+          keepalive,
         })
 
         clearTimeout(timeoutId)
+        signal?.removeEventListener('abort', onSignalAbort)
 
         if (!response.ok) {
           const errorText = await response.text()
@@ -424,8 +456,14 @@ export async function analyzeWithGemini(
         return { plan: parsedPlan, rawUsage: data.usageMetadata, usedModel: currentModel }
       } catch (err) {
         clearTimeout(timeoutId)
+        signal?.removeEventListener('abort', onSignalAbort)
+
+        if (signal?.aborted) {
+          throw new Error('Operação cancelada pelo usuário.')
+        }
+
         if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted') || err.message.includes('Timeout'))) {
-          lastError = new Error(`Timeout de 9s excedido na API Gemini (${currentModel}). Sem resposta imediata.`)
+          lastError = new Error(`Timeout de 18s excedido na API Gemini (${currentModel}). Sem resposta imediata.`)
         } else {
           lastError = err as Error
         }
@@ -441,6 +479,8 @@ export async function analyzeWithGemini(
         }
       }
     }
+
+    if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
 
     // Se falhou em ambas as versões de API para este modelo
     const isRateLimit = lastError.message.includes('429') || lastError.message.includes('cota')

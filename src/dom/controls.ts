@@ -164,7 +164,7 @@ export function easyQuizId(element: HTMLElement): string {
   return id
 }
 
-export function isInsideEasyQuiz(el: HTMLElement | null): boolean {
+export function isInsideEasyQuiz(el: Element | null): boolean {
   if (!el) return false
   return Boolean(
     el.closest(
@@ -173,13 +173,69 @@ export function isInsideEasyQuiz(el: HTMLElement | null): boolean {
   )
 }
 
-export function isNavigationControl(element: HTMLElement): boolean {
-  if (!element || !(element instanceof Element)) return false
-  if (isInsideEasyQuiz(element)) return false
-  // Botões de navegação da prova nunca ficam no cabeçalho ou barra de topo do site
-  if (element.closest('header, nav, aside')) return false
+export const UTILITY_CONTROL_PATTERN =
+  /(leaderboard|scoreboard|placar|ranking|trophy|pause|pausar|mute|volume|audio|sound|som|música|music|configuraç|settings|theme|ajuda|help|report|denunciar|feedback|power-?up|streak|coins|fullscreen|full-screen)/i
 
-  const rawValue = element instanceof HTMLInputElement || element instanceof HTMLButtonElement ? element.value : ''
+export function isUtilityOrGamificationControl(element: Element | null): boolean {
+  if (!element || typeof (element as any).getAttribute !== 'function') return false
+  if (typeof Element !== 'undefined' && !(element instanceof Element)) return false
+  if (isInsideEasyQuiz(element)) return true
+
+  const target = element.closest?.(
+    'button, a, [role="button"], [class*="leaderboard" i], [data-testid*="leaderboard" i], [class*="scoreboard" i], [class*="trophy" i]',
+  )
+  const el = target || element
+
+  const testId = String(
+    el.getAttribute?.('data-testid') ||
+      el.getAttribute?.('data-test-id') ||
+      el.getAttribute?.('id') ||
+      '',
+  )
+  const aria = String(el.getAttribute?.('aria-label') || '')
+  const title = String(el.getAttribute?.('title') || '')
+  const className = typeof el.className === 'string' ? el.className : (typeof (el as any).className?.baseVal === 'string' ? (el as any).className.baseVal : '')
+  const text = cleanText(el.textContent, 60)
+
+  if (
+    UTILITY_CONTROL_PATTERN.test(testId) ||
+    UTILITY_CONTROL_PATTERN.test(aria) ||
+    UTILITY_CONTROL_PATTERN.test(title) ||
+    UTILITY_CONTROL_PATTERN.test(className)
+  ) {
+    return true
+  }
+
+  if (text.length > 0 && text.length <= 25 && UTILITY_CONTROL_PATTERN.test(text)) {
+    return true
+  }
+
+  return false
+}
+
+export function isNavigationControl(element: Element | null): boolean {
+  if (!element || typeof (element as any).getAttribute !== 'function') return false
+  if (typeof Element !== 'undefined' && !(element instanceof Element)) return false
+  if (isInsideEasyQuiz(element)) return false
+  if (isUtilityOrGamificationControl(element)) return false
+
+  // Se o elemento é uma opção/alternativa de resposta (card, choice, option), NUNCA é controle de navegação
+  if (
+    element.closest?.(
+      '.option-card, .choice-card, .quiz-option, [class*="option-card" i], [class*="choice-card" i], [class*="option-item" i], [class*="choice-item" i], [class*="answer-item" i], [data-testid*="option" i], [data-testid*="choice" i], [data-choice], [data-option], [data-answer], [role="radio"], [role="checkbox"], [role="option"]',
+    )
+  ) {
+    return false
+  }
+
+  // Botões de navegação da prova nunca ficam no cabeçalho ou barra de topo do site
+  if (element.closest?.('header, nav, aside')) return false
+
+  const rawValue =
+    (typeof HTMLInputElement !== 'undefined' && element instanceof HTMLInputElement) ||
+    (typeof HTMLButtonElement !== 'undefined' && element instanceof HTMLButtonElement)
+      ? (element as any).value
+      : ''
   const text = cleanText(
     element.getAttribute?.('aria-label') ||
       element.textContent ||
@@ -266,7 +322,8 @@ export function labelForControl(element: HTMLElement): string {
 }
 
 export function describeControl(element: HTMLElement, role: 'answer' | 'navigation'): ControlDescriptor {
-  const select = element instanceof HTMLSelectElement ? element : null
+  const isSelect = (typeof HTMLSelectElement !== 'undefined' && element instanceof HTMLSelectElement) || element.tagName.toLowerCase() === 'select'
+  const select = isSelect ? (element as any) : null
   const input = element as HTMLInputElement
   element.dataset.easyquizRole = role
 
@@ -306,18 +363,15 @@ export function describeControl(element: HTMLElement, role: 'answer' | 'navigati
     // Botões e links de navegação NÃO possuem valor de preenchimento de formulário!
     currentValue = ''
   } else {
-    const rawVal =
-      element instanceof HTMLInputElement ||
-      element instanceof HTMLTextAreaElement ||
-      element instanceof HTMLSelectElement
-        ? element.value
-        : ''
+    const rawVal = typeof (element as any).value === 'string' || typeof (element as any).value === 'number'
+      ? (element as any).value
+      : ''
     currentValue = cleanText(rawVal || element.getAttribute('data-category') || '', 2000)
   }
 
   const options: Array<{ value: string; label: string }> = []
-  if (select) {
-    for (const option of Array.from(select.options).slice(0, 80)) {
+  if (select && select.options) {
+    for (const option of Array.from(select.options as HTMLCollectionOf<HTMLOptionElement>).slice(0, 80)) {
       options.push({
         value: cleanText(option.value),
         label: cleanText(option.textContent),

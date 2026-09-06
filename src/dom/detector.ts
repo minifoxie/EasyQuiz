@@ -4,6 +4,7 @@ import {
   CONTROL_SELECTOR,
   describeControl,
   isNavigationControl,
+  isUtilityOrGamificationControl,
   isVisible,
 } from './controls'
 
@@ -205,7 +206,7 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
 
   // 1ª passada: inputs nativos e selects
   for (const el of allElements) {
-    if (!isVisible(el) || isNavigationControl(el)) continue
+    if (!isVisible(el) || isNavigationControl(el) || isUtilityOrGamificationControl(el)) continue
     const tag = el.tagName.toLowerCase()
 
     if (['input', 'textarea', 'select'].includes(tag)) {
@@ -216,7 +217,7 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
 
   // 2ª passada: cards, labels e botões que representam opções customizadas (sem input interno já coletado)
   for (const el of allElements) {
-    if (!isVisible(el) || isNavigationControl(el)) continue
+    if (!isVisible(el) || isNavigationControl(el) || isUtilityOrGamificationControl(el)) continue
     const tag = el.tagName.toLowerCase()
 
     if (['input', 'textarea', 'select'].includes(tag)) continue
@@ -259,7 +260,7 @@ export function extractNavigationControls(scope: HTMLElement): ControlDescriptor
 
   for (const root of roots) {
     for (const el of Array.from(root.querySelectorAll(CONTROL_SELECTOR)) as HTMLElement[]) {
-      if (seen.has(el) || !isVisible(el) || !isNavigationControl(el)) continue
+      if (seen.has(el) || !isVisible(el) || !isNavigationControl(el) || isUtilityOrGamificationControl(el)) continue
       seen.add(el)
       controls.push(describeControl(el, 'navigation'))
       if (controls.length >= 10) return controls

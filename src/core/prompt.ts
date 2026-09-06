@@ -27,6 +27,10 @@ RACIOCÍNIO E CÁLCULO EXATO (rationale):
   - Avalie cada afirmação/opção individualmente; marque com chk (c: true) EXCLUSIVAMENTE as que forem comprovadamente verdadeiras.
   - NUNCA marque ou inclua ações para alternativas incorretas/falsas.
 - Para escolha única (rádio): marque com clk ou chk apenas a alternativa correta.
+- Para imagens e gráficos (anexados em [IMAGENS E GRÁFICOS ANEXADOS]):
+  - Analise detalhadamente curvas, eixos cartesianos, vértices, coordenadas numéricas e geometria.
+  - Cada anexo visual traz explicitamente seu vínculo (Enunciado ou Alternativa correspondente).
+  - Compare as figuras de cada alternativa contra a condição do enunciado e selecione a alternativa cujo gráfico é matematicamente idêntico ou satisfaz a questão.
 
 AÇÕES (actions):
 val: preencher input/textarea (v: texto ou número exato da resposta)
@@ -112,7 +116,17 @@ ${
     : 'Nenhuma'
 }
 
-[IMAGENS]: ${images.length}
+[IMAGENS E GRÁFICOS ANEXADOS (${images.length})]:
+${
+  images.length > 0
+    ? images
+        .map(
+          (img, idx) =>
+            `  - Imagem ${idx + 1}: ${img.associatedLabel || 'Gráfico da Questão'}${img.alt ? ` (Texto alt: "${img.alt}")` : ''}`,
+        )
+        .join('\n')
+    : 'Nenhum anexo visual.'
+}
 [/DADOS]
 Saída em JSON válido.`
 }

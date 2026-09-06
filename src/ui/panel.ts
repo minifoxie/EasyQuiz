@@ -8,10 +8,11 @@ import { ICONS } from './icons'
 import { PANEL_STYLES } from './styles'
 
 export interface PanelCallbacks {
-  onAnalyze: (attempt?: number) => Promise<AnalysisPlan | void>
+  onAnalyze: (attempt?: number, signal?: AbortSignal) => Promise<AnalysisPlan | void>
   onApply: (attempt?: number) => void
   onDestroy: () => void
   onSettingsChange: (settings: Partial<EasyQuizSettings>) => void
+  onCancel?: () => void
 }
 
 const RESPONSE_MODE_LABELS: Array<{ value: '' | ResponseMode; label: string }> = [
@@ -138,9 +139,9 @@ export class EasyQuizPanel {
           this.setBusy(false)
         }
       },
-      onRequestAnalysis: async (attempt?: number) => {
+      onRequestAnalysis: async (attempt?: number, signal?: AbortSignal) => {
         try {
-          const plan = await this.callbacks.onAnalyze(attempt)
+          const plan = await this.callbacks.onAnalyze(attempt, signal)
           return plan || null
         } catch {
           return null
@@ -955,10 +956,13 @@ export class EasyQuizPanel {
     this.apToggleBtn.addEventListener('click', () => {
       if (this.autopilot.isActive()) {
         this.autopilot.stop()
+        this.callbacks.onCancel?.()
+        this.setBusy(false)
+        this.setProgress(0)
         this.apToggleBtn.innerHTML = `${ICONS.play} INICIAR AUTOPILOT`
         this.apToggleBtn.classList.remove('danger')
         this.stopStopwatch()
-        this.setStatus('Autopilot pausado pelo usuário.', 'info')
+        this.setStatus('Autopilot interrompido imediatamente pelo usuário.', 'info')
       } else {
         const key = this.apiKeyInput.value.trim().replace(/^["']|["']$/g, '')
         if (!key) {

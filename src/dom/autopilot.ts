@@ -7,7 +7,7 @@ export type AutopilotStatus = 'idle' | 'waiting' | 'analyzing' | 'advancing' | '
 
 export interface AutopilotCallbacks {
   onStatusChange: (status: AutopilotStatus, message: string, colorClass?: string) => void
-  onRequestAnalysis: (attempt?: number) => Promise<AnalysisPlan | null>
+  onRequestAnalysis: (attempt?: number, signal?: AbortSignal) => Promise<AnalysisPlan | null>
   isManualModeActive?: () => boolean
   onPageAdvance?: () => void
 }
@@ -21,6 +21,7 @@ export class Autopilot {
   private isProcessing = false
   private observer: MutationObserver | null = null
   private mutationTimer: number | null = null
+  private abortController: AbortController | null = null
 
   constructor(callbacks: AutopilotCallbacks) {
     this.callbacks = callbacks
@@ -51,12 +52,34 @@ export class Autopilot {
 
   public stop() {
     this.active = false
+    if (this.abortController) {
+      try {
+        this.abortController.abort()
+      } catch {}
+      this.abortController = null
+    }
     if (this.timer) clearTimeout(this.timer)
     if (this.mutationTimer) clearTimeout(this.mutationTimer)
     this.mutationTimer = null
     this.observer?.disconnect()
     this.observer = null
-    this.callbacks.onStatusChange('idle', '> [SYS] Autopilot DESATIVADO.')
+    this.isProcessing = false
+    this.callbacks.onStatusChange('idle', '> [SYS] Autopilot DESATIVADO pelo usuário.', 'text-yellow')
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      if (!this.active) return resolve()
+      let timeoutId: number | null = null
+      const onAbort = () => {
+        if (timeoutId) clearTimeout(timeoutId)
+        resolve()
+      }
+      timeoutId = window.setTimeout(() => {
+        resolve()
+      }, ms)
+      this.abortController?.signal.addEventListener('abort', onAbort, { once: true })
+    })
   }
 
   private errorCount = 0
@@ -78,11 +101,14 @@ export class Autopilot {
 
     try {
       this.isProcessing = true
+      if (!this.active) return
       
       let context = captureCurrentContext(false)
       if (!context) {
         context = captureFullPageText()
       }
+
+      if (!this.active) return
 
       if (context) {
         const currentSig = createContextSignature(context)
@@ -120,7 +146,8 @@ export class Autopilot {
             `> [AUTOPILOT] Resolução pendente (${this.samePageCount}ª verificação). Conclua e avance para prosseguir...`,
             'text-yellow',
           )
-          await new Promise((r) => setTimeout(r, 4000))
+          await this.sleep(4000)
+          if (!this.active) return
         }
 
         const answerControls = context.controls.filter((c) => c.role === 'answer')
@@ -129,8 +156,14 @@ export class Autopilot {
         if (answerControls.length > 0) {
           // TEM QUESTÃO / EXERCÍCIO NA TELA (Múltipla escolha, texto, categorização, arrastar-soltar)
           this.callbacks.onStatusChange('analyzing', '> [IA] Questão/Exercício detectado. Consultando IA...', 'text-blue')
-          await new Promise((r) => setTimeout(r, 600))
-          const plan = await this.callbacks.onRequestAnalysis(this.samePageCount)
+          await this.sleep(600)
+          if (!this.active) return
+
+          this.abortController = new AbortController()
+          const plan = await this.callbacks.onRequestAnalysis(this.samePageCount, this.abortController.signal)
+          this.abortController = null
+          if (!this.active) return
+
           if (plan) {
             this.callbacks.onStatusChange(
               'analyzing',
@@ -158,7 +191,7 @@ export class Autopilot {
               `> [AVISO] Falha na análise (${this.errorCount}/3). Aguardando ${cooldown / 1000}s para estabilização antes de tentar novamente...`,
               'text-yellow',
             )
-            await new Promise((r) => setTimeout(r, cooldown))
+            await this.sleep(cooldown)
           }
           this.lastActionTime = Date.now()
         } else if (cache.advanceSelector && findElementExt(cache.advanceSelector) && context.questionText.length < 50) {
@@ -166,7 +199,8 @@ export class Autopilot {
           const btn = findElementExt(cache.advanceSelector)
           if (btn) {
             this.callbacks.onStatusChange('advancing', `> [BRUTE] Avançando via cache "${cache.advanceSelector}"...`)
-            await new Promise((r) => setTimeout(r, 1000))
+            await this.sleep(1000)
+            if (!this.active) return
             simulatePointerClick(btn)
             this.lastActionTime = Date.now()
             this.errorCount = 0
@@ -178,8 +212,14 @@ export class Autopilot {
             '> [IA] Página informativa/contexto detectada. Lendo e consultando IA...',
             'text-blue',
           )
-          await new Promise((r) => setTimeout(r, 600))
-          const plan = await this.callbacks.onRequestAnalysis(this.samePageCount)
+          await this.sleep(600)
+          if (!this.active) return
+
+          this.abortController = new AbortController()
+          const plan = await this.callbacks.onRequestAnalysis(this.samePageCount, this.abortController.signal)
+          this.abortController = null
+          if (!this.active) return
+
           if (plan) {
             this.callbacks.onStatusChange(
               'analyzing',
@@ -194,10 +234,10 @@ export class Autopilot {
 
             if (plan.pageType === 'info') {
               this.callbacks.onStatusChange('advancing', '> [IA] 📖 Leitura concluída. Avançando automaticamente...', 'text-green')
-              await new Promise((r) => setTimeout(r, 1800))
+              await this.sleep(1800)
             } else if (plan.pageType === 'start') {
               this.callbacks.onStatusChange('advancing', '> [SYS] Início de módulo detectado. Iniciando...', 'text-blue')
-              await new Promise((r) => setTimeout(r, 1800))
+              await this.sleep(1800)
             } else if (plan.pageType === 'conclusion') {
               this.callbacks.onStatusChange('idle', '> [SYS] Atividade concluída! Desligando Autopilot.', 'text-green')
               this.stop()
@@ -212,7 +252,7 @@ export class Autopilot {
               `> [AVISO] Falha ao processar página (${this.errorCount}/3). Aguardando ${cooldown / 1000}s para estabilização antes de tentar novamente...`,
               'text-yellow',
             )
-            await new Promise((r) => setTimeout(r, cooldown))
+            await this.sleep(cooldown)
           }
           this.lastActionTime = Date.now()
         }
@@ -238,10 +278,13 @@ export class Autopilot {
         )
       }
     } catch (err) {
+      if (!this.active) return
       const errText = err instanceof Error ? err.message : String(err)
+      if (errText.includes('cancelada') || errText.includes('aborted')) return
       console.warn('[EasyQuiz Autopilot]', err)
       this.callbacks.onStatusChange('error', `> [ERRO NO AUTOPILOT] ${errText}`, 'text-red')
     } finally {
+      this.abortController = null
       this.isProcessing = false
     }
     

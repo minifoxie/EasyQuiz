@@ -43,6 +43,8 @@ export interface CapturedImage {
   base64: string
   alt: string
   source: string
+  associatedLabel?: string
+  targetControlId?: string
 }
 
 // Comandos declarativos minificados para economizar tokens:
