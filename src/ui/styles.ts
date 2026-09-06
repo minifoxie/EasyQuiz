@@ -1135,6 +1135,46 @@ export const PANEL_STYLES = `
 
   .eq-fah-copy-inline:hover {
     background: var(--eq-surface-hover);
+    color: #fff;
+  }
+
+  .eq-fah-letter-badge {
+    background: var(--eq-accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .eq-fah-field-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .eq-fah-field-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--eq-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .eq-fah-field-val {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--eq-text-bright);
+    background: var(--eq-surface);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--eq-border);
+    word-break: break-word;
   }
 
   .eq-fah-rationale {

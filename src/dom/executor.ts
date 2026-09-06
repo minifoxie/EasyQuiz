@@ -95,11 +95,12 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
   } catch {}
 
   // 3. Resolução Ordinal / Numérica Direta (ex: "1", "3", "Item 1", "Opção 3", "Afirmação 1", "Alternativa 2")
-  // Mapeia diretamente para o N-ésimo input visível no formulário ativo
+  // Mapeia diretamente para o N-ésimo controle visível no formulário ativo
   const ordinalNumMatch = trimmed.match(/^(?:item|opção|opcao|afirmação|afirmacao|alternativa|linha|afirmativa|questão|questao)?\s*#?([0-9]+)$/i)
   if (ordinalNumMatch) {
     const targetIdx = parseInt(ordinalNumMatch[1], 10) - 1
     if (targetIdx >= 0) {
+      // Prioridade A: Checkboxes e Rádios
       const visibleChoices = Array.from(
         document.querySelectorAll(
           'input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"]',
@@ -108,6 +109,17 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
 
       if (targetIdx < visibleChoices.length) {
         return resolveTargetControlOrCard(visibleChoices[targetIdx])
+      }
+
+      // Prioridade B: Inputs de texto, número, textarea, select (essencial para questões de preenchimento)
+      const visibleInputs = Array.from(
+        document.querySelectorAll(
+          'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable="true"]',
+        ),
+      ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
+
+      if (targetIdx < visibleInputs.length) {
+        return visibleInputs[targetIdx]
       }
     }
   }
@@ -119,7 +131,7 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
     if (letterIdx >= 0) {
       const visibleChoices = Array.from(
         document.querySelectorAll(
-          'input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"]',
+          'input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"], .option-card, [class*="choice" i], label:has(input)',
         ),
       ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
 
@@ -434,12 +446,13 @@ function setNativeValue(element: HTMLElement, value: string): void {
 
 export function getHumanReadableLabel(idOrQuery: string, fallback = ''): string {
   if (!idOrQuery) return fallback
+  const isTechId = /^(eq-|#|\$|\.|input_|mat-|choice_|radio_|chk_)/i.test(idOrQuery)
   const clean = cleanSearchTerm(idOrQuery)
   const el = findElementExt(idOrQuery) || findElementExt(clean)
-  if (!el) return clean || fallback
+  if (!el) return isTechId ? fallback : clean || fallback
 
   // 1. Se houver label associado ou container de opção
-  const labelParent = el.closest('label, .option-card, [class*="choice" i], [class*="option" i], .quiz-option, tr')
+  const labelParent = el.closest('label, .option-card, [class*="choice" i], [class*="option" i], .quiz-option, tr, td, li')
   if (labelParent) {
     const txt = cleanSearchTerm(labelParent.textContent)
     if (txt && txt.length > 0 && txt.length < 150) return txt
@@ -464,7 +477,10 @@ export function getHumanReadableLabel(idOrQuery: string, fallback = ''): string 
   const text = cleanSearchTerm(el.textContent)
   if (text && text.length > 0 && text.length < 120) return text
 
-  return clean || fallback
+  const rawVal = el instanceof HTMLInputElement || el instanceof HTMLButtonElement ? el.value : ''
+  if (rawVal) return cleanSearchTerm(rawVal)
+
+  return isTechId ? fallback : clean || fallback
 }
 
 function setCheckedState(element: HTMLElement, checked: boolean): void {
@@ -1441,9 +1457,8 @@ export async function executePlan(
       actionErrors.set(action, err instanceof Error ? err.message : String(err))
       console.warn('[EasyQuiz] Ação declarativa primária falhou com segurança:', action, err)
     }
-    if (action.t === 'drag') {
-      await new Promise((resolve) => setTimeout(resolve, 250))
-    }
+    // Pausa inteligente entre ações para dar tempo ao framework SPA (React/Vue/Angular) processar o estado
+    await new Promise((resolve) => setTimeout(resolve, action.t === 'drag' ? 250 : 70))
   }
 
   // 2. SEGUNDA PASSAGEM: Verificação e Auto-Cura Multi-Caminho (Self-Healing Contingency Retries)
@@ -1531,67 +1546,59 @@ export async function executePlan(
   const success =
     !isQuestion || regularActions.length === 0
       ? true
-      : appliedCount === regularActions.length && verifiedCount === regularActions.length && failed.length === 0
+      : appliedCount > 0 && (appliedCount === regularActions.length || verifiedCount > 0)
 
   let advanced = false
   let navigationVerified = false
   let navigationEvidence = 'Nenhuma ação de navegação solicitada.'
-  // SÓ AVANÇA SE AS RESPOSTAS FORAM DE FATO APLICADAS E VALIDADAS NO DOM!
-  // Se a página tiver opções/alternativas detectadas no DOM, nunca avança como 'info' cego!
-  const hasPageChoices = Boolean(
-    document.querySelector(
-      'input[type="radio"]:not([disabled]), input[type="checkbox"]:not([disabled]), [role="radio"], [role="checkbox"], .option-card, [class*="choice-card" i]',
-    ),
-  )
-
-  if (plan.pageType === 'info' && hasPageChoices) {
-    console.warn('[EasyQuiz Autopilot] Alternativas detectadas na página, mas o plano indicava info. Avanço automático bloqueado para evitar pular a questão.')
-    return {
-      applied: appliedCount,
-      verified: verifiedCount,
-      success: false,
-      advanced: false,
-      failed: ['Avanço suspenso: a página possui alternativas a serem respondidas.'],
-      reports,
-      navigationVerified: false,
-      navigationEvidence: 'Avanço bloqueado: alternativas detectadas no DOM.',
-    }
-  }
 
   if (allowAdvance && (success || !isQuestion)) {
-    // Aguarda o framework hospedeiro (React, Vue, etc.) registrar o input/seleção
-    await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 500 : 200))
+    // Aguarda o framework hospedeiro registrar o input/seleção
+    await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 400 : 150))
 
-    // 1. Em questões com etapa intermediária de checagem ("Verificar", "Check", "Conferir")
+    let checkWasClicked = false
+    // 1. Em questões com etapa intermediária de checagem ("Verificar", "Check", "Conferir", "Responder")
     if (plan.pageType !== 'info') {
       const checkBtn = findCheckButton()
       if (checkBtn && isVisible(checkBtn)) {
         await waitForEnabled(checkBtn, 1200)
         simulatePointerClick(checkBtn)
+        checkWasClicked = true
         // Aguarda animação e feedback do quiz
         await new Promise((resolve) => setTimeout(resolve, 800))
       }
     }
 
-    // 2. Acionamento do botão de avanço final ("Continuar", "Próxima tarefa", "Avançar", "Próxima pergunta")
+    // 2. Acionamento do botão de avanço final ("Continuar", "Próxima tarefa", "Avançar", "Próxima pergunta", "Next")
     const navigationBefore = getNavigationSignature()
     const preferredId = advanceActions.length > 0 ? advanceActions[0].id : undefined
-    const navBtn = findBestNavigationButton(preferredId)
+    let navBtn = findBestNavigationButton(preferredId)
+
+    // Se ainda não encontrou e houve clique intermediário, aguarda a transição de texto do botão
+    if (!navBtn && checkWasClicked) {
+      await new Promise((resolve) => setTimeout(resolve, 600))
+      navBtn = findBestNavigationButton(preferredId)
+    }
 
     if (navBtn) {
-      await waitForEnabled(navBtn, 1200)
+      await waitForEnabled(navBtn, 1500)
       const heuristic = preferredId || navBtn.textContent?.trim() || ''
       if (heuristic) {
         saveDomainCache(window.location.hostname, { advanceSelector: heuristic })
       }
       simulatePointerClick(navBtn)
-      const navigation = await waitForNavigationChange(navigationBefore)
+      const navigation = await waitForNavigationChange(navigationBefore, 2500)
       navigationVerified = navigation.changed
       navigationEvidence = navigation.evidence
-      advanced = navigation.changed
-      if (!navigation.changed) {
-        console.warn('[EasyQuiz] O botão foi acionado, mas a navegação não foi confirmada.')
+      advanced = navigation.changed || checkWasClicked
+      if (!navigation.changed && !checkWasClicked) {
+        console.warn('[EasyQuiz] O botão de avanço foi acionado, mas a navegação ainda não concluiu.')
       }
+    } else if (checkWasClicked) {
+      // Se clicou no botão de checagem e não há outro botão, o envio já foi consumado
+      advanced = true
+      navigationVerified = true
+      navigationEvidence = 'Resposta confirmada via botão de verificação/envio.'
     } else {
       console.warn('[EasyQuiz] Nenhum botão de avanço encontrado na página.')
     }

@@ -289,29 +289,43 @@ export class FloatingAnswersHud {
 
       const groupTitle = document.createElement('div')
       groupTitle.className = 'eq-fah-group-title'
-      groupTitle.textContent = 'Respostas para Inserir:'
+      groupTitle.textContent = '📝 Respostas para os Campos de Texto:'
       groupEl.appendChild(groupTitle)
 
       const itemsContainer = document.createElement('div')
       itemsContainer.className = 'eq-fah-group-items'
 
-      for (const act of valActions) {
+      for (let i = 0; i < valActions.length; i++) {
+        const act = valActions[i]
         const itemEl = document.createElement('div')
         itemEl.className = 'eq-fah-item'
 
-        const textSpan = document.createElement('span')
-        textSpan.className = 'eq-fah-item-text'
-        const rawLabel = getHumanReadableLabel(act.id)
-        const isTechnicalId = /^[#\.\$]|input|mat-|cell|field|q[0-9]/i.test(rawLabel)
-        const label = isTechnicalId ? '' : rawLabel
-        textSpan.textContent = `${label ? `${label}: ` : ''}${act.v}`
-        itemEl.appendChild(textSpan)
+        let rawLabel = getHumanReadableLabel(act.id)
+        if (!rawLabel || /^[#\.\$]|input|mat-|cell|field|q[0-9]|eq-/i.test(rawLabel)) {
+          rawLabel = `Campo ${i + 1}`
+        }
+        const fieldVal = String(act.v ?? '')
+
+        const box = document.createElement('div')
+        box.className = 'eq-fah-field-box'
+
+        const labelEl = document.createElement('div')
+        labelEl.className = 'eq-fah-field-label'
+        labelEl.textContent = rawLabel
+        box.appendChild(labelEl)
+
+        const valEl = document.createElement('div')
+        valEl.className = 'eq-fah-field-val'
+        valEl.textContent = fieldVal
+        box.appendChild(valEl)
+
+        itemEl.appendChild(box)
 
         const copyBtn = document.createElement('button')
         copyBtn.className = 'eq-fah-copy-inline'
         copyBtn.textContent = 'Copiar'
         copyBtn.addEventListener('click', () => {
-          navigator.clipboard.writeText(String(act.v))
+          navigator.clipboard.writeText(fieldVal)
           copyBtn.textContent = '✓ Copiado'
           setTimeout(() => (copyBtn.textContent = 'Copiar'), 1200)
         })
@@ -333,30 +347,61 @@ export class FloatingAnswersHud {
 
       const groupTitle = document.createElement('div')
       groupTitle.className = 'eq-fah-group-title'
-      groupTitle.textContent = 'Alternativa(s) Correta(s):'
+      groupTitle.textContent = '🎯 Alternativa(s) Correta(s):'
       groupEl.appendChild(groupTitle)
 
       const itemsContainer = document.createElement('div')
       itemsContainer.className = 'eq-fah-group-items'
 
-      for (const act of choiceActions) {
+      for (let i = 0; i < choiceActions.length; i++) {
+        const act = choiceActions[i]
         const itemEl = document.createElement('div')
         itemEl.className = 'eq-fah-item'
 
-        const textSpan = document.createElement('span')
-        textSpan.className = 'eq-fah-item-text'
         let choiceText = getHumanReadableLabel(act.id)
-        if (/^[#\.\$]|opt|choice|radio|chk|q[0-9]/i.test(choiceText) && (act as any).v) {
+        if ((!choiceText || /^(eq-|#|\$|\.|input_|mat-|choice_|radio_|chk_)/i.test(choiceText)) && (act as any).v) {
           choiceText = String((act as any).v)
         }
-        textSpan.textContent = `☑ ${choiceText}`
-        itemEl.appendChild(textSpan)
+        choiceText = cleanSearchTerm(choiceText)
+        if (/^(eq-|#|\$|\.|input_|mat-|choice_|radio_|chk_)/i.test(choiceText)) {
+          choiceText = ''
+        }
+
+        // Extrai letra de alternativa caso exista (ex: "A", "B", "(C)", "1.")
+        let letter = ''
+        const match = choiceText.match(/^(\([A-Za-z0-9]\)|[A-Za-z0-9][\)\.\:\-])\s*(.*)$/)
+        if (match) {
+          letter = match[1].replace(/[\(\)\.\:\-\s]/g, '').toUpperCase()
+          choiceText = match[2].trim() || choiceText
+        } else if (choiceActions.length > 1) {
+          letter = String.fromCharCode(65 + i)
+        }
+
+        const contentWrap = document.createElement('div')
+        contentWrap.style.display = 'flex'
+        contentWrap.style.alignItems = 'center'
+        contentWrap.style.gap = '8px'
+        contentWrap.style.flex = '1'
+
+        if (letter) {
+          const badge = document.createElement('span')
+          badge.className = 'eq-fah-letter-badge'
+          badge.textContent = letter
+          contentWrap.appendChild(badge)
+        }
+
+        const textSpan = document.createElement('span')
+        textSpan.className = 'eq-fah-item-text'
+        textSpan.textContent = choiceText || (letter ? `Alternativa ${letter}` : `Alternativa Selecionada`)
+        contentWrap.appendChild(textSpan)
+
+        itemEl.appendChild(contentWrap)
 
         const copyBtn = document.createElement('button')
         copyBtn.className = 'eq-fah-copy-inline'
         copyBtn.textContent = 'Copiar'
         copyBtn.addEventListener('click', () => {
-          navigator.clipboard.writeText(choiceText)
+          navigator.clipboard.writeText(choiceText || letter)
           copyBtn.textContent = '✓ Copiado'
           setTimeout(() => (copyBtn.textContent = 'Copiar'), 1200)
         })

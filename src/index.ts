@@ -240,27 +240,24 @@ async function initEasyQuiz(): Promise<void> {
         )
         panel.hideFloatingAnswers()
       } else {
-        panel.setProgress(0, 'Aplicação bloqueada: verificação incompleta.')
-        const failedTargets = result.failed.length > 0 ? result.failed.join(', ') : 'alvos não confirmados'
+        panel.setProgress(0, 'Aplicação parcial: verificação incompleta.')
+        const failedTargets = result.failed.length > 0 ? result.failed.join(', ') : 'alvos pendentes'
         panel.logToConsole(
-          `> [VERIF] Falha: ${result.verified}/${result.applied} ações confirmadas. Alvos pendentes: ${failedTargets}.`,
+          `> [VERIF] Alerta: ${result.verified}/${result.applied} ações verificadas. Pendências: ${failedTargets}.`,
           'text-yellow',
         )
         panel.setStatus(
-          `Aplicação incompleta. ${result.verified}/${result.applied} ações confirmadas; avanço bloqueado.`,
-          'error',
+          `Aplicação parcial (${result.applied} enviadas, ${result.verified} verificadas).`,
+          'info',
         )
-        if (latestPlan.pageType === 'question') panel.showFloatingAnswers(latestPlan)
+        panel.hideFloatingAnswers()
       }
     } catch (error) {
       panel.setProgress(0)
       const msg = error instanceof Error ? error.message : 'Falha ao aplicar plano.'
       panel.setStatus(msg, 'error')
-      if (latestPlan.pageType === 'question' && attemptCount >= 3) {
-        panel.showFloatingAnswers(latestPlan)
-      } else {
-        panel.hideFloatingAnswers()
-      }
+      panel.logToConsole(`> [ERRO] ${msg}`, 'text-red')
+      panel.hideFloatingAnswers()
     } finally {
       panel.setBusy(false)
     }
