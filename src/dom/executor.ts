@@ -1,7 +1,7 @@
 import type { ActionExecutionReport, AnalysisPlan, DeclarativeAction } from '../core/types'
 import { assertActionAllowed, createExecutionPolicy, validateJavaScriptSource, type ExecutionPolicy } from '../core/policy'
 import { loadDomainCache, saveDomainCache } from '../core/storage'
-import { cleanText, isNavigationControl, isVisible, NAVIGATION_PATTERN } from './controls'
+import { cleanText, isNavigationControl, isVisible, labelForControl, NAVIGATION_PATTERN, safeCssEscape } from './controls'
 import { findActiveScope } from './detector'
 
 export function isInsideEasyQuiz(el: HTMLElement | null): boolean {
@@ -13,9 +13,10 @@ export function isInsideEasyQuiz(el: HTMLElement | null): boolean {
   )
 }
 
-export function cleanSearchTerm(term: string): string {
-  if (!term) return ''
-  return term
+export function cleanSearchTerm(term: unknown): string {
+  if (term === null || term === undefined) return ''
+  const str = typeof term === 'string' ? term : String(term)
+  return str
     // Remove prefixos estritos de numeração de questão/alternativa como "1. ", "2) ", "1 - ", "A) ", "(A) ", "A: "
     .replace(/^(\([0-9a-zA-Z]{1,2}\)|[0-9]{1,3}|[a-zA-Z])[\.\)\-\:]\s+/, '')
     .replace(/[\.\u2026]{2,}/g, ' ') // Remove reticências como "..." ou "…"
@@ -111,13 +112,14 @@ export function getDistinctVisibleChoices(scopeRoot?: HTMLElement): HTMLElement[
 }
 
 // ---- MOTOR DE BUSCA ROBUSTA DE ELEMENTOS ----
-export function findElementExt(idOrLabel: string, valueHint?: string): HTMLElement | null {
-  if (!idOrLabel) return null
-  const trimmed = idOrLabel.trim().replace(/^["'“”«»]+|["'“”«»]+$/g, '')
+export function findElementExt(idOrLabel: unknown, valueHint?: string, preferInput = false): HTMLElement | null {
+  if (idOrLabel === null || idOrLabel === undefined) return null
+  const rawStr = typeof idOrLabel === 'string' ? idOrLabel : String(idOrLabel)
+  const trimmed = rawStr.trim().replace(/^["'“”«»]+|["'“”«»]+$/g, '')
   if (!trimmed) return null
 
   // 1. Tenta por ID estrito gerado pelo EasyQuiz (garantindo visibilidade)
-  const escaped = CSS.escape(trimmed)
+  const escaped = safeCssEscape(trimmed)
   let el = document.querySelector(`[data-easyquiz-id="${escaped}"]`) as HTMLElement | null
   if (el && !isInsideEasyQuiz(el) && isVisible(el)) return resolveTargetControlOrCard(el)
 
@@ -133,10 +135,28 @@ export function findElementExt(idOrLabel: string, valueHint?: string): HTMLEleme
   // 3. Resolução Ordinal / Numérica Direta (ex: "1", "3", "Item 1", "Campo 2", "Opção 3", "Afirmação 1", "Alternativa 2")
   // Mapeia diretamente para o N-ésimo controle visível no formulário ativo
   const ordinalNumMatch = trimmed.match(
-    /^(?:item|opção|opcao|afirmação|afirmacao|alternativa|linha|afirmativa|questão|questao|campo|blank|lacuna|input|resposta)?\s*#?([0-9]+)$/i,
+    /^(?:item|opção|opcao|afirmação|afirmacao|alternativa|linha|afirmativa|questão|questao|campo|blank|lacuna|input|resposta)?\s*#?_?([0-9]+)$/i,
   )
   if (ordinalNumMatch) {
-    const targetIdx = parseInt(ordinalNumMatch[1], 10) - 1
+    const rawNum = parseInt(ordinalNumMatch[1], 10)
+    if (preferInput) {
+      let scopeRoot: HTMLElement = document.body
+      try { scopeRoot = findActiveScope() || document.body } catch {}
+      const visibleInputs = Array.from(
+        scopeRoot.querySelectorAll(
+          'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]), textarea, select, [contenteditable="true"]',
+        ),
+      ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
+
+      if (rawNum >= 1 && rawNum - 1 < visibleInputs.length) {
+        return visibleInputs[rawNum - 1]
+      }
+      if (rawNum === 0 && visibleInputs.length > 0) {
+        return visibleInputs[0]
+      }
+    }
+
+    const targetIdx = rawNum - 1
     if (targetIdx >= 0) {
       // Prioridade A: Checkboxes, Rádios ou Linhas de Tabela no escopo ativo
       const visibleChoices = getDistinctVisibleChoices()
@@ -144,7 +164,7 @@ export function findElementExt(idOrLabel: string, valueHint?: string): HTMLEleme
         const choice = visibleChoices[targetIdx]
         if (choice.tagName.toLowerCase() === 'tr') {
           if (valueHint) {
-            const match = choice.querySelector(`input[value="${CSS.escape(valueHint)}" i], [data-value="${CSS.escape(valueHint)}" i]`) as HTMLElement | null
+            const match = choice.querySelector(`input[value="${safeCssEscape(valueHint)}" i], [data-value="${safeCssEscape(valueHint)}" i]`) as HTMLElement | null
             if (match) return match
           }
           const firstInput = choice.querySelector('input') as HTMLElement | null
@@ -158,7 +178,7 @@ export function findElementExt(idOrLabel: string, valueHint?: string): HTMLEleme
       try { scopeRoot = findActiveScope() || document.body } catch {}
       const visibleInputs = Array.from(
         scopeRoot.querySelectorAll(
-          'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable="true"]',
+          'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]), textarea, select, [contenteditable="true"]',
         ),
       ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
 
@@ -178,7 +198,7 @@ export function findElementExt(idOrLabel: string, valueHint?: string): HTMLEleme
         const choice = visibleChoices[letterIdx]
         if (choice.tagName.toLowerCase() === 'tr') {
           if (valueHint) {
-            const match = choice.querySelector(`input[value="${CSS.escape(valueHint)}" i], [data-value="${CSS.escape(valueHint)}" i]`) as HTMLElement | null
+            const match = choice.querySelector(`input[value="${safeCssEscape(valueHint)}" i], [data-value="${safeCssEscape(valueHint)}" i]`) as HTMLElement | null
             if (match) return match
           }
           const firstInput = choice.querySelector('input') as HTMLElement | null
@@ -433,6 +453,36 @@ function setNativeValue(element: HTMLElement, value: string): void {
     const inner = target.querySelector('input:not([type="hidden"]), textarea, select, [contenteditable="true"]') as HTMLElement | null
     if (inner) {
       target = inner
+    } else {
+      // 1. Procura no container ou pai próximo (ex: <span>Label</span> <input>)
+      const container = target.closest('.form-group, .field, [class*="input" i], [class*="control" i], label, tr, td, li, p, div')
+      const nearby = container?.querySelector(
+        'input:not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable="true"]',
+      ) as HTMLElement | null
+      if (nearby) {
+        target = nearby
+      } else {
+        // 2. Procura nos irmãos subsequentes
+        let sibling = target.nextElementSibling
+        while (sibling) {
+          if (
+            (sibling instanceof HTMLInputElement && !['hidden', 'button', 'submit', 'checkbox', 'radio'].includes(sibling.type)) ||
+            sibling instanceof HTMLTextAreaElement ||
+            (sibling instanceof HTMLElement && sibling.isContentEditable)
+          ) {
+            target = sibling as HTMLElement
+            break
+          }
+          const sub = sibling.querySelector(
+            'input:not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]',
+          ) as HTMLElement | null
+          if (sub) {
+            target = sub
+            break
+          }
+          sibling = sibling.nextElementSibling
+        }
+      }
     }
   }
 
@@ -464,6 +514,25 @@ function setNativeValue(element: HTMLElement, value: string): void {
     }
   }
 
+  if (
+    !(target instanceof HTMLInputElement) &&
+    !(target instanceof HTMLTextAreaElement) &&
+    !(target instanceof HTMLSelectElement) &&
+    !target.isContentEditable
+  ) {
+    let scopeRoot: HTMLElement = document.body
+    try { scopeRoot = findActiveScope() || document.body } catch {}
+    const fallback = scopeRoot.querySelector(
+      'input:not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]',
+    ) as HTMLElement | null
+    if (fallback) {
+      target = fallback
+    } else {
+      console.warn('[EasyQuiz] setNativeValue: Nenhum campo de texto encontrado para receber o valor.')
+      return
+    }
+  }
+
   // Se o elemento for um <select>, redireciona para selectValues
   if (target instanceof HTMLSelectElement) {
     selectValues(target, [value])
@@ -478,6 +547,14 @@ function setNativeValue(element: HTMLElement, value: string): void {
   }
 
   const strValue = String(value ?? '')
+  let valToSet = strValue
+  if (target instanceof HTMLInputElement && target.type === 'number') {
+    // Normaliza vírgula decimal para ponto e remove caracteres espúrios para evitar rejeição no HTML5
+    const normalized = strValue.replace(',', '.').replace(/[^0-9.-]/g, '')
+    if (normalized && !isNaN(Number(normalized))) {
+      valToSet = normalized
+    }
+  }
 
   // 1. Foco e posicionamento no campo
   try {
@@ -491,11 +568,11 @@ function setNativeValue(element: HTMLElement, value: string): void {
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
       if (target.type !== 'number') {
         try { target.select?.() } catch {}
-        execSuccess = document.execCommand?.('insertText', false, strValue) || false
+        execSuccess = document.execCommand?.('insertText', false, valToSet) || false
       }
     } else if (target.isContentEditable) {
       try { document.execCommand?.('selectAll', false, undefined) } catch {}
-      execSuccess = document.execCommand?.('insertText', false, strValue) || false
+      execSuccess = document.execCommand?.('insertText', false, valToSet) || false
     }
   } catch {}
 
@@ -505,31 +582,31 @@ function setNativeValue(element: HTMLElement, value: string): void {
     // para garantir 100% que o React detecte a mudança e dispare o onChange!
     try {
       const tracker = (target as any)._valueTracker
-      if (tracker) tracker.setValue(strValue === '' ? ' ' : '')
+      if (tracker) tracker.setValue(valToSet === '' ? ' ' : '')
     } catch {}
 
     const prototype = target instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
     const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
     if (setter) {
-      setter.call(target, strValue)
+      setter.call(target, valToSet)
     } else {
-      target.value = strValue
+      target.value = valToSet
     }
 
     // Sequência completa de eventos de entrada
     try {
-      target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: strValue.slice(-1) || 'a' }))
+      target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: valToSet.slice(-1) || 'a' }))
     } catch {}
     try {
-      target.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, composed: true, data: strValue, inputType: 'insertText' }))
+      target.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, composed: true, data: valToSet, inputType: 'insertText' }))
     } catch {}
     try {
-      target.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, composed: true, data: strValue, inputType: 'insertText' }))
+      target.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, composed: true, data: valToSet, inputType: 'insertText' }))
     } catch {
       target.dispatchEvent(new Event('input', { bubbles: true, cancelable: true, composed: true }))
     }
     try {
-      target.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: strValue.slice(-1) || 'a' }))
+      target.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: valToSet.slice(-1) || 'a' }))
     } catch {}
     try {
       target.dispatchEvent(new Event('change', { bubbles: true, cancelable: true, composed: true }))
@@ -539,21 +616,21 @@ function setNativeValue(element: HTMLElement, value: string): void {
     } catch {}
 
     // Garante que o valor não foi revertido por um listener de blur ou validação assíncrona
-    if (target.value !== strValue) {
-      target.value = strValue
-      try { setter?.call(target, strValue) } catch {}
+    if (target.value !== valToSet && !(target instanceof HTMLInputElement && target.type === 'number' && Number(target.value) === Number(valToSet))) {
+      target.value = valToSet
+      try { setter?.call(target, valToSet) } catch {}
     }
     return
   }
 
   // 4. ContentEditable ou editores baseados em nós de texto (Draft.js, Slate, Quill, ProseMirror)
   if (target.isContentEditable) {
-    if (target.textContent?.trim() !== strValue.trim()) {
-      target.textContent = strValue
-      try { (target as any).innerText = strValue } catch {}
+    if (target.textContent?.trim() !== valToSet.trim()) {
+      target.textContent = valToSet
+      try { (target as any).innerText = valToSet } catch {}
     }
     try {
-      target.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, composed: true, data: strValue, inputType: 'insertText' }))
+      target.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, composed: true, data: valToSet, inputType: 'insertText' }))
     } catch {
       target.dispatchEvent(new Event('input', { bubbles: true, cancelable: true, composed: true }))
     }
@@ -566,20 +643,23 @@ function setNativeValue(element: HTMLElement, value: string): void {
     return
   }
 
-  // 5. Fallback genérico para elementos customizados
+  // 5. Fallback genérico para elementos customizados (apenas se tiver propriedade value)
   try {
-    (target as any).value = strValue
-    target.textContent = strValue
+    if ('value' in target) {
+      (target as any).value = valToSet
+    }
     target.dispatchEvent(new Event('input', { bubbles: true, cancelable: true, composed: true }))
     target.dispatchEvent(new Event('change', { bubbles: true, cancelable: true, composed: true }))
   } catch {}
 }
 
-export function getHumanReadableLabel(idOrQuery: string, fallback = ''): string {
-  if (!idOrQuery) return fallback
-  const isTechId = /^(eq-|#|\$|\.|input_|mat-|choice_|radio_|chk_)/i.test(idOrQuery)
-  const clean = cleanSearchTerm(idOrQuery)
-  const el = findElementExt(idOrQuery) || findElementExt(clean)
+export function getHumanReadableLabel(idOrQuery: unknown, fallback = ''): string {
+  if (idOrQuery === null || idOrQuery === undefined) return fallback
+  const rawStr = typeof idOrQuery === 'string' ? idOrQuery : String(idOrQuery)
+  if (!rawStr) return fallback
+  const isTechId = /^(eq-|#|\$|\.|input_|mat-|choice_|radio_|chk_)/i.test(rawStr)
+  const clean = cleanSearchTerm(rawStr)
+  const el = findElementExt(rawStr) || findElementExt(clean)
   if (!el) return isTechId ? fallback : clean || fallback
 
   // 1. Se houver label associado ou container de opção
@@ -590,7 +670,7 @@ export function getHumanReadableLabel(idOrQuery: string, fallback = ''): string 
   }
 
   if (el.id) {
-    const labelFor = document.querySelector(`label[for="${CSS.escape(el.id)}"]`)
+    const labelFor = document.querySelector(`label[for="${safeCssEscape(el.id)}"]`)
     if (labelFor) {
       const txt = cleanSearchTerm(labelFor.textContent)
       if (txt && txt.length > 0 && txt.length < 150) return txt
@@ -1031,23 +1111,34 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
     return
   }
 
-  const elId = action.id || ''
-  const valHint = (action as any).v !== undefined ? String((action as any).v).trim() : ''
-  let element = findElementExt(elId, valHint)
+  let elId = action.id !== undefined && action.id !== null ? String(action.id) : ''
+  if (!elId && action.t === 'val') {
+    elId = (action as any).target ?? (action as any).name ?? (action as any).selector ?? '1'
+  }
+  const rawVal =
+    (action as any).v !== undefined
+      ? (action as any).v
+      : (action as any).value !== undefined
+        ? (action as any).value
+        : (action as any).val !== undefined
+          ? (action as any).val
+          : (action as any).text
+  const valHint = rawVal !== undefined && rawVal !== null ? String(rawVal).trim() : ''
+  let element = findElementExt(elId, valHint, action.t === 'val')
   if (!element && elId) {
-    element = findElementExt(cleanSearchTerm(elId), valHint)
+    element = findElementExt(cleanSearchTerm(elId), valHint, action.t === 'val')
   }
   if (element && valHint) {
     if (element instanceof HTMLInputElement && element.type === 'radio' && element.name) {
       if (cleanSearchTerm(element.value).toLowerCase() !== cleanSearchTerm(valHint).toLowerCase()) {
         const groupRadio = document.querySelector(
-          `input[type="radio"][name="${CSS.escape(element.name)}"][value="${CSS.escape(valHint)}" i]`,
+          `input[type="radio"][name="${safeCssEscape(element.name)}"][value="${safeCssEscape(valHint)}" i]`,
         ) as HTMLInputElement | null
         if (groupRadio) {
           element = groupRadio
         } else {
           const allInGroup = Array.from(
-            document.querySelectorAll(`input[type="radio"][name="${CSS.escape(element.name)}"]`),
+            document.querySelectorAll(`input[type="radio"][name="${safeCssEscape(element.name)}"]`),
           ) as HTMLInputElement[]
           const matched = allInGroup.find((r) => {
             const card = r.closest('label, .vf-label, .option-card, tr, td, div')
@@ -1058,7 +1149,7 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
       }
     } else if (!(element instanceof HTMLInputElement) && !(element instanceof HTMLSelectElement) && !(element instanceof HTMLTextAreaElement)) {
       const directMatch = element.querySelector(
-        `input[value="${CSS.escape(valHint)}" i], [data-value="${CSS.escape(valHint)}" i]`,
+        `input[value="${safeCssEscape(valHint)}" i], [data-value="${safeCssEscape(valHint)}" i]`,
       ) as HTMLElement | null
       if (directMatch) {
         element = directMatch
@@ -1074,8 +1165,10 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
   }
 
   if (!element && action.t === 'val') {
+    let scopeRoot: HTMLElement = document.body
+    try { scopeRoot = findActiveScope() || document.body } catch {}
     const activeInputs = Array.from(
-      document.querySelectorAll(
+      scopeRoot.querySelectorAll(
         'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]), textarea, [contenteditable="true"]',
       ),
     ).filter((i) => isVisible(i as HTMLElement) && !isInsideEasyQuiz(i as HTMLElement)) as HTMLElement[]
@@ -1084,14 +1177,37 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
       element = activeInputs[0]
     } else if (activeInputs.length > 1) {
       const clean = cleanSearchTerm(elId).toLowerCase()
-      const match = activeInputs.find((i) => {
-        const ph = (i.getAttribute('placeholder') || '').toLowerCase()
-        const name = ((i as any).name || '').toLowerCase()
-        const aria = (i.getAttribute('aria-label') || '').toLowerCase()
-        const id = (i.id || '').toLowerCase()
-        return ph.includes(clean) || name.includes(clean) || aria.includes(clean) || id.includes(clean)
-      })
-      element = match || activeInputs[0]
+      const numMatch = clean.match(/^#?_?([0-9]+)$/)
+      if (numMatch) {
+        const parsed = parseInt(numMatch[1], 10)
+        if (parsed >= 1 && parsed <= activeInputs.length) {
+          element = activeInputs[parsed - 1]
+        } else if (parsed >= 0 && parsed < activeInputs.length) {
+          element = activeInputs[parsed]
+        }
+      }
+
+      if (!element) {
+        const match = activeInputs.find((i) => {
+          const ph = (i.getAttribute('placeholder') || '').toLowerCase()
+          const name = ((i as any).name || '').toLowerCase()
+          const aria = (i.getAttribute('aria-label') || '').toLowerCase()
+          const id = (i.id || '').toLowerCase()
+          const label = cleanSearchTerm(labelForControl(i)).toLowerCase()
+          const containerText = cleanSearchTerm(
+            i.closest('label, tr, td, .form-group, .field, [class*="row" i], div')?.textContent || '',
+          ).toLowerCase()
+          return (
+            ph.includes(clean) ||
+            name.includes(clean) ||
+            aria.includes(clean) ||
+            id.includes(clean) ||
+            (label && label.includes(clean)) ||
+            (clean.length >= 2 && containerText.includes(clean))
+          )
+        })
+        element = match || activeInputs[0]
+      }
     }
   }
 
@@ -1109,6 +1225,38 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
             : (element.querySelector('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]), textarea, [contenteditable="true"]') as HTMLElement | null)
 
         if (!targetInput) {
+          const container = element.closest('.form-group, .field, [class*="input" i], [class*="control" i], label, tr, td, li, p, div')
+          const nearbyInput = container?.querySelector(
+            'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]), textarea, [contenteditable="true"]',
+          ) as HTMLElement | null
+          if (nearbyInput) {
+            targetInput = nearbyInput
+          }
+        }
+
+        if (!targetInput) {
+          let sibling = element.nextElementSibling
+          while (sibling) {
+            if (
+              (sibling instanceof HTMLInputElement && !['hidden', 'button', 'submit', 'checkbox', 'radio'].includes(sibling.type)) ||
+              sibling instanceof HTMLTextAreaElement ||
+              (sibling instanceof HTMLElement && sibling.isContentEditable)
+            ) {
+              targetInput = sibling as HTMLElement
+              break
+            }
+            const sub = sibling.querySelector(
+              'input:not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]',
+            ) as HTMLElement | null
+            if (sub) {
+              targetInput = sub
+              break
+            }
+            sibling = sibling.nextElementSibling
+          }
+        }
+
+        if (!targetInput) {
           let scopeRoot: HTMLElement = document.body
           try { scopeRoot = findActiveScope() || document.body } catch {}
           const visibleInputs = Array.from(
@@ -1122,10 +1270,20 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
           }
         }
 
+        const actRawVal =
+          action.v !== undefined
+            ? action.v
+            : (action as any).value !== undefined
+              ? (action as any).value
+              : (action as any).val !== undefined
+                ? (action as any).val
+                : (action as any).text
+        const valString = actRawVal !== undefined && actRawVal !== null ? String(actRawVal) : ''
+
         if (targetInput) {
-          setNativeValue(targetInput, String(action.v))
+          setNativeValue(targetInput, valString)
         } else {
-          setNativeValue(element, String(action.v))
+          setNativeValue(element, valString)
         }
       }
       break
@@ -1335,13 +1493,13 @@ async function executeAlternativeActionPath(action: DeclarativeAction): Promise<
       if (el instanceof HTMLInputElement && el.type === 'radio' && el.name) {
         if (cleanSearchTerm(el.value).toLowerCase() !== cleanSearchTerm(valHint).toLowerCase()) {
           const groupRadio = document.querySelector(
-            `input[type="radio"][name="${CSS.escape(el.name)}"][value="${CSS.escape(valHint)}" i]`,
+            `input[type="radio"][name="${safeCssEscape(el.name)}"][value="${safeCssEscape(valHint)}" i]`,
           ) as HTMLInputElement | null
           if (groupRadio) {
             el = groupRadio
           } else {
             const allInGroup = Array.from(
-              document.querySelectorAll(`input[type="radio"][name="${CSS.escape(el.name)}"]`),
+              document.querySelectorAll(`input[type="radio"][name="${safeCssEscape(el.name)}"]`),
             ) as HTMLInputElement[]
             const matched = allInGroup.find((r) => {
               const card = r.closest('label, .vf-label, .option-card, tr, td, div')
@@ -1352,7 +1510,7 @@ async function executeAlternativeActionPath(action: DeclarativeAction): Promise<
         }
       } else if (!(el instanceof HTMLInputElement) && !(el instanceof HTMLSelectElement) && !(el instanceof HTMLTextAreaElement)) {
         const directMatch = el.querySelector(
-          `input[value="${CSS.escape(valHint)}" i], [data-value="${CSS.escape(valHint)}" i]`,
+          `input[value="${safeCssEscape(valHint)}" i], [data-value="${safeCssEscape(valHint)}" i]`,
         ) as HTMLElement | null
         if (directMatch) {
           el = directMatch
@@ -1459,8 +1617,21 @@ async function executeAlternativeActionPath(action: DeclarativeAction): Promise<
 export function verifyActionApplied(action: DeclarativeAction): boolean {
   try {
     if (action.t === 'val') {
-      const valHint = (action as any).v !== undefined ? String((action as any).v).trim() : ''
-      let el = (findElementExt(action.id, valHint) || findElementExt(cleanSearchTerm(action.id), valHint)) as HTMLElement | null
+      const rawExpected =
+        action.v !== undefined
+          ? action.v
+          : (action as any).value !== undefined
+            ? (action as any).value
+            : (action as any).val !== undefined
+              ? (action as any).val
+              : (action as any).text
+      const expected = String(rawExpected ?? '').trim()
+      const valHint = expected
+      let rawActId = action.id !== undefined && action.id !== null ? String(action.id) : ''
+      if (!rawActId) {
+        rawActId = (action as any).target ?? (action as any).name ?? (action as any).selector ?? '1'
+      }
+      let el = (findElementExt(rawActId, valHint, true) || findElementExt(cleanSearchTerm(rawActId), valHint, true)) as HTMLElement | null
       if (!el) {
         let scopeRoot: HTMLElement = document.body
         try { scopeRoot = findActiveScope() || document.body } catch {}
@@ -1473,8 +1644,6 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
       }
       if (!el) return false
 
-      const expected = String(action.v ?? '').trim()
-
       // Se for rádio ou grupo de rádios
       const radioInput =
         el instanceof HTMLInputElement && el.type === 'radio'
@@ -1483,7 +1652,7 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
 
       if (radioInput && radioInput.name) {
         const checkedRadio = document.querySelector(
-          `input[type="radio"][name="${CSS.escape(radioInput.name)}"]:checked`,
+          `input[type="radio"][name="${safeCssEscape(radioInput.name)}"]:checked`,
         ) as HTMLInputElement | null
         if (!checkedRadio) return false
         const valCur = cleanSearchTerm(checkedRadio.value).toLowerCase()
@@ -1492,12 +1661,42 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
         return valCur === valExp || labelCur === valExp || labelCur.includes(valExp)
       }
 
-      const targetInput =
-        el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
+      let targetInput: HTMLElement | null =
+        el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el.isContentEditable
           ? el
-          : (el.querySelector('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]') as HTMLInputElement | HTMLTextAreaElement | null)
+          : (el.querySelector('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]') as HTMLElement | null)
 
-      const cur = (targetInput ? (targetInput.value ?? targetInput.textContent ?? '') : (el.textContent ?? '')).trim()
+      if (!targetInput) {
+        const container = el.closest('.form-group, .field, [class*="input" i], [class*="control" i], label, tr, td, li, p, div')
+        const nearbyInput = container?.querySelector(
+          'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]), textarea, [contenteditable="true"]',
+        ) as HTMLElement | null
+        if (nearbyInput) targetInput = nearbyInput
+      }
+
+      if (!targetInput) {
+        let sibling = el.nextElementSibling
+        while (sibling) {
+          if (
+            (sibling instanceof HTMLInputElement && !['hidden', 'button', 'submit', 'checkbox', 'radio'].includes(sibling.type)) ||
+            sibling instanceof HTMLTextAreaElement ||
+            (sibling instanceof HTMLElement && sibling.isContentEditable)
+          ) {
+            targetInput = sibling as HTMLElement
+            break
+          }
+          const sub = sibling.querySelector(
+            'input:not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]',
+          ) as HTMLElement | null
+          if (sub) {
+            targetInput = sub
+            break
+          }
+          sibling = sibling.nextElementSibling
+        }
+      }
+
+      const cur = (targetInput instanceof HTMLInputElement || targetInput instanceof HTMLTextAreaElement ? targetInput.value : targetInput?.textContent ?? el.textContent ?? '').trim()
       if (!cur && !expected) return true
       if (!cur && expected) return false
       const normCur = cur.replace(',', '.').replace(/\s+/g, '').toLowerCase()
@@ -1541,7 +1740,7 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
         const expectedVal = cleanSearchTerm(String((action as any).v)).toLowerCase()
         if (inputEl.name) {
           const checkedRadio = document.querySelector(
-            `input[type="radio"][name="${CSS.escape(inputEl.name)}"]:checked`,
+            `input[type="radio"][name="${safeCssEscape(inputEl.name)}"]:checked`,
           ) as HTMLInputElement | null
           if (!checkedRadio) return false
           const valCur = cleanSearchTerm(checkedRadio.value).toLowerCase()

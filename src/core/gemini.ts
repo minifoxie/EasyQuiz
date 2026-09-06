@@ -4,39 +4,33 @@ import { validateAnalysisPlan } from './planValidation'
 
 export const AVAILABLE_MODELS: ModelOption[] = [
   {
-    id: 'gemini-3.8-flash',
-    name: 'Gemini 3.8 Flash (Rápido e atual)',
-    description: 'Modelo estável multimodal para baixa latência e tarefas agentivas.',
-    stable: true,
-  },
-  {
-    id: 'gemini-3.6-flash',
-    name: 'Gemini 3.6 Flash (Recomendado Google)',
-    description: 'Modelo recomendado oficial do Google AI Studio com altíssima disponibilidade.',
-    stable: true,
-  },
-  {
-    id: 'gemini-3.5-flash-lite',
-    name: 'Gemini 3.5 Flash-Lite (Econômico e rápido)',
-    description: 'Modelo estável de menor custo e menor taxa de fila.',
-    stable: true,
-  },
-  {
-    id: 'gemini-3.5-flash',
-    name: 'Gemini 3.5 Flash (Equilibrado)',
-    description: 'Modelo balanceado para resolução de exercícios.',
-    stable: true,
-  },
-  {
     id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash (Alta Disponibilidade)',
-    description: 'Modelo consolidado para contingência.',
+    name: 'Gemini 2.0 Flash (Mais Rápido e Estável)',
+    description: 'Modelo oficial de ultra-baixa latência do Google com suporte multimodal completo.',
+    stable: true,
+  },
+  {
+    id: 'gemini-1.5-flash',
+    name: 'Gemini 1.5 Flash (Equilibrado e Confiável)',
+    description: 'Modelo comprovado de altíssima disponibilidade e estabilidade.',
     stable: true,
   },
   {
     id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash (Legado)',
-    description: 'Modelo da geração anterior para contas existentes.',
+    name: 'Gemini 2.5 Flash (Raciocínio Rápido)',
+    description: 'Modelo multimodal de raciocínio avançado.',
+    stable: true,
+  },
+  {
+    id: 'gemini-2.0-flash-lite-preview-02-05',
+    name: 'Gemini 2.0 Flash-Lite (Econômico)',
+    description: 'Modelo leve e ágil para respostas rápidas.',
+    stable: true,
+  },
+  {
+    id: 'gemini-1.5-pro',
+    name: 'Gemini 1.5 Pro (Alta Precisão)',
+    description: 'Modelo de máxima precisão para problemas complexos.',
     stable: true,
   },
 ]
@@ -84,7 +78,7 @@ const GEMINI_JSON_SCHEMA = {
 
 function normalizeModel(model: string): string {
   const clean = model.trim().replace(/^google\//, '').replace(/^models\//, '')
-  return clean || 'gemini-2.5-flash'
+  return clean || 'gemini-2.0-flash'
 }
 
 function parseGeminiError(errorText: string, status: number): string {
@@ -112,11 +106,26 @@ function parseGeminiError(errorText: string, status: number): string {
 }
 
 function robustParsePlan(rawText: string): AnalysisPlan {
-  try {
-    return JSON.parse(rawText) as AnalysisPlan
-  } catch (initialErr) {
-    throw new Error(`Falha ao decodificar JSON da IA (${initialErr instanceof Error ? initialErr.message : 'incompleto'})`)
+  const text = rawText.trim()
+  // 1. Tenta extrair de bloco de código ```json ... ```
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
+  if (codeBlockMatch) {
+    try {
+      return JSON.parse(codeBlockMatch[1].trim()) as AnalysisPlan
+    } catch {}
   }
+  // 2. Tenta parse direto
+  try {
+    return JSON.parse(text) as AnalysisPlan
+  } catch {}
+  // 3. Tenta encontrar o bloco JSON {...} mais abrangente
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0].trim()) as AnalysisPlan
+    } catch {}
+  }
+  throw new Error('Falha ao decodificar JSON da IA.')
 }
 
 export let discoveredModelsCache: ModelOption[] | null = (() => {
@@ -313,12 +322,11 @@ export async function analyzeWithGemini(
   const rawFallback = [
     chosenModel,
     ...(discoveredModelsCache?.map((m) => m.id) || []),
-    'gemini-3.8-flash',
-    'gemini-3.5-flash-lite',
-    'gemini-3.6-flash',
-    'gemini-2.5-flash',
-    'gemini-3.5-flash',
     'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-2.5-flash',
+    'gemini-2.0-flash-lite-preview-02-05',
+    'gemini-1.5-pro',
   ]
   const modelsToTry = Array.from(new Set(rawFallback)).filter((m) => !blacklistedModels.has(m))
 
@@ -332,9 +340,6 @@ export async function analyzeWithGemini(
   for (let i = 0; i < modelsToTry.length; i++) {
     const currentModel = modelsToTry[i]
     const nextModel = modelsToTry[i + 1]
-
-    // Força thinkingBudget: 0 em todos os modelos modernos (3.x e 2.5) para garantir tempo de resposta <1s
-    genConfig.thinkingConfig = { thinkingBudget: 0 }
 
     const payload = {
       system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
@@ -353,11 +358,11 @@ export async function analyzeWithGemini(
       const controller = new AbortController()
       const timeoutId = setTimeout(() => {
         try {
-          controller.abort(new Error(`Timeout de 9s excedido na API Gemini (${currentModel}). Servidor demorou a responder.`))
+          controller.abort(new Error(`Timeout de 18s excedido na API Gemini (${currentModel}). Servidor demorou a responder.`))
         } catch {
           controller.abort()
         }
-      }, 9000)
+      }, 18000)
 
       try {
         const response = await fetch(endpoint, {

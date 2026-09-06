@@ -29,7 +29,10 @@ const ACTION_FIELDS: Record<DeclarativeAction['t'], Set<string>> = {
 }
 
 function text(value: unknown, fallback = ''): string {
-  return typeof value === 'string' ? value.trim().slice(0, MAX_TEXT) : fallback
+  if (value === null || value === undefined) return fallback
+  if (typeof value === 'string') return value.trim().slice(0, MAX_TEXT)
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value).trim().slice(0, MAX_TEXT)
+  return fallback
 }
 
 function requireText(value: unknown, field: string): string {
@@ -47,30 +50,53 @@ function normalizeAction(raw: unknown, index: number): DeclarativeAction | null 
   }
 
   if (type === 'adv') {
-    return { t: 'adv', ...(text(action.id) ? { id: text(action.id, '').slice(0, 500) } : {}) }
+    const rawAdvId = action.id ?? action.target ?? action.name ?? action.selector
+    return { t: 'adv', ...(text(rawAdvId) ? { id: text(rawAdvId, '').slice(0, 500) } : {}) }
   }
 
   if (type === 'drag') {
-    const from = text(action.from)
-    const to = text(action.to)
+    const from = text(action.from ?? action.source)
+    const to = text(action.to ?? action.target ?? action.destination)
     if (!from || !to) return null
     return { t: 'drag', from: from.slice(0, 500), to: to.slice(0, 500) }
   }
 
   if (type === 'js') {
-    const code = text(action.v)
+    const code = text(action.v ?? action.code ?? action.script)
     if (!code || code.length > 8_000) return null
     return { t: 'js', v: code }
   }
 
-  const id = text(action.id).slice(0, 500)
+  let rawId = action.id ?? action.target ?? action.name ?? action.selector ?? action.element
+  if ((rawId === undefined || rawId === null || rawId === '') && type === 'val') {
+    rawId = '1'
+  }
+  const id = text(rawId).slice(0, 500)
   if (!id) return null
 
   if (type === 'val') {
-    return { t: 'val', id, v: text(action.v).slice(0, MAX_TEXT) }
+    const rawVal =
+      action.v !== undefined
+        ? action.v
+        : action.value !== undefined
+          ? action.value
+          : action.val !== undefined
+            ? action.val
+            : action.text !== undefined
+              ? action.text
+              : action.answer
+    return { t: 'val', id, v: text(rawVal).slice(0, MAX_TEXT) }
   }
   if (type === 'sel') {
-    const values = Array.isArray(action.v) ? action.v : [action.v]
+    const rawVal =
+      action.v !== undefined
+        ? action.v
+        : action.value !== undefined
+          ? action.value
+          : action.val !== undefined
+            ? action.val
+            : action.values
+    const values = Array.isArray(rawVal) ? rawVal : [rawVal]
     const normalized = values.map((value) => text(value).slice(0, 500)).filter(Boolean)
     return { t: 'sel', id, v: normalized }
   }

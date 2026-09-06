@@ -81,6 +81,15 @@ function isVisibleBasic(node: HTMLElement): boolean {
   return (node.textContent || '').trim().length > 0
 }
 
+export function safeCssEscape(val: string): string {
+  try {
+    if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+      return CSS.escape(val)
+    }
+  } catch {}
+  return String(val).replace(/["\\]/g, '\\$&')
+}
+
 export function isVisible(element: Element): boolean {
   const node = element as HTMLElement
   if (!node) return false
@@ -95,7 +104,7 @@ export function isVisible(element: Element): boolean {
     if (inputType === 'checkbox' || inputType === 'radio') {
       if (node.id) {
         try {
-          const linkedLabel = node.ownerDocument?.querySelector(`label[for="${CSS.escape(node.id)}"]`) as HTMLElement | null
+          const linkedLabel = node.ownerDocument?.querySelector(`label[for="${safeCssEscape(node.id)}"]`) as HTMLElement | null
           if (linkedLabel && isVisibleBasic(linkedLabel)) return true
         } catch {}
       }
