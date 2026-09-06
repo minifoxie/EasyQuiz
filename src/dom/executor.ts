@@ -130,9 +130,11 @@ export function findElementExt(idOrLabel: string, valueHint?: string): HTMLEleme
     }
   } catch {}
 
-  // 3. Resolução Ordinal / Numérica Direta (ex: "1", "3", "Item 1", "Opção 3", "Afirmação 1", "Alternativa 2")
+  // 3. Resolução Ordinal / Numérica Direta (ex: "1", "3", "Item 1", "Campo 2", "Opção 3", "Afirmação 1", "Alternativa 2")
   // Mapeia diretamente para o N-ésimo controle visível no formulário ativo
-  const ordinalNumMatch = trimmed.match(/^(?:item|opção|opcao|afirmação|afirmacao|alternativa|linha|afirmativa|questão|questao)?\s*#?([0-9]+)$/i)
+  const ordinalNumMatch = trimmed.match(
+    /^(?:item|opção|opcao|afirmação|afirmacao|alternativa|linha|afirmativa|questão|questao|campo|blank|lacuna|input|resposta)?\s*#?([0-9]+)$/i,
+  )
   if (ordinalNumMatch) {
     const targetIdx = parseInt(ordinalNumMatch[1], 10) - 1
     if (targetIdx >= 0) {
@@ -187,7 +189,7 @@ export function findElementExt(idOrLabel: string, valueHint?: string): HTMLEleme
     }
   }
 
-  // 5. Se for uma letra, código, categoria ou valor curto (ex: "PA", "PG", "chk1")
+  // 5. Se for uma letra, código, categoria ou valor curto (ex: "PA", "PG", "chk1", "a11")
   // Busca em elementos ESTREITAMENTE VISÍVEIS para não colidir com etapas ocultas
   if (/^[a-zA-Z0-9_-]{1,10}$/.test(trimmed)) {
     const dropzoneCandidates = Array.from(
@@ -200,7 +202,7 @@ export function findElementExt(idOrLabel: string, valueHint?: string): HTMLEleme
 
     const inputCandidates = Array.from(
       document.querySelectorAll(
-        `input[value="${escaped}" i], [data-value="${escaped}" i], input[id="${escaped}" i]`,
+        `input[value="${escaped}" i], [data-value="${escaped}" i], input[id="${escaped}" i], input[placeholder="${escaped}" i], textarea[placeholder="${escaped}" i], [title="${escaped}" i]`,
       ),
     ) as HTMLElement[]
     const inputMatch = inputCandidates.find((i) => isVisible(i) && !isInsideEasyQuiz(i))
@@ -216,11 +218,11 @@ export function findElementExt(idOrLabel: string, valueHint?: string): HTMLEleme
     if (badgeMatch) return resolveTargetControlOrCard(badgeMatch)
   }
 
-  // 6. Tenta por name, value, data-category, data-dropzone, data-testid, aria-label em elementos visíveis
+  // 6. Tenta por name, value, placeholder, title, data-category, data-dropzone, data-testid, aria-label em elementos visíveis
   try {
     const attrCandidates = Array.from(
       document.querySelectorAll(
-        `[name="${escaped}"], [value="${escaped}"], [data-category="${escaped}" i], [data-dropzone="${escaped}" i], [data-testid="${escaped}" i], [data-test-id="${escaped}" i], [aria-label="${escaped}" i]`,
+        `[name="${escaped}"], [value="${escaped}"], [placeholder="${escaped}" i], [title="${escaped}" i], [data-category="${escaped}" i], [data-dropzone="${escaped}" i], [data-testid="${escaped}" i], [data-test-id="${escaped}" i], [aria-label="${escaped}" i]`,
       ),
     ) as HTMLElement[]
     const attrMatch = attrCandidates.find((item) => isVisible(item) && !isInsideEasyQuiz(item))
@@ -264,7 +266,7 @@ export function findElementExt(idOrLabel: string, valueHint?: string): HTMLEleme
   const targetClean = cleanSearchTerm(trimmed).toLowerCase()
   const candidates = Array.from(
     document.querySelectorAll(
-      'button, a, div, span, li, p, label, input, [draggable="true"], [data-testid], [class*="option" i], [class*="card" i], [class*="item" i], [class*="choice" i], [class*="category" i], [class*="bucket" i]',
+      'button, a, div, span, li, p, label, input, textarea, select, [draggable="true"], [data-testid], [class*="option" i], [class*="card" i], [class*="item" i], [class*="choice" i], [class*="category" i], [class*="bucket" i]',
     ),
   ) as HTMLElement[]
 
@@ -280,6 +282,9 @@ export function findElementExt(idOrLabel: string, valueHint?: string): HTMLEleme
 
     const txt = cleanSearchTerm(item.textContent).toLowerCase()
     const aria = cleanSearchTerm(item.getAttribute('aria-label') || '').toLowerCase()
+    const ph = cleanSearchTerm(item.getAttribute('placeholder') || '').toLowerCase()
+    const title = cleanSearchTerm(item.getAttribute('title') || '').toLowerCase()
+    const name = cleanSearchTerm(item.getAttribute('name') || '').toLowerCase()
     const cat = cleanSearchTerm(item.getAttribute('data-category') || '').toLowerCase()
     const rawVal = item instanceof HTMLInputElement || item instanceof HTMLButtonElement ? item.value : ''
     const val = cleanSearchTerm(rawVal).toLowerCase()
@@ -293,6 +298,9 @@ export function findElementExt(idOrLabel: string, valueHint?: string): HTMLEleme
     if (
       txt === targetClean ||
       aria === targetClean ||
+      ph === targetClean ||
+      title === targetClean ||
+      name === targetClean ||
       (cat && cat === targetClean) ||
       (val && val === targetClean) ||
       prefixMatch
@@ -318,9 +326,18 @@ export function findElementExt(idOrLabel: string, valueHint?: string): HTMLEleme
 
       const txt = cleanSearchTerm(item.textContent).toLowerCase()
       const aria = cleanSearchTerm(item.getAttribute('aria-label') || '').toLowerCase()
+      const ph = cleanSearchTerm(item.getAttribute('placeholder') || '').toLowerCase()
+      const title = cleanSearchTerm(item.getAttribute('title') || '').toLowerCase()
+      const name = cleanSearchTerm(item.getAttribute('name') || '').toLowerCase()
 
-      // Substring direta onde o texto do elemento contém o termo de busca
-      if (txt.includes(targetClean) || aria.includes(targetClean)) {
+      // Substring direta onde o texto do elemento ou placeholder contém o termo de busca
+      if (
+        txt.includes(targetClean) ||
+        aria.includes(targetClean) ||
+        ph.includes(targetClean) ||
+        title.includes(targetClean) ||
+        name.includes(targetClean)
+      ) {
         // Se algum elemento filho também contém o termo de busca, pula o container pai para pegar o nó folha mais específico
         const hasChildMatching = Array.from(item.children).some((child) => {
           const cTxt = cleanSearchTerm(child.textContent).toLowerCase()
@@ -338,7 +355,7 @@ export function findElementExt(idOrLabel: string, valueHint?: string): HTMLEleme
       const words = targetClean.split(/\s+/).filter(Boolean)
       if (words.length >= 3) {
         const leadingTokens = words.slice(0, Math.min(5, words.length)).join(' ')
-        if (txt.includes(leadingTokens) || aria.includes(leadingTokens)) {
+        if (txt.includes(leadingTokens) || aria.includes(leadingTokens) || ph.includes(leadingTokens)) {
           return resolveTargetControlOrCard(item)
         }
       }
@@ -419,7 +436,7 @@ function setNativeValue(element: HTMLElement, value: string): void {
     }
   }
 
-  // Apenas botões e links reais são tratados como clique
+  // Apenas botões e links reais: se receberem chamada de valor, procura o campo de entrada associado
   const isBtnTarget =
     target instanceof HTMLButtonElement ||
     target.tagName.toLowerCase() === 'a' ||
@@ -427,8 +444,24 @@ function setNativeValue(element: HTMLElement, value: string): void {
     (target instanceof HTMLInputElement && ['button', 'submit', 'reset', 'image'].includes(target.type))
 
   if (isBtnTarget) {
-    simulatePointerClick(target)
-    return
+    const nearby = target.parentElement?.querySelector(
+      'input:not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]',
+    ) as HTMLElement | null
+    if (nearby) {
+      target = nearby
+    } else {
+      let scopeRoot: HTMLElement = document.body
+      try { scopeRoot = findActiveScope() || document.body } catch {}
+      const fallback = scopeRoot.querySelector(
+        'input:not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]',
+      ) as HTMLElement | null
+      if (fallback) {
+        target = fallback
+      } else {
+        console.warn('[EasyQuiz] setNativeValue: Nenhum campo de texto encontrado para receber o valor.')
+        return
+      }
+    }
   }
 
   // Se o elemento for um <select>, redireciona para selectValues
@@ -456,31 +489,31 @@ function setNativeValue(element: HTMLElement, value: string): void {
   let execSuccess = false
   try {
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-      target.select?.()
-      execSuccess = document.execCommand?.('insertText', false, strValue) || false
+      if (target.type !== 'number') {
+        try { target.select?.() } catch {}
+        execSuccess = document.execCommand?.('insertText', false, strValue) || false
+      }
     } else if (target.isContentEditable) {
-      document.execCommand?.('selectAll', false, undefined)
+      try { document.execCommand?.('selectAll', false, undefined) } catch {}
       execSuccess = document.execCommand?.('insertText', false, strValue) || false
     }
   } catch {}
 
   // 3. Inputs ou Textareas padrão (suporte completo a React 15-19, Vue, Angular, Svelte)
   if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-    const currentVal = target.value
-    if (currentVal !== strValue) {
-      // Reseta o _valueTracker do React para um valor diferente, permitindo que o React detecte o novo valor no onChange!
-      try {
-        const tracker = (target as any)._valueTracker
-        if (tracker) tracker.setValue(currentVal ? '' : ' ')
-      } catch {}
+    // SEMPRE redefine o _valueTracker do React para um valor diferente do desejado
+    // para garantir 100% que o React detecte a mudança e dispare o onChange!
+    try {
+      const tracker = (target as any)._valueTracker
+      if (tracker) tracker.setValue(strValue === '' ? ' ' : '')
+    } catch {}
 
-      const prototype = target instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
-      const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
-      if (setter) {
-        setter.call(target, strValue)
-      } else {
-        target.value = strValue
-      }
+    const prototype = target instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+    const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
+    if (setter) {
+      setter.call(target, strValue)
+    } else {
+      target.value = strValue
     }
 
     // Sequência completa de eventos de entrada
@@ -504,6 +537,12 @@ function setNativeValue(element: HTMLElement, value: string): void {
     try {
       target.dispatchEvent(new FocusEvent('blur', { bubbles: true, cancelable: true, composed: true }))
     } catch {}
+
+    // Garante que o valor não foi revertido por um listener de blur ou validação assíncrona
+    if (target.value !== strValue) {
+      target.value = strValue
+      try { setter?.call(target, strValue) } catch {}
+    }
     return
   }
 
@@ -1064,14 +1103,27 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
   switch (action.t) {
     case 'val':
       if (element) {
-        const isBtn =
-          element instanceof HTMLButtonElement ||
-          element.tagName.toLowerCase() === 'a' ||
-          element.getAttribute('role') === 'button' ||
-          (element instanceof HTMLInputElement && ['button', 'submit', 'reset', 'image'].includes(element.type))
+        let targetInput: HTMLElement | null =
+          (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement || element.isContentEditable)
+            ? element
+            : (element.querySelector('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]), textarea, [contenteditable="true"]') as HTMLElement | null)
 
-        if (isBtn) {
-          simulatePointerClick(element)
+        if (!targetInput) {
+          let scopeRoot: HTMLElement = document.body
+          try { scopeRoot = findActiveScope() || document.body } catch {}
+          const visibleInputs = Array.from(
+            scopeRoot.querySelectorAll(
+              'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]), textarea, [contenteditable="true"]',
+            ),
+          ).filter((i) => isVisible(i as HTMLElement) && !isInsideEasyQuiz(i as HTMLElement)) as HTMLElement[]
+
+          if (visibleInputs.length > 0) {
+            targetInput = visibleInputs[0]
+          }
+        }
+
+        if (targetInput) {
+          setNativeValue(targetInput, String(action.v))
         } else {
           setNativeValue(element, String(action.v))
         }
@@ -1345,35 +1397,41 @@ async function executeAlternativeActionPath(action: DeclarativeAction): Promise<
   }
 
   if (action.t === 'val') {
-    if (!el && elId) {
+    let targetInput: HTMLElement | null = null
+    if (el) {
+      targetInput =
+        el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el.isContentEditable
+          ? el
+          : (el.querySelector('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]') as HTMLElement | null)
+    }
+
+    if (!targetInput) {
+      let scopeRoot: HTMLElement = document.body
+      try { scopeRoot = findActiveScope() || document.body } catch {}
       const inputs = Array.from(
-        document.querySelectorAll('input:not([type="hidden"]), textarea, [contenteditable="true"]'),
+        scopeRoot.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]'),
       ) as HTMLElement[]
       const clean = cleanSearchTerm(elId).toLowerCase()
-      el = inputs.find((i) => {
+      targetInput = inputs.find((i) => {
         const ph = (i.getAttribute('placeholder') || '').toLowerCase()
         const name = ((i as any).name || '').toLowerCase()
         const id = (i.id || '').toLowerCase()
         const aria = (i.getAttribute('aria-label') || '').toLowerCase()
         return ph.includes(clean) || name.includes(clean) || id.includes(clean) || aria.includes(clean)
-      }) || null
+      }) || (inputs.length > 0 ? inputs[0] : null)
     }
 
-    if (el) {
-      const input =
-        el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
-          ? el
-          : (el.querySelector('input:not([type="hidden"]), textarea, [contenteditable="true"]') as HTMLElement | null)
-      const target = input || el
+    if (targetInput) {
       const val = String(action.v ?? '')
-
       try {
-        target.focus?.()
-        document.execCommand?.('selectAll', false, undefined)
-        document.execCommand?.('insertText', false, val)
+        targetInput.focus?.()
+        if ((targetInput as HTMLInputElement).type !== 'number') {
+          try { (targetInput as any).select?.() } catch {}
+          document.execCommand?.('insertText', false, val)
+        }
       } catch {}
 
-      setNativeValue(target, val)
+      setNativeValue(targetInput, val)
     }
     return
   }
@@ -1401,18 +1459,19 @@ async function executeAlternativeActionPath(action: DeclarativeAction): Promise<
 export function verifyActionApplied(action: DeclarativeAction): boolean {
   try {
     if (action.t === 'val') {
-      const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLElement | null
+      const valHint = (action as any).v !== undefined ? String((action as any).v).trim() : ''
+      let el = (findElementExt(action.id, valHint) || findElementExt(cleanSearchTerm(action.id), valHint)) as HTMLElement | null
+      if (!el) {
+        let scopeRoot: HTMLElement = document.body
+        try { scopeRoot = findActiveScope() || document.body } catch {}
+        const visibleInputs = Array.from(
+          scopeRoot.querySelectorAll(
+            'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]), textarea, [contenteditable="true"]',
+          ),
+        ).filter((i) => isVisible(i as HTMLElement) && !isInsideEasyQuiz(i as HTMLElement)) as HTMLElement[]
+        if (visibleInputs.length > 0) el = visibleInputs[0]
+      }
       if (!el) return false
-
-      // Se for botão, link ou navegação, a ação foi auto-corrigida para clique
-      const isBtn =
-        el instanceof HTMLButtonElement ||
-        el.tagName.toLowerCase() === 'a' ||
-        el.getAttribute('role') === 'button' ||
-        el.getAttribute('role') === 'link' ||
-        (el instanceof HTMLInputElement && ['button', 'submit'].includes(el.type)) ||
-        isNavigationControl(el)
-      if (isBtn) return true
 
       const expected = String(action.v ?? '').trim()
 
@@ -1436,14 +1495,14 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
       const targetInput =
         el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
           ? el
-          : (el.querySelector('input:not([type="hidden"]), textarea, [contenteditable="true"]') as HTMLInputElement | HTMLTextAreaElement | null)
+          : (el.querySelector('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]') as HTMLInputElement | HTMLTextAreaElement | null)
 
       const cur = (targetInput ? (targetInput.value ?? targetInput.textContent ?? '') : (el.textContent ?? '')).trim()
       if (!cur && !expected) return true
       if (!cur && expected) return false
-      const normCur = cur.replace(',', '.').toLowerCase()
-      const normExp = expected.replace(',', '.').toLowerCase()
-      return normCur === normExp || normCur.includes(normExp) || cur.toLowerCase() === expected.toLowerCase()
+      const normCur = cur.replace(',', '.').replace(/\s+/g, '').toLowerCase()
+      const normExp = expected.replace(',', '.').replace(/\s+/g, '').toLowerCase()
+      return normCur === normExp || normCur.includes(normExp) || normExp.includes(normCur) || cur.toLowerCase() === expected.toLowerCase()
     }
 
     if (action.t === 'sel') {
