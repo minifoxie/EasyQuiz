@@ -17,7 +17,8 @@ CLASSIFICAÇÃO (pageType):
 - conclusion: Tela final de encerramento (actions=[]).
 
 MULTI-SELEÇÃO (escolha_multipla):
-- Se a questão for de múltipla escolha/seleção (checkboxes ou instruções como "selecione todas", "quais das", etc.), você DEVE emitir uma ação "chk" (c: true) para CADA alternativa correta. Exemplo: se 2 opções forem corretas, inclua ambas em 'actions'!
+- Se a questão for de múltipla escolha/seleção (checkboxes ou instruções como "selecione todas", "quais das", etc.), inclua em 'actions' EXCLUSIVAMENTE as alternativas que são VERDADEIRAS / CORRETAS (com c: true).
+- NUNCA inclua ações para alternativas incorretas/falsas (elas devem permanecer desmarcadas).
 - Em escolha única (rádio), selecione apenas a alternativa correta.
 
 AÇÕES (actions):

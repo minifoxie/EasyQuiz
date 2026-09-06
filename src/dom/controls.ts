@@ -106,6 +106,23 @@ export function isVisible(element: Element): boolean {
         if (isVisibleBasic(parentOption)) return true
       }
     }
+
+    // Controles de formulário (text inputs, textareas, selects, buttons) não contêm nós de texto internos.
+    // Em JSDOM ou renderizadores sem reflow (onde getBoundingClientRect retorna 0x0), eles são visíveis
+    // desde que não estejam ocultos por display:none, visibility:hidden, hidden ou aria-hidden.
+    try {
+      const hiddenAncestor = node.closest('[hidden], [style*="display: none"], [style*="display:none"], [aria-hidden="true"]')
+      if (!hiddenAncestor) {
+        const style = window.getComputedStyle ? window.getComputedStyle(node) : (node.style as any)
+        if (!style || (style.display !== 'none' && style.visibility !== 'hidden')) {
+          if (typeof node.getBoundingClientRect === 'function') {
+            const rect = node.getBoundingClientRect()
+            if (rect.width > 0 || rect.height > 0) return true
+          }
+          return true
+        }
+      }
+    } catch {}
   }
 
   return isVisibleBasic(node)

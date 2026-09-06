@@ -2,6 +2,7 @@ import type { ActionExecutionReport, AnalysisPlan, DeclarativeAction } from '../
 import { assertActionAllowed, createExecutionPolicy, validateJavaScriptSource, type ExecutionPolicy } from '../core/policy'
 import { loadDomainCache, saveDomainCache } from '../core/storage'
 import { cleanText, isNavigationControl, isVisible, NAVIGATION_PATTERN } from './controls'
+import { findActiveScope } from './detector'
 
 export function isInsideEasyQuiz(el: HTMLElement | null): boolean {
   if (!el) return false
@@ -74,8 +75,43 @@ export function resolveTargetControlOrCard(element: HTMLElement): HTMLElement {
   return element
 }
 
+// ---- COLETA DETERMINÍSTICA DE OPÇÕES VISÍVEIS DISTINTAS NO ESCOPO ----
+export function getDistinctVisibleChoices(scopeRoot?: HTMLElement): HTMLElement[] {
+  let root = scopeRoot
+  if (!root || !document.contains(root)) {
+    try {
+      root = findActiveScope()
+    } catch {}
+  }
+  root = root || document.body
+
+  // 1. Linhas de tabela com controles (essencial para matrizes V/F ou questões em tabela)
+  const rows = Array.from(root.querySelectorAll('tr')).filter((tr) => {
+    return isVisible(tr) && tr.querySelector('input[type="radio"], input[type="checkbox"]')
+  }) as HTMLElement[]
+  if (rows.length > 1) {
+    return rows
+  }
+
+  // 2. Coleta inputs nativos únicos visíveis (evita duplicar com label ou option-card pai)
+  const inputs = Array.from(
+    root.querySelectorAll('input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"]'),
+  ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
+
+  if (inputs.length > 0) {
+    return inputs
+  }
+
+  // 3. Fallback para option cards sem input nativo (evita nós filhos duplicados)
+  const cards = Array.from(
+    root.querySelectorAll('.option-card, [role="option"], [class*="choice-card" i], [class*="option-card" i], li[class*="choice" i], li[class*="option" i]'),
+  ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
+
+  return cards.filter((card) => !card.parentElement?.closest('.option-card, [role="option"], [class*="choice-card" i], [class*="option-card" i]'))
+}
+
 // ---- MOTOR DE BUSCA ROBUSTA DE ELEMENTOS ----
-export function findElementExt(idOrLabel: string): HTMLElement | null {
+export function findElementExt(idOrLabel: string, valueHint?: string): HTMLElement | null {
   if (!idOrLabel) return null
   const trimmed = idOrLabel.trim().replace(/^["'“”«»]+|["'“”«»]+$/g, '')
   if (!trimmed) return null
@@ -100,20 +136,26 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
   if (ordinalNumMatch) {
     const targetIdx = parseInt(ordinalNumMatch[1], 10) - 1
     if (targetIdx >= 0) {
-      // Prioridade A: Checkboxes e Rádios
-      const visibleChoices = Array.from(
-        document.querySelectorAll(
-          'input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"]',
-        ),
-      ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
-
+      // Prioridade A: Checkboxes, Rádios ou Linhas de Tabela no escopo ativo
+      const visibleChoices = getDistinctVisibleChoices()
       if (targetIdx < visibleChoices.length) {
-        return resolveTargetControlOrCard(visibleChoices[targetIdx])
+        const choice = visibleChoices[targetIdx]
+        if (choice.tagName.toLowerCase() === 'tr') {
+          if (valueHint) {
+            const match = choice.querySelector(`input[value="${CSS.escape(valueHint)}" i], [data-value="${CSS.escape(valueHint)}" i]`) as HTMLElement | null
+            if (match) return match
+          }
+          const firstInput = choice.querySelector('input') as HTMLElement | null
+          if (firstInput) return firstInput
+        }
+        return resolveTargetControlOrCard(choice)
       }
 
       // Prioridade B: Inputs de texto, número, textarea, select (essencial para questões de preenchimento)
+      let scopeRoot: HTMLElement = document.body
+      try { scopeRoot = findActiveScope() || document.body } catch {}
       const visibleInputs = Array.from(
-        document.querySelectorAll(
+        scopeRoot.querySelectorAll(
           'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable="true"]',
         ),
       ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
@@ -129,14 +171,18 @@ export function findElementExt(idOrLabel: string): HTMLElement | null {
   if (ordinalLetterMatch) {
     const letterIdx = ordinalLetterMatch[1].toUpperCase().charCodeAt(0) - 65
     if (letterIdx >= 0) {
-      const visibleChoices = Array.from(
-        document.querySelectorAll(
-          'input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"], .option-card, [class*="choice" i], label:has(input)',
-        ),
-      ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
-
+      const visibleChoices = getDistinctVisibleChoices()
       if (letterIdx < visibleChoices.length) {
-        return resolveTargetControlOrCard(visibleChoices[letterIdx])
+        const choice = visibleChoices[letterIdx]
+        if (choice.tagName.toLowerCase() === 'tr') {
+          if (valueHint) {
+            const match = choice.querySelector(`input[value="${CSS.escape(valueHint)}" i], [data-value="${CSS.escape(valueHint)}" i]`) as HTMLElement | null
+            if (match) return match
+          }
+          const firstInput = choice.querySelector('input') as HTMLElement | null
+          if (firstInput) return firstInput
+        }
+        return resolveTargetControlOrCard(choice)
       }
     }
   }
@@ -320,7 +366,7 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
 
   if (innerInput && element !== innerInput) {
     if (innerInput.type === 'checkbox') {
-      setCheckedState(innerInput, !innerInput.checked)
+      setCheckedState(innerInput, true)
       return
     }
     if (innerInput.type === 'radio') {
@@ -888,7 +934,7 @@ export const EqAPI = {
     if (el) setCheckedState(el, checked)
     else console.warn(`$eq.check: Elemento '${idOrLabel}' não encontrado`)
   },
-  find: (idOrLabel: string) => findElementExt(idOrLabel),
+  find: (idOrLabel: string, valueHint?: string) => findElementExt(idOrLabel, valueHint),
   drag: (idOrigem: string, idDest: string) => {
     const origin = findDragTarget(idOrigem, 'source') || findElementExt(idOrigem)
     const dest = findDragTarget(idDest, 'destination') || findElementExt(idDest)
@@ -947,13 +993,11 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
   }
 
   const elId = action.id || ''
-  let element = findElementExt(elId)
-  if (!element && elId) {
-    element = findElementExt(cleanSearchTerm(elId))
-  }
-
-  // Resolução inteligente de rádio por valor/opção (ex: tabela VF, grupo de opções com name compartilhado)
   const valHint = (action as any).v !== undefined ? String((action as any).v).trim() : ''
+  let element = findElementExt(elId, valHint)
+  if (!element && elId) {
+    element = findElementExt(cleanSearchTerm(elId), valHint)
+  }
   if (element && valHint) {
     if (element instanceof HTMLInputElement && element.type === 'radio' && element.name) {
       if (cleanSearchTerm(element.value).toLowerCase() !== cleanSearchTerm(valHint).toLowerCase()) {
@@ -1051,7 +1095,8 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
         )
 
         if (isOptionCard) {
-          setCheckedState(element, true)
+          const targetState = (action as any).c !== undefined ? Boolean((action as any).c) : true
+          setCheckedState(element, targetState)
         } else {
           simulatePointerClick(element, action.co)
         }
@@ -1215,7 +1260,8 @@ async function executeAlternativeActionPath(action: DeclarativeAction): Promise<
   }
 
   const elId = action.id || ''
-  let el = findElementExt(elId) || findElementExt(cleanSearchTerm(elId))
+  const valHint = (action as any).v !== undefined ? String((action as any).v).trim() : ''
+  let el = findElementExt(elId, valHint) || findElementExt(cleanSearchTerm(elId), valHint)
 
   if (action.t === 'clk' || action.t === 'chk') {
     // 1. Tentar localizar o elemento por prefixos alternativos de alternativas se o seletor padrão falhou
@@ -1275,7 +1321,7 @@ async function executeAlternativeActionPath(action: DeclarativeAction): Promise<
         ? el
         : (card.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null) ||
           (card.getAttribute('for') ? (card.ownerDocument.getElementById(card.getAttribute('for')!) as HTMLInputElement | null) : null)
-      const shouldCheck = action.t === 'chk' ? Boolean(action.c) : true
+      const shouldCheck = action.t === 'chk' ? Boolean(action.c) : (action as any).c !== undefined ? Boolean((action as any).c) : true
 
       // Executa o motor central de persistência
       setCheckedState(input || card, shouldCheck)
@@ -1416,7 +1462,8 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
     }
 
     if (action.t === 'chk' || action.t === 'clk') {
-      const el = findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))
+      const valHint = (action as any).v !== undefined ? String((action as any).v).trim() : ''
+      const el = findElementExt(action.id, valHint) || findElementExt(cleanSearchTerm(action.id), valHint)
       if (!el) return false
       const card = (el.closest(
         '.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, li',
@@ -1428,7 +1475,7 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
           : (card.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null) ||
             (card.getAttribute('for') ? (card.ownerDocument.getElementById(card.getAttribute('for')!) as HTMLInputElement | null) : null)
 
-      const expected = action.t === 'chk' ? Boolean(action.c) : true
+      const expected = action.t === 'chk' ? Boolean(action.c) : (action as any).c !== undefined ? Boolean((action as any).c) : true
 
       // Se houver valor esperado em grupo de rádio
       if (inputEl && inputEl.type === 'radio' && (action as any).v) {
@@ -1513,6 +1560,52 @@ export async function executePlan(
   const failed: string[] = []
   const actionErrors = new Map<DeclarativeAction, string>()
 
+  const isQuestion = plan.pageType === 'question'
+
+  // RECONCILIAÇÃO DETERMINÍSTICA DE MULTI-SELEÇÃO / CHECKBOXES:
+  // Se for uma questão com opções de checkbox, garante que checkboxes no escopo que NÃO
+  // foram selecionados pela IA sejam desmarcados, evitando que seleções prévias ou padrões permaneçam marcados.
+  const chkActions = regularActions.filter((a) => a.t === 'chk' || (a.t === 'clk' && (a as any).c !== undefined))
+  if (isQuestion && chkActions.length > 0) {
+    let scopeRoot: HTMLElement = document.body
+    try { scopeRoot = findActiveScope() || document.body } catch {}
+
+    const allScopeCheckboxes = Array.from(
+      scopeRoot.querySelectorAll('input[type="checkbox"], [role="checkbox"]'),
+    ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
+
+    if (allScopeCheckboxes.length > 1) {
+      const targetedCheckboxes = new Set<HTMLElement>()
+      for (const act of chkActions) {
+        const isTrue = act.t === 'chk' ? Boolean(act.c) : Boolean((act as any).c ?? true)
+        const actId = 'id' in act && typeof (act as any).id === 'string' ? (act as any).id : ''
+        if (isTrue && actId) {
+          const el = findElementExt(actId, (act as any).v)
+          if (el) {
+            const inner = (el instanceof HTMLInputElement && el.type === 'checkbox'
+              ? el
+              : el.querySelector('input[type="checkbox"]')) as HTMLElement | null
+            targetedCheckboxes.add(inner || el)
+          }
+        }
+      }
+
+      if (targetedCheckboxes.size > 0) {
+        for (const chk of allScopeCheckboxes) {
+          if (!targetedCheckboxes.has(chk)) {
+            const isCurrentlyChecked =
+              (chk instanceof HTMLInputElement && chk.checked) ||
+              chk.getAttribute('aria-checked') === 'true' ||
+              chk.closest('.option-card, label')?.classList.contains('selected')
+            if (isCurrentlyChecked) {
+              setCheckedState(chk, false)
+            }
+          }
+        }
+      }
+    }
+  }
+
   // 1. PRIMEIRA PASSAGEM: Execução declarativa principal
   for (const action of regularActions) {
     try {
@@ -1582,7 +1675,6 @@ export async function executePlan(
   }
 
   // Em questões, cada ação precisa ter evidência no DOM antes de qualquer avanço.
-  const isQuestion = plan.pageType === 'question'
   for (const action of regularActions) {
     if (!verifyActionApplied(action)) {
       failed.push(action.t === 'drag' ? `${action.from} -> ${action.to}` : 'id' in action ? action.id : action.t)

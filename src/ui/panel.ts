@@ -1145,6 +1145,11 @@ export class EasyQuizPanel {
     }
   }
 
+  public setErrorDiagnostic(errorMsg: string, source?: string): void {
+    const formatted = source ? `[${source}] ${errorMsg}` : errorMsg
+    this.setLastError(formatted)
+  }
+
   public refreshDebugView(): void {
     const plan = this.latestPlan
     const ctx = this.latestContext

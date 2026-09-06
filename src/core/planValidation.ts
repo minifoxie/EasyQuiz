@@ -75,10 +75,36 @@ function normalizeAction(raw: unknown, index: number): DeclarativeAction | null 
     return { t: 'sel', id, v: normalized }
   }
   if (type === 'chk') {
-    return { t: 'chk', id, c: Boolean(action.c !== false) }
+    const isExplicitlyFalse =
+      action.c === false ||
+      action.c === 'false' ||
+      action.c === 0 ||
+      action.c === '0' ||
+      action.c === 'off' ||
+      action.c === 'unchecked' ||
+      action.c === 'desmarcar'
+    const res: DeclarativeAction = { t: 'chk', id, c: !isExplicitlyFalse }
+    if (action.v !== undefined) {
+      ;(res as any).v = text(action.v).slice(0, MAX_TEXT)
+    }
+    return res
   }
 
   const result: DeclarativeAction = { t: 'clk', id }
+  if (action.c !== undefined) {
+    const isExplicitlyFalse =
+      action.c === false ||
+      action.c === 'false' ||
+      action.c === 0 ||
+      action.c === '0' ||
+      action.c === 'off' ||
+      action.c === 'unchecked' ||
+      action.c === 'desmarcar'
+    ;(result as any).c = !isExplicitlyFalse
+  }
+  if (action.v !== undefined) {
+    ;(result as any).v = text(action.v).slice(0, MAX_TEXT)
+  }
   if (Array.isArray(action.co) && action.co.length === 2 && action.co.every((value) => typeof value === 'number' && Number.isFinite(value))) {
     result.co = [action.co[0], action.co[1]]
   }
