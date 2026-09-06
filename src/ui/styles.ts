@@ -812,6 +812,120 @@ export const PANEL_STYLES = `
     border-radius: 4px;
   }
 
+  /* ===== BARRA DE FERRAMENTAS DO TERMINAL & DEBUG ===== */
+  .eq-debug-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .eq-filter-chips {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow-x: auto;
+  }
+
+  .eq-filter-chip {
+    background: var(--eq-surface);
+    border: 1px solid var(--eq-border);
+    border-radius: 12px;
+    color: var(--eq-muted);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  .eq-filter-chip:hover {
+    color: var(--eq-text-bright);
+    background: var(--eq-surface-hover);
+  }
+
+  .eq-filter-chip.active {
+    background: var(--eq-accent);
+    border-color: var(--eq-accent);
+    color: var(--eq-text-bright);
+    font-weight: 600;
+  }
+
+  .eq-debug-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* Grid de 4 Métricas de Tokens / Diagnóstico */
+  .eq-token-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .eq-token-box {
+    background: var(--eq-surface);
+    border: 1px solid var(--eq-border);
+    border-radius: 6px;
+    padding: 8px 6px;
+    text-align: center;
+  }
+
+  .eq-token-title {
+    font-size: 9.5px;
+    color: var(--eq-muted);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+
+  .eq-token-val {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--eq-text-bright);
+    margin-top: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .eq-debug-error-card {
+    background: rgba(241, 76, 76, 0.1);
+    border: 1px solid rgba(241, 76, 76, 0.3);
+    border-left: 3px solid var(--eq-danger);
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--eq-text);
+  }
+
+  .eq-debug-error-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
+    color: var(--eq-danger);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .eq-debug-error-msg {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 11px;
+    word-break: break-word;
+    color: #ffaaaa;
+  }
+
   .eq-footer-note {
     font-size: 11px;
     color: var(--eq-muted);

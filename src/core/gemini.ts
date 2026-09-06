@@ -387,6 +387,9 @@ export async function analyzeWithGemini(
         parsedPlan.durationMs = Date.now() - startTime
         parsedPlan.promptSent = userText
         parsedPlan.tokensUsed = data.usageMetadata?.totalTokenCount
+        parsedPlan.promptTokens = data.usageMetadata?.promptTokenCount
+        parsedPlan.candidatesTokens = data.usageMetadata?.candidatesTokenCount
+        parsedPlan.rawResponse = rawText
 
         if (currentModel !== chosenModel) {
           onProgress?.(`Resolvido com sucesso pelo fallback '${currentModel}' (${apiVer})!`, 'info')

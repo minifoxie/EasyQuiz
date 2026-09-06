@@ -73,6 +73,10 @@ export interface AnalysisPlan {
   promptSent?: string
   durationMs?: number
   tokensUsed?: number
+  promptTokens?: number
+  candidatesTokens?: number
+  rawResponse?: string
+  needsMoreContext?: boolean
 }
 
 export interface ActionExecutionReport {

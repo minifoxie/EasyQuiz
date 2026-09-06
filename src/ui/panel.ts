@@ -40,12 +40,39 @@ export class EasyQuizPanel {
   private floatingAnswers: FloatingAnswersHud
   private initialSettings: EasyQuizSettings
   private isCollapsed: boolean = false
-  private activeTab: 'resolver' | 'brain' | 'settings' = 'resolver'
+  private activeTab: 'resolver' | 'brain' | 'debug' | 'settings' = 'resolver'
   private stopwatchInterval: any = null
   private stopwatchStartTime: number = 0
   private latestPlan: AnalysisPlan | null = null
   private latestContext: CapturedContext | null = null
   private latestPromptText: string = ''
+
+  // Debug & Terminal Elements
+  private liveDebugTerminal: HTMLElement
+  private dbgModel: HTMLElement
+  private dbgLatency: HTMLElement
+  private dbgSplitTokens: HTMLElement
+  private dbgTotalTokens: HTMLElement
+  private dbgErrorCard: HTMLElement
+  private dbgErrorText: HTMLElement
+  private dbgPromptLen: HTMLElement
+  private dbgPromptView: HTMLElement
+  private dbgContextView: HTMLElement
+  private dbgRawRespView: HTMLElement
+  private dbgCountAll: HTMLElement
+  private dbgCountError: HTMLElement
+  private dbgCountAi: HTMLElement
+  private dbgCountDom: HTMLElement
+  private logEntries: Array<{
+    id: number
+    timestamp: string
+    message: string
+    colorClass?: string
+    category: 'all' | 'error' | 'ai' | 'dom'
+  }> = []
+  private activeLogFilter: 'all' | 'error' | 'ai' | 'dom' = 'all'
+  private autoScrollLogs: boolean = true
+  private lastErrorMsg: string | null = null
 
   // Barra de Progresso
   private progressContainer: HTMLElement
@@ -167,6 +194,11 @@ export class EasyQuizPanel {
               <button class="eq-activity-btn" id="eq-tab-brain" role="tab" title="Cérebro da IA (Contexto e Inspeção)">
                 <span class="eq-activity-indicator"></span>
                 <span class="eq-activity-icon">${ICONS.chip}</span>
+              </button>
+
+              <button class="eq-activity-btn" id="eq-tab-debug" role="tab" title="Terminal & Debug Output (Logs, Tokens, Prompts, Erros)">
+                <span class="eq-activity-indicator"></span>
+                <span class="eq-activity-icon">${ICONS.terminal}</span>
               </button>
             </div>
 
@@ -323,7 +355,116 @@ export class EasyQuizPanel {
                 <div class="eq-footer-note" style="margin-top: auto;">Inspetor em Tempo Real • 100% Transparente</div>
               </div>
 
-              <!-- TAB 3: CONFIGURAÇÕES -->
+              <!-- TAB 3: DEBUG OUTPUT & TERMINAL -->
+              <div class="eq-view-pane" id="eq-view-debug" style="display: none;">
+                <!-- Cabeçalho da Aba -->
+                <div class="eq-operation-header" style="margin-bottom: 8px;">
+                  <div>
+                    <div class="eq-eyebrow">TERMINAL & AUDITORIA</div>
+                    <h1 class="eq-operation-title" style="font-size: 15px;">Debug Output</h1>
+                    <p class="eq-operation-subtitle">Logs em tempo real, métricas de tokens e payloads brutos.</p>
+                  </div>
+                  <span class="eq-brand-badge" id="eq-debug-badge" style="background: rgba(0, 122, 204, 0.2); color: #0098ff;">ATIVO</span>
+                </div>
+
+                <!-- Grid 4 Métricas de Tokens / Desempenho -->
+                <div class="eq-token-grid">
+                  <div class="eq-token-box">
+                    <div class="eq-token-title">Modelo</div>
+                    <div class="eq-token-val" id="eq-dbg-model">--</div>
+                  </div>
+                  <div class="eq-token-box">
+                    <div class="eq-token-title">Latência</div>
+                    <div class="eq-token-val" id="eq-dbg-latency">--</div>
+                  </div>
+                  <div class="eq-token-box">
+                    <div class="eq-token-title">Prompt / Resp</div>
+                    <div class="eq-token-val" id="eq-dbg-split-tokens">-- / --</div>
+                  </div>
+                  <div class="eq-token-box">
+                    <div class="eq-token-title">Total Tokens</div>
+                    <div class="eq-token-val" id="eq-dbg-total-tokens" style="color: #4ec9b0;">--</div>
+                  </div>
+                </div>
+
+                <!-- Alerta de Erro Recente (Se houver) -->
+                <div class="eq-debug-error-card" id="eq-dbg-error-card" style="display: none;">
+                  <div class="eq-debug-error-header">
+                    <span>⚠️ Último Erro / Falha Registrada</span>
+                    <button class="eq-icon-btn" id="eq-dbg-copy-error-btn" type="button" title="Copiar Erro" style="width: 20px; height: 20px;">
+                      ${ICONS.copy}
+                    </button>
+                  </div>
+                  <div class="eq-debug-error-msg" id="eq-dbg-error-text"></div>
+                </div>
+
+                <!-- Terminal Interativo ao Vivo -->
+                <div class="eq-field-group" style="gap: 6px;">
+                  <div class="eq-debug-toolbar">
+                    <div class="eq-filter-chips">
+                      <button class="eq-filter-chip active" id="eq-dbg-filter-all" type="button">Todos (<span id="eq-dbg-count-all">0</span>)</button>
+                      <button class="eq-filter-chip" id="eq-dbg-filter-error" type="button">Erros (<span id="eq-dbg-count-error">0</span>)</button>
+                      <button class="eq-filter-chip" id="eq-dbg-filter-ai" type="button">IA (<span id="eq-dbg-count-ai">0</span>)</button>
+                      <button class="eq-filter-chip" id="eq-dbg-filter-dom" type="button">DOM / Exec (<span id="eq-dbg-count-dom">0</span>)</button>
+                    </div>
+                    <div class="eq-debug-toolbar-actions">
+                      <button class="eq-icon-btn" id="eq-dbg-scroll-toggle" type="button" title="Auto-Scroll Ligado (Clique para alternar)" style="width: 26px; height: 26px; color: #00ffcc;">
+                        ↓
+                      </button>
+                      <button class="eq-icon-btn" id="eq-dbg-copy-logs" type="button" title="Copiar Logs Atuais" style="width: 26px; height: 26px;">
+                        ${ICONS.copy}
+                      </button>
+                      <button class="eq-icon-btn" id="eq-dbg-clear-logs" type="button" title="Limpar Console" style="width: 26px; height: 26px; color: #ff5555;">
+                        ${ICONS.eraser}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="eq-terminal" id="eq-live-debug-terminal" style="height: 180px;">
+                    <div class="text-blue">> [SYS] Terminal de auditoria EasyQuiz pronto.</div>
+                  </div>
+                </div>
+
+                <!-- Prompt Bruto Enviado (Raw) -->
+                <div class="eq-field-group">
+                  <div class="eq-section-title">
+                    <span>Prompt Enviado à IA (Raw)</span>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                      <span class="text-muted" id="eq-dbg-prompt-len" style="font-size: 10px;">0 chars</span>
+                      <button class="eq-btn-secondary" id="eq-dbg-copy-prompt" type="button" style="height: 24px; padding: 0 6px; font-size: 10px;">
+                        ${ICONS.copy} Copiar
+                      </button>
+                    </div>
+                  </div>
+                  <div class="eq-code-block" id="eq-dbg-prompt-view" style="max-height: 120px;">Nenhum prompt registrado ainda.</div>
+                </div>
+
+                <!-- Contexto & Escopo Injetado -->
+                <div class="eq-field-group">
+                  <div class="eq-section-title">
+                    <span>Contexto & Escopo Injetado</span>
+                    <button class="eq-btn-secondary" id="eq-dbg-copy-context" type="button" style="height: 24px; padding: 0 6px; font-size: 10px;">
+                      ${ICONS.copy} Copiar JSON
+                    </button>
+                  </div>
+                  <div class="eq-code-block" id="eq-dbg-context-view" style="max-height: 110px;">Aguardando captura de contexto...</div>
+                </div>
+
+                <!-- Resposta Bruta da IA -->
+                <div class="eq-field-group">
+                  <div class="eq-section-title">
+                    <span>Resposta Bruta da IA (Raw Output)</span>
+                    <button class="eq-btn-secondary" id="eq-dbg-copy-raw-resp" type="button" style="height: 24px; padding: 0 6px; font-size: 10px;">
+                      ${ICONS.copy} Copiar Resposta
+                    </button>
+                  </div>
+                  <div class="eq-code-block" id="eq-dbg-raw-resp-view" style="max-height: 110px;">Aguardando retorno da API...</div>
+                </div>
+
+                <div class="eq-footer-note" style="margin-top: auto;">Debug Live Output • Auditoria Completa de Tokens e Payloads</div>
+              </div>
+
+              <!-- TAB 4: CONFIGURAÇÕES -->
               <div class="eq-view-pane" id="eq-view-settings" style="display: none;">
                 <!-- Seção da Chave de API com Menu de 3 Pontinhos (⋮) -->
                 <div class="eq-field-group">
@@ -471,6 +612,23 @@ export class EasyQuizPanel {
     this.inspActions = this.shadow.querySelector('#eq-insp-actions') as HTMLElement
     this.copyPromptBtn = this.shadow.querySelector('#eq-copy-prompt-btn') as HTMLButtonElement
 
+    // Elementos da Aba Debug & Terminal
+    this.liveDebugTerminal = this.shadow.querySelector('#eq-live-debug-terminal') as HTMLElement
+    this.dbgModel = this.shadow.querySelector('#eq-dbg-model') as HTMLElement
+    this.dbgLatency = this.shadow.querySelector('#eq-dbg-latency') as HTMLElement
+    this.dbgSplitTokens = this.shadow.querySelector('#eq-dbg-split-tokens') as HTMLElement
+    this.dbgTotalTokens = this.shadow.querySelector('#eq-dbg-total-tokens') as HTMLElement
+    this.dbgErrorCard = this.shadow.querySelector('#eq-dbg-error-card') as HTMLElement
+    this.dbgErrorText = this.shadow.querySelector('#eq-dbg-error-text') as HTMLElement
+    this.dbgPromptLen = this.shadow.querySelector('#eq-dbg-prompt-len') as HTMLElement
+    this.dbgPromptView = this.shadow.querySelector('#eq-dbg-prompt-view') as HTMLElement
+    this.dbgContextView = this.shadow.querySelector('#eq-dbg-context-view') as HTMLElement
+    this.dbgRawRespView = this.shadow.querySelector('#eq-dbg-raw-resp-view') as HTMLElement
+    this.dbgCountAll = this.shadow.querySelector('#eq-dbg-count-all') as HTMLElement
+    this.dbgCountError = this.shadow.querySelector('#eq-dbg-count-error') as HTMLElement
+    this.dbgCountAi = this.shadow.querySelector('#eq-dbg-count-ai') as HTMLElement
+    this.dbgCountDom = this.shadow.querySelector('#eq-dbg-count-dom') as HTMLElement
+
     // Controles de Formulário e Chave
     this.apiKeyInput = this.shadow.querySelector('#eq-api-key') as HTMLInputElement
     this.keyContextMenu = this.shadow.querySelector('#eq-key-context-menu') as HTMLElement
@@ -530,11 +688,12 @@ export class EasyQuizPanel {
     }
   }
 
-  private switchTab(tab: 'resolver' | 'brain' | 'settings') {
+  private switchTab(tab: 'resolver' | 'brain' | 'debug' | 'settings') {
     this.activeTab = tab
-    const tabs: Array<'resolver' | 'brain' | 'settings'> = [
+    const tabs: Array<'resolver' | 'brain' | 'debug' | 'settings'> = [
       'resolver',
       'brain',
+      'debug',
       'settings',
     ]
 
@@ -553,6 +712,9 @@ export class EasyQuizPanel {
     if (tab === 'brain') {
       this.renderContextTree()
       this.refreshInspectorView()
+    } else if (tab === 'debug') {
+      this.refreshDebugView()
+      this.renderTerminalEntries()
     }
   }
 
@@ -560,7 +722,81 @@ export class EasyQuizPanel {
     // Abas do Activity Bar Vertical
     this.shadow.querySelector('#eq-tab-resolver')?.addEventListener('click', () => this.switchTab('resolver'))
     this.shadow.querySelector('#eq-tab-brain')?.addEventListener('click', () => this.switchTab('brain'))
+    this.shadow.querySelector('#eq-tab-debug')?.addEventListener('click', () => this.switchTab('debug'))
     this.shadow.querySelector('#eq-tab-settings')?.addEventListener('click', () => this.switchTab('settings'))
+
+    // Filtros do Terminal de Debug
+    this.shadow.querySelector('#eq-dbg-filter-all')?.addEventListener('click', () => this.setLogFilter('all'))
+    this.shadow.querySelector('#eq-dbg-filter-error')?.addEventListener('click', () => this.setLogFilter('error'))
+    this.shadow.querySelector('#eq-dbg-filter-ai')?.addEventListener('click', () => this.setLogFilter('ai'))
+    this.shadow.querySelector('#eq-dbg-filter-dom')?.addEventListener('click', () => this.setLogFilter('dom'))
+
+    // Ações do Terminal de Debug
+    const scrollToggleBtn = this.shadow.querySelector('#eq-dbg-scroll-toggle') as HTMLButtonElement | null
+    scrollToggleBtn?.addEventListener('click', () => {
+      this.autoScrollLogs = !this.autoScrollLogs
+      if (scrollToggleBtn) {
+        scrollToggleBtn.style.color = this.autoScrollLogs ? '#00ffcc' : '#858585'
+        scrollToggleBtn.title = this.autoScrollLogs ? 'Auto-Scroll Ligado (Clique para desligar)' : 'Auto-Scroll Desligado (Clique para ligar)'
+      }
+      if (this.autoScrollLogs && this.liveDebugTerminal) {
+        this.liveDebugTerminal.scrollTop = this.liveDebugTerminal.scrollHeight
+      }
+    })
+
+    const copyDbgLogsBtn = this.shadow.querySelector('#eq-dbg-copy-logs') as HTMLButtonElement | null
+    copyDbgLogsBtn?.addEventListener('click', () => {
+      const text = this.getFormattedLogs()
+      navigator.clipboard.writeText(text).then(() => {
+        const prev = copyDbgLogsBtn.innerHTML
+        copyDbgLogsBtn.innerHTML = ICONS.check
+        setTimeout(() => (copyDbgLogsBtn.innerHTML = prev), 1800)
+      })
+    })
+
+    this.shadow.querySelector('#eq-dbg-clear-logs')?.addEventListener('click', () => {
+      this.clearLogs()
+    })
+
+    const copyDbgPromptBtn = this.shadow.querySelector('#eq-dbg-copy-prompt') as HTMLButtonElement | null
+    copyDbgPromptBtn?.addEventListener('click', () => {
+      const text = this.latestPromptText || this.latestPlan?.promptSent || ''
+      navigator.clipboard.writeText(text).then(() => {
+        const prev = copyDbgPromptBtn.innerHTML
+        copyDbgPromptBtn.innerHTML = `${ICONS.check} Copiado!`
+        setTimeout(() => (copyDbgPromptBtn.innerHTML = prev), 1800)
+      })
+    })
+
+    const copyDbgContextBtn = this.shadow.querySelector('#eq-dbg-copy-context') as HTMLButtonElement | null
+    copyDbgContextBtn?.addEventListener('click', () => {
+      const text = this.dbgContextView?.textContent || ''
+      navigator.clipboard.writeText(text).then(() => {
+        const prev = copyDbgContextBtn.innerHTML
+        copyDbgContextBtn.innerHTML = `${ICONS.check} Copiado!`
+        setTimeout(() => (copyDbgContextBtn.innerHTML = prev), 1800)
+      })
+    })
+
+    const copyDbgRawRespBtn = this.shadow.querySelector('#eq-dbg-copy-raw-resp') as HTMLButtonElement | null
+    copyDbgRawRespBtn?.addEventListener('click', () => {
+      const text = this.latestPlan?.rawResponse || this.dbgRawRespView?.textContent || ''
+      navigator.clipboard.writeText(text).then(() => {
+        const prev = copyDbgRawRespBtn.innerHTML
+        copyDbgRawRespBtn.innerHTML = `${ICONS.check} Copiado!`
+        setTimeout(() => (copyDbgRawRespBtn.innerHTML = prev), 1800)
+      })
+    })
+
+    const copyDbgErrorBtn = this.shadow.querySelector('#eq-dbg-copy-error-btn') as HTMLButtonElement | null
+    copyDbgErrorBtn?.addEventListener('click', () => {
+      const text = this.lastErrorMsg || ''
+      navigator.clipboard.writeText(text).then(() => {
+        const prev = copyDbgErrorBtn.innerHTML
+        copyDbgErrorBtn.innerHTML = ICONS.check
+        setTimeout(() => (copyDbgErrorBtn.innerHTML = prev), 1800)
+      })
+    })
 
     this.shadow.querySelector('#eq-refresh-context-btn')?.addEventListener('click', () => {
       this.renderContextTree()
@@ -824,9 +1060,179 @@ export class EasyQuizPanel {
     }
   }
 
+  public setLogFilter(filter: 'all' | 'error' | 'ai' | 'dom'): void {
+    this.activeLogFilter = filter
+    const chips: Array<'all' | 'error' | 'ai' | 'dom'> = ['all', 'error', 'ai', 'dom']
+    for (const f of chips) {
+      const btn = this.shadow.querySelector(`#eq-dbg-filter-${f}`)
+      if (f === filter) btn?.classList.add('active')
+      else btn?.classList.remove('active')
+    }
+    this.renderTerminalEntries()
+  }
+
+  private updateLogCounters(): void {
+    let errorCount = 0
+    let aiCount = 0
+    let domCount = 0
+
+    for (const e of this.logEntries) {
+      if (e.category === 'error') errorCount++
+      else if (e.category === 'ai') aiCount++
+      else if (e.category === 'dom') domCount++
+    }
+
+    if (this.dbgCountAll) this.dbgCountAll.textContent = String(this.logEntries.length)
+    if (this.dbgCountError) this.dbgCountError.textContent = String(errorCount)
+    if (this.dbgCountAi) this.dbgCountAi.textContent = String(aiCount)
+    if (this.dbgCountDom) this.dbgCountDom.textContent = String(domCount)
+  }
+
+  public renderTerminalEntries(): void {
+    if (!this.liveDebugTerminal) return
+    this.liveDebugTerminal.replaceChildren()
+
+    const filtered = this.activeLogFilter === 'all'
+      ? this.logEntries
+      : this.logEntries.filter((e) => e.category === this.activeLogFilter)
+
+    if (filtered.length === 0) {
+      const empty = document.createElement('div')
+      empty.className = 'text-muted'
+      empty.textContent = `Nenhum log encontrado para o filtro "${this.activeLogFilter.toUpperCase()}".`
+      this.liveDebugTerminal.appendChild(empty)
+      return
+    }
+
+    for (const item of filtered) {
+      const line = document.createElement('div')
+      line.textContent = item.message
+      if (item.colorClass) line.className = item.colorClass
+      this.liveDebugTerminal.appendChild(line)
+    }
+
+    if (this.autoScrollLogs) {
+      this.liveDebugTerminal.scrollTop = this.liveDebugTerminal.scrollHeight
+    }
+  }
+
+  public clearLogs(): void {
+    this.logEntries = []
+    this.updateLogCounters()
+    if (this.liveDebugTerminal) {
+      this.liveDebugTerminal.replaceChildren()
+      const init = document.createElement('div')
+      init.className = 'text-blue'
+      init.textContent = '> [SYS] Console de logs limpo pelo usuário.'
+      this.liveDebugTerminal.appendChild(init)
+    }
+    if (this.apConsole) this.apConsole.replaceChildren()
+    if (this.executionConsole) this.executionConsole.replaceChildren()
+  }
+
+  public getFormattedLogs(): string {
+    const filtered = this.activeLogFilter === 'all'
+      ? this.logEntries
+      : this.logEntries.filter((e) => e.category === this.activeLogFilter)
+    return filtered.map((e) => e.message).join('\n')
+  }
+
+  public setLastError(errorMsg: string): void {
+    this.lastErrorMsg = errorMsg
+    if (this.dbgErrorCard && this.dbgErrorText) {
+      this.dbgErrorText.textContent = errorMsg
+      this.dbgErrorCard.style.display = 'flex'
+    }
+  }
+
+  public refreshDebugView(): void {
+    const plan = this.latestPlan
+    const ctx = this.latestContext
+    const prompt = this.latestPromptText || plan?.promptSent || ''
+
+    if (this.dbgModel) {
+      this.dbgModel.textContent = plan?.usedModel || this.initialSettings.model || '--'
+    }
+
+    if (this.dbgLatency) {
+      this.dbgLatency.textContent = plan?.durationMs ? `${plan.durationMs}ms` : '--'
+    }
+
+    if (this.dbgSplitTokens) {
+      const pTokens = plan?.promptTokens !== undefined ? String(plan.promptTokens) : '--'
+      const cTokens = plan?.candidatesTokens !== undefined ? String(plan.candidatesTokens) : '--'
+      this.dbgSplitTokens.textContent = `${pTokens} / ${cTokens}`
+      this.dbgSplitTokens.title = `Prompt: ${pTokens} tokens | Resposta: ${cTokens} tokens`
+    }
+
+    if (this.dbgTotalTokens) {
+      const total = plan?.tokensUsed ?? (plan?.promptTokens && plan?.candidatesTokens ? plan.promptTokens + plan.candidatesTokens : undefined)
+      this.dbgTotalTokens.textContent = total !== undefined ? `${total}` : '--'
+    }
+
+    if (this.dbgPromptLen) {
+      const len = prompt.length
+      const est = Math.round(len / 4)
+      this.dbgPromptLen.textContent = `${len} chars (~${est} tokens est.)`
+    }
+
+    if (this.dbgPromptView) {
+      this.dbgPromptView.textContent = prompt || 'Nenhum prompt enviado até o momento.'
+    }
+
+    if (this.dbgContextView) {
+      if (ctx) {
+        const summary = {
+          scope: `${ctx.scope.tagName.toLowerCase()}${ctx.scope.id ? '#' + ctx.scope.id : ''}${ctx.scope.className ? '.' + ctx.scope.className.split(' ').join('.') : ''}`,
+          questionLength: ctx.questionText.length,
+          questionSnippet: ctx.questionText.slice(0, 150) + (ctx.questionText.length > 150 ? '...' : ''),
+          controlsCount: ctx.controls.length,
+          controls: ctx.controls.map((c, i) => ({
+            index: i + 1,
+            tag: c.tag,
+            type: c.type,
+            name: c.name || undefined,
+            id: c.id || undefined,
+            value: c.value || undefined,
+            label: c.label || undefined,
+            role: c.role,
+          })),
+        }
+        this.dbgContextView.textContent = JSON.stringify(summary, null, 2)
+      } else {
+        this.dbgContextView.textContent = 'Aguardando captura de contexto pelo EasyQuiz...'
+      }
+    }
+
+    if (this.dbgRawRespView) {
+      if (plan) {
+        if (plan.rawResponse) {
+          this.dbgRawRespView.textContent = plan.rawResponse
+        } else {
+          this.dbgRawRespView.textContent = JSON.stringify(
+            {
+              pageType: plan.pageType,
+              mode: plan.mode,
+              confidence: plan.confidence,
+              rationale: plan.rationale,
+              actions: plan.actions,
+            },
+            null,
+            2,
+          )
+        }
+      } else {
+        this.dbgRawRespView.textContent = 'Aguardando retorno da API Gemini...'
+      }
+    }
+
+    if (this.lastErrorMsg && this.dbgErrorCard && this.dbgErrorText) {
+      this.dbgErrorText.textContent = this.lastErrorMsg
+      this.dbgErrorCard.style.display = 'flex'
+    }
+  }
+
   public logToConsole(message: string, colorClass?: string) {
-    if (!this.apConsole) return
-    const entry = document.createElement('div')
     const now = new Date()
     const ts = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(Math.floor(now.getMilliseconds() / 100))}`
 
@@ -837,22 +1243,69 @@ export class EasyQuizPanel {
       formatted = `[${ts}] ${message}`
     }
 
-    entry.textContent = formatted
-    if (colorClass) entry.className = colorClass
-    this.apConsole.appendChild(entry)
-    this.apConsole.scrollTop = this.apConsole.scrollHeight
+    let category: 'all' | 'error' | 'ai' | 'dom' = 'all'
+    if (colorClass === 'text-red' || formatted.includes('[ERRO]') || formatted.includes('Falha') || formatted.includes('Error')) {
+      category = 'error'
+    } else if (formatted.includes('[IA]') || formatted.includes('[RAG]') || formatted.includes('Tokens') || formatted.includes('Gemini') || formatted.includes('Modelo:')) {
+      category = 'ai'
+    } else if (formatted.includes('[DOM]') || formatted.includes('[EXEC]') || formatted.includes('[VERIF]') || formatted.includes('[NAV]')) {
+      category = 'dom'
+    }
+
+    const entry = {
+      id: Date.now() + Math.random(),
+      timestamp: ts,
+      message: formatted,
+      colorClass,
+      category,
+    }
+
+    this.logEntries.push(entry)
+    while (this.logEntries.length > 250) {
+      this.logEntries.shift()
+    }
+
+    this.updateLogCounters()
+
+    if (category === 'error') {
+      this.setLastError(formatted)
+    }
+
+    if (this.liveDebugTerminal && (this.activeLogFilter === 'all' || this.activeLogFilter === category)) {
+      const line = document.createElement('div')
+      line.textContent = formatted
+      if (colorClass) line.className = colorClass
+      this.liveDebugTerminal.appendChild(line)
+
+      while (this.liveDebugTerminal.children.length > 250) {
+        this.liveDebugTerminal.removeChild(this.liveDebugTerminal.firstChild!)
+      }
+
+      if (this.autoScrollLogs) {
+        this.liveDebugTerminal.scrollTop = this.liveDebugTerminal.scrollHeight
+      }
+    }
+
+    if (this.apConsole) {
+      const el = document.createElement('div')
+      el.textContent = formatted
+      if (colorClass) el.className = colorClass
+      this.apConsole.appendChild(el)
+      this.apConsole.scrollTop = this.apConsole.scrollHeight
+      while (this.apConsole.children.length > 150) {
+        this.apConsole.removeChild(this.apConsole.firstChild!)
+      }
+    }
 
     if (this.executionConsole) {
-      const executionEntry = entry.cloneNode(true) as HTMLElement
+      const executionEntry = document.createElement('div')
+      executionEntry.textContent = formatted
+      if (colorClass) executionEntry.className = colorClass
       this.executionConsole.appendChild(executionEntry)
       this.executionConsole.scrollTop = this.executionConsole.scrollHeight
       while (this.executionConsole.children.length > 150) {
         this.executionConsole.removeChild(this.executionConsole.firstChild!)
       }
-    }
-
-    while (this.apConsole.children.length > 150) {
-      this.apConsole.removeChild(this.apConsole.firstChild!)
     }
   }
 
@@ -885,6 +1338,8 @@ export class EasyQuizPanel {
     if (this.activeTab === 'brain') {
       this.renderContextTree()
       if (plan) this.refreshInspectorView()
+    } else if (this.activeTab === 'debug') {
+      this.refreshDebugView()
     }
   }
 
@@ -1101,8 +1556,9 @@ export class EasyQuizPanel {
     const executionCard = this.shadow.querySelector('#eq-execution-card') as HTMLElement | null
     if (executionCard) executionCard.hidden = true
 
-    // Atualiza Inspetor de IA em Tempo Real
+    // Atualiza Inspetor de IA e Debug em Tempo Real
     this.refreshInspectorView()
+    this.refreshDebugView()
   }
 
   public setExecutionReport(result: ExecutionResult): void {
@@ -1161,6 +1617,9 @@ export class EasyQuizPanel {
     }
     if (this.inspLatency) {
       this.inspLatency.textContent = 'Aguardando IA...'
+    }
+    if (this.activeTab === 'debug') {
+      this.refreshDebugView()
     }
   }
 
