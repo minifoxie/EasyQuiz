@@ -10,22 +10,34 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     stable: true,
   },
   {
+    id: 'gemini-3.6-flash',
+    name: 'Gemini 3.6 Flash (Recomendado Google)',
+    description: 'Modelo recomendado oficial do Google AI Studio com altíssima disponibilidade.',
+    stable: true,
+  },
+  {
     id: 'gemini-3.5-flash-lite',
-    name: 'Gemini 3.5 Flash-Lite (Econômico)',
-    description: 'Modelo estável de menor custo e baixa latência.',
+    name: 'Gemini 3.5 Flash-Lite (Econômico e rápido)',
+    description: 'Modelo estável de menor custo e menor taxa de fila.',
+    stable: true,
+  },
+  {
+    id: 'gemini-3.5-flash',
+    name: 'Gemini 3.5 Flash (Equilibrado)',
+    description: 'Modelo balanceado para resolução de exercícios.',
+    stable: true,
+  },
+  {
+    id: 'gemini-2.0-flash',
+    name: 'Gemini 2.0 Flash (Alta Disponibilidade)',
+    description: 'Modelo consolidado para contingência.',
     stable: true,
   },
   {
     id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash (Compatibilidade)',
-    description: 'Modelo estável multimodal para contas que ainda não expõem a série 3.',
+    name: 'Gemini 2.5 Flash (Legado)',
+    description: 'Modelo da geração anterior para contas existentes.',
     stable: true,
-  },
-  {
-    id: 'gemini-3.1-pro-preview',
-    name: 'Gemini 3.1 Pro (Raciocínio avançado)',
-    description: 'Modelo preview para questões complexas e multimodais.',
-    stable: false,
   },
 ]
 
@@ -301,10 +313,12 @@ export async function analyzeWithGemini(
   const rawFallback = [
     chosenModel,
     ...(discoveredModelsCache?.map((m) => m.id) || []),
-    'gemini-2.5-flash',
+    'gemini-3.6-flash',
     'gemini-3.5-flash-lite',
+    'gemini-3.8-flash',
+    'gemini-3.5-flash',
+    'gemini-2.0-flash',
     'gemini-2.5-flash',
-    'gemini-3.1-pro-preview',
   ]
   const modelsToTry = Array.from(new Set(rawFallback)).filter((m) => !blacklistedModels.has(m))
 

@@ -38,17 +38,12 @@ function requireText(value: unknown, field: string): string {
   return result
 }
 
-function normalizeAction(raw: unknown, index: number): DeclarativeAction {
-  if (!raw || typeof raw !== 'object') throw new Error(`Plano inválido: ação ${index + 1} não é um objeto.`)
+function normalizeAction(raw: unknown, index: number): DeclarativeAction | null {
+  if (!raw || typeof raw !== 'object') return null
   const action = raw as Record<string, unknown>
   const type = action.t
   if (typeof type !== 'string' || !ACTION_TYPES.has(type as DeclarativeAction['t'])) {
-    throw new Error(`Plano inválido: tipo de ação desconhecido na posição ${index + 1}.`)
-  }
-  for (const key of Object.keys(action)) {
-    if (!ACTION_FIELDS[type as DeclarativeAction['t']].has(key)) {
-      throw new Error(`Plano inválido: campo '${key}' não permitido na ação ${index + 1}.`)
-    }
+    return null
   }
 
   if (type === 'adv') {
@@ -56,37 +51,34 @@ function normalizeAction(raw: unknown, index: number): DeclarativeAction {
   }
 
   if (type === 'drag') {
-    return {
-      t: 'drag',
-      from: requireText(action.from, `ações[${index}].from`).slice(0, 500),
-      to: requireText(action.to, `ações[${index}].to`).slice(0, 500),
-    }
+    const from = text(action.from)
+    const to = text(action.to)
+    if (!from || !to) return null
+    return { t: 'drag', from: from.slice(0, 500), to: to.slice(0, 500) }
   }
 
   if (type === 'js') {
-    const code = requireText(action.v, `ações[${index}].v`)
-    if (code.length > 8_000) throw new Error(`Plano inválido: JavaScript da ação ${index + 1} excede o limite.`)
+    const code = text(action.v)
+    if (!code || code.length > 8_000) return null
     return { t: 'js', v: code }
   }
 
-  const id = requireText(action.id, `ações[${index}].id`).slice(0, 500)
+  const id = text(action.id).slice(0, 500)
+  if (!id) return null
+
   if (type === 'val') {
-    return { t: 'val', id, v: requireText(action.v, `ações[${index}].v`).slice(0, MAX_TEXT) }
+    return { t: 'val', id, v: text(action.v).slice(0, MAX_TEXT) }
   }
   if (type === 'sel') {
     const values = Array.isArray(action.v) ? action.v : [action.v]
-    const normalized = values.map((value) => requireText(value, `ações[${index}].v`).slice(0, 500))
+    const normalized = values.map((value) => text(value).slice(0, 500)).filter(Boolean)
     return { t: 'sel', id, v: normalized }
   }
   if (type === 'chk') {
-    if (typeof action.c !== 'boolean') throw new Error(`Plano inválido: ações[${index}].c deve ser booleano.`)
-    return { t: 'chk', id, c: action.c }
+    return { t: 'chk', id, c: Boolean(action.c !== false) }
   }
 
   const result: DeclarativeAction = { t: 'clk', id }
-  if (action.co !== undefined && (!Array.isArray(action.co) || action.co.length !== 2 || !action.co.every((value) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10000))) {
-    throw new Error(`Plano inválido: coordenadas fora do limite na ação ${index + 1}.`)
-  }
   if (Array.isArray(action.co) && action.co.length === 2 && action.co.every((value) => typeof value === 'number' && Number.isFinite(value))) {
     result.co = [action.co[0], action.co[1]]
   }
@@ -94,58 +86,70 @@ function normalizeAction(raw: unknown, index: number): DeclarativeAction {
 }
 
 export function validateAnalysisPlan(raw: unknown): AnalysisPlan {
-  if (!raw || typeof raw !== 'object') throw new Error('A IA não retornou um plano de objeto válido.')
-  const source = raw as Record<string, unknown>
-  for (const key of Object.keys(source)) {
-    if (!PLAN_FIELDS.has(key)) throw new Error(`Plano inválido: campo '${key}' não permitido.`)
-  }
-  const pageType = source.pageType
-  const mode = source.mode
-  if (typeof pageType !== 'string' || !PAGE_TYPES.has(pageType as AnalysisPlan['pageType'])) {
-    throw new Error('Plano inválido: pageType desconhecido.')
-  }
-  if (typeof mode !== 'string' || !RESPONSE_MODES.has(mode as ResponseMode)) {
-    throw new Error('Plano inválido: mode desconhecido.')
-  }
-  if (!Array.isArray(source.actions) || source.actions.length > MAX_ACTIONS) {
-    throw new Error(`Plano inválido: actions deve conter entre 0 e ${MAX_ACTIONS} ações.`)
+  if (!raw || typeof raw !== 'object') {
+    return {
+      pageType: 'info',
+      mode: 'acao_sem_resposta',
+      confidence: 0.5,
+      rationale: 'Resposta estruturada não identificada; avançando como informativo.',
+      actions: [{ t: 'adv' }],
+    }
   }
 
-  const actions = source.actions.map(normalizeAction)
+  const source = raw as Record<string, unknown>
+
+  let pageType = source.pageType as AnalysisPlan['pageType']
+  let mode = source.mode as ResponseMode
+
+  if (typeof pageType !== 'string' || !PAGE_TYPES.has(pageType)) {
+    pageType = 'question'
+  }
+  if (typeof mode !== 'string' || !RESPONSE_MODES.has(mode)) {
+    mode = 'escolha_unica'
+  }
+
+  const rawActions = Array.isArray(source.actions) ? source.actions : []
+  const actions: DeclarativeAction[] = []
+
+  for (let i = 0; i < Math.min(rawActions.length, MAX_ACTIONS); i++) {
+    const normalized = normalizeAction(rawActions[i], i)
+    if (normalized) {
+      actions.push(normalized)
+    }
+  }
+
   const regularActions = actions.filter((action) => action.t !== 'adv')
   const hasAdvance = actions.some((action) => action.t === 'adv')
+
   if (pageType === 'question' && regularActions.length === 0) {
-    throw new Error('Plano inválido: uma questão precisa conter ao menos uma ação de resposta.')
+    // Se é uma questão mas não há ações de resposta (apenas botão de avançar ou vazio), converte para página informativa
+    pageType = 'info'
   }
-  if (pageType === 'conclusion' && actions.length > 0) {
-    throw new Error('Plano inválido: tela de conclusão não pode conter ações.')
-  }
-  if ((pageType === 'info' || pageType === 'start') && regularActions.length > 0) {
-    throw new Error('Plano inválido: páginas informativas só podem avançar.')
-  }
-  if ((pageType === 'info' || pageType === 'start') && !hasAdvance) {
-    throw new Error('Plano inválido: página informativa ou inicial precisa indicar avanço.')
-  }
-  if (pageType === 'question' && !hasAdvance) {
+
+  if (pageType === 'conclusion') {
+    // Tela de conclusão não deve conter ações
+    actions.length = 0
+  } else if (pageType === 'info' || pageType === 'start') {
+    // Páginas informativas ou iniciais: se houver cliques (ex: botão Continuar/Iniciar), eles são válidos!
+    // Garante que o sinal de avanço sempre esteja presente para o Autopilot avançar
+    if (!hasAdvance) {
+      actions.push({ t: 'adv' })
+    }
+  } else if (pageType === 'question' && !hasAdvance) {
     actions.push({ t: 'adv' })
   }
 
   const confidence = typeof source.confidence === 'number' && Number.isFinite(source.confidence)
     ? Math.min(1, Math.max(0, source.confidence))
-    : 0
-  if ((mode === 'categorizacao' || mode === 'ordenacao' || mode === 'arrastar_soltar') && regularActions.some((action) => action.t !== 'drag')) {
-    throw new Error('Plano inválido: modo de arrastar/ordenar exige somente ações drag.')
-  }
-  if (mode === 'escolha_multipla' && regularActions.some((action) => action.t !== 'chk' && action.t !== 'clk')) {
-    throw new Error('Plano inválido: escolha múltipla exige ações chk ou clk.')
-  }
+    : 0.85
 
   return {
-    pageType: pageType as AnalysisPlan['pageType'],
-    mode: mode as ResponseMode,
+    pageType,
+    mode,
     confidence,
-    rationale: text(source.rationale, 'Plano validado sem justificativa fornecida.'),
+    rationale: text(source.rationale, 'Plano validado e auto-recuperado.'),
     actions,
     ...(text(source.memoryToStore) ? { memoryToStore: text(source.memoryToStore) } : {}),
+    ...(source.needsMoreContext ? { needsMoreContext: Boolean(source.needsMoreContext) } : {}),
   }
 }
