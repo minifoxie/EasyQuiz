@@ -353,24 +353,34 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
 
 function setNativeValue(element: HTMLElement, value: string): void {
   let target: HTMLElement = element
-  if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement) && !(target instanceof HTMLSelectElement) && !target.isContentEditable) {
-    const inner = element.querySelector('input:not([type="hidden"]), textarea, select, [contenteditable="true"]') as HTMLElement | null
+
+  // Se o elemento for um label com atributo 'for', busca o input alvo
+  if (target.hasAttribute('for')) {
+    const forId = target.getAttribute('for')!
+    const forInput = target.ownerDocument.getElementById(forId)
+    if (forInput) target = forInput
+  }
+
+  if (
+    !(target instanceof HTMLInputElement) &&
+    !(target instanceof HTMLTextAreaElement) &&
+    !(target instanceof HTMLSelectElement) &&
+    !target.isContentEditable
+  ) {
+    const inner = target.querySelector('input:not([type="hidden"]), textarea, select, [contenteditable="true"]') as HTMLElement | null
     if (inner) {
       target = inner
     }
   }
 
-  // Se o elemento for um botão, link ou controle de navegação, auto-corrige para clique
+  // Apenas botões e links reais são tratados como clique
   const isBtnTarget =
     target instanceof HTMLButtonElement ||
     target.tagName.toLowerCase() === 'a' ||
     target.getAttribute('role') === 'button' ||
-    target.getAttribute('role') === 'link' ||
-    (target instanceof HTMLInputElement && ['button', 'submit'].includes(target.type)) ||
-    isNavigationControl(target)
+    (target instanceof HTMLInputElement && ['button', 'submit', 'reset', 'image'].includes(target.type))
 
   if (isBtnTarget) {
-    console.log(`[EasyQuiz] Auto-correção em setNativeValue: elemento é botão/navegação. Clicando...`)
     simulatePointerClick(target)
     return
   }
@@ -388,59 +398,95 @@ function setNativeValue(element: HTMLElement, value: string): void {
     return
   }
 
-  // 1. Foco no elemento
+  const strValue = String(value ?? '')
+
+  // 1. Foco e posicionamento no campo
   try {
+    target.scrollIntoView?.({ block: 'center', inline: 'center', behavior: 'instant' as any })
     target.focus?.()
   } catch {}
 
-  // 2. Evento BeforeInput (para frameworks modernos como React 18, Vue 3, Draft.js, ProseMirror)
+  // 2. Tenta digitação nativa via execCommand (simula evento de teclado físico direto no browser)
+  let execSuccess = false
   try {
-    target.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, composed: true, data: value }))
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+      target.select?.()
+      execSuccess = document.execCommand?.('insertText', false, strValue) || false
+    } else if (target.isContentEditable) {
+      document.execCommand?.('selectAll', false, undefined)
+      execSuccess = document.execCommand?.('insertText', false, strValue) || false
+    }
   } catch {}
 
-  // 3. Inputs ou Textareas padrão
+  // 3. Inputs ou Textareas padrão (suporte completo a React 15-19, Vue, Angular, Svelte)
   if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-    try {
-      const tracker = (target as any)._valueTracker
-      if (tracker) tracker.setValue('')
-    } catch {}
+    const currentVal = target.value
+    if (currentVal !== strValue) {
+      // Reseta o _valueTracker do React para um valor diferente, permitindo que o React detecte o novo valor no onChange!
+      try {
+        const tracker = (target as any)._valueTracker
+        if (tracker) tracker.setValue(currentVal ? '' : ' ')
+      } catch {}
 
-    const prototype = target instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
-    const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
-    if (setter) {
-      setter.call(target, value)
-    } else {
-      target.value = value
+      const prototype = target instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+      const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
+      if (setter) {
+        setter.call(target, strValue)
+      } else {
+        target.value = strValue
+      }
     }
 
+    // Sequência completa de eventos de entrada
     try {
-      const tracker = (target as any)._valueTracker
-      if (tracker) tracker.setValue(value)
+      target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: strValue.slice(-1) || 'a' }))
     } catch {}
-
-    dispatchEventSequence(target, ['input', 'change', 'blur'])
+    try {
+      target.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, composed: true, data: strValue, inputType: 'insertText' }))
+    } catch {}
+    try {
+      target.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, composed: true, data: strValue, inputType: 'insertText' }))
+    } catch {
+      target.dispatchEvent(new Event('input', { bubbles: true, cancelable: true, composed: true }))
+    }
+    try {
+      target.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key: strValue.slice(-1) || 'a' }))
+    } catch {}
+    try {
+      target.dispatchEvent(new Event('change', { bubbles: true, cancelable: true, composed: true }))
+    } catch {}
+    try {
+      target.dispatchEvent(new FocusEvent('blur', { bubbles: true, cancelable: true, composed: true }))
+    } catch {}
     return
   }
 
-  // 4. ContentEditable ou editores baseados em nós de texto
+  // 4. ContentEditable ou editores baseados em nós de texto (Draft.js, Slate, Quill, ProseMirror)
   if (target.isContentEditable) {
-    try {
-      document.execCommand?.('selectAll', false, undefined)
-      document.execCommand?.('insertText', false, value)
-    } catch {}
-    if (target.textContent?.trim() !== value.trim()) {
-      target.textContent = value
-      try { (target as any).innerText = value } catch {}
+    if (target.textContent?.trim() !== strValue.trim()) {
+      target.textContent = strValue
+      try { (target as any).innerText = strValue } catch {}
     }
-    dispatchEventSequence(target, ['input', 'change', 'blur'])
+    try {
+      target.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, composed: true, data: strValue, inputType: 'insertText' }))
+    } catch {
+      target.dispatchEvent(new Event('input', { bubbles: true, cancelable: true, composed: true }))
+    }
+    try {
+      target.dispatchEvent(new Event('change', { bubbles: true, cancelable: true, composed: true }))
+    } catch {}
+    try {
+      target.dispatchEvent(new FocusEvent('blur', { bubbles: true, cancelable: true, composed: true }))
+    } catch {}
     return
   }
 
-  // 5. Fallback genérico para elementos customizados com atributo value ou textContent
+  // 5. Fallback genérico para elementos customizados
   try {
-    (target as any).value = value
-    target.textContent = value
-    dispatchEventSequence(target, ['input', 'change', 'blur'])
+    (target as any).value = strValue
+    target.textContent = strValue
+    target.dispatchEvent(new Event('input', { bubbles: true, cancelable: true, composed: true }))
+    target.dispatchEvent(new Event('change', { bubbles: true, cancelable: true, composed: true }))
   } catch {}
 }
 
@@ -944,6 +990,28 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
     }
   }
 
+  if (!element && action.t === 'val') {
+    const activeInputs = Array.from(
+      document.querySelectorAll(
+        'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]), textarea, [contenteditable="true"]',
+      ),
+    ).filter((i) => isVisible(i as HTMLElement) && !isInsideEasyQuiz(i as HTMLElement)) as HTMLElement[]
+
+    if (activeInputs.length === 1) {
+      element = activeInputs[0]
+    } else if (activeInputs.length > 1) {
+      const clean = cleanSearchTerm(elId).toLowerCase()
+      const match = activeInputs.find((i) => {
+        const ph = (i.getAttribute('placeholder') || '').toLowerCase()
+        const name = ((i as any).name || '').toLowerCase()
+        const aria = (i.getAttribute('aria-label') || '').toLowerCase()
+        const id = (i.id || '').toLowerCase()
+        return ph.includes(clean) || name.includes(clean) || aria.includes(clean) || id.includes(clean)
+      })
+      element = match || activeInputs[0]
+    }
+  }
+
   if (!element && action.t !== 'adv') {
     console.warn(`[EasyQuiz] Alvo '${elId}' não encontrado para ação '${action.t}'. Prosseguindo...`)
     return
@@ -956,12 +1024,9 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
           element instanceof HTMLButtonElement ||
           element.tagName.toLowerCase() === 'a' ||
           element.getAttribute('role') === 'button' ||
-          element.getAttribute('role') === 'link' ||
-          (element instanceof HTMLInputElement && ['button', 'submit'].includes(element.type)) ||
-          isNavigationControl(element)
+          (element instanceof HTMLInputElement && ['button', 'submit', 'reset', 'image'].includes(element.type))
 
         if (isBtn) {
-          console.log(`[EasyQuiz] Auto-correção: Ação 'val' direcionada a botão/link '${action.id}'. Clicando...`)
           simulatePointerClick(element)
         } else {
           setNativeValue(element, String(action.v))
