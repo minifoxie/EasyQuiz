@@ -317,40 +317,26 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
     }
   }
 
-  try {
-    element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' as any })
-  } catch {}
-
-  let cx = 0
-  let cy = 0
-  if (coords && coords.length === 2) {
-    cx = coords[0]
-    cy = coords[1]
-  } else {
-    const rect = element.getBoundingClientRect()
-    cx = Math.round(rect.left + Math.max(1, rect.width / 2))
-    cy = Math.round(rect.top + Math.max(1, rect.height / 2))
-  }
-
+  try { element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' as any }) } catch {}
   try { element.focus?.() } catch {}
 
+  const isNativeBtn = element instanceof HTMLButtonElement || element instanceof HTMLAnchorElement || (element instanceof HTMLInputElement && !['checkbox', 'radio'].includes(element.type))
+  if (isNativeBtn) {
+    try { element.click() } catch {}
+    return
+  }
+
+  const rect = element.getBoundingClientRect()
+  const cx = coords ? coords[0] : Math.round(rect.left + Math.max(1, rect.width / 2))
+  const cy = coords ? coords[1] : Math.round(rect.top + Math.max(1, rect.height / 2))
   const commonProps = { bubbles: true, cancelable: true, composed: true, view: window, clientX: cx, clientY: cy }
 
-  try {
-    element.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 }))
-    element.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 }))
-    element.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 0 }))
-    element.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 }))
-  } catch {}
-
-  // Apenas chamamos .click() diretamente, se o elemento suportar, ou despachamos evento
-  if (!(element instanceof HTMLInputElement && element.type === 'checkbox')) {
-    try {
-      element.click()
-    } catch {
-      element.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 }))
-    }
-  }
+  try { element.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, button: 0, buttons: 1 })) } catch {}
+  try { element.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 })) } catch {}
+  try { element.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, button: 0, buttons: 0 })) } catch {}
+  try { element.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 })) } catch {}
+  try { element.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 })) } catch {}
+  try { element.click() } catch {}
 }
 
 function setNativeValue(element: HTMLElement, value: string): void {
@@ -482,56 +468,47 @@ export function getHumanReadableLabel(idOrQuery: string, fallback = ''): string 
 }
 
 function setCheckedState(element: HTMLElement, checked: boolean): void {
-  const cardParent = (element.closest(
-    '.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], li',
-  ) || element) as HTMLElement
+  const cardParent = (element.closest('.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], li') || element) as HTMLElement
 
-  let inputEl =
-    element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
-      ? element
-      : (cardParent.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null)
+  let inputEl = element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
+    ? element
+    : (cardParent.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null)
 
   if (!inputEl && cardParent.hasAttribute('for')) {
-    const forId = cardParent.getAttribute('for')
-    if (forId) {
-      inputEl = cardParent.ownerDocument.getElementById(forId) as HTMLInputElement | null
-    }
+    inputEl = cardParent.ownerDocument.getElementById(cardParent.getAttribute('for')!) as HTMLInputElement | null
   }
 
   if (cardParent) {
-    cardParent.setAttribute('aria-checked', checked ? 'true' : 'false')
-    cardParent.setAttribute('data-checked', checked ? 'true' : 'false')
+    const s = checked ? 'true' : 'false'
+    cardParent.setAttribute('aria-checked', s)
+    cardParent.setAttribute('aria-selected', s)
     cardParent.classList.toggle('selected', checked)
     cardParent.classList.toggle('active', checked)
     cardParent.classList.toggle('checked', checked)
   }
 
-  if (inputEl && inputEl.type === 'checkbox') {
+  if (inputEl) {
+    if (inputEl.type === 'radio' && inputEl.checked === checked) return
+
     inputEl.checked = checked
     try {
       const tracker = (inputEl as any)._valueTracker
       if (tracker) tracker.setValue(!checked)
     } catch {}
-    dispatchEventSequence(inputEl, ['input', 'change'])
-    if (inputEl.checked !== checked) {
-      try { inputEl.click() } catch {}
-    }
-    return
-  }
-
-  if (inputEl && inputEl.type === 'radio') {
-    if (inputEl.checked === true && checked === true) return
-    inputEl.checked = checked
     try {
-      const tracker = (inputEl as any)._valueTracker
-      if (tracker) tracker.setValue(!checked)
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
+      setter?.call(inputEl, checked)
     } catch {}
+    inputEl.checked = checked
     dispatchEventSequence(inputEl, ['input', 'change'])
-    try { (cardParent !== inputEl ? cardParent : inputEl).click() } catch {}
-    return
+    
+    const clickTarget = cardParent !== inputEl ? cardParent : inputEl
+    try { clickTarget.focus?.() } catch {}
+    clickTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
+  } else {
+    try { cardParent.focus?.() } catch {}
+    cardParent.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
   }
-
-  try { cardParent.click() } catch {}
 }
 
 function selectValues(element: HTMLElement, values: string[]): void {

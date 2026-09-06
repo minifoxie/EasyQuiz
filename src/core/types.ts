@@ -67,11 +67,9 @@ export interface AnalysisPlan {
   mode: ResponseMode
   confidence: number
   rationale: string
-  needsMoreContext: boolean
-  warnings: string[]
   actions: DeclarativeAction[]
-  usedModel?: string
   memoryToStore?: string
+  usedModel?: string
   promptSent?: string
   durationMs?: number
   tokensUsed?: number

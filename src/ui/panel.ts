@@ -40,7 +40,7 @@ export class EasyQuizPanel {
   private floatingAnswers: FloatingAnswersHud
   private initialSettings: EasyQuizSettings
   private isCollapsed: boolean = false
-  private activeTab: 'autopilot' | 'context' | 'execution' | 'advanced' | 'inspector' | 'settings' = 'autopilot'
+  private activeTab: 'resolver' | 'brain' | 'settings' = 'resolver'
   private stopwatchInterval: any = null
   private stopwatchStartTime: number = 0
   private latestPlan: AnalysisPlan | null = null
@@ -156,269 +156,283 @@ export class EasyQuizPanel {
           <span class="eq-dock-toggle-icon">${ICONS.chevronRight}</span>
           <span class="eq-dock-toggle-label">EQ</span>
         </button>
+           <!-- Activity Bar Vertical na Esquerda (Estilo VS Code - Apenas Ícones) -->
+          <nav class="eq-activity-bar" role="tablist" aria-label="Atalhos">
+            <div class="eq-activity-top">
+              <button class="eq-activity-btn active" id="eq-tab-resolver" role="tab" title="Resolver (Operações Atuais)">
+                <span class="eq-activity-indicator"></span>
+                <span class="eq-activity-icon">${ICONS.rocket}</span>
+              </button>
 
-        <!-- Activity Bar Vertical na Esquerda (Estilo VS Code - Apenas Ícones) -->
-        <nav class="eq-activity-bar" role="tablist" aria-label="Atalhos">
-          <div class="eq-activity-top">
-            <button class="eq-activity-btn active" id="eq-tab-autopilot" role="tab" title="Resolver (Autopilot)">
-              <span class="eq-activity-indicator"></span>
-              <span class="eq-activity-icon">${ICONS.rocket}</span>
-            </button>
-
-            <button class="eq-activity-btn" id="eq-tab-brain" role="tab" title="Cérebro da IA (Contexto, Inspetor e Raciocínio)">
-              <span class="eq-activity-indicator"></span>
-              <span class="eq-activity-icon">${ICONS.inspector}</span>
-            </button>
-          </div>
-
-          <div class="eq-activity-bottom">
-            <button class="eq-activity-btn" id="eq-tab-settings" role="tab" title="Configurações & Ajustes Avançados">
-              <span class="eq-activity-indicator"></span>
-              <span class="eq-activity-icon">${ICONS.settings}</span>
-            </button>
-          </div>
-        </nav>
-
-        <!-- Corpo Principal da Sidebar -->
-        <main class="eq-sidebar-body">
-          <!-- Cabeçalho VS Code -->
-          <header class="eq-header">
-            <div class="eq-brand">
-              <span class="eq-brand-icon">${ICONS.logo}</span>
-              <span class="eq-brand-name">EasyQuiz</span>
-              <span class="eq-brand-badge">2.0 SUPREME</span>
-            </div>
-            <div class="eq-header-tools">
-              <button class="eq-icon-btn" id="eq-min-btn" type="button" title="Minimizar (Alt+Q)">${ICONS.chevronRight}</button>
-              <button class="eq-icon-btn" id="eq-close-btn" type="button" title="Fechar">${ICONS.close}</button>
-            </div>
-          </header>
-
-          <!-- Barra de Carregamento / Progresso Dinâmica -->
-          <div class="eq-progress-container" id="eq-progress-container" style="display: none;">
-            <div class="eq-progress-info">
-              <span class="eq-progress-label" id="eq-progress-label">Processando...</span>
-              <span class="eq-progress-val" id="eq-progress-val">0%</span>
-            </div>
-            <div class="eq-progress-track">
-              <div class="eq-progress-bar" id="eq-progress-bar" style="width: 0%;"></div>
-            </div>
-          </div>
-
-          <div class="eq-views-wrapper">
-            <!-- TAB: CONTEXTO (EXPLORADOR VS CODE) -->
-            <div class="eq-view-pane" id="eq-view-context" style="display: none; flex-direction: column; gap: 8px;">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div class="eq-section-title" style="margin: 0;">
-                  <span>Explorador de Contexto & RAG</span>
-                </div>
-                <button class="eq-icon-btn" id="eq-refresh-context-btn" type="button" title="Atualizar Varredura em Tempo Real" style="width: 28px; height: 28px;">
-                  ${ICONS.refresh}
-                </button>
-              </div>
-
-              <div class="eq-tree-container" id="eq-tree-container">
-                <div class="text-muted" style="padding: 8px 0;">Aguardando primeira leitura de tela ou análise do exercício...</div>
-              </div>
-
-              <div class="eq-footer-note">Hierarquia do DOM e Memória RAG • 0 Tokens Gastos</div>
+              <button class="eq-activity-btn" id="eq-tab-brain" role="tab" title="Cérebro da IA (Contexto e Inspeção)">
+                <span class="eq-activity-indicator"></span>
+                <span class="eq-activity-icon">${ICONS.chip}</span>
+              </button>
             </div>
 
-            <!-- TAB 1: AUTOPILOT (RESOLVER) -->
-            <div class="eq-view-pane" id="eq-view-autopilot">
-              <div class="eq-operation-header">
-                <div>
-                  <div class="eq-eyebrow">OPERAÇÃO ATUAL</div>
-                  <h1 class="eq-operation-title">Resolver questão</h1>
-                  <p class="eq-operation-subtitle">Analise o contexto e aplique as respostas.</p>
-                </div>
-                <span class="eq-operation-state" id="eq-operation-state">Pronto</span>
-              </div>
+            <div class="eq-activity-bottom">
+              <button class="eq-activity-btn" id="eq-tab-settings" role="tab" title="Configurações e Ajustes Avançados">
+                <span class="eq-activity-indicator"></span>
+                <span class="eq-activity-icon">${ICONS.settings}</span>
+              </button>
+            </div>
+          </nav>
 
-              <div class="eq-operation-actions">
-                <button class="eq-btn-primary" id="eq-analyze-btn" type="button">${ICONS.analyze} Analisar questão</button>
-                <button class="eq-btn-secondary" id="eq-apply-btn" type="button">${ICONS.apply} Aplicar respostas</button>
+          <!-- Corpo Principal da Sidebar -->
+          <main class="eq-sidebar-body">
+            <!-- Cabeçalho VS Code -->
+            <header class="eq-header">
+              <div class="eq-brand">
+                <span class="eq-brand-icon">${ICONS.logo}</span>
+                <span class="eq-brand-name">EasyQuiz</span>
+                <span class="eq-brand-badge">2.0 SUPREME</span>
               </div>
-
-              <div style="display: flex; gap: 8px; width: 100%; align-items: center;">
-                <button class="eq-btn-primary" id="eq-ap-toggle-btn" type="button" style="flex: 1;">
-                  ${ICONS.play} INICIAR AUTOPILOT
-                </button>
-                <button class="eq-icon-btn" id="eq-ap-clear-memory" type="button" title="Limpar Memória Contextual (RAG)" style="width: 42px; height: 42px; background: #141414; border: 1px solid #282828; border-radius: 6px; color: #aaaaaa;">
-                  ${ICONS.eraser}
-                </button>
+              <div class="eq-header-tools">
+                <button class="eq-icon-btn" id="eq-min-btn" type="button" title="Minimizar (Alt+Q)">${ICONS.chevronRight}</button>
+                <button class="eq-icon-btn" id="eq-close-btn" type="button" title="Fechar">${ICONS.close}</button>
               </div>
+            </header>
 
-              <div id="eq-result" class="eq-operation-result" style="display: none; flex-direction: column; gap: 10px;">
-                <div class="eq-section-title">Plano e respostas</div>
-                <div class="eq-badges" id="eq-badges"></div>
-                <div class="eq-rationale-card" id="eq-rationale-text"></div>
-                <div class="eq-action-list" id="eq-actions-list"></div>
-                <div class="eq-execution-card" id="eq-execution-card" hidden>
-                  <div class="eq-section-title">Execução</div>
-                  <div class="eq-execution-summary" id="eq-execution-summary"></div>
-                  <div class="eq-execution-list" id="eq-execution-list"></div>
-                </div>
-                <button class="eq-btn-secondary" id="eq-open-hud-btn" type="button">${ICONS.list} Resumo flutuante</button>
+            <!-- Barra de Carregamento / Progresso Dinâmica -->
+            <div class="eq-progress-container" id="eq-progress-container" style="display: none;">
+              <div class="eq-progress-info">
+                <span class="eq-progress-label" id="eq-progress-label">Processando...</span>
+                <span class="eq-progress-val" id="eq-progress-val">0%</span>
               </div>
+              <div class="eq-progress-track">
+                <div class="eq-progress-bar" id="eq-progress-bar" style="width: 0%;"></div>
+              </div>
+            </div>
 
-              <!-- Status & Stopwatch Card -->
-              <div class="eq-status-card">
-                <div class="eq-status-card-header">
-                  <div class="eq-ai-indicator">
-                    <span class="eq-dot-pulse" id="eq-dot-ap"></span>
-                    <span>Status do Assistente</span>
+            <div class="eq-views-wrapper">
+              
+              <!-- TAB 1: RESOLVER -->
+              <div class="eq-view-pane" id="eq-view-resolver">
+                <div class="eq-operation-header">
+                  <div>
+                    <div class="eq-eyebrow">OPERAÇÃO ATUAL</div>
+                    <h1 class="eq-operation-title">Resolver questão</h1>
+                    <p class="eq-operation-subtitle">Analise o contexto e aplique a resposta sugerida.</p>
                   </div>
-                  <div class="eq-stopwatch" id="eq-stopwatch-ap">
-                    ${ICONS.clock} <span>0.00s</span>
-                  </div>
+                  <span class="eq-operation-state" id="eq-operation-state">Pronto</span>
                 </div>
-                <div class="eq-status-text" id="eq-status-text-ap">
-                  Pronto para iniciar. O EasyQuiz analisará o conteúdo e sugerirá a melhor abordagem.
-                </div>
-              </div>
-            </div>
 
-            <!-- TAB 2: CÉREBRO DA IA -->
-            <div class="eq-view-pane" id="eq-view-brain" style="display: none;">
-              <!-- Seção de Contexto & RAG -->
-              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #282828; padding-bottom: 8px;">
-                <div class="eq-section-title" style="margin: 0; color: #cccccc;">
-                  <span>Visão e Contexto (RAG)</span>
+                <div class="eq-operation-actions">
+                  <button class="eq-btn-primary" id="eq-analyze-btn" type="button">${ICONS.analyze} Analisar questão</button>
+                  <button class="eq-btn-secondary" id="eq-apply-btn" type="button">${ICONS.apply} Aplicar respostas</button>
                 </div>
-                <button class="eq-icon-btn" id="eq-refresh-context-btn" type="button" title="Atualizar Varredura">
-                  ${ICONS.refresh}
-                </button>
-              </div>
-              <div class="eq-tree-container" id="eq-tree-container" style="max-height: 200px; overflow-y: auto;">
-                <div class="text-muted" style="padding: 8px 0;">Nenhuma varredura recente.</div>
-              </div>
 
-              <!-- Seção de Inspetor da Última Chamada -->
-              <div class="eq-section-title" style="margin-top: 10px; color: #cccccc;">Desempenho da Última Ação</div>
-              <div class="eq-inspector-meta">
-                <div class="eq-meta-box">
-                  <div class="eq-meta-title">Modelo</div>
-                  <div class="eq-meta-val" id="eq-insp-model">--</div>
-                </div>
-                <div class="eq-meta-box">
-                  <div class="eq-meta-title">Latência</div>
-                  <div class="eq-meta-val" id="eq-insp-latency">--</div>
-                </div>
-                <div class="eq-meta-box">
-                  <div class="eq-meta-title">Tokens</div>
-                  <div class="eq-meta-val" id="eq-insp-tokens">--</div>
-                </div>
-              </div>
-
-              <div class="eq-field-group">
-                <div class="eq-section-title">
-                  <span>Prompt Base Enviado</span>
-                  <button class="eq-btn-secondary" id="eq-copy-prompt-btn" type="button" style="height: 24px; padding: 0 6px; font-size: 10px;">
-                    ${ICONS.copy}
+                <div style="display: flex; gap: 8px; width: 100%; align-items: center;">
+                  <button class="eq-btn-primary" id="eq-ap-toggle-btn" type="button" style="flex: 1;">
+                    ${ICONS.play} INICIAR AUTOPILOT
                   </button>
                 </div>
-                <div class="eq-code-block" id="eq-insp-prompt" style="max-height: 120px; overflow-y: auto;">Aguardando execução...</div>
-              </div>
 
-              <!-- Terminal Oculto mas Acessível -->
-              <div class="eq-section-title" style="margin-top: 10px;">
-                <span>Log do Sistema</span>
-                <button class="eq-icon-btn" id="eq-copy-console-btn" type="button" title="Copiar Logs" style="width: 24px; height: 24px;">
-                  ${ICONS.copy}
-                </button>
-              </div>
-              <div class="eq-terminal" id="eq-ap-console" style="height: 140px;">
-                <div class="text-blue">> Sistema pronto.</div>
-              </div>
-            </div>
-
-            <!-- TAB 3: CONFIGURAÇÕES -->
-            <div class="eq-view-pane" id="eq-view-settings" style="display: none;">
-              <!-- Seção da Chave de API com Menu -->
-              <div class="eq-field-group">
-                <div class="eq-section-title">
-                  <span>Chave Gemini (Google AI Studio)</span>
-                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: #00ffcc; text-decoration: none; font-size: 11px; font-weight: 700;">
-                    Obter Grátis ↗
-                  </a>
+                <div id="eq-result" class="eq-operation-result" style="display: none; flex-direction: column; gap: 10px;">
+                  <div class="eq-section-title">Plano e respostas</div>
+                  <div class="eq-badges" id="eq-badges"></div>
+                  <div class="eq-rationale-card" id="eq-rationale-text"></div>
+                  <div class="eq-action-list" id="eq-actions-list"></div>
+                  
+                  <div class="eq-execution-card" id="eq-execution-card" hidden>
+                    <div class="eq-section-title">Execução e evidências</div>
+                    <div class="eq-execution-placeholder" id="eq-execution-placeholder" style="display: none;"></div>
+                    <div class="eq-execution-summary" id="eq-execution-summary"></div>
+                    <div class="eq-execution-list" id="eq-execution-list"></div>
+                  </div>
+                  <button class="eq-btn-secondary" id="eq-open-hud-btn" type="button">${ICONS.list} Abrir respostas disponíveis</button>
                 </div>
 
-                <div class="eq-key-input-container">
-                  <div class="eq-input-wrap">
-                    <span class="eq-input-prefix-icon">${ICONS.key}</span>
-                    <input id="eq-api-key" class="eq-input" type="password" placeholder="Cole sua chave AIzaSy..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
-                    <button class="eq-icon-btn" id="eq-key-save" type="button" title="Salvar Chave">${ICONS.save}</button>
-                    <button class="eq-icon-btn" id="eq-key-more-btn" type="button" title="Mais Opções da Chave">${ICONS.moreVertical}</button>
+                <!-- Status & Stopwatch Card -->
+                <div class="eq-status-card">
+                  <div class="eq-status-card-header">
+                    <div class="eq-ai-indicator">
+                      <span class="eq-dot-pulse" id="eq-dot-ap"></span>
+                      <span>Status da IA</span>
+                    </div>
+                    <div class="eq-stopwatch" id="eq-stopwatch-ap">
+                      ${ICONS.clock} <span>0.00s</span>
+                    </div>
                   </div>
+                  <div class="eq-status-text" id="eq-status-text-ap">
+                    Pronto para iniciar. O Autopilot responderá e avançará as questões de forma automática.
+                  </div>
+                </div>
 
-                  <!-- Context Menu Suspenso Dinâmico -->
-                  <div class="eq-context-menu" id="eq-key-context-menu" hidden>
-                    <button class="eq-context-item" id="eq-menu-prompt" type="button">
-                      <span class="eq-item-icon">${ICONS.edit}</span>
-                      <span class="eq-item-text">Inserir via Janela Nativa</span>
-                      <span class="eq-item-badge">Bypass</span>
+                <!-- Console Terminal Oculto (Apenas para Autopilot Interno) -->
+                <div class="eq-terminal" id="eq-ap-console" style="display: none;"></div>
+                <div class="eq-terminal eq-terminal-execution" id="eq-execution-console" style="display: none;"></div>
+                
+                <div class="eq-footer-note" style="margin-top: auto;">Híbrido 4.0 • RAG + AST + Vision (Opt-in)</div>
+              </div>
+
+              <!-- TAB 2: CÉREBRO DA IA -->
+              <div class="eq-view-pane" id="eq-view-brain" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div class="eq-section-title" style="margin: 0;">
+                    <span>Explorador de Contexto & RAG</span>
+                  </div>
+                  <div style="display: flex; gap: 4px;">
+                    <button class="eq-icon-btn" id="eq-refresh-context-btn" type="button" title="Atualizar Varredura em Tempo Real" style="width: 28px; height: 28px;">
+                      ${ICONS.refresh}
                     </button>
-                    <button class="eq-context-item" id="eq-menu-paste" type="button">
-                      <span class="eq-item-icon">${ICONS.paste}</span>
-                      <span class="eq-item-text">Colar da Área de Transferência</span>
-                    </button>
-                    <button class="eq-context-item" id="eq-menu-toggle-vis" type="button">
-                      <span class="eq-item-icon" id="eq-menu-vis-icon">${ICONS.eye}</span>
-                      <span class="eq-item-text" id="eq-menu-vis-text">Mostrar Chave</span>
-                    </button>
-                    <button class="eq-context-item" id="eq-menu-clear" type="button">
-                      <span class="eq-item-icon">${ICONS.eraser}</span>
-                      <span class="eq-item-text">Limpar Campo</span>
-                    </button>
-                    <div class="eq-context-divider"></div>
-                    <button class="eq-context-item" id="eq-menu-test" type="button">
-                      <span class="eq-item-icon">${ICONS.key}</span>
-                      <span class="eq-item-text">Testar Conexão no Google</span>
-                    </button>
-                    <button class="eq-context-item danger" id="eq-menu-reset" type="button">
-                      <span class="eq-item-icon">${ICONS.trash}</span>
-                      <span class="eq-item-text">Resetar Dados e Cache</span>
+                    <button class="eq-icon-btn" id="eq-ap-clear-memory" type="button" title="Limpar Memória Contextual (RAG)" style="width: 28px; height: 28px; color: #ff5555;">
+                      ${ICONS.eraser}
                     </button>
                   </div>
                 </div>
+
+                <div class="eq-tree-container" id="eq-tree-container">
+                  <div class="text-muted" style="padding: 8px 0;">Aguardando análise da questão...</div>
+                </div>
+
+                <div class="eq-inspector-meta">
+                  <div class="eq-meta-box">
+                    <div class="eq-meta-title">Modelo IA</div>
+                    <div class="eq-meta-val" id="eq-insp-model">--</div>
+                  </div>
+                  <div class="eq-meta-box">
+                    <div class="eq-meta-title">Latência</div>
+                    <div class="eq-meta-val" id="eq-insp-latency">--</div>
+                  </div>
+                  <div class="eq-meta-box">
+                    <div class="eq-meta-title">Tokens</div>
+                    <div class="eq-meta-val" id="eq-insp-tokens">--</div>
+                  </div>
+                </div>
+
+                <div class="eq-field-group">
+                  <div class="eq-section-title">
+                    <span>Prompt Enviado (Sistema)</span>
+                    <button class="eq-btn-secondary" id="eq-copy-prompt-btn" type="button" style="height: 26px; padding: 0 8px; font-size: 11px;">
+                      ${ICONS.copy} Copiar
+                    </button>
+                  </div>
+                  <div class="eq-code-block" id="eq-insp-prompt">Nenhuma consulta realizada.</div>
+                </div>
+
+                <div class="eq-field-group">
+                  <div class="eq-section-title">Raciocínio Bruto (Resposta)</div>
+                  <div class="eq-rationale-card" id="eq-insp-rationale">Aguardando resposta da IA...</div>
+                </div>
+                
+                <div class="eq-field-group" style="display: none;">
+                  <div class="eq-action-list" id="eq-insp-actions"></div>
+                </div>
+
+                <div class="eq-footer-note" style="margin-top: auto;">Inspetor em Tempo Real • 100% Transparente</div>
               </div>
 
-              <!-- Seleção de Modelos -->
-              <div class="eq-field-group">
-                <div class="eq-section-title">Modelo Padrão</div>
-                <select id="eq-model-select" class="eq-select"></select>
-              </div>
+              <!-- TAB 3: CONFIGURAÇÕES -->
+              <div class="eq-view-pane" id="eq-view-settings" style="display: none;">
+                <!-- Seção da Chave de API com Menu de 3 Pontinhos (⋮) -->
+                <div class="eq-field-group">
+                  <div class="eq-section-title">
+                    <span>Chave Gemini (Google AI Studio)</span>
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: #00ffcc; text-decoration: none; font-size: 11px; font-weight: 700;">
+                      Obter Grátis ↗
+                    </a>
+                  </div>
 
-              <!-- Preferências do Sistema -->
-              <div class="eq-field-group" style="gap: 8px; margin-top: 4px;">
+                  <div class="eq-key-input-container">
+                    <div class="eq-input-wrap">
+                      <span class="eq-input-prefix-icon">${ICONS.key}</span>
+                      <input id="eq-api-key" class="eq-input" type="password" placeholder="Cole sua chave AIzaSy..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+                      <button class="eq-icon-btn" id="eq-key-save" type="button" title="Salvar Chave">${ICONS.save}</button>
+                      <button class="eq-icon-btn" id="eq-key-more-btn" type="button" title="Mais Opções da Chave">${ICONS.moreVertical}</button>
+                    </div>
+
+                    <!-- Context Menu Suspenso Dinâmico -->
+                    <div class="eq-context-menu" id="eq-key-context-menu" hidden>
+                      <button class="eq-context-item" id="eq-menu-prompt" type="button">
+                        <span class="eq-item-icon">${ICONS.edit}</span>
+                        <span class="eq-item-text">Inserir via Janela Nativa</span>
+                        <span class="eq-item-badge">Bypass</span>
+                      </button>
+                      <button class="eq-context-item" id="eq-menu-paste" type="button">
+                        <span class="eq-item-icon">${ICONS.paste}</span>
+                        <span class="eq-item-text">Colar da Área de Transferência</span>
+                      </button>
+                      <button class="eq-context-item" id="eq-menu-toggle-vis" type="button">
+                        <span class="eq-item-icon" id="eq-menu-vis-icon">${ICONS.eye}</span>
+                        <span class="eq-item-text" id="eq-menu-vis-text">Mostrar Chave</span>
+                      </button>
+                      <button class="eq-context-item" id="eq-menu-clear" type="button">
+                        <span class="eq-item-icon">${ICONS.eraser}</span>
+                        <span class="eq-item-text">Limpar Campo</span>
+                      </button>
+                      <div class="eq-context-divider"></div>
+                      <button class="eq-context-item" id="eq-menu-test" type="button">
+                        <span class="eq-item-icon">${ICONS.key}</span>
+                        <span class="eq-item-text">Testar Conexão no Google</span>
+                      </button>
+                      <button class="eq-context-item danger" id="eq-menu-reset" type="button">
+                        <span class="eq-item-icon">${ICONS.trash}</span>
+                        <span class="eq-item-text">Resetar Dados e Cache</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Seleção de Modelos -->
+                <div class="eq-field-group">
+                  <div class="eq-section-title">Modelo Padrão</div>
+                  <select id="eq-model-select" class="eq-select"></select>
+                </div>
+                
+                <div class="eq-grid-2">
+                  <div class="eq-field-group">
+                    <div class="eq-section-title">Modo da Questão</div>
+                    <select id="eq-mode-select" class="eq-select"></select>
+                  </div>
+                  <div class="eq-field-group">
+                    <div class="eq-section-title">Motor de Execução</div>
+                    <select id="eq-engine-select" class="eq-select"></select>
+                  </div>
+                </div>
+
+                <!-- Preferências do Sistema -->
+                <div class="eq-grid-2" style="margin-top: 8px;">
+                  <label class="eq-checkbox-label">
+                    <input id="eq-dry-run" type="checkbox" />
+                    <span>Simular (Dry-Run)</span>
+                  </label>
+                  <label class="eq-checkbox-label">
+                    <input id="eq-auto-apply" type="checkbox" />
+                    <span>Auto Aplicar</span>
+                  </label>
+                </div>
+                
                 <label class="eq-checkbox-label">
-                  <input id="eq-use-vision" type="checkbox" />
-                  <span>Visão Computacional (Imagens)</span>
+                  <input id="eq-auto-advance" type="checkbox" />
+                  <span>Auto Avançar Após Injetar</span>
                 </label>
-                <div style="font-size: 11px; color: #888888; margin-left: 24px; line-height: 1.3;">
-                  Desativado por padrão: O EasyQuiz analisa o DOM estruturado diretamente, respondendo ultrarrápido sem gastar cota com capturas de tela.
+
+                <div class="eq-field-group" style="gap: 8px; margin-top: 8px;">
+                  <label class="eq-checkbox-label">
+                    <input id="eq-use-vision" type="checkbox" />
+                    <span>Visão Computacional (Imagens)</span>
+                  </label>
+
+                  <label class="eq-checkbox-label" style="margin-top: 6px;">
+                    <input id="eq-host-dark" type="checkbox" />
+                    <span style="color: #00ffcc;">Habilitar Smart Dark Mode no Site</span>
+                  </label>
                 </div>
 
-                <label class="eq-checkbox-label" style="margin-top: 6px;">
-                  <input id="eq-host-dark" type="checkbox" />
-                  <span style="color: #00ffcc;">Habilitar Smart Dark Mode no Site</span>
-                </label>
-              </div>
+                <!-- Zona de Redefinição -->
+                <div class="eq-field-group" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #282828;">
+                  <div class="eq-section-title" style="color: #ff5555;">Zona de Redefinição</div>
+                  <button class="eq-btn-secondary" id="eq-reset-all-btn" type="button" style="border-color: #662222; color: #ff8888;">
+                    ${ICONS.trash} Resetar Todos os Dados e Memória
+                  </button>
+                </div>
 
-              <!-- Zona de Redefinição -->
-              <div class="eq-field-group" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #282828;">
-                <div class="eq-section-title" style="color: #ff5555;">Zona de Redefinição</div>
-                <button class="eq-btn-secondary" id="eq-reset-all-btn" type="button" style="border-color: #662222; color: #ff8888;">
-                  ${ICONS.trash} Resetar Todos os Dados e Memória
-                </button>
+                <div class="eq-footer-note" style="margin-top: auto;">Configurações salvas localmente no navegador</div>
               </div>
-
-              <div class="eq-footer-note">Configurações salvas localmente no navegador</div>
             </div>
-          </div>
-        </main>
-      </aside>
+          </main>
+        </aside>
     `
 
     // Bindings de Layout
@@ -443,15 +457,18 @@ export class EasyQuizPanel {
     this.dotPulseAp = this.shadow.querySelector('#eq-dot-ap') as HTMLElement
     this.statusTextAp = this.shadow.querySelector('#eq-status-text-ap') as HTMLElement
     this.stopwatchAp = this.shadow.querySelector('#eq-stopwatch-ap span') as HTMLElement
-    this.dotPulseAdv = this.shadow.querySelector('#eq-dot-adv') as HTMLElement
-    this.statusTextAdv = this.shadow.querySelector('#eq-status-text-adv') as HTMLElement
-    this.stopwatchAdv = this.shadow.querySelector('#eq-stopwatch-adv span') as HTMLElement
+    // Note: Adv elements have been removed/merged, we assign them to AP elements to avoid breaking code logic
+    this.dotPulseAdv = this.dotPulseAp
+    this.statusTextAdv = this.statusTextAp
+    this.stopwatchAdv = this.stopwatchAp
 
     // Inspetor
     this.inspModel = this.shadow.querySelector('#eq-insp-model') as HTMLElement
     this.inspLatency = this.shadow.querySelector('#eq-insp-latency') as HTMLElement
     this.inspTokens = this.shadow.querySelector('#eq-insp-tokens') as HTMLElement
     this.inspPrompt = this.shadow.querySelector('#eq-insp-prompt') as HTMLElement
+    this.inspRationale = this.shadow.querySelector('#eq-insp-rationale') as HTMLElement
+    this.inspActions = this.shadow.querySelector('#eq-insp-actions') as HTMLElement
     this.copyPromptBtn = this.shadow.querySelector('#eq-copy-prompt-btn') as HTMLButtonElement
 
     // Controles de Formulário e Chave
@@ -513,9 +530,13 @@ export class EasyQuizPanel {
     }
   }
 
-  private switchTab(tab: 'autopilot' | 'brain' | 'settings') {
-    this.activeTab = tab as any
-    const tabs = ['autopilot', 'brain', 'settings']
+  private switchTab(tab: 'resolver' | 'brain' | 'settings') {
+    this.activeTab = tab
+    const tabs: Array<'resolver' | 'brain' | 'settings'> = [
+      'resolver',
+      'brain',
+      'settings',
+    ]
 
     for (const t of tabs) {
       const btn = this.shadow.querySelector(`#eq-tab-${t}`) as HTMLElement
@@ -537,7 +558,7 @@ export class EasyQuizPanel {
 
   private setupEventListeners(): void {
     // Abas do Activity Bar Vertical
-    this.shadow.querySelector('#eq-tab-autopilot')?.addEventListener('click', () => this.switchTab('autopilot'))
+    this.shadow.querySelector('#eq-tab-resolver')?.addEventListener('click', () => this.switchTab('resolver'))
     this.shadow.querySelector('#eq-tab-brain')?.addEventListener('click', () => this.switchTab('brain'))
     this.shadow.querySelector('#eq-tab-settings')?.addEventListener('click', () => this.switchTab('settings'))
 
@@ -729,7 +750,7 @@ export class EasyQuizPanel {
       this.setStatus('Memória contextual da sessão limpa.', 'success')
     })
 
-    // Copiar Logs do Terminal
+    // Copiar Logs do Terminal (Desativado/Oculto)
     const copyConsoleBtn = this.shadow.querySelector('#eq-copy-console-btn') as HTMLButtonElement
     copyConsoleBtn?.addEventListener('click', () => {
       const logs = this.apConsole?.innerText || ''
@@ -861,10 +882,9 @@ export class EasyQuizPanel {
   public updateContext(context: CapturedContext, plan?: AnalysisPlan): void {
     this.latestContext = context
     if (plan) this.latestPlan = plan
-    if (this.activeTab === 'context') {
+    if (this.activeTab === 'brain') {
       this.renderContextTree()
-    } else if (this.activeTab === 'inspector' && plan) {
-      this.refreshInspectorView()
+      if (plan) this.refreshInspectorView()
     }
   }
 

@@ -49,8 +49,6 @@ const GEMINI_JSON_SCHEMA = {
     },
     confidence: { type: 'NUMBER' },
     rationale: { type: 'STRING' },
-    needsMoreContext: { type: 'BOOLEAN' },
-    warnings: { type: 'ARRAY', items: { type: 'STRING' } },
     memoryToStore: { type: 'STRING' },
     actions: {
       type: 'ARRAY',
@@ -67,16 +65,9 @@ const GEMINI_JSON_SCHEMA = {
         },
         required: ['t'],
       },
-    }
+    },
   },
-  required: [
-    'pageType',
-    'mode',
-    'confidence',
-    'rationale',
-    'needsMoreContext',
-    'actions'
-  ],
+  required: ['pageType', 'mode', 'confidence', 'rationale', 'actions'],
 }
 
 function normalizeModel(model: string): string {

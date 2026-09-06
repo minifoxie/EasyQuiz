@@ -16,9 +16,7 @@ const ACTION_TYPES = new Set<DeclarativeAction['t']>(['val', 'chk', 'sel', 'clk'
 const MAX_ACTIONS = 150
 const MAX_TEXT = 2_000
 const PLAN_FIELDS = new Set([
-  'pageType', 'mode', 'confidence', 'rationale', 'needsMoreContext', 'warnings', 'actions',
-  'memoryToStore', 'interactionProfile', 'requiresVision', 'expectedState', 'confidenceByAction',
-  'navigationExpectation',
+  'pageType', 'mode', 'confidence', 'rationale', 'actions', 'memoryToStore',
 ])
 const ACTION_FIELDS: Record<DeclarativeAction['t'], Set<string>> = {
   val: new Set(['t', 'id', 'v']),
@@ -135,24 +133,6 @@ export function validateAnalysisPlan(raw: unknown): AnalysisPlan {
   const confidence = typeof source.confidence === 'number' && Number.isFinite(source.confidence)
     ? Math.min(1, Math.max(0, source.confidence))
     : 0
-  const confidenceByAction = Array.isArray(source.confidenceByAction)
-    ? source.confidenceByAction
-        .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
-        .map((value) => Math.min(1, Math.max(0, value)))
-        .slice(0, regularActions.length)
-    : undefined
-  if (pageType === 'question' && (!confidenceByAction || confidenceByAction.length !== regularActions.length)) {
-    throw new Error('Plano inválido: confidenceByAction deve corresponder a cada ação de resposta.')
-  }
-  const interactionProfile = ['dom', 'framework', 'drag', 'keyboard', 'javascript', 'vision'].includes(String(source.interactionProfile))
-    ? source.interactionProfile as AnalysisPlan['interactionProfile']
-    : undefined
-  const navigationExpectation = ['none', 'feedback', 'question_change', 'url_change'].includes(String(source.navigationExpectation))
-    ? source.navigationExpectation as AnalysisPlan['navigationExpectation']
-    : undefined
-  if (pageType === 'question' && !navigationExpectation) {
-    throw new Error('Plano inválido: navigationExpectation é obrigatório em questões.')
-  }
   if ((mode === 'categorizacao' || mode === 'ordenacao' || mode === 'arrastar_soltar') && regularActions.some((action) => action.t !== 'drag')) {
     throw new Error('Plano inválido: modo de arrastar/ordenar exige somente ações drag.')
   }
@@ -165,14 +145,7 @@ export function validateAnalysisPlan(raw: unknown): AnalysisPlan {
     mode: mode as ResponseMode,
     confidence,
     rationale: text(source.rationale, 'Plano validado sem justificativa fornecida.'),
-    needsMoreContext: source.needsMoreContext === true,
-    warnings: Array.isArray(source.warnings) ? source.warnings.filter((value): value is string => typeof value === 'string').map((value) => value.slice(0, 500)).slice(0, 20) : [],
     actions,
     ...(text(source.memoryToStore) ? { memoryToStore: text(source.memoryToStore) } : {}),
-    ...(interactionProfile ? { interactionProfile } : {}),
-    ...(typeof source.requiresVision === 'boolean' ? { requiresVision: source.requiresVision } : {}),
-    ...(text(source.expectedState) ? { expectedState: text(source.expectedState) } : {}),
-    ...(confidenceByAction ? { confidenceByAction } : {}),
-    ...(navigationExpectation ? { navigationExpectation } : {}),
   }
 }
