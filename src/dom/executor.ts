@@ -300,8 +300,6 @@ function dispatchEventSequence(element: HTMLElement, events: string[]): void {
 export function simulatePointerClick(element: HTMLElement, coords?: [number, number]): void {
   if (!element) return
 
-  // Se o elemento for um container de opção (card/label) com checkbox ou rádio interno:
-  // Redireciona com precisão máxima para o input nativo (o quadradinho ou bolinha) para não colidir com listeners do quiz
   const innerInput =
     element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
       ? element
@@ -319,12 +317,10 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
     }
   }
 
-  // 1. Scroll suave e centralizado para garantir visibilidade
   try {
     element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' as any })
   } catch {}
 
-  // 2. Coordenadas exatas no viewport após o scroll
   let cx = 0
   let cy = 0
   if (coords && coords.length === 2) {
@@ -336,120 +332,23 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
     cy = Math.round(rect.top + Math.max(1, rect.height / 2))
   }
 
-  // 3. Foco no elemento
-  try {
-    element.focus?.()
-  } catch {}
+  try { element.focus?.() } catch {}
 
-  const commonProps = {
-    bubbles: true,
-    cancelable: true,
-    composed: true,
-    view: window,
-    clientX: cx,
-    clientY: cy,
-    screenX: cx,
-    screenY: cy,
-  }
-
-  // 4. Pointer Events (Padrão W3C com mouse pointerType e pointerId)
-  try {
-    element.dispatchEvent(
-      new PointerEvent('pointerdown', {
-        ...commonProps,
-        isPrimary: true,
-        pointerId: 1,
-        pointerType: 'mouse',
-        width: 1,
-        height: 1,
-        pressure: 0.5,
-        button: 0,
-        buttons: 1,
-      }),
-    )
-  } catch {}
+  const commonProps = { bubbles: true, cancelable: true, composed: true, view: window, clientX: cx, clientY: cy }
 
   try {
-    const MouseEventCtor = element.ownerDocument?.defaultView?.MouseEvent || window.MouseEvent
-    if (MouseEventCtor) {
-      element.dispatchEvent(new MouseEventCtor('mousedown', { ...commonProps, button: 0, buttons: 1 }))
-    }
+    element.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 }))
+    element.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 }))
+    element.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 0 }))
+    element.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 }))
   } catch {}
 
-  try {
-    const PointerEventCtor = element.ownerDocument?.defaultView?.PointerEvent || window.PointerEvent
-    if (PointerEventCtor) {
-      element.dispatchEvent(
-        new PointerEventCtor('pointerup', {
-          ...commonProps,
-          isPrimary: true,
-          pointerId: 1,
-          pointerType: 'mouse',
-          width: 1,
-          height: 1,
-          pressure: 0.5,
-          button: 0,
-          buttons: 0,
-        }),
-      )
-    }
-  } catch {}
-
-  try {
-    const MouseEventCtor = element.ownerDocument?.defaultView?.MouseEvent || window.MouseEvent
-    if (MouseEventCtor) {
-      element.dispatchEvent(new MouseEventCtor('mouseup', { ...commonProps, button: 0, buttons: 0 }))
-      element.dispatchEvent(new MouseEventCtor('click', { ...commonProps, button: 0, buttons: 0 }))
-    }
-  } catch {}
-
-  // 5. Touch Events (para frameworks com event listeners de toque/mobile)
-  try {
-    const touch = new Touch({
-      identifier: Date.now(),
-      target: element,
-      clientX: cx,
-      clientY: cy,
-      screenX: cx,
-      screenY: cy,
-      pageX: cx + (window.scrollX || 0),
-      pageY: cy + (window.scrollY || 0),
-    })
-    element.dispatchEvent(
-      new TouchEvent('touchstart', {
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-        touches: [touch],
-        targetTouches: [touch],
-      }),
-    )
-    element.dispatchEvent(
-      new TouchEvent('touchend', {
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-        touches: [],
-        targetTouches: [],
-      }),
-    )
-  } catch {}
-
-  // 6. Chamada direta do método .click() nativo (apenas se não for checkbox que inverte estado com clique duplicado)
+  // Apenas chamamos .click() diretamente, se o elemento suportar, ou despachamos evento
   if (!(element instanceof HTMLInputElement && element.type === 'checkbox')) {
     try {
       element.click()
-    } catch {}
-  }
-
-  // 7. Se o elemento for filho de um botão ou link clicável (e não for um label que já ativa o input), clica também no pai
-  const isLabelOrInput = element instanceof HTMLInputElement || element instanceof HTMLLabelElement
-  if (!isLabelOrInput) {
-    const clickableParent = element.closest('button, a, [role="button"], [role="radio"], [role="checkbox"]') as HTMLElement | null
-    if (clickableParent && clickableParent !== element) {
-      try {
-        clickableParent.click()
-      } catch {}
+    } catch {
+      element.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 }))
     }
   }
 }
@@ -599,116 +498,40 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
     }
   }
 
-  // 1. Atualizar atributos de acessibilidade e classes visuais
   if (cardParent) {
     cardParent.setAttribute('aria-checked', checked ? 'true' : 'false')
-    cardParent.setAttribute('aria-selected', checked ? 'true' : 'false')
-    cardParent.setAttribute('aria-pressed', checked ? 'true' : 'false')
-    cardParent.setAttribute('data-selected', checked ? 'true' : 'false')
     cardParent.setAttribute('data-checked', checked ? 'true' : 'false')
-    cardParent.setAttribute('data-state', checked ? 'checked' : 'unchecked')
     cardParent.classList.toggle('selected', checked)
     cardParent.classList.toggle('active', checked)
     cardParent.classList.toggle('checked', checked)
   }
 
-  // 2. Se for CHECKBOX:
   if (inputEl && inputEl.type === 'checkbox') {
-    // 1ª VIA: Atribuição direta da propriedade checked
     inputEl.checked = checked
-
-    // 2ª VIA: Invocação do prototype setter nativo (para furar wrappers de frameworks)
-    try {
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
-      setter?.call(inputEl, checked)
-    } catch {}
-
-    // 3ª VIA: React internal valueTracker
     try {
       const tracker = (inputEl as any)._valueTracker
       if (tracker) tracker.setValue(!checked)
     } catch {}
-
-    // 4ª VIA: Disparo de eventos nativos de formulário
     dispatchEventSequence(inputEl, ['input', 'change'])
-
-    // 5ª VIA: Sincronização visual no card pai
-    if (cardParent && cardParent !== inputEl) {
-      cardParent.classList.toggle('selected', checked)
-      cardParent.classList.toggle('active', checked)
-      cardParent.classList.toggle('checked', checked)
-    }
-
-    // 6ª VIA: Se o estado ainda divergir, dispara sequência física cirúrgica nas coordenadas exatas do quadradinho do input
     if (inputEl.checked !== checked) {
-      try {
-        const rect = inputEl.getBoundingClientRect()
-        const cx = Math.round(rect.left + Math.max(1, rect.width / 2))
-        const cy = Math.round(rect.top + Math.max(1, rect.height / 2))
-        const common = { bubbles: true, cancelable: true, composed: true, view: window, clientX: cx, clientY: cy }
-        inputEl.dispatchEvent(new PointerEvent('pointerdown', { ...common, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 }))
-        inputEl.dispatchEvent(new MouseEvent('mousedown', { ...common, button: 0, buttons: 1 }))
-        inputEl.dispatchEvent(new PointerEvent('pointerup', { ...common, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 0 }))
-        inputEl.dispatchEvent(new MouseEvent('mouseup', { ...common, button: 0, buttons: 0 }))
-        inputEl.dispatchEvent(new MouseEvent('click', { ...common, button: 0, buttons: 0 }))
-        inputEl.click()
-      } catch {}
+      try { inputEl.click() } catch {}
     }
-
     return
   }
 
-  // 3. Se for RADIO:
   if (inputEl && inputEl.type === 'radio') {
-    if (inputEl.checked === true && checked === true) {
-      return
-    }
-
+    if (inputEl.checked === true && checked === true) return
     inputEl.checked = checked
     try {
       const tracker = (inputEl as any)._valueTracker
       if (tracker) tracker.setValue(!checked)
     } catch {}
-    try {
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
-      setter?.call(inputEl, checked)
-    } catch {}
-    inputEl.checked = checked
     dispatchEventSequence(inputEl, ['input', 'change'])
-
-    // Dispara clique no card ou rádio
-    const clickTarget = cardParent !== inputEl ? cardParent : inputEl
-    try { clickTarget.focus?.() } catch {}
-    clickTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
-    try { (clickTarget as any).onclick?.() } catch {}
+    try { (cardParent !== inputEl ? cardParent : inputEl).click() } catch {}
     return
   }
 
-  // 4. Se NÃO houver input nativo (ex: card personalizado, li, button estilizado):
-  const clickTarget = cardParent
-  try { clickTarget.focus?.() } catch {}
-  const rect = clickTarget.getBoundingClientRect()
-  const cx = Math.round(rect.left + Math.max(1, rect.width / 2))
-  const cy = Math.round(rect.top + Math.max(1, rect.height / 2))
-  const commonProps = {
-    bubbles: true,
-    cancelable: true,
-    composed: true,
-    view: window,
-    clientX: cx,
-    clientY: cy,
-  }
-
-  try {
-    clickTarget.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 }))
-  } catch {}
-  clickTarget.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 }))
-  try {
-    clickTarget.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, isPrimary: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 0 }))
-  } catch {}
-  clickTarget.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 }))
-  clickTarget.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 }))
-  try { (clickTarget as any).onclick?.() } catch {}
+  try { cardParent.click() } catch {}
 }
 
 function selectValues(element: HTMLElement, values: string[]): void {

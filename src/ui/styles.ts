@@ -1,10 +1,10 @@
 export const PANEL_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Nunito:wght@400;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
   :host {
     all: initial;
     color-scheme: dark;
-    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 13px;
     line-height: 1.4;
   }
@@ -91,10 +91,10 @@ export const PANEL_STYLES = `
   }
 
   .eq-launcher:hover {
-    border-color: #00ffcc;
-    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.8), 0 0 24px rgba(0, 255, 204, 0.35);
-    transform: translateY(-2px) scale(1.02);
-    background: rgba(24, 24, 24, 0.95);
+    border-color: #3794ff;
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.4), 0 0 16px rgba(55, 148, 255, 0.2);
+    transform: translateY(-1px) scale(1.01);
+    background: rgba(30, 30, 30, 0.98);
   }
 
   .eq-launcher:active {
@@ -109,18 +109,18 @@ export const PANEL_STYLES = `
   }
 
   .eq-launcher-dot {
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    background: #00ff55;
-    box-shadow: 0 0 8px #00ff55;
+    background: #3794ff;
+    box-shadow: 0 0 4px rgba(55, 148, 255, 0.5);
     transition: background 0.2s, box-shadow 0.2s;
   }
 
   .eq-launcher-dot.busy {
-    background: #00ffcc;
-    box-shadow: 0 0 10px #00ffcc;
-    animation: eq-pulse 1s infinite alternate;
+    background: #f1c40f;
+    box-shadow: 0 0 6px rgba(241, 196, 15, 0.5);
+    animation: eq-pulse 1.5s infinite alternate ease-in-out;
   }
 
   .eq-launcher-dot.error {
@@ -208,7 +208,7 @@ export const PANEL_STYLES = `
 
   .eq-activity-btn.active {
     color: #ffffff;
-    background: rgba(0, 255, 204, 0.08);
+    background: rgba(55, 148, 255, 0.1);
   }
 
   .eq-activity-indicator {
@@ -217,7 +217,7 @@ export const PANEL_STYLES = `
     top: 6px;
     bottom: 6px;
     width: 3px;
-    background: #00ffcc;
+    background: #3794ff;
     border-radius: 0 3px 3px 0;
     opacity: 0;
     transform: scaleY(0.4);
@@ -242,14 +242,14 @@ export const PANEL_STYLES = `
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: #1c1c1c;
+    background: #1e1e1e;
     overflow: hidden;
     min-width: 0;
   }
 
   /* Cabeçalho */
   .eq-header {
-    background: #1f1f1f;
+    background: #252526;
     border-bottom: 1px solid #2d2d30;
     height: 48px;
     min-height: 48px;
@@ -267,7 +267,7 @@ export const PANEL_STYLES = `
   }
 
   .eq-brand-icon {
-    color: #00ffcc;
+    color: #3794ff;
     display: flex;
     align-items: center;
   }
@@ -280,9 +280,9 @@ export const PANEL_STYLES = `
   }
 
   .eq-brand-badge {
-    background: rgba(0, 255, 204, 0.12);
-    border: 1px solid rgba(0, 255, 204, 0.6);
-    color: #00ffcc;
+    background: rgba(55, 148, 255, 0.12);
+    border: 1px solid rgba(55, 148, 255, 0.4);
+    color: #3794ff;
     font-size: 10px;
     font-weight: 800;
     padding: 1px 6px;
@@ -326,7 +326,7 @@ export const PANEL_STYLES = `
     display: flex;
     flex-direction: column;
     gap: 14px;
-    background: #1c1c1c;
+    background: #1e1e1e;
   }
 
   .eq-views-wrapper::-webkit-scrollbar {
@@ -390,8 +390,8 @@ export const PANEL_STYLES = `
   }
 
   .eq-input-wrap:focus-within {
-    border-color: #00ffcc;
-    box-shadow: 0 0 0 2px rgba(0, 255, 204, 0.15);
+    border-color: #3794ff;
+    box-shadow: 0 0 0 2px rgba(55, 148, 255, 0.15);
   }
 
   .eq-input-prefix-icon {
@@ -496,8 +496,8 @@ export const PANEL_STYLES = `
 
   .eq-item-badge {
     font-size: 9px;
-    background: rgba(0, 255, 204, 0.2);
-    color: #00ffcc;
+    background: rgba(55, 148, 255, 0.15);
+    color: #3794ff;
     padding: 1px 5px;
     border-radius: 3px;
     font-weight: 800;
@@ -528,7 +528,7 @@ export const PANEL_STYLES = `
   }
 
   .eq-select:focus {
-    border-color: #00ffcc;
+    border-color: #3794ff;
   }
 
   .eq-grid-2 {
@@ -569,15 +569,15 @@ export const PANEL_STYLES = `
   }
 
   .eq-checkbox-label input[type="checkbox"]:checked {
-    background: #00ffcc;
-    border-color: #00ffcc;
+    background: #3794ff;
+    border-color: #3794ff;
   }
 
   .eq-checkbox-label input[type="checkbox"]:checked::after {
     content: '';
     width: 4px;
     height: 8px;
-    border: solid #000000;
+    border: solid #ffffff;
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
     margin-bottom: 2px;
@@ -615,8 +615,8 @@ export const PANEL_STYLES = `
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #00ff55;
-    box-shadow: 0 0 6px #00ff55;
+    background: #3794ff;
+    box-shadow: 0 0 6px rgba(55, 148, 255, 0.3);
     transition: background 0.2s, box-shadow 0.2s;
   }
 
@@ -641,7 +641,7 @@ export const PANEL_STYLES = `
     font-family: 'JetBrains Mono', Consolas, monospace;
     font-size: 11px;
     font-weight: 700;
-    color: #00ffcc;
+    color: #3794ff;
     background: #0f0f0f;
     padding: 3px 8px;
     border-radius: 5px;
@@ -661,14 +661,14 @@ export const PANEL_STYLES = `
   /* ===== BOTÕES DE AÇÃO COM MICRO-ANIMAÇÕES ===== */
   .eq-btn-primary {
     height: 42px;
-    background: #00ffcc;
-    border: 1px solid #00ffcc;
+    background: #3794ff;
+    border: 1px solid #3794ff;
     border-radius: 6px;
-    color: #000000;
+    color: #ffffff;
     font-family: inherit;
     font-size: 13px;
-    font-weight: 900;
-    letter-spacing: 0.05em;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
     cursor: pointer;
     display: flex;
@@ -681,8 +681,8 @@ export const PANEL_STYLES = `
   }
 
   .eq-btn-primary:hover {
-    background: #33ffdb;
-    box-shadow: 0 6px 20px rgba(0, 255, 204, 0.4);
+    background: #479fff;
+    box-shadow: 0 4px 16px rgba(55, 148, 255, 0.3);
     transform: translateY(-1px);
   }
 
@@ -716,11 +716,11 @@ export const PANEL_STYLES = `
     background: #181818;
     border: 1px solid #333333;
     border-radius: 6px;
-    color: #00ffcc;
+    color: #bbbbbb;
     font-family: inherit;
     font-size: 12px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
     cursor: pointer;
     display: flex;

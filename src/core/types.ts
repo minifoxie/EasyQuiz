@@ -75,11 +75,6 @@ export interface AnalysisPlan {
   promptSent?: string
   durationMs?: number
   tokensUsed?: number
-  interactionProfile?: 'dom' | 'framework' | 'drag' | 'keyboard' | 'javascript' | 'vision'
-  requiresVision?: boolean
-  expectedState?: string
-  confidenceByAction?: number[]
-  navigationExpectation?: 'none' | 'feedback' | 'question_change' | 'url_change'
 }
 
 export interface ActionExecutionReport {

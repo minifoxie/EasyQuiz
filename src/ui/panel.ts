@@ -160,34 +160,19 @@ export class EasyQuizPanel {
         <!-- Activity Bar Vertical na Esquerda (Estilo VS Code - Apenas Ícones) -->
         <nav class="eq-activity-bar" role="tablist" aria-label="Atalhos">
           <div class="eq-activity-top">
-            <button class="eq-activity-btn active" id="eq-tab-autopilot" role="tab" title="Autopilot (Automação Contínua)">
+            <button class="eq-activity-btn active" id="eq-tab-autopilot" role="tab" title="Resolver (Autopilot)">
               <span class="eq-activity-indicator"></span>
               <span class="eq-activity-icon">${ICONS.rocket}</span>
             </button>
 
-            <button class="eq-activity-btn" id="eq-tab-context" role="tab" title="Contexto (Hierarquia e RAG em Tempo Real)">
-              <span class="eq-activity-indicator"></span>
-              <span class="eq-activity-icon">${ICONS.folderTree}</span>
-            </button>
-
-            <button class="eq-activity-btn" id="eq-tab-execution" role="tab" title="Execução e evidências">
-              <span class="eq-activity-indicator"></span>
-              <span class="eq-activity-icon">${ICONS.terminal}</span>
-            </button>
-
-            <button class="eq-activity-btn" id="eq-tab-advanced" role="tab" title="Avançado (Ajustes técnicos)">
-              <span class="eq-activity-indicator"></span>
-              <span class="eq-activity-icon">${ICONS.code}</span>
-            </button>
-
-            <button class="eq-activity-btn" id="eq-tab-inspector" role="tab" title="Inspetor de Prompt e IA">
+            <button class="eq-activity-btn" id="eq-tab-brain" role="tab" title="Cérebro da IA (Contexto, Inspetor e Raciocínio)">
               <span class="eq-activity-indicator"></span>
               <span class="eq-activity-icon">${ICONS.inspector}</span>
             </button>
           </div>
 
           <div class="eq-activity-bottom">
-            <button class="eq-activity-btn" id="eq-tab-settings" role="tab" title="Configurações & Chaves">
+            <button class="eq-activity-btn" id="eq-tab-settings" role="tab" title="Configurações & Ajustes Avançados">
               <span class="eq-activity-indicator"></span>
               <span class="eq-activity-icon">${ICONS.settings}</span>
             </button>
@@ -239,13 +224,13 @@ export class EasyQuizPanel {
               <div class="eq-footer-note">Hierarquia do DOM e Memória RAG • 0 Tokens Gastos</div>
             </div>
 
-            <!-- TAB 1: AUTOPILOT -->
+            <!-- TAB 1: AUTOPILOT (RESOLVER) -->
             <div class="eq-view-pane" id="eq-view-autopilot">
               <div class="eq-operation-header">
                 <div>
                   <div class="eq-eyebrow">OPERAÇÃO ATUAL</div>
                   <h1 class="eq-operation-title">Resolver questão</h1>
-                  <p class="eq-operation-subtitle">Analise o contexto, aplique a resposta e confirme cada etapa.</p>
+                  <p class="eq-operation-subtitle">Analise o contexto e aplique as respostas.</p>
                 </div>
                 <span class="eq-operation-state" id="eq-operation-state">Pronto</span>
               </div>
@@ -270,11 +255,11 @@ export class EasyQuizPanel {
                 <div class="eq-rationale-card" id="eq-rationale-text"></div>
                 <div class="eq-action-list" id="eq-actions-list"></div>
                 <div class="eq-execution-card" id="eq-execution-card" hidden>
-                  <div class="eq-section-title">Execução e evidências</div>
+                  <div class="eq-section-title">Execução</div>
                   <div class="eq-execution-summary" id="eq-execution-summary"></div>
                   <div class="eq-execution-list" id="eq-execution-list"></div>
                 </div>
-                <button class="eq-btn-secondary" id="eq-open-hud-btn" type="button">${ICONS.list} Abrir respostas disponíveis</button>
+                <button class="eq-btn-secondary" id="eq-open-hud-btn" type="button">${ICONS.list} Resumo flutuante</button>
               </div>
 
               <!-- Status & Stopwatch Card -->
@@ -282,102 +267,38 @@ export class EasyQuizPanel {
                 <div class="eq-status-card-header">
                   <div class="eq-ai-indicator">
                     <span class="eq-dot-pulse" id="eq-dot-ap"></span>
-                    <span>Status da IA</span>
+                    <span>Status do Assistente</span>
                   </div>
                   <div class="eq-stopwatch" id="eq-stopwatch-ap">
                     ${ICONS.clock} <span>0.00s</span>
                   </div>
                 </div>
                 <div class="eq-status-text" id="eq-status-text-ap">
-                  Pronto para iniciar. O Autopilot responderá e avançará as questões de forma automática.
+                  Pronto para iniciar. O EasyQuiz analisará o conteúdo e sugerirá a melhor abordagem.
                 </div>
               </div>
-
-              <!-- Console Terminal -->
-              <div class="eq-section-title">
-                <span>Terminal de Operações</span>
-                <div style="display: flex; align-items: center; gap: 6px;">
-                  <button class="eq-icon-btn" id="eq-copy-console-btn" type="button" title="Copiar Todos os Logs do Terminal">
-                    ${ICONS.copy}
-                  </button>
-                  <span style="font-size: 10px; color: #666;">Live Event Stream</span>
-                </div>
-              </div>
-              <div class="eq-terminal" id="eq-ap-console">
-                <div class="text-blue">> [SYS] EasyQuiz 2.0 Supreme inicializado.</div>
-                <div class="text-muted">> [SYS] Conexão com a API do Google Gemini pronta.</div>
-              </div>
-
-              <div class="eq-footer-note">Híbrido 4.0 • RAG + AST + Vision (Opt-in)</div>
             </div>
 
-            <!-- TAB: EXECUÇÃO -->
-            <div class="eq-view-pane" id="eq-view-execution" style="display: none;">
-              <div class="eq-operation-header">
-                <div>
-                  <div class="eq-eyebrow">RASTREAMENTO</div>
-                  <h1 class="eq-operation-title">Execução</h1>
-                  <p class="eq-operation-subtitle">Eventos, estratégias e evidências da aplicação.</p>
+            <!-- TAB 2: CÉREBRO DA IA -->
+            <div class="eq-view-pane" id="eq-view-brain" style="display: none;">
+              <!-- Seção de Contexto & RAG -->
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #282828; padding-bottom: 8px;">
+                <div class="eq-section-title" style="margin: 0; color: #cccccc;">
+                  <span>Visão e Contexto (RAG)</span>
                 </div>
-                <span class="eq-operation-state">Live</span>
+                <button class="eq-icon-btn" id="eq-refresh-context-btn" type="button" title="Atualizar Varredura">
+                  ${ICONS.refresh}
+                </button>
               </div>
-              <div class="eq-execution-placeholder" id="eq-execution-placeholder">A execução aparecerá aqui quando uma resposta for aplicada.</div>
-              <div class="eq-section-title"><span>Terminal de operações</span><span class="eq-live-label">LIVE EVENT STREAM</span></div>
-              <div class="eq-terminal eq-terminal-execution" id="eq-execution-console"></div>
-            </div>
-
-            <!-- TAB 2: AVANÇADO -->
-            <div class="eq-view-pane" id="eq-view-advanced" style="display: none;">
-              <!-- Status & Stopwatch Adv -->
-              <div class="eq-status-card">
-                <div class="eq-status-card-header">
-                  <div class="eq-ai-indicator">
-                    <span class="eq-dot-pulse" id="eq-dot-adv"></span>
-                    <span>Processamento Manual</span>
-                  </div>
-                  <div class="eq-stopwatch" id="eq-stopwatch-adv">
-                    ${ICONS.clock} <span>0.00s</span>
-                  </div>
-                </div>
-                <div class="eq-status-text" id="eq-status-text-adv">
-                  Clique em Analisar para inspecionar a questão atual na tela.
-                </div>
+              <div class="eq-tree-container" id="eq-tree-container" style="max-height: 200px; overflow-y: auto;">
+                <div class="text-muted" style="padding: 8px 0;">Nenhuma varredura recente.</div>
               </div>
 
-              <div class="eq-grid-2">
-                <div class="eq-field-group">
-                  <div class="eq-section-title">Modo da Questão</div>
-                  <select id="eq-mode-select" class="eq-select"></select>
-                </div>
-                <div class="eq-field-group">
-                  <div class="eq-section-title">Motor de Execução</div>
-                  <select id="eq-engine-select" class="eq-select"></select>
-                </div>
-              </div>
-
-              <div class="eq-grid-2">
-                <label class="eq-checkbox-label">
-                  <input id="eq-dry-run" type="checkbox" />
-                  <span>Simular (Dry-Run)</span>
-                </label>
-                <label class="eq-checkbox-label">
-                  <input id="eq-auto-apply" type="checkbox" />
-                  <span>Auto Aplicar</span>
-                </label>
-              </div>
-              <label class="eq-checkbox-label">
-                <input id="eq-auto-advance" type="checkbox" />
-                <span>Auto Avançar Após Injetar</span>
-              </label>
-
-              <div class="eq-footer-note">Ajustes técnicos • O fluxo principal está em Operar</div>
-            </div>
-
-            <!-- TAB 3: INSPETOR IA -->
-            <div class="eq-view-pane" id="eq-view-inspector" style="display: none;">
+              <!-- Seção de Inspetor da Última Chamada -->
+              <div class="eq-section-title" style="margin-top: 10px; color: #cccccc;">Desempenho da Última Ação</div>
               <div class="eq-inspector-meta">
                 <div class="eq-meta-box">
-                  <div class="eq-meta-title">Modelo IA</div>
+                  <div class="eq-meta-title">Modelo</div>
                   <div class="eq-meta-val" id="eq-insp-model">--</div>
                 </div>
                 <div class="eq-meta-box">
@@ -392,32 +313,29 @@ export class EasyQuizPanel {
 
               <div class="eq-field-group">
                 <div class="eq-section-title">
-                  <span>Prompt Enviado para a IA</span>
-                  <button class="eq-btn-secondary" id="eq-copy-prompt-btn" type="button" style="height: 26px; padding: 0 8px; font-size: 11px;">
-                    ${ICONS.copy} Copiar
+                  <span>Prompt Base Enviado</span>
+                  <button class="eq-btn-secondary" id="eq-copy-prompt-btn" type="button" style="height: 24px; padding: 0 6px; font-size: 10px;">
+                    ${ICONS.copy}
                   </button>
                 </div>
-                <div class="eq-code-block" id="eq-insp-prompt">Nenhuma consulta realizada ainda. Execute uma análise no Autopilot ou Avançado para inspecionar os dados enviados.</div>
+                <div class="eq-code-block" id="eq-insp-prompt" style="max-height: 120px; overflow-y: auto;">Aguardando execução...</div>
               </div>
 
-              <div class="eq-field-group">
-                <div class="eq-section-title">Raciocínio Detalhado</div>
-                <div class="eq-rationale-card" id="eq-insp-rationale">Aguardando resposta da IA...</div>
+              <!-- Terminal Oculto mas Acessível -->
+              <div class="eq-section-title" style="margin-top: 10px;">
+                <span>Log do Sistema</span>
+                <button class="eq-icon-btn" id="eq-copy-console-btn" type="button" title="Copiar Logs" style="width: 24px; height: 24px;">
+                  ${ICONS.copy}
+                </button>
               </div>
-
-              <div class="eq-field-group">
-                <div class="eq-section-title">Comandos Gerados</div>
-                <div class="eq-action-list" id="eq-insp-actions">
-                  <div class="text-muted" style="padding: 6px;">Nenhuma ação no momento.</div>
-                </div>
+              <div class="eq-terminal" id="eq-ap-console" style="height: 140px;">
+                <div class="text-blue">> Sistema pronto.</div>
               </div>
-
-              <div class="eq-footer-note">Inspetor em Tempo Real • 100% Transparente</div>
             </div>
 
-            <!-- TAB 4: CONFIGURAÇÕES -->
+            <!-- TAB 3: CONFIGURAÇÕES -->
             <div class="eq-view-pane" id="eq-view-settings" style="display: none;">
-              <!-- Seção da Chave de API com Menu de 3 Pontinhos (⋮) -->
+              <!-- Seção da Chave de API com Menu -->
               <div class="eq-field-group">
                 <div class="eq-section-title">
                   <span>Chave Gemini (Google AI Studio)</span>
@@ -534,8 +452,6 @@ export class EasyQuizPanel {
     this.inspLatency = this.shadow.querySelector('#eq-insp-latency') as HTMLElement
     this.inspTokens = this.shadow.querySelector('#eq-insp-tokens') as HTMLElement
     this.inspPrompt = this.shadow.querySelector('#eq-insp-prompt') as HTMLElement
-    this.inspRationale = this.shadow.querySelector('#eq-insp-rationale') as HTMLElement
-    this.inspActions = this.shadow.querySelector('#eq-insp-actions') as HTMLElement
     this.copyPromptBtn = this.shadow.querySelector('#eq-copy-prompt-btn') as HTMLButtonElement
 
     // Controles de Formulário e Chave
@@ -597,16 +513,9 @@ export class EasyQuizPanel {
     }
   }
 
-  private switchTab(tab: 'autopilot' | 'context' | 'execution' | 'advanced' | 'inspector' | 'settings') {
-    this.activeTab = tab
-    const tabs: Array<'autopilot' | 'context' | 'execution' | 'advanced' | 'inspector' | 'settings'> = [
-      'autopilot',
-      'context',
-      'execution',
-      'advanced',
-      'inspector',
-      'settings',
-    ]
+  private switchTab(tab: 'autopilot' | 'brain' | 'settings') {
+    this.activeTab = tab as any
+    const tabs = ['autopilot', 'brain', 'settings']
 
     for (const t of tabs) {
       const btn = this.shadow.querySelector(`#eq-tab-${t}`) as HTMLElement
@@ -620,9 +529,8 @@ export class EasyQuizPanel {
       }
     }
 
-    if (tab === 'context') {
+    if (tab === 'brain') {
       this.renderContextTree()
-    } else if (tab === 'inspector') {
       this.refreshInspectorView()
     }
   }
@@ -630,10 +538,7 @@ export class EasyQuizPanel {
   private setupEventListeners(): void {
     // Abas do Activity Bar Vertical
     this.shadow.querySelector('#eq-tab-autopilot')?.addEventListener('click', () => this.switchTab('autopilot'))
-    this.shadow.querySelector('#eq-tab-context')?.addEventListener('click', () => this.switchTab('context'))
-    this.shadow.querySelector('#eq-tab-execution')?.addEventListener('click', () => this.switchTab('execution'))
-    this.shadow.querySelector('#eq-tab-advanced')?.addEventListener('click', () => this.switchTab('advanced'))
-    this.shadow.querySelector('#eq-tab-inspector')?.addEventListener('click', () => this.switchTab('inspector'))
+    this.shadow.querySelector('#eq-tab-brain')?.addEventListener('click', () => this.switchTab('brain'))
     this.shadow.querySelector('#eq-tab-settings')?.addEventListener('click', () => this.switchTab('settings'))
 
     this.shadow.querySelector('#eq-refresh-context-btn')?.addEventListener('click', () => {

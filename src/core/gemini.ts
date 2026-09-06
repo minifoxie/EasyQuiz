@@ -67,12 +67,7 @@ const GEMINI_JSON_SCHEMA = {
         },
         required: ['t'],
       },
-    },
-    interactionProfile: { type: 'STRING', enum: ['dom', 'framework', 'drag', 'keyboard', 'javascript', 'vision'] },
-    requiresVision: { type: 'BOOLEAN' },
-    expectedState: { type: 'STRING' },
-    confidenceByAction: { type: 'ARRAY', items: { type: 'NUMBER' } },
-    navigationExpectation: { type: 'STRING', enum: ['none', 'feedback', 'question_change', 'url_change'] },
+    }
   },
   required: [
     'pageType',
@@ -80,11 +75,7 @@ const GEMINI_JSON_SCHEMA = {
     'confidence',
     'rationale',
     'needsMoreContext',
-    'actions',
-    'interactionProfile',
-    'expectedState',
-    'confidenceByAction',
-    'navigationExpectation',
+    'actions'
   ],
 }
 
