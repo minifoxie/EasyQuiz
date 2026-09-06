@@ -1,31 +1,31 @@
 import type { AnalysisPlan, CapturedContext, CapturedImage, EasyQuizSettings, ModelOption } from './types'
 import { buildUserPrompt, SYSTEM_PROMPT } from './prompt'
+import { validateAnalysisPlan } from './planValidation'
 
 export const AVAILABLE_MODELS: ModelOption[] = [
   {
+    id: 'gemini-3.8-flash',
+    name: 'Gemini 3.8 Flash (Rápido e atual)',
+    description: 'Modelo estável multimodal para baixa latência e tarefas agentivas.',
+    stable: true,
+  },
+  {
+    id: 'gemini-3.5-flash-lite',
+    name: 'Gemini 3.5 Flash-Lite (Econômico)',
+    description: 'Modelo estável de menor custo e baixa latência.',
+    stable: true,
+  },
+  {
     id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash (Recomendado - Ultra Rápido)',
-    description: 'Modelo de última geração com suporte nativo e latência inferior a 1 segundo.',
+    name: 'Gemini 2.5 Flash (Compatibilidade)',
+    description: 'Modelo estável multimodal para contas que ainda não expõem a série 3.',
+    stable: true,
   },
   {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash (Padrão Estável)',
-    description: 'Alta velocidade e excelente precisão para provas e formulários.',
-  },
-  {
-    id: 'gemini-1.5-flash',
-    name: 'Gemini 1.5 Flash (Universal Legado)',
-    description: 'Compatibilidade total em todas as contas e versões de chave do Google AI Studio.',
-  },
-  {
-    id: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro (Raciocínio Avançado)',
-    description: 'Maior capacidade analítica para questões complexas, STEM e matemática profunda.',
-  },
-  {
-    id: 'gemini-1.5-pro',
-    name: 'Gemini 1.5 Pro (Legado Pro)',
-    description: 'Modelo de raciocínio profundo legado.',
+    id: 'gemini-3.1-pro-preview',
+    name: 'Gemini 3.1 Pro (Raciocínio avançado)',
+    description: 'Modelo preview para questões complexas e multimodais.',
+    stable: false,
   },
 ]
 
@@ -68,8 +68,24 @@ const GEMINI_JSON_SCHEMA = {
         required: ['t'],
       },
     },
+    interactionProfile: { type: 'STRING', enum: ['dom', 'framework', 'drag', 'keyboard', 'javascript', 'vision'] },
+    requiresVision: { type: 'BOOLEAN' },
+    expectedState: { type: 'STRING' },
+    confidenceByAction: { type: 'ARRAY', items: { type: 'NUMBER' } },
+    navigationExpectation: { type: 'STRING', enum: ['none', 'feedback', 'question_change', 'url_change'] },
   },
-  required: ['pageType', 'mode', 'confidence', 'rationale', 'needsMoreContext', 'actions'],
+  required: [
+    'pageType',
+    'mode',
+    'confidence',
+    'rationale',
+    'needsMoreContext',
+    'actions',
+    'interactionProfile',
+    'expectedState',
+    'confidenceByAction',
+    'navigationExpectation',
+  ],
 }
 
 function normalizeModel(model: string): string {
@@ -105,21 +121,6 @@ function robustParsePlan(rawText: string): AnalysisPlan {
   try {
     return JSON.parse(rawText) as AnalysisPlan
   } catch (initialErr) {
-    const cleaned = rawText.trim()
-    const attempts = [
-      cleaned + '}',
-      cleaned + ']}',
-      cleaned + '"}]}',
-      cleaned + '"]}',
-      cleaned + '}]}',
-      cleaned + '}]}}',
-    ]
-    for (const attempt of attempts) {
-      try {
-        const parsed = JSON.parse(attempt) as AnalysisPlan
-        if (parsed && typeof parsed === 'object') return parsed
-      } catch {}
-    }
     throw new Error(`Falha ao decodificar JSON da IA (${initialErr instanceof Error ? initialErr.message : 'incompleto'})`)
   }
 }
@@ -177,24 +178,28 @@ export async function fetchAvailableModels(apiKey: string): Promise<ModelOption[
             return isGemini && supportsGen && !isExcluded
           })
           .map((m: any) => {
+            const methods = m.supportedGenerationMethods || []
             const id = m.name.replace(/^models\//, '')
             const displayName = m.displayName || id
             return {
               id,
               name: displayName.includes(id) ? displayName : `${displayName} (${id})`,
               description: m.description || '',
+              stable: !/-preview|-experimental|-latest/i.test(id),
+              supportsVision: !/embedding|tts|transcribe|live|image/i.test(id),
+              supportsStructuredOutput: methods.includes('generateContent'),
+              supportedGenerationMethods: methods,
+              discoveredAt: Date.now(),
             }
           })
 
         if (validModels.length > 0) {
           validModels.sort((a, b) => {
             const getPriority = (id: string) => {
+              if (id === 'gemini-3.8-flash') return 120
+              if (id === 'gemini-3.5-flash-lite') return 115
               if (id === 'gemini-2.5-flash') return 100
-              if (id === 'gemini-3.5-flash') return 95
-              if (id === 'gemini-3.1-flash-lite') return 90
-              if (id === 'gemini-2.5-pro') return 85
-              if (id === 'gemini-3.1-pro') return 80
-              if (id === 'gemini-1.5-flash') return 60
+              if (id === 'gemini-3.1-pro-preview') return 90
               if (id.includes('flash')) return 50
               return 10
             }
@@ -238,7 +243,7 @@ export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message
   }
 
   // 2. Teste direto nos modelos mais compatíveis em v1beta e v1
-  const testCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
+  const testCandidates = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash']
   for (const modelId of testCandidates) {
     for (const apiVer of ['v1beta', 'v1']) {
       const endpoint = `https://generativelanguage.googleapis.com/${apiVer}/models/${modelId}:generateContent?key=${encodeURIComponent(key)}`
@@ -315,10 +320,9 @@ export async function analyzeWithGemini(
     chosenModel,
     ...(discoveredModelsCache?.map((m) => m.id) || []),
     'gemini-2.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
-    'gemini-2.5-pro',
-    'gemini-1.5-pro',
+    'gemini-3.5-flash-lite',
+    'gemini-2.5-flash',
+    'gemini-3.1-pro-preview',
   ]
   const modelsToTry = Array.from(new Set(rawFallback)).filter((m) => !blacklistedModels.has(m))
 
@@ -396,11 +400,7 @@ export async function analyzeWithGemini(
         }
 
         const rawText = candidate.content.parts[0].text
-        const parsedPlan = robustParsePlan(rawText)
-
-        if (!Array.isArray(parsedPlan.actions)) parsedPlan.actions = []
-        if (!Array.isArray(parsedPlan.warnings)) parsedPlan.warnings = []
-        if (typeof parsedPlan.confidence !== 'number') parsedPlan.confidence = 0.8
+        const parsedPlan = validateAnalysisPlan(robustParsePlan(rawText))
         parsedPlan.usedModel = currentModel
         parsedPlan.durationMs = Date.now() - startTime
         parsedPlan.promptSent = userText

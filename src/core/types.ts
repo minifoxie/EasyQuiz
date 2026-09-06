@@ -75,12 +75,34 @@ export interface AnalysisPlan {
   promptSent?: string
   durationMs?: number
   tokensUsed?: number
+  interactionProfile?: 'dom' | 'framework' | 'drag' | 'keyboard' | 'javascript' | 'vision'
+  requiresVision?: boolean
+  expectedState?: string
+  confidenceByAction?: number[]
+  navigationExpectation?: 'none' | 'feedback' | 'question_change' | 'url_change'
+}
+
+export interface ActionExecutionReport {
+  index: number
+  action: DeclarativeAction
+  target: string
+  located: boolean
+  applied: boolean
+  verified: boolean
+  strategy: string
+  evidence: string
+  error?: string
 }
 
 export interface ModelOption {
   id: string
   name: string
   description?: string
+  stable?: boolean
+  supportsVision?: boolean
+  supportsStructuredOutput?: boolean
+  supportedGenerationMethods?: string[]
+  discoveredAt?: number
 }
 
 export interface EasyQuizSettings {
@@ -99,7 +121,7 @@ export interface EasyQuizSettings {
 
 export const DEFAULT_SETTINGS: EasyQuizSettings = {
   apiKey: '',
-  model: 'gemini-3.5-flash',
+  model: 'gemini-3.8-flash',
   uiMode: 'easy',
   modeHint: '',
   engine: 'smart',

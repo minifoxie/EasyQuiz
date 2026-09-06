@@ -218,10 +218,12 @@ export class FloatingAnswersHud {
     // Meta cabeçalho
     const meta = document.createElement('div')
     meta.className = 'eq-fah-meta'
-    meta.innerHTML = `
-      <span>Modo: <strong style="color:#ffffff;">${plan.mode.replace('_', ' ')}</strong></span>
-      <span class="eq-fah-meta-badge">${Math.round(plan.confidence * 100)}% Confiança</span>
-    `
+    const mode = document.createElement('span')
+    mode.textContent = `Modo: ${plan.mode.replace('_', ' ')}`
+    const confidence = document.createElement('span')
+    confidence.className = 'eq-fah-meta-badge'
+    confidence.textContent = `${Math.round(plan.confidence * 100)}% Confiança`
+    meta.append(mode, confidence)
     body.appendChild(meta)
 
     // 1. MODO: CATEGORIZAÇÃO / ARRASTAR E SOLTAR
@@ -245,7 +247,7 @@ export class FloatingAnswersHud {
 
         const groupTitle = document.createElement('div')
         groupTitle.className = 'eq-fah-group-title'
-        groupTitle.innerHTML = `<span>📁</span> <span>${catName} (${items.length})</span>`
+        groupTitle.textContent = `📁 ${catName} (${items.length})`
         groupEl.appendChild(groupTitle)
 
         const itemsContainer = document.createElement('div')
@@ -302,7 +304,7 @@ export class FloatingAnswersHud {
         const rawLabel = getHumanReadableLabel(act.id)
         const isTechnicalId = /^[#\.\$]|input|mat-|cell|field|q[0-9]/i.test(rawLabel)
         const label = isTechnicalId ? '' : rawLabel
-        textSpan.innerHTML = `${label ? `<strong>${label}:</strong> ` : ''}<code style="color:#00ffcc; background:rgba(0,255,204,0.1); padding:2px 6px; border-radius:4px; font-weight:600;">${act.v}</code>`
+        textSpan.textContent = `${label ? `${label}: ` : ''}${act.v}`
         itemEl.appendChild(textSpan)
 
         const copyBtn = document.createElement('button')
@@ -347,7 +349,7 @@ export class FloatingAnswersHud {
         if (/^[#\.\$]|opt|choice|radio|chk|q[0-9]/i.test(choiceText) && (act as any).v) {
           choiceText = String((act as any).v)
         }
-        textSpan.innerHTML = `<span style="color:#00ffcc; font-weight:bold; margin-right:6px;">☑</span> <span>${choiceText}</span>`
+        textSpan.textContent = `☑ ${choiceText}`
         itemEl.appendChild(textSpan)
 
         const copyBtn = document.createElement('button')
@@ -368,14 +370,18 @@ export class FloatingAnswersHud {
     } else {
       pillText.textContent = 'Gabarito'
       pillBadge.textContent = '0'
-      body.innerHTML += '<div style="padding:10px; color:#888;">Nenhuma resposta direta para exibir.</div>'
+      const empty = document.createElement('div')
+      empty.style.padding = '10px'
+      empty.style.color = '#888'
+      empty.textContent = 'Nenhuma resposta direta para exibir.'
+      body.appendChild(empty)
     }
 
     // Explicação / Raciocínio da IA
     if (plan.rationale) {
       const ratEl = document.createElement('div')
       ratEl.className = 'eq-fah-rationale'
-      ratEl.innerHTML = `<strong>💡 Raciocínio da IA:</strong> ${plan.rationale}`
+      ratEl.textContent = `💡 Raciocínio da IA: ${plan.rationale}`
       body.appendChild(ratEl)
     }
   }

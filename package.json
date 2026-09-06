@@ -6,7 +6,10 @@
   "main": "dist/easyquiz.js",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "watch": "node scripts/build.mjs --watch"
+    "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test:smoke": "npm run build && node scratch/test-multiselect.mjs && node scratch/test-tricky-cases.mjs",
+    "test:security": "node scratch/test-plan-security.mjs && node scratch/test-execution-policy.mjs"
   },
   "repository": {
     "type": "git",

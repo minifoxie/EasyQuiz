@@ -1,4 +1,5 @@
-import type { AnalysisPlan, DeclarativeAction } from '../core/types'
+import type { ActionExecutionReport, AnalysisPlan, DeclarativeAction } from '../core/types'
+import { assertActionAllowed, createExecutionPolicy, validateJavaScriptSource, type ExecutionPolicy } from '../core/policy'
 import { loadDomainCache, saveDomainCache } from '../core/storage'
 import { cleanText, isNavigationControl, isVisible, NAVIGATION_PATTERN } from './controls'
 
@@ -791,6 +792,34 @@ function getSafeDataTransfer(text: string, html: string): DataTransfer | null {
   }
 }
 
+function dispatchSingleClick(element: HTMLElement): void {
+  try {
+    element.click()
+  } catch {
+    const view = element.ownerDocument.defaultView || window
+    element.dispatchEvent(new view.MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view }))
+  }
+}
+
+function findDragTarget(query: string, kind: 'source' | 'destination'): HTMLElement | null {
+  const cleanQuery = cleanSearchTerm(query).toLowerCase()
+  if (!cleanQuery) return null
+  const selector = kind === 'source' ? '.dnd-card, [draggable="true"]' : '[data-dropzone], [data-category], [data-role="dropzone"]'
+  const candidates = Array.from(document.querySelectorAll(selector)) as HTMLElement[]
+  const exactAttribute = kind === 'destination'
+    ? candidates.find((candidate) => [candidate.getAttribute('data-category'), candidate.getAttribute('data-dropzone')]
+      .some((value) => value?.trim().toLowerCase() === cleanQuery))
+    : null
+  if (exactAttribute && isVisible(exactAttribute) && !isInsideEasyQuiz(exactAttribute)) return exactAttribute
+  return candidates.find((candidate) => {
+    if (!isVisible(candidate) || isInsideEasyQuiz(candidate)) return false
+    const haystack = cleanSearchTerm(
+      `${candidate.textContent || ''} ${candidate.getAttribute('data-category') || ''} ${candidate.getAttribute('data-dropzone') || ''}`,
+    ).toLowerCase()
+    return haystack === cleanQuery || haystack.includes(cleanQuery)
+  }) || null
+}
+
 // ---- SIMULAÇÃO HÍBRIDA MULTI-ESTÁGIO E ADAPTATIVA DE ARRASTO E CATEGORIZAÇÃO ----
 export async function simulateDragAndCategorize(
   origin: HTMLElement,
@@ -830,20 +859,34 @@ export async function simulateDragAndCategorize(
   }
 
   // ---- ESTRATÉGIA B: PADRÃO CLICK-TO-SELECT E CLICK-TO-PLACE (DOMINANTE EM QUIZZES MODERNOS) ----
-  simulatePointerClick(origin, [startX, startY])
+  // Widgets click-to-place alternam o estado a cada clique; não duplicar o evento.
+  dispatchSingleClick(origin)
   await new Promise((r) => setTimeout(r, 140))
 
-  simulatePointerClick(dest, [endX, endY])
+  dispatchSingleClick(dest)
 
   // Se o destino tiver um container dropzone interno específico, clica nele também
   const dropInner = dest.querySelector(
     '[data-role="dropzone"], [class*="bucket" i], [class*="slot" i], [class*="drop" i], [class*="target" i], [class*="items" i], ul, ol',
   ) as HTMLElement | null
   if (dropInner && dropInner !== dest) {
-    simulatePointerClick(dropInner)
+    dispatchSingleClick(dropInner)
   }
 
   await new Promise((r) => setTimeout(r, 100))
+
+  // Alguns widgets expõem apenas um modelo visual de click-to-place e não
+  // atualizam o DOM quando o clique sintético não passa pelo dispatcher deles.
+  // Para cartões/dropzones explícitos, mover o nó é a última via determinística.
+  if (
+    !dest.contains(origin) &&
+    origin.matches('.dnd-card, [draggable="true"]') &&
+    dest.matches('.dnd-zone, [data-dropzone], [data-role="dropzone"]')
+  ) {
+    dest.appendChild(origin)
+  }
+
+  if (dest.contains(origin) && origin.matches('.dnd-card, [draggable="true"]')) return
 
   // ---- ESTRATÉGIA C: ARRASTO FÍSICO COM POINTER EVENTS & MOUSE EVENTS ----
   const pStart = {
@@ -905,11 +948,13 @@ export async function simulateDragAndCategorize(
       dragEndInit.dataTransfer = dt
     }
 
-    origin.dispatchEvent(new DragEvent('dragstart', dragStartInit))
-    dest.dispatchEvent(new DragEvent('dragenter', dragEndInit))
-    dest.dispatchEvent(new DragEvent('dragover', dragEndInit))
-    dest.dispatchEvent(new DragEvent('drop', dragEndInit))
-    origin.dispatchEvent(new DragEvent('dragend', dragStartInit))
+    const DragEventCtor = origin.ownerDocument.defaultView?.DragEvent
+    if (!DragEventCtor) throw new Error('DragEvent não disponível neste documento')
+    origin.dispatchEvent(new DragEventCtor('dragstart', dragStartInit))
+    dest.dispatchEvent(new DragEventCtor('dragenter', dragEndInit))
+    dest.dispatchEvent(new DragEventCtor('dragover', dragEndInit))
+    dest.dispatchEvent(new DragEventCtor('drop', dragEndInit))
+    origin.dispatchEvent(new DragEventCtor('dragend', dragStartInit))
   } catch (dragErr) {
     console.warn('[EasyQuiz] DragEvent ignorado com segurança:', dragErr)
   }
@@ -969,8 +1014,8 @@ export const EqAPI = {
   },
   find: (idOrLabel: string) => findElementExt(idOrLabel),
   drag: (idOrigem: string, idDest: string) => {
-    const origin = findElementExt(idOrigem)
-    const dest = findElementExt(idDest)
+    const origin = findDragTarget(idOrigem, 'source') || findElementExt(idOrigem)
+    const dest = findDragTarget(idDest, 'destination') || findElementExt(idDest)
     if (origin && dest) {
       simulateDragAndCategorize(origin, dest)
     } else {
@@ -978,8 +1023,8 @@ export const EqAPI = {
     }
   },
   categorize: async (itemQuery: string, categoryQuery: string) => {
-    const item = findElementExt(itemQuery)
-    const cat = findElementExt(categoryQuery)
+    const item = findDragTarget(itemQuery, 'source') || findElementExt(itemQuery)
+    const cat = findDragTarget(categoryQuery, 'destination') || findElementExt(categoryQuery)
     if (!item || !cat) {
       console.warn(`$eq.categorize: Item ou categoria não encontrados ('${itemQuery}' -> '${categoryQuery}')`)
       return
@@ -991,21 +1036,24 @@ export const EqAPI = {
 ;(window as any).$eq = EqAPI
 
 // ---- EXECUTOR DECLARATIVO ----
-async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1): Promise<void> {
+async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, policy = createExecutionPolicy()): Promise<void> {
+  assertActionAllowed(action, policy)
   if (action.t === 'js') {
     const code = String(action.v || '')
+    validateJavaScriptSource(code)
     try {
       const fn = new Function('$eq', 'document', 'window', code)
       fn(EqAPI, document, window)
     } catch (err) {
       console.warn('[EasyQuiz JS Execution]', err)
+      throw err
     }
     return
   }
 
   if (action.t === 'drag') {
-    let fromEl = findElementExt(action.from)
-    let toEl = findElementExt(action.to)
+    let fromEl = findDragTarget(action.from, 'source') || findElementExt(action.from)
+    let toEl = findDragTarget(action.to, 'destination') || findElementExt(action.to)
 
     if (!fromEl && action.from) {
       fromEl = findElementExt(cleanSearchTerm(action.from))
@@ -1226,13 +1274,7 @@ export async function waitForEnabled(el: HTMLElement, maxMs = 1500): Promise<voi
     if (!isDisabled) return
     await new Promise((r) => setTimeout(r, 100))
   }
-  // Se ainda estiver marcado como disabled após o timeout, tenta remover os atributos para permitir o clique
-  try {
-    el.removeAttribute('disabled')
-    el.removeAttribute('aria-disabled')
-    el.classList.remove('disabled')
-    ;(el as any).disabled = false
-  } catch {}
+  // O estado do host nunca deve ser alterado só porque o timeout terminou.
 }
 
 export interface ExecutionResult {
@@ -1240,6 +1282,28 @@ export interface ExecutionResult {
   verified: number
   success: boolean
   advanced: boolean
+  failed: string[]
+  reports: ActionExecutionReport[]
+  navigationVerified: boolean
+  navigationEvidence: string
+}
+
+function getNavigationSignature(): string {
+  const text = (document.body?.innerText || document.body?.textContent || '').replace(/\s+/g, ' ').trim()
+  const controls = document.querySelectorAll('input, textarea, select, button, [role="button"], [role="option"]').length
+  return `${window.location.href}|${document.title}|${text.slice(0, 900)}|${controls}`
+}
+
+async function waitForNavigationChange(before: string, maxMs = 1800): Promise<{ changed: boolean; evidence: string }> {
+  const start = Date.now()
+  while (Date.now() - start < maxMs) {
+    const current = getNavigationSignature()
+    if (current !== before) {
+      return { changed: true, evidence: 'URL, texto, título ou conjunto de controles mudou após a ação.' }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  return { changed: false, evidence: 'Nenhuma mudança observável foi detectada dentro do tempo limite.' }
 }
 
 // ---- ROTA ALTERNATIVA DE APLICAÇÃO (AUTO-CURA RESILIENTE MULTI-CAMINHO) ----
@@ -1571,18 +1635,22 @@ export async function executePlan(
   plan: AnalysisPlan,
   allowAdvance: boolean,
   attempt = 1,
+  policy: ExecutionPolicy = createExecutionPolicy({ engine: 'smart', autoAdvance: allowAdvance }),
 ): Promise<ExecutionResult> {
   const regularActions = plan.actions.filter((a) => a.t !== 'adv')
   const advanceActions = plan.actions.filter((a) => a.t === 'adv')
 
   let appliedCount = 0
+  const failed: string[] = []
+  const actionErrors = new Map<DeclarativeAction, string>()
 
   // 1. PRIMEIRA PASSAGEM: Execução declarativa principal
   for (const action of regularActions) {
     try {
-      await executeDeclarativeAction(action, attempt)
+      await executeDeclarativeAction(action, attempt, policy)
       appliedCount++
     } catch (err) {
+      actionErrors.set(action, err instanceof Error ? err.message : String(err))
       console.warn('[EasyQuiz] Ação declarativa primária falhou com segurança:', action, err)
     }
     if (action.t === 'drag') {
@@ -1605,8 +1673,10 @@ export async function executePlan(
       `[EasyQuiz Auto-Cura] Ação '${action.t}' no alvo '${(action as any).id || (action as any).from || ''}' não verificada no DOM. Disparando Passagem 2 de contingência...`,
     )
     try {
+      assertActionAllowed(action, policy)
       await executeAlternativeActionPath(action)
     } catch (err) {
+      actionErrors.set(action, err instanceof Error ? err.message : String(err))
       console.warn('[EasyQuiz Auto-Cura] Rota alternativa falhou:', err)
     }
 
@@ -1627,7 +1697,9 @@ export async function executePlan(
       if (!verifyActionApplied(action)) {
         try {
           await executeAlternativeActionPath(action)
-        } catch {}
+        } catch (err) {
+          actionErrors.set(action, err instanceof Error ? err.message : String(err))
+        }
       }
     }
     await new Promise((r) => setTimeout(r, 200))
@@ -1641,18 +1713,43 @@ export async function executePlan(
     }
   }
 
-  // Validação estrita: 100% das ações devem estar validadas no DOM para quizzes comuns (até 4 ações)
-  // Para questões com 5+ ações simultâneas (ex: matriz 3x3 com 9 células), toleramos >= 85%
+  // Em questões, cada ação precisa ter evidência no DOM antes de qualquer avanço.
   const isQuestion = plan.pageType === 'question'
-  const requiredRatio = regularActions.length <= 4 ? 1.0 : 0.85
+  for (const action of regularActions) {
+    if (!verifyActionApplied(action)) {
+      failed.push(action.t === 'drag' ? `${action.from} -> ${action.to}` : 'id' in action ? action.id : action.t)
+    }
+  }
+  const reports: ActionExecutionReport[] = regularActions.map((action, index) => {
+    const target = action.t === 'drag' ? `${action.from} -> ${action.to}` : action.t === 'js' ? '$eq' : action.id || action.t
+    const located = action.t === 'js'
+      ? true
+      : action.t === 'drag'
+        ? Boolean(findDragTarget(action.from, 'source') && findDragTarget(action.to, 'destination'))
+        : Boolean(findElementExt(action.id || '') || findElementExt(cleanSearchTerm(action.id || '')))
+    const verified = verifyActionApplied(action)
+    return {
+      index,
+      action,
+      target,
+      located,
+      applied: !actionErrors.has(action),
+      verified,
+      strategy: action.t === 'drag' ? 'drag-adaptive' : action.t === 'js' ? 'javascript' : 'declarative-dom',
+      evidence: verified ? 'estado do controle confirmado no DOM' : 'nenhuma evidência suficiente após as tentativas',
+      ...(actionErrors.has(action) ? { error: actionErrors.get(action) } : {}),
+    }
+  })
   const success =
     !isQuestion || regularActions.length === 0
       ? true
-      : appliedCount > 0 && verifiedCount >= Math.ceil(regularActions.length * requiredRatio)
+      : appliedCount === regularActions.length && verifiedCount === regularActions.length && failed.length === 0
 
   let advanced = false
+  let navigationVerified = false
+  let navigationEvidence = 'Nenhuma ação de navegação solicitada.'
   // SÓ AVANÇA SE AS RESPOSTAS FORAM DE FATO APLICADAS E VALIDADAS NO DOM!
-  if ((allowAdvance || attempt >= 2) && (success || !isQuestion)) {
+  if (allowAdvance && (success || !isQuestion)) {
     // Aguarda o framework hospedeiro (React, Vue, etc.) registrar o input/seleção
     await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 500 : 200))
 
@@ -1668,6 +1765,7 @@ export async function executePlan(
     }
 
     // 2. Acionamento do botão de avanço final ("Continuar", "Próxima tarefa", "Avançar", "Próxima pergunta")
+    const navigationBefore = getNavigationSignature()
     const preferredId = advanceActions.length > 0 ? advanceActions[0].id : undefined
     const navBtn = findBestNavigationButton(preferredId)
 
@@ -1678,7 +1776,13 @@ export async function executePlan(
         saveDomainCache(window.location.hostname, { advanceSelector: heuristic })
       }
       simulatePointerClick(navBtn)
-      advanced = true
+      const navigation = await waitForNavigationChange(navigationBefore)
+      navigationVerified = navigation.changed
+      navigationEvidence = navigation.evidence
+      advanced = navigation.changed
+      if (!navigation.changed) {
+        console.warn('[EasyQuiz] O botão foi acionado, mas a navegação não foi confirmada.')
+      }
     } else {
       console.warn('[EasyQuiz] Nenhum botão de avanço encontrado na página.')
     }
@@ -1689,6 +1793,10 @@ export async function executePlan(
     verified: verifiedCount,
     success,
     advanced,
+    failed,
+    reports,
+    navigationVerified,
+    navigationEvidence,
   }
 }
 

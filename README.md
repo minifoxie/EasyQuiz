@@ -5,18 +5,18 @@
 
 [![Licença MIT](https://img.shields.io/badge/License-MIT-00e5ff?style=flat-square)](LICENSE)
 [![Zero Servidor](https://img.shields.io/badge/Arquitetura-100%25%20Serverless-00ff9d?style=flat-square)](#)
-[![Modelo Gemini](https://img.shields.io/badge/IA-Google%20Gemini%202.5%20Flash-00e5ff?style=flat-square)](#)
+[![Modelo Gemini](https://img.shields.io/badge/IA-Google%20Gemini%203.8%20Flash-7aa2f7?style=flat-square)](#)
 
 ---
 
 ## ■ Destaques do Projeto
 
 - **Zero Servidor (100% Client-Side)**: Não necessita de servidores Node.js, Vercel ou bancos de dados. Todo o processamento e as requisições para a IA ocorrem diretamente no navegador do usuário.
-- **Chave de API Pessoal & Segura**: Cada usuário insere sua própria chave da API Gemini (obtida gratuitamente no [Google AI Studio](https://aistudio.google.com/app/apikey)). A chave é salva apenas no `localStorage` do seu navegador.
-- **Design Industrial & Sólido**: Estética cyberpunk/high-tech com cantos rigorosamente retos (`border-radius: 0px`), sombras planas e **somente ícones SVG sólidos** (zero emojis).
+- **Chave de API pessoal**: Cada usuário insere sua própria chave da API Gemini (obtida no [Google AI Studio](https://aistudio.google.com/app/apikey)). A chave fica no navegador; `localStorage` não deve ser tratado como cofre em máquinas compartilhadas.
+- **Design discreto**: Painel escuro, compacto e orientado a estados de análise, aplicação e verificação, sem estética neon.
 - **Detecção Inteligente de Questões**: Algoritmo que detecta automaticamente a pergunta ativa em plataformas como **Google Forms**, **Moodle**, **Canvas**, **Blackboard**, **Kahoot**, **Quizizz** e formulários HTML5 padrão.
 - **Destaques Geométricos na Tela**: A questão ativa é destacada em **ciano elétrico** e as opções escolhidas pela IA são realçadas em **verde neon** antes da confirmação.
-- **Suporte a Imagens e Gráficos**: Compacta e analisa imagens e elementos `<canvas>` presentes na questão diretamente pelo navegador.
+- **Suporte a Imagens e Gráficos**: Compacta e analisa imagens e elementos visuais presentes na questão quando o contexto DOM não é suficiente.
 - **Atalho de Teclado**: Pressione `Alt + Q` a qualquer momento para abrir ou analisar a questão ativa.
 
 ---
@@ -56,7 +56,9 @@ Se você utiliza gerenciadores de scripts de usuário como **Tampermonkey** ou *
 - **Apenas Simular**: Permite ver a análise da IA e as respostas destacadas sem modificar nenhum campo na página.
 - **Auto Aplicar**: Preenche as respostas instantaneamente após a resposta da IA.
 - **Avançar Questão**: Se ativado e a confiança da IA for alta, clica automaticamente no botão de avançar para a próxima pergunta.
-- **Seletor de Modelos**: Suporte nativo a `Gemini 2.5 Flash`, `Gemini 2.0 Flash`, `Gemini 1.5 Flash` e `Gemini 1.5 Pro`.
+- **Seletor de Modelos**: Descobre modelos autorizados pela chave em runtime, priorizando modelos estáveis atuais como `gemini-3.8-flash`, `gemini-3.5-flash-lite` e `gemini-2.5-flash`.
+
+> O EasyQuiz valida o plano da IA antes de executar, confirma respostas no DOM e bloqueia o avanço quando a aplicação é parcial. A compatibilidade genérica não substitui testes no site específico.
 
 ---
 
@@ -107,6 +109,15 @@ npm run build
 
 # 3. Modo observador (watch) durante desenvolvimento
 npm run watch
+
+# 4. Verificação de tipos
+npm run typecheck
+
+# 5. Smoke tests do executor
+npm run test:smoke
+
+# 6. Invariantes de segurança e política de execução
+npm run test:security
 ```
 
 ---

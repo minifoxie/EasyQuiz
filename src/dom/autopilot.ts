@@ -1,7 +1,7 @@
 import type { AnalysisPlan } from '../core/types'
 import { loadDomainCache } from '../core/storage'
-import { captureCurrentContext, captureFullPageText } from './detector'
-import { findElementExt, findBestNavigationButton, simulatePointerClick } from './executor'
+import { captureCurrentContext, captureFullPageText, createContextSignature } from './detector'
+import { findElementExt, simulatePointerClick } from './executor'
 
 export type AutopilotStatus = 'idle' | 'waiting' | 'analyzing' | 'advancing' | 'error'
 
@@ -19,6 +19,8 @@ export class Autopilot {
   private lastRunTime = 0
   private lastActionTime = 0
   private isProcessing = false
+  private observer: MutationObserver | null = null
+  private mutationTimer: number | null = null
 
   constructor(callbacks: AutopilotCallbacks) {
     this.callbacks = callbacks
@@ -33,12 +35,27 @@ export class Autopilot {
     this.active = true
     this.lastActionTime = Date.now()
     this.callbacks.onStatusChange('waiting', '> [SYS] Autopilot ENGAGED. Monitorando...')
+    if (typeof MutationObserver !== 'undefined') {
+      this.observer = new MutationObserver(() => {
+        if (!this.active || this.isProcessing) return
+        if (this.mutationTimer) clearTimeout(this.mutationTimer)
+        this.mutationTimer = window.setTimeout(() => {
+          this.mutationTimer = null
+          void this.loop()
+        }, 180)
+      })
+      this.observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true })
+    }
     this.loop()
   }
 
   public stop() {
     this.active = false
     if (this.timer) clearTimeout(this.timer)
+    if (this.mutationTimer) clearTimeout(this.mutationTimer)
+    this.mutationTimer = null
+    this.observer?.disconnect()
+    this.observer = null
     this.callbacks.onStatusChange('idle', '> [SYS] Autopilot DESATIVADO.')
   }
 
@@ -68,7 +85,7 @@ export class Autopilot {
       }
 
       if (context) {
-        const currentSig = `${context.pageTitle}_${context.questionText.slice(0, 80)}_${context.controls.length}`
+        const currentSig = createContextSignature(context)
         if (currentSig === this.lastPageSig) {
           this.samePageCount++
         } else {
@@ -104,21 +121,6 @@ export class Autopilot {
             'text-yellow',
           )
           await new Promise((r) => setTimeout(r, 4000))
-        }
-
-        if (this.samePageCount >= 4) {
-          const fallbackNav = findBestNavigationButton()
-          if (fallbackNav) {
-            this.callbacks.onStatusChange(
-              'advancing',
-              '> [SYS] Forçando acionamento de botão de avanço para desbloquear questão...',
-              'text-yellow',
-            )
-            simulatePointerClick(fallbackNav)
-            this.samePageCount = 0
-            await new Promise((r) => setTimeout(r, 2000))
-            return
-          }
         }
 
         const answerControls = context.controls.filter((c) => c.role === 'answer')

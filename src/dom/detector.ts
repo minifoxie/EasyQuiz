@@ -294,3 +294,15 @@ export function captureFullPageText(): CapturedContext {
     scope: mainEl,
   }
 }
+
+export function createContextSignature(context: CapturedContext): string {
+  const controls = context.controls
+    .map((control) => `${control.role}:${control.id}:${control.type}:${control.value}:${control.disabled}`)
+    .join('|')
+  return [
+    window.location.href,
+    context.pageTitle,
+    context.questionText.slice(0, 500),
+    controls,
+  ].join('::')
+}

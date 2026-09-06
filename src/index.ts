@@ -1,6 +1,7 @@
 import { analyzeWithGemini } from './core/gemini'
 import { buildUserPrompt } from './core/prompt'
 import { addSessionMemory, loadSettings, saveSettings } from './core/storage'
+import { createExecutionPolicy } from './core/policy'
 import type { AnalysisPlan, EasyQuizSettings } from './core/types'
 import { captureCurrentContext, captureFullPageText } from './dom/detector'
 import { executePlan, setupSmartOptionInterceptors } from './dom/executor'
@@ -203,7 +204,7 @@ async function initEasyQuiz(): Promise<void> {
 
     const isInfoOrStart = latestPlan.pageType === 'info' || latestPlan.pageType === 'start'
     const canAdvance =
-      (settings.autoAdvance || isInfoOrStart || attemptCount >= 2) &&
+      (settings.autoAdvance || isInfoOrStart) &&
       latestPlan.confidence >= settings.confidenceThreshold &&
       !latestPlan.needsMoreContext
 
@@ -212,7 +213,8 @@ async function initEasyQuiz(): Promise<void> {
     panel.logToConsole(`> [EXEC] Iniciando aplicação com 6 vias de persistência para ${latestPlan.actions.length} ação(ões)...`, 'text-blue')
 
     try {
-      const result = await executePlan(latestPlan, canAdvance, attemptCount)
+      const result = await executePlan(latestPlan, canAdvance, attemptCount, createExecutionPolicy(settings))
+      panel.setExecutionReport(result)
       if (result.success || result.advanced) {
         panel.setProgress(100, 'Sucesso! Respostas preenchidas e validadas!')
         panel.logToConsole(
@@ -221,43 +223,28 @@ async function initEasyQuiz(): Promise<void> {
         )
         if (result.advanced) {
           panel.logToConsole(`> [NAV] ✓ Botão de confirmação/avanço acionado com sucesso!`, 'text-green')
+        } else if (canAdvance) {
+          panel.logToConsole(`> [NAV] ⚠️ ${result.navigationEvidence}`, 'text-yellow')
         }
         panel.setStatus(
-          `Sucesso: ${result.applied} resposta(s) preenchida(s)${result.advanced ? ' e próxima questão acionada' : ''}.`,
-          'success',
+          result.advanced
+            ? `Sucesso: ${result.applied} resposta(s) preenchida(s) e próxima questão confirmada.`
+            : `Respostas preenchidas e validadas. Avanço não confirmado: ${result.navigationEvidence}`,
+          result.advanced || !canAdvance ? 'success' : 'info',
         )
         panel.hideFloatingAnswers()
       } else {
-        // Se aplicou e verificou alternativas no DOM, NÃO abre o gabarito desnecessariamente
-        if (result.verified > 0) {
-          panel.setProgress(90, 'Respostas preenchidas!')
-          panel.logToConsole(
-            `> [VERIF] ✓ Alternativa(s) marcada(s) no DOM (${result.verified}/${result.applied} validadas). Pronto para prosseguir!`,
-            'text-green',
-          )
-          panel.setStatus(
-            `Respostas preenchidas (${result.verified}/${result.applied} validadas no DOM).`,
-            'success',
-          )
-          panel.hideFloatingAnswers()
-        } else {
-          // O gabarito só abre se a IA tiver certeza de que NADA pôde ser marcado (verified === 0) ou após 3 tentativas
-          const shouldShowGabarito = latestPlan.pageType === 'question' && (result.verified === 0 || attemptCount >= 3)
-          if (shouldShowGabarito) {
-            panel.setProgress(0)
-            panel.logToConsole(
-              `> [VERIF] ⚠️ Nenhuma ação pôde ser validada no DOM (${result.verified}/${result.applied}). Abrindo Gabarito Flutuante para auxílio manual.`,
-              'text-yellow',
-            )
-            panel.setStatus(
-              `Aviso: O formulário requer interação manual direta. Gabarito Flutuante exibido na tela.`,
-              'info',
-            )
-            panel.showFloatingAnswers(latestPlan)
-          } else {
-            panel.hideFloatingAnswers()
-          }
-        }
+        panel.setProgress(0, 'Aplicação bloqueada: verificação incompleta.')
+        const failedTargets = result.failed.length > 0 ? result.failed.join(', ') : 'alvos não confirmados'
+        panel.logToConsole(
+          `> [VERIF] Falha: ${result.verified}/${result.applied} ações confirmadas. Alvos pendentes: ${failedTargets}.`,
+          'text-yellow',
+        )
+        panel.setStatus(
+          `Aplicação incompleta. ${result.verified}/${result.applied} ações confirmadas; avanço bloqueado.`,
+          'error',
+        )
+        if (latestPlan.pageType === 'question') panel.showFloatingAnswers(latestPlan)
       }
     } catch (error) {
       panel.setProgress(0)

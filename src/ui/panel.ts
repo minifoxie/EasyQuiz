@@ -1,4 +1,5 @@
 import type { AnalysisPlan, CapturedContext, EasyQuizSettings, ResponseMode, ExecutionEngine, ModelOption } from '../core/types'
+import type { ExecutionResult } from '../dom/executor'
 import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey } from '../core/gemini'
 import { clearSessionMemories, getSessionMemories, resetAllData } from '../core/storage'
 import { Autopilot } from '../dom/autopilot'
@@ -39,7 +40,7 @@ export class EasyQuizPanel {
   private floatingAnswers: FloatingAnswersHud
   private initialSettings: EasyQuizSettings
   private isCollapsed: boolean = false
-  private activeTab: 'autopilot' | 'context' | 'advanced' | 'inspector' | 'settings' = 'autopilot'
+  private activeTab: 'autopilot' | 'context' | 'execution' | 'advanced' | 'inspector' | 'settings' = 'autopilot'
   private stopwatchInterval: any = null
   private stopwatchStartTime: number = 0
   private latestPlan: AnalysisPlan | null = null
@@ -62,6 +63,7 @@ export class EasyQuizPanel {
   private sidebarEl: HTMLElement
   private apToggleBtn: HTMLButtonElement
   private apConsole: HTMLElement
+  private executionConsole: HTMLElement
 
   // Status & Stopwatch
   private dotPulseAp: HTMLElement
@@ -168,7 +170,12 @@ export class EasyQuizPanel {
               <span class="eq-activity-icon">${ICONS.folderTree}</span>
             </button>
 
-            <button class="eq-activity-btn" id="eq-tab-advanced" role="tab" title="Avançado (Modo Manual)">
+            <button class="eq-activity-btn" id="eq-tab-execution" role="tab" title="Execução e evidências">
+              <span class="eq-activity-indicator"></span>
+              <span class="eq-activity-icon">${ICONS.terminal}</span>
+            </button>
+
+            <button class="eq-activity-btn" id="eq-tab-advanced" role="tab" title="Avançado (Ajustes técnicos)">
               <span class="eq-activity-indicator"></span>
               <span class="eq-activity-icon">${ICONS.code}</span>
             </button>
@@ -234,6 +241,20 @@ export class EasyQuizPanel {
 
             <!-- TAB 1: AUTOPILOT -->
             <div class="eq-view-pane" id="eq-view-autopilot">
+              <div class="eq-operation-header">
+                <div>
+                  <div class="eq-eyebrow">OPERAÇÃO ATUAL</div>
+                  <h1 class="eq-operation-title">Resolver questão</h1>
+                  <p class="eq-operation-subtitle">Analise o contexto, aplique a resposta e confirme cada etapa.</p>
+                </div>
+                <span class="eq-operation-state" id="eq-operation-state">Pronto</span>
+              </div>
+
+              <div class="eq-operation-actions">
+                <button class="eq-btn-primary" id="eq-analyze-btn" type="button">${ICONS.analyze} Analisar questão</button>
+                <button class="eq-btn-secondary" id="eq-apply-btn" type="button">${ICONS.apply} Aplicar respostas</button>
+              </div>
+
               <div style="display: flex; gap: 8px; width: 100%; align-items: center;">
                 <button class="eq-btn-primary" id="eq-ap-toggle-btn" type="button" style="flex: 1;">
                   ${ICONS.play} INICIAR AUTOPILOT
@@ -241,6 +262,19 @@ export class EasyQuizPanel {
                 <button class="eq-icon-btn" id="eq-ap-clear-memory" type="button" title="Limpar Memória Contextual (RAG)" style="width: 42px; height: 42px; background: #141414; border: 1px solid #282828; border-radius: 6px; color: #aaaaaa;">
                   ${ICONS.eraser}
                 </button>
+              </div>
+
+              <div id="eq-result" class="eq-operation-result" style="display: none; flex-direction: column; gap: 10px;">
+                <div class="eq-section-title">Plano e respostas</div>
+                <div class="eq-badges" id="eq-badges"></div>
+                <div class="eq-rationale-card" id="eq-rationale-text"></div>
+                <div class="eq-action-list" id="eq-actions-list"></div>
+                <div class="eq-execution-card" id="eq-execution-card" hidden>
+                  <div class="eq-section-title">Execução e evidências</div>
+                  <div class="eq-execution-summary" id="eq-execution-summary"></div>
+                  <div class="eq-execution-list" id="eq-execution-list"></div>
+                </div>
+                <button class="eq-btn-secondary" id="eq-open-hud-btn" type="button">${ICONS.list} Abrir respostas disponíveis</button>
               </div>
 
               <!-- Status & Stopwatch Card -->
@@ -277,12 +311,23 @@ export class EasyQuizPanel {
               <div class="eq-footer-note">Híbrido 4.0 • RAG + AST + Vision (Opt-in)</div>
             </div>
 
+            <!-- TAB: EXECUÇÃO -->
+            <div class="eq-view-pane" id="eq-view-execution" style="display: none;">
+              <div class="eq-operation-header">
+                <div>
+                  <div class="eq-eyebrow">RASTREAMENTO</div>
+                  <h1 class="eq-operation-title">Execução</h1>
+                  <p class="eq-operation-subtitle">Eventos, estratégias e evidências da aplicação.</p>
+                </div>
+                <span class="eq-operation-state">Live</span>
+              </div>
+              <div class="eq-execution-placeholder" id="eq-execution-placeholder">A execução aparecerá aqui quando uma resposta for aplicada.</div>
+              <div class="eq-section-title"><span>Terminal de operações</span><span class="eq-live-label">LIVE EVENT STREAM</span></div>
+              <div class="eq-terminal eq-terminal-execution" id="eq-execution-console"></div>
+            </div>
+
             <!-- TAB 2: AVANÇADO -->
             <div class="eq-view-pane" id="eq-view-advanced" style="display: none;">
-              <button class="eq-btn-primary" id="eq-analyze-btn" type="button">
-                ${ICONS.analyze} Analisar & Resolver Questão
-              </button>
-
               <!-- Status & Stopwatch Adv -->
               <div class="eq-status-card">
                 <div class="eq-status-card-header">
@@ -325,24 +370,7 @@ export class EasyQuizPanel {
                 <span>Auto Avançar Após Injetar</span>
               </label>
 
-              <!-- Painel de Resultados Manuais -->
-              <div id="eq-result" style="display: none; flex-direction: column; gap: 10px;">
-                <div class="eq-section-title">Plano Gerado</div>
-                <div style="display: flex; gap: 6px; flex-wrap: wrap;" id="eq-badges"></div>
-
-                <div class="eq-rationale-card" id="eq-rationale-text"></div>
-
-                <div class="eq-action-list" id="eq-actions-list"></div>
-
-                <button class="eq-btn-secondary" id="eq-apply-btn" type="button">
-                  ${ICONS.apply} Injetar Resposta na Página
-                </button>
-                <button class="eq-btn-secondary" id="eq-open-hud-btn" type="button" style="background: rgba(0, 255, 204, 0.08); border-color: rgba(0, 255, 204, 0.3); color: #00ffcc;">
-                  ${ICONS.list} Ver Gabarito Flutuante (Arrastável)
-                </button>
-              </div>
-
-              <div class="eq-footer-note">Modo Manual • Controle Total dos Elementos</div>
+              <div class="eq-footer-note">Ajustes técnicos • O fluxo principal está em Operar</div>
             </div>
 
             <!-- TAB 3: INSPETOR IA -->
@@ -482,6 +510,7 @@ export class EasyQuizPanel {
     this.sidebarEl = this.shadow.querySelector('.eq-sidebar') as HTMLElement
     this.apToggleBtn = this.shadow.querySelector('#eq-ap-toggle-btn') as HTMLButtonElement
     this.apConsole = this.shadow.querySelector('#eq-ap-console') as HTMLElement
+    this.executionConsole = this.shadow.querySelector('#eq-execution-console') as HTMLElement
 
     // Barra de Progresso
     this.progressContainer = this.shadow.querySelector('#eq-progress-container') as HTMLElement
@@ -568,11 +597,12 @@ export class EasyQuizPanel {
     }
   }
 
-  private switchTab(tab: 'autopilot' | 'context' | 'advanced' | 'inspector' | 'settings') {
+  private switchTab(tab: 'autopilot' | 'context' | 'execution' | 'advanced' | 'inspector' | 'settings') {
     this.activeTab = tab
-    const tabs: Array<'autopilot' | 'context' | 'advanced' | 'inspector' | 'settings'> = [
+    const tabs: Array<'autopilot' | 'context' | 'execution' | 'advanced' | 'inspector' | 'settings'> = [
       'autopilot',
       'context',
+      'execution',
       'advanced',
       'inspector',
       'settings',
@@ -590,9 +620,7 @@ export class EasyQuizPanel {
       }
     }
 
-    if (tab === 'autopilot') {
-      this.callbacks.onSettingsChange({ autoApply: true, autoAdvance: true })
-    } else if (tab === 'context') {
+    if (tab === 'context') {
       this.renderContextTree()
     } else if (tab === 'inspector') {
       this.refreshInspectorView()
@@ -603,6 +631,7 @@ export class EasyQuizPanel {
     // Abas do Activity Bar Vertical
     this.shadow.querySelector('#eq-tab-autopilot')?.addEventListener('click', () => this.switchTab('autopilot'))
     this.shadow.querySelector('#eq-tab-context')?.addEventListener('click', () => this.switchTab('context'))
+    this.shadow.querySelector('#eq-tab-execution')?.addEventListener('click', () => this.switchTab('execution'))
     this.shadow.querySelector('#eq-tab-advanced')?.addEventListener('click', () => this.switchTab('advanced'))
     this.shadow.querySelector('#eq-tab-inspector')?.addEventListener('click', () => this.switchTab('inspector'))
     this.shadow.querySelector('#eq-tab-settings')?.addEventListener('click', () => this.switchTab('settings'))
@@ -887,6 +916,15 @@ export class EasyQuizPanel {
     this.apConsole.appendChild(entry)
     this.apConsole.scrollTop = this.apConsole.scrollHeight
 
+    if (this.executionConsole) {
+      const executionEntry = entry.cloneNode(true) as HTMLElement
+      this.executionConsole.appendChild(executionEntry)
+      this.executionConsole.scrollTop = this.executionConsole.scrollHeight
+      while (this.executionConsole.children.length > 150) {
+        this.executionConsole.removeChild(this.executionConsole.firstChild!)
+      }
+    }
+
     while (this.apConsole.children.length > 150) {
       this.apConsole.removeChild(this.apConsole.firstChild!)
     }
@@ -1062,6 +1100,11 @@ export class EasyQuizPanel {
   public setStatus(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
     this.statusTextAp.textContent = message
     this.statusTextAdv.textContent = message
+    const operationState = this.shadow.querySelector('#eq-operation-state') as HTMLElement | null
+    if (operationState) {
+      operationState.textContent = type === 'error' ? 'Bloqueado' : type === 'success' ? 'Confirmado' : this.autopilot.isActive() ? 'Monitorando' : 'Pronto'
+      operationState.className = `eq-operation-state is-${type}`
+    }
 
     if (type === 'error') {
       this.dotPulseAp.className = 'eq-dot-pulse error'
@@ -1089,12 +1132,19 @@ export class EasyQuizPanel {
 
     // Atualiza Badges do Avançado
     const badgesEl = this.shadow.querySelector('#eq-badges') as HTMLElement
-    badgesEl.innerHTML = `
-      <span class="eq-brand-badge">${plan.mode.replace('_', ' ')}</span>
-      <span class="eq-brand-badge" style="color: #00ff55; border-color: rgba(0, 255, 85, 0.4);">${Math.round(plan.confidence * 100)}% Confiança</span>
-      <span class="eq-brand-badge">${plan.actions.length} Cmds</span>
-      ${plan.usedModel ? `<span class="eq-brand-badge" style="border-color: rgba(91, 192, 235, 0.5); color: #5bc0eb;">${plan.usedModel}</span>` : ''}
-    `
+    badgesEl.replaceChildren()
+    const badgeValues = [
+      plan.mode.replace('_', ' '),
+      `${Math.round(plan.confidence * 100)}% Confiança`,
+      `${plan.actions.length} ações`,
+      ...(plan.usedModel ? [plan.usedModel] : []),
+    ]
+    for (const value of badgeValues) {
+      const badge = document.createElement('span')
+      badge.className = 'eq-brand-badge'
+      badge.textContent = value
+      badgesEl.appendChild(badge)
+    }
 
     const rationaleEl = this.shadow.querySelector('#eq-rationale-text') as HTMLElement
     rationaleEl.textContent = plan.rationale
@@ -1113,14 +1163,67 @@ export class EasyQuizPanel {
       else if (act.t === 'js') desc = `js: ${String(act.v).slice(0, 40)}...`
       else if (act.t === 'drag') desc = `drag "${act.from}" -> "${act.to}"`
 
-      item.innerHTML = `<span class="eq-action-badge">${act.t.toUpperCase()}</span> <span>${desc}</span>`
+      const badge = document.createElement('span')
+      badge.className = 'eq-action-badge'
+      badge.textContent = act.t.toUpperCase()
+      const text = document.createElement('span')
+      text.textContent = desc
+      item.append(badge, text)
       actionsListEl.appendChild(item)
     }
 
     this.applyBtn.disabled = !canApply || !plan.actions.length
+    const executionCard = this.shadow.querySelector('#eq-execution-card') as HTMLElement | null
+    if (executionCard) executionCard.hidden = true
 
     // Atualiza Inspetor de IA em Tempo Real
     this.refreshInspectorView()
+  }
+
+  public setExecutionReport(result: ExecutionResult): void {
+    const card = this.shadow.querySelector('#eq-execution-card') as HTMLElement | null
+    const summary = this.shadow.querySelector('#eq-execution-summary') as HTMLElement | null
+    const list = this.shadow.querySelector('#eq-execution-list') as HTMLElement | null
+    if (!card || !summary || !list) return
+
+    card.hidden = false
+    summary.textContent = result.navigationVerified
+      ? `${result.verified}/${result.applied} ações verificadas. Navegação confirmada.`
+      : `${result.verified}/${result.applied} ações verificadas. ${result.navigationEvidence}`
+    summary.className = `eq-execution-summary ${result.success ? 'is-success' : 'is-warning'}`
+    list.replaceChildren()
+    const executionPlaceholder = this.shadow.querySelector('#eq-execution-placeholder') as HTMLElement | null
+    if (executionPlaceholder) {
+      executionPlaceholder.textContent = result.navigationVerified
+        ? 'Fluxo concluído: aplicação e navegação confirmadas.'
+        : `Fluxo interrompido: ${result.navigationEvidence}`
+      executionPlaceholder.className = `eq-execution-placeholder ${result.success ? 'is-success' : 'is-warning'}`
+    }
+
+    for (const report of result.reports) {
+      const row = document.createElement('div')
+      row.className = `eq-execution-row ${report.verified ? 'is-success' : 'is-failed'}`
+
+      const state = document.createElement('span')
+      state.className = 'eq-execution-state'
+      state.textContent = report.verified ? 'OK' : 'FALHOU'
+
+      const details = document.createElement('div')
+      details.className = 'eq-execution-details'
+      const target = document.createElement('strong')
+      target.textContent = report.target
+      const evidence = document.createElement('span')
+      evidence.textContent = `${report.strategy} | ${report.evidence}`
+      details.append(target, evidence)
+
+      row.append(state, details)
+      if (report.error) {
+        const error = document.createElement('small')
+        error.textContent = report.error
+        row.appendChild(error)
+      }
+      list.appendChild(row)
+    }
   }
 
   public setInspectorPrompt(promptText: string, model?: string): void {
@@ -1201,42 +1304,9 @@ export class EasyQuizPanel {
 
   private applyHostDarkMode(enable: boolean) {
     const STYLE_ID = 'eq-host-dark-mode-style'
-    let styleEl = document.getElementById(STYLE_ID)
-
-    if (enable) {
-      let bg = window.getComputedStyle(document.body).backgroundColor
-      if (bg.includes('rgba(0, 0, 0, 0)') || bg === 'transparent') {
-        bg = window.getComputedStyle(document.documentElement).backgroundColor
-      }
-
-      const rgba = bg.match(/\d+(\.\d+)?/g)
-      if (rgba && rgba.length >= 3) {
-        const a = rgba[3] !== undefined ? parseFloat(rgba[3]) : 1
-        if (a > 0.1) {
-          const r = parseInt(rgba[0]),
-            g = parseInt(rgba[1]),
-            b = parseInt(rgba[2])
-          const brightness = (r * 299 + g * 587 + b * 114) / 1000
-          if (brightness < 100) {
-            return
-          }
-        }
-      }
-
-      if (!styleEl) {
-        styleEl = document.createElement('style')
-        styleEl.id = STYLE_ID
-        styleEl.innerHTML = `
-          html { filter: invert(1) hue-rotate(180deg) !important; background: #fff !important; }
-          img, video, canvas, [style*="background-image"] { filter: invert(1) hue-rotate(180deg) !important; }
-        `
-        document.head.appendChild(styleEl)
-      }
-      this.host.classList.add('eq-dark-mode-active')
-    } else {
-      this.host.classList.remove('eq-dark-mode-active')
-      if (styleEl) styleEl.remove()
-    }
+    const styleEl = document.getElementById(STYLE_ID)
+    styleEl?.remove()
+    this.host.classList.toggle('eq-dark-mode-active', enable)
   }
 
   public destroy(): void {

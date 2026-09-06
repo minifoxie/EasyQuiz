@@ -16,9 +16,6 @@ export function loadSettings(): EasyQuizSettings {
     }
     const parsed = JSON.parse(raw) as Partial<EasyQuizSettings>
     let model = typeof parsed.model === 'string' && parsed.model ? parsed.model : DEFAULT_SETTINGS.model
-    if (model === 'gemini-2.5-flash') {
-      model = 'gemini-3.5-flash'
-    }
     return {
       apiKey: typeof parsed.apiKey === 'string' ? parsed.apiKey.trim() : DEFAULT_SETTINGS.apiKey,
       model,
@@ -106,11 +103,16 @@ export function saveSettings(settings: Partial<EasyQuizSettings>): EasyQuizSetti
 
 // ==== MEMÓRIA DE SESSÃO DA IA (RAG AUTÔNOMO) ====
 let sessionContextMemory: string[] = []
+const MAX_SESSION_MEMORIES = 12
+const MAX_MEMORY_LENGTH = 1_200
 
 export function addSessionMemory(text: string): void {
-  const clean = text.trim()
+  const clean = text.trim().replace(/\s+/g, ' ').slice(0, MAX_MEMORY_LENGTH)
   if (clean && !sessionContextMemory.includes(clean)) {
     sessionContextMemory.push(clean)
+    if (sessionContextMemory.length > MAX_SESSION_MEMORIES) {
+      sessionContextMemory = sessionContextMemory.slice(-MAX_SESSION_MEMORIES)
+    }
   }
 }
 
