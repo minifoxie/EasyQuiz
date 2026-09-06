@@ -6,11 +6,15 @@ export const CONTROL_SELECTOR = [
   'select',
   'button',
   'a',
+  'label',
   '[role="button"]',
   '[role="link"]',
   '[role="radio"]',
   '[role="checkbox"]',
   '[role="option"]',
+  '[role="treeitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]',
   '[contenteditable="true"]',
   '[draggable="true"]',
   '[aria-grabbed]',
@@ -21,7 +25,24 @@ export const CONTROL_SELECTOR = [
   '[data-testid*="drag" i]',
   '[data-testid*="card" i]',
   '[data-testid*="option" i]',
+  '[data-testid*="choice" i]',
   '[data-testid*="category" i]',
+  '[data-choice]',
+  '[data-option]',
+  '[data-answer]',
+  '[data-value]',
+  '.quiz-option',
+  '.option-card',
+  '.choice-card',
+  '[class*="option-card" i]',
+  '[class*="choice-card" i]',
+  '[class*="option-item" i]',
+  '[class*="choice-item" i]',
+  '[class*="answer-item" i]',
+  '[class*="alternative" i]',
+  'li[class*="choice" i]',
+  'li[class*="option" i]',
+  'li[class*="answer" i]',
   '[data-role="dropzone"]',
   '[data-category]',
 ].join(',')
@@ -31,38 +52,23 @@ export const NAVIGATION_PATTERN =
 
 let idSequence = 0
 
-export function isVisible(element: Element): boolean {
-  const node = element as HTMLElement
-  if (!node) return false
-  if (typeof node.isConnected === 'boolean' && !node.isConnected) return false
-
-  // 1. Padrão Moderno W3C (Chrome, Firefox, Safari, Edge)
-  if (typeof (node as any).checkVisibility === 'function') {
-    try {
-      const vis = (node as any).checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
-      if (!vis) return false
-    } catch {}
-  }
-
-  // 2. Verificação de estilos computados
+function isVisibleBasic(node: HTMLElement): boolean {
   try {
-    const style = window.getComputedStyle ? window.getComputedStyle(node) : (node.style as any)
-    if (style) {
-      if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || '1') <= 0) {
-        return false
-      }
-    }
-  } catch {}
-
-  // 3. Verificação de ancestrais ocultos por display: none ou atributo hidden
-  try {
-    const hiddenAncestor = node.closest('[hidden], [style*="display: none"], [style*="display:none"]')
+    const hiddenAncestor = node.closest('[hidden], [style*="display: none"], [style*="display:none"], [aria-hidden="true"]')
     if (hiddenAncestor && !isInsideEasyQuiz(hiddenAncestor as HTMLElement)) {
       return false
     }
   } catch {}
 
-  // 4. Bounding Client Rect quando disponível
+  try {
+    const style = window.getComputedStyle ? window.getComputedStyle(node) : (node.style as any)
+    if (style) {
+      if (style.display === 'none' || style.visibility === 'hidden') {
+        return false
+      }
+    }
+  } catch {}
+
   try {
     if (typeof node.getBoundingClientRect === 'function') {
       const rect = node.getBoundingClientRect()
@@ -72,31 +78,37 @@ export function isVisible(element: Element): boolean {
     }
   } catch {}
 
-  // 5. Se getClientRects() tiver dimensões
-  try {
-    if (typeof node.getClientRects === 'function' && node.getClientRects().length > 0) {
-      return true
-    }
-  } catch {}
-
-  // 6. Suporte para inputs acessíveis (escondidos com width:0 / opacity:0 dentro de labels/cards visíveis)
-  const tag = node.tagName?.toLowerCase()
-  if (['input', 'select', 'textarea', 'button'].includes(tag)) {
-    const parentLabel = node.closest('label, .option-card, .quiz-option, [class*="option" i], [class*="choice" i], tr, div')
-    if (parentLabel && parentLabel !== node) {
-      return isVisible(parentLabel)
-    }
-  }
-
-  // 7. Fallback para JSDOM ou elementos com conteúdo textual
-  if (node.ownerDocument && node.ownerDocument.defaultView) {
-    const isJsdom = /jsdom/i.test(node.ownerDocument.defaultView.navigator?.userAgent || '')
-    if (isJsdom) {
-      return !node.closest('[style*="display: none"], [style*="display:none"], [hidden]')
-    }
-  }
-
   return (node.textContent || '').trim().length > 0
+}
+
+export function isVisible(element: Element): boolean {
+  const node = element as HTMLElement
+  if (!node) return false
+  if (typeof node.isConnected === 'boolean' && !node.isConnected) return false
+  if (isInsideEasyQuiz(node)) return false
+
+  const tag = node.tagName?.toLowerCase()
+
+  // 1. SUPORTE ESSENCIAL PARA INPUTS ACESSÍVEIS (Checkboxes e Radios estilizados com opacity:0 / width:0)
+  if (['input', 'select', 'textarea', 'button'].includes(tag)) {
+    const inputType = (node as HTMLInputElement).type?.toLowerCase()
+    if (inputType === 'checkbox' || inputType === 'radio') {
+      if (node.id) {
+        try {
+          const linkedLabel = node.ownerDocument?.querySelector(`label[for="${CSS.escape(node.id)}"]`) as HTMLElement | null
+          if (linkedLabel && isVisibleBasic(linkedLabel)) return true
+        } catch {}
+      }
+      const parentOption = node.closest(
+        'label, .option-card, .quiz-option, .choice, .answer, [role="radio"], [role="checkbox"], [class*="option" i], [class*="choice" i], [class*="item" i], li, tr',
+      ) as HTMLElement | null
+      if (parentOption && parentOption !== node) {
+        if (isVisibleBasic(parentOption)) return true
+      }
+    }
+  }
+
+  return isVisibleBasic(node)
 }
 
 export function safeString(value: any): string {

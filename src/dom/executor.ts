@@ -468,16 +468,20 @@ export function getHumanReadableLabel(idOrQuery: string, fallback = ''): string 
 }
 
 function setCheckedState(element: HTMLElement, checked: boolean): void {
-  const cardParent = (element.closest('.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], li') || element) as HTMLElement
+  const cardParent = (element.closest(
+    '.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], li',
+  ) || element) as HTMLElement
 
-  let inputEl = element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
-    ? element
-    : (cardParent.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null)
+  let inputEl =
+    element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
+      ? element
+      : (cardParent.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null)
 
   if (!inputEl && cardParent.hasAttribute('for')) {
     inputEl = cardParent.ownerDocument.getElementById(cardParent.getAttribute('for')!) as HTMLInputElement | null
   }
 
+  // Atualiza atributos semânticos de acessibilidade e classes visuais
   if (cardParent) {
     const s = checked ? 'true' : 'false'
     cardParent.setAttribute('aria-checked', s)
@@ -488,26 +492,36 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
   }
 
   if (inputEl) {
-    if (inputEl.type === 'radio' && inputEl.checked === checked) return
+    // Se o estado já estiver no valor desejado, encerra sem cliques repetidos
+    if (inputEl.checked === checked) return
 
-    inputEl.checked = checked
+    // Tenta clique direto no input nativo (dispara os listeners sintéticos de React/Vue/Angular/Svelte)
     try {
-      const tracker = (inputEl as any)._valueTracker
-      if (tracker) tracker.setValue(!checked)
+      inputEl.focus?.()
+      inputEl.click()
     } catch {}
-    try {
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
-      setter?.call(inputEl, checked)
-    } catch {}
-    inputEl.checked = checked
-    dispatchEventSequence(inputEl, ['input', 'change'])
-    
-    const clickTarget = cardParent !== inputEl ? cardParent : inputEl
-    try { clickTarget.focus?.() } catch {}
-    clickTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
+
+    // Se após o clique o estado divergir (ex: componente controlado ou preventDefault), força via property descriptor e valueTracker
+    if (inputEl.checked !== checked) {
+      try {
+        const tracker = (inputEl as any)._valueTracker
+        if (tracker) tracker.setValue(!checked)
+      } catch {}
+      try {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
+        setter?.call(inputEl, checked)
+      } catch {}
+      inputEl.checked = checked
+      dispatchEventSequence(inputEl, ['input', 'change'])
+    }
   } else {
+    // Opção customizada sem input nativo (card div/span)
     try { cardParent.focus?.() } catch {}
-    cardParent.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
+    try {
+      cardParent.click()
+    } catch {
+      simulatePointerClick(cardParent)
+    }
   }
 }
 
@@ -1182,49 +1196,23 @@ async function executeAlternativeActionPath(action: DeclarativeAction): Promise<
           (card.getAttribute('for') ? (card.ownerDocument.getElementById(card.getAttribute('for')!) as HTMLInputElement | null) : null)
       const shouldCheck = action.t === 'chk' ? Boolean(action.c) : true
 
-      // Executa o motor central de 6 vias de persistência
+      // Executa o motor central de persistência
       setCheckedState(input || card, shouldCheck)
 
-      // Rota de contingência extra 1: atribuição no input e disparos nativos diretos
-      if (input) {
+      // Se ainda divergente, aplica via descriptor e trackers
+      if (input && input.checked !== shouldCheck) {
         try {
-          input.checked = shouldCheck
-          try {
-            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
-            setter?.call(input, shouldCheck)
-          } catch {}
-          if (input.type !== 'checkbox' || input.checked !== shouldCheck) {
-            input.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
-          }
-          input.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
-          input.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
+          const tracker = (input as any)._valueTracker
+          if (tracker) tracker.setValue(!shouldCheck)
         } catch {}
-      }
-
-      // Rota de contingência extra 2: clique de ponteiro forçado no card/label (se não houver input ou estado ainda divergente)
-      try {
-        card.focus?.()
-        card.setAttribute('aria-checked', shouldCheck ? 'true' : 'false')
-        card.classList.toggle('selected', shouldCheck)
-        card.classList.toggle('active', shouldCheck)
-        card.classList.toggle('checked', shouldCheck)
-        if (!input) {
-          card.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }))
-        }
-      } catch {}
-
-      // Rota de contingência extra 3: tecla Space / Enter no elemento focado (apenas se divergente)
-      if (!input || input.checked !== shouldCheck) {
         try {
-          card.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true }))
-          card.dispatchEvent(new KeyboardEvent('keyup', { key: ' ', code: 'Space', bubbles: true }))
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
+          setter?.call(input, shouldCheck)
         } catch {}
+        input.checked = shouldCheck
+        input.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
+        input.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
       }
-
-      // Rota de contingência extra 4: invocar handlers diretos
-      try { (card as any).onclick?.() } catch {}
-      try { (input as any)?.onclick?.() } catch {}
-      try { (input as any)?.onchange?.() } catch {}
     }
     return
   }
@@ -1549,6 +1537,27 @@ export async function executePlan(
   let navigationVerified = false
   let navigationEvidence = 'Nenhuma ação de navegação solicitada.'
   // SÓ AVANÇA SE AS RESPOSTAS FORAM DE FATO APLICADAS E VALIDADAS NO DOM!
+  // Se a página tiver opções/alternativas detectadas no DOM, nunca avança como 'info' cego!
+  const hasPageChoices = Boolean(
+    document.querySelector(
+      'input[type="radio"]:not([disabled]), input[type="checkbox"]:not([disabled]), [role="radio"], [role="checkbox"], .option-card, [class*="choice-card" i]',
+    ),
+  )
+
+  if (plan.pageType === 'info' && hasPageChoices) {
+    console.warn('[EasyQuiz Autopilot] Alternativas detectadas na página, mas o plano indicava info. Avanço automático bloqueado para evitar pular a questão.')
+    return {
+      applied: appliedCount,
+      verified: verifiedCount,
+      success: false,
+      advanced: false,
+      failed: ['Avanço suspenso: a página possui alternativas a serem respondidas.'],
+      reports,
+      navigationVerified: false,
+      navigationEvidence: 'Avanço bloqueado: alternativas detectadas no DOM.',
+    }
+  }
+
   if (allowAdvance && (success || !isQuestion)) {
     // Aguarda o framework hospedeiro (React, Vue, etc.) registrar o input/seleção
     await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 500 : 200))
@@ -1600,70 +1609,9 @@ export async function executePlan(
   }
 }
 
-// ---- INTERCEPTADOR INTELIGENTE DE CLIQUES EM OPÇÕES (PREVENÇÃO DE INVERSÃO/DOUBLE-TOGGLE) ----
-let interceptorInstalled = false
-let justHandledOptionInput: HTMLElement | null = null
-
+// ---- INTERCEPTADOR INTELIGENTE DE CLIQUES EM OPÇÕES ----
 export function setupSmartOptionInterceptors(): void {
-  const doc = typeof window !== 'undefined' && window.document ? window.document : (typeof document !== 'undefined' ? document : null)
-  if (!doc || interceptorInstalled) return
-  interceptorInstalled = true
-
-  doc.addEventListener(
-    'click',
-    (e) => {
-      const target = e.target as HTMLElement | null
-      if (!target || isInsideEasyQuiz(target)) return
-
-      // Suprime cliques sintéticos duplicados gerados pela ativação nativa de <label> após o card já ter sido tratado
-      if (justHandledOptionInput && (target === justHandledOptionInput || target.contains(justHandledOptionInput))) {
-        e.preventDefault()
-        e.stopPropagation()
-        e.stopImmediatePropagation?.()
-        return
-      }
-
-      // Se o clique foi diretamente no input do checkbox/rádio por ação direta do usuário, permite ação nativa
-      if (target instanceof HTMLInputElement && ['checkbox', 'radio'].includes(target.type)) {
-        return
-      }
-
-      // Procura container de opção ou label
-      const card = target.closest(
-        'label, .option-card, [role="radio"], [role="checkbox"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i]',
-      ) as HTMLElement | null
-      if (!card || isInsideEasyQuiz(card)) return
-
-      // Procura input interno ou associado por 'for'
-      let input = card.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null
-      if (!input && card.hasAttribute('for')) {
-        const forId = card.getAttribute('for')
-        if (forId) input = card.ownerDocument.getElementById(forId) as HTMLInputElement | null
-      }
-      if (!input) return
-
-      // Intercepta e previne double-toggles / cancelamentos causados por handlers customizados da página hospedeira
-      if (input.type === 'checkbox') {
-        e.preventDefault()
-        e.stopPropagation()
-        e.stopImmediatePropagation?.()
-        justHandledOptionInput = input
-        setTimeout(() => {
-          if (justHandledOptionInput === input) justHandledOptionInput = null
-        }, 70)
-        setCheckedState(input, !input.checked)
-      } else if (input.type === 'radio') {
-        e.preventDefault()
-        e.stopPropagation()
-        e.stopImmediatePropagation?.()
-        justHandledOptionInput = input
-        setTimeout(() => {
-          if (justHandledOptionInput === input) justHandledOptionInput = null
-        }, 70)
-        setCheckedState(input, true)
-      }
-    },
-    true, // FASE DE CAPTURA (intercepta antes de qualquer listener do quiz)
-  )
+  // Mantido como no-op para preservar a propagação natural de eventos nos frameworks modernos
+  // (React, Vue, Angular, Svelte) e permitir a marcação e multi-seleção livre de checkboxes.
 }
 

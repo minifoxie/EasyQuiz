@@ -309,16 +309,16 @@ export async function analyzeWithGemini(
     response_schema: GEMINI_JSON_SCHEMA,
   }
 
-  // Lista ordenada de modelos a tentar, priorizando o escolhido e os modelos confirmados da conta
+  // Lista ordenada de modelos a tentar, priorizando o escolhido e os modelos de alta disponibilidade
   const rawFallback = [
     chosenModel,
     ...(discoveredModelsCache?.map((m) => m.id) || []),
-    'gemini-3.6-flash',
-    'gemini-3.5-flash-lite',
     'gemini-3.8-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-3.6-flash',
+    'gemini-2.5-flash',
     'gemini-3.5-flash',
     'gemini-2.0-flash',
-    'gemini-2.5-flash',
   ]
   const modelsToTry = Array.from(new Set(rawFallback)).filter((m) => !blacklistedModels.has(m))
 
@@ -333,12 +333,8 @@ export async function analyzeWithGemini(
     const currentModel = modelsToTry[i]
     const nextModel = modelsToTry[i + 1]
 
-    // Desativa thinking tokens nos modelos que suportam para resposta em <1s
-    if (currentModel.includes('2.5') || currentModel.includes('thinking')) {
-      genConfig.thinkingConfig = { thinkingBudget: 0 }
-    } else {
-      delete genConfig.thinkingConfig
-    }
+    // Força thinkingBudget: 0 em todos os modelos modernos (3.x e 2.5) para garantir tempo de resposta <1s
+    genConfig.thinkingConfig = { thinkingBudget: 0 }
 
     const payload = {
       system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
@@ -346,7 +342,7 @@ export async function analyzeWithGemini(
       generationConfig: genConfig,
     }
 
-    onProgress?.(`Aguardando resposta da API (${currentModel})...`, 'info')
+    onProgress?.(`Consultando Gemini (${currentModel})...`, 'info')
 
     // Tenta primeiro em v1beta, se der 404 tenta em v1
     const versionsToTry = ['v1beta', 'v1']
@@ -355,7 +351,13 @@ export async function analyzeWithGemini(
       const endpoint = `https://generativelanguage.googleapis.com/${apiVer}/models/${currentModel}:generateContent?key=${encodeURIComponent(key)}`
 
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 35000)
+      const timeoutId = setTimeout(() => {
+        try {
+          controller.abort(new Error(`Timeout de 9s excedido na API Gemini (${currentModel}). Servidor demorou a responder.`))
+        } catch {
+          controller.abort()
+        }
+      }, 9000)
 
       try {
         const response = await fetch(endpoint, {
@@ -373,7 +375,7 @@ export async function analyzeWithGemini(
         if (!response.ok) {
           const errorText = await response.text()
 
-          // Se rejeitou thinkingConfig com 400, remove e tenta novamente imediatamente
+          // Se o modelo rejeitou thinkingConfig com 400 (ex: modelos legados), remove e tenta novamente de imediato
           if (response.status === 400 && genConfig.thinkingConfig && /thinking/i.test(errorText)) {
             delete genConfig.thinkingConfig
             payload.generationConfig = genConfig
@@ -386,6 +388,8 @@ export async function analyzeWithGemini(
           if (response.status === 404 && apiVer === 'v1beta') {
             continue
           }
+
+          // Se for 503 (servidor sobrecarregado) ou 429, não gasta tempo tentando v1 do mesmo modelo sobrecarregado
           throw new Error(parsedErrorMsg)
         }
 
@@ -415,18 +419,26 @@ export async function analyzeWithGemini(
         return { plan: parsedPlan, rawUsage: data.usageMetadata, usedModel: currentModel }
       } catch (err) {
         clearTimeout(timeoutId)
-        lastError = err as Error
+        if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted') || err.message.includes('Timeout'))) {
+          lastError = new Error(`Timeout de 9s excedido na API Gemini (${currentModel}). Sem resposta imediata.`)
+        } else {
+          lastError = err as Error
+        }
 
         // Se for erro de chave inválida, encerra imediatamente
         if (lastError.message.includes('inválida') || lastError.message.includes('não autorizada')) {
           throw lastError
+        }
+
+        // Se deu timeout ou 503/429 na primeira tentativa, pula imediatamente para o próximo modelo
+        if (lastError.message.includes('Timeout') || lastError.message.includes('503') || lastError.message.includes('429')) {
+          break
         }
       }
     }
 
     // Se falhou em ambas as versões de API para este modelo
     const isRateLimit = lastError.message.includes('429') || lastError.message.includes('cota')
-    const isOverloaded = lastError.message.includes('503') || lastError.message.includes('sobrecarregado')
     const is404 = lastError.message.includes('404')
 
     if (is404) {
@@ -434,11 +446,13 @@ export async function analyzeWithGemini(
     }
 
     if (nextModel) {
-      const pauseMs = isRateLimit ? 3500 : isOverloaded ? 2500 : 900
-      const warnMsg = `Modelo '${currentModel}' indisponível (${lastError.message}). Aguardando ${pauseMs / 1000}s antes de alternar para '${nextModel}'...`
+      const pauseMs = isRateLimit ? 500 : 150
+      const warnMsg = `Modelo '${currentModel}' indisponível (${lastError.message}). Alternando imediatamente para '${nextModel}'...`
       console.warn(`[EasyQuiz Fallback] ${warnMsg}`)
       onProgress?.(warnMsg, 'warning')
-      await new Promise((r) => setTimeout(r, pauseMs))
+      if (pauseMs > 0) {
+        await new Promise((r) => setTimeout(r, pauseMs))
+      }
     } else {
       console.warn(`[EasyQuiz Fallback] Modelo '${currentModel}' falhou: ${lastError.message}. Todos os modelos esgotados.`)
     }

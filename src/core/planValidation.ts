@@ -121,11 +121,6 @@ export function validateAnalysisPlan(raw: unknown): AnalysisPlan {
   const regularActions = actions.filter((action) => action.t !== 'adv')
   const hasAdvance = actions.some((action) => action.t === 'adv')
 
-  if (pageType === 'question' && regularActions.length === 0) {
-    // Se é uma questão mas não há ações de resposta (apenas botão de avançar ou vazio), converte para página informativa
-    pageType = 'info'
-  }
-
   if (pageType === 'conclusion') {
     // Tela de conclusão não deve conter ações
     actions.length = 0

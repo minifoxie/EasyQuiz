@@ -106,14 +106,20 @@ async function initEasyQuiz(): Promise<void> {
       const promptPreview = buildUserPrompt(context, images, settings)
       panel.setInspectorPrompt(promptPreview, settings.model)
 
-      let { plan, usedModel } = await analyzeWithGemini(context, images, settings, (msg, type) => {
+      const onProgressCallback = (msg: string, type?: 'info' | 'warning' | 'error') => {
         panel.setStatus(msg, type === 'warning' ? 'info' : type)
-      })
+        const prefix = type === 'error' ? '[ERRO]' : type === 'warning' ? '[FALLBACK]' : '[SYS]'
+        const color = type === 'error' ? 'text-red' : type === 'warning' ? 'text-yellow' : 'text-muted'
+        panel.logToConsole(`> ${prefix} ${msg}`, color)
+      }
+
+      let { plan, usedModel } = await analyzeWithGemini(context, images, settings, onProgressCallback)
 
       // Se a IA pediu mais contexto ou detectou que o escopo estava isolado
       if (plan.needsMoreContext) {
         panel.setProgress(55, 'Ampliando escopo da questão...')
         panel.setStatus('Enunciado ou contexto isolado detectado pela IA. Acionando Seleção Geral Expandida...', 'info')
+        panel.logToConsole('> [DOM] Enunciado isolado. Ampliando escopo para seleção expandida...', 'text-blue')
         context = captureCurrentContext(true)
         if (!context) {
           context = captureFullPageText()
@@ -126,9 +132,7 @@ async function initEasyQuiz(): Promise<void> {
         const expandedPromptPreview = buildUserPrompt(context, images, settings)
         panel.setInspectorPrompt(expandedPromptPreview, settings.model)
 
-        const recheck = await analyzeWithGemini(context, images, settings, (msg, type) => {
-          panel.setStatus(msg, type === 'warning' ? 'info' : type)
-        })
+        const recheck = await analyzeWithGemini(context, images, settings, onProgressCallback)
         plan = recheck.plan
       }
 
@@ -185,6 +189,8 @@ async function initEasyQuiz(): Promise<void> {
       panel.setProgress(0)
       const message = error instanceof Error ? error.message : 'Falha desconhecida na análise.'
       panel.setStatus(message, 'error')
+      panel.logToConsole(`> [ERRO] ${message}`, 'text-red')
+      panel.setErrorDiagnostic(message, 'Análise da IA')
       return undefined
     } finally {
       panel.setBusy(false)

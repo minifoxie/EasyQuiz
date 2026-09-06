@@ -199,23 +199,54 @@ export function sanitizeHtml(scope: HTMLElement): string {
 }
 
 export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
-  return Array.from(scope.querySelectorAll(CONTROL_SELECTOR))
-    .filter((el) => {
-      if (!isVisible(el) || isNavigationControl(el as HTMLElement)) return false
-      if (el.tagName.toLowerCase() === 'a') {
-        const role = el.getAttribute('role')
-        const isOption =
-          role === 'button' ||
-          role === 'radio' ||
-          role === 'checkbox' ||
-          role === 'option' ||
-          el.closest('[class*="choice" i], [class*="option" i], [class*="answer" i], [data-testid*="option" i]')
-        return Boolean(isOption)
-      }
-      return true
-    })
+  const allElements = Array.from(scope.querySelectorAll(CONTROL_SELECTOR)) as HTMLElement[]
+  const handledInputs = new Set<HTMLElement>()
+  const selectedElements: HTMLElement[] = []
+
+  // 1ª passada: inputs nativos e selects
+  for (const el of allElements) {
+    if (!isVisible(el) || isNavigationControl(el)) continue
+    const tag = el.tagName.toLowerCase()
+
+    if (['input', 'textarea', 'select'].includes(tag)) {
+      handledInputs.add(el)
+      selectedElements.push(el)
+    }
+  }
+
+  // 2ª passada: cards, labels e botões que representam opções customizadas (sem input interno já coletado)
+  for (const el of allElements) {
+    if (!isVisible(el) || isNavigationControl(el)) continue
+    const tag = el.tagName.toLowerCase()
+
+    if (['input', 'textarea', 'select'].includes(tag)) continue
+
+    const innerInput = el.querySelector('input, textarea, select') as HTMLElement | null
+    if (innerInput && handledInputs.has(innerInput)) continue
+
+    if (el.hasAttribute('for')) {
+      const forId = el.getAttribute('for')
+      const targetInput = forId ? (el.ownerDocument.getElementById(forId) as HTMLElement | null) : null
+      if (targetInput && handledInputs.has(targetInput)) continue
+    }
+
+    if (tag === 'a') {
+      const role = el.getAttribute('role')
+      const isOption =
+        role === 'button' ||
+        role === 'radio' ||
+        role === 'checkbox' ||
+        role === 'option' ||
+        el.closest('[class*="choice" i], [class*="option" i], [class*="answer" i], [data-testid*="option" i]')
+      if (!isOption) continue
+    }
+
+    selectedElements.push(el)
+  }
+
+  return selectedElements
     .slice(0, 100)
-    .map((el) => describeControl(el as HTMLElement, 'answer'))
+    .map((el) => describeControl(el, 'answer'))
 }
 
 export function extractNavigationControls(scope: HTMLElement): ControlDescriptor[] {
@@ -246,16 +277,29 @@ export function captureCurrentContext(expanded = false): CapturedContext | null 
     scope = expandToGeneralSelection(scope)
   }
 
-  const rawText = scope.innerText && scope.innerText.trim().length > 0 ? scope.innerText : scope.textContent || ''
-  const questionText = cleanText(rawText, 16_000)
-  const answers = extractAnswerControls(scope)
+  let answers = extractAnswerControls(scope)
   let navs = extractNavigationControls(scope)
+
+  // SE O ESCOPO LOCAL NÃO ENCONTROU CONTROLES DE RESPOSTA, MAS ELES EXISTEM NO DOCUMENTO:
+  if (answers.length === 0) {
+    const globalAnswers = extractAnswerControls(document.body)
+    if (globalAnswers.length > 0) {
+      scope = expandToGeneralSelection(scope)
+      answers = extractAnswerControls(scope)
+      if (answers.length === 0) {
+        answers = globalAnswers
+        scope = (document.querySelector('main, article, form, [role="main"]') || document.body) as HTMLElement
+      }
+    }
+  }
 
   // Se não achou navegação no escopo, procura globalmente na página
   if (navs.length === 0) {
     navs = extractNavigationControls(document.body)
   }
 
+  const rawText = scope.innerText && scope.innerText.trim().length > 0 ? scope.innerText : scope.textContent || ''
+  const questionText = cleanText(rawText, 16_000)
   const controls = [...answers, ...navs].slice(0, 120)
 
   // Se tem texto explicativo relevante (> 30 chars), mesmo sem controles de resposta direta,
@@ -280,17 +324,19 @@ export function captureCurrentContext(expanded = false): CapturedContext | null 
 
 export function captureFullPageText(): CapturedContext {
   const rawText = document.body.innerText || document.body.textContent || document.documentElement.textContent || ''
-  const questionText = cleanText(rawText, 14_000)
+  const questionText = cleanText(rawText, 16_000)
+  const answers = extractAnswerControls(document.body)
   const navs = extractNavigationControls(document.body)
-  const mainEl = (document.querySelector('main, article, [role="main"], [data-test-id*="content" i], [class*="content" i]') ||
+  const controls = [...answers, ...navs].slice(0, 120)
+  const mainEl = (document.querySelector('main, article, form, [role="main"], [data-test-id*="content" i], [class*="content" i]') ||
     document.body) as HTMLElement
 
   return {
     sourceUrl: window.location.href.slice(0, 2_000),
-    pageTitle: document.title.slice(0, 500) || 'Página de Leitura/Contexto',
+    pageTitle: document.title.slice(0, 500) || 'Página de Questão',
     questionText,
     htmlSnippet: sanitizeHtml(mainEl).slice(0, 15_000),
-    controls: navs,
+    controls,
     scope: mainEl,
   }
 }
