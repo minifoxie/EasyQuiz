@@ -55,12 +55,11 @@ export const AVAILABLE_MODELS: ModelOption[] = [
 ]
 
 // Modelos top em ordem de prioridade para o Turbo Blitz Race
-// gemini-2.5-flash removido: HTTP 404 para novos usuários (Set/2026)
 const TURBO_MODELS = [
   'gemini-3.5-flash-lite',
-  'gemini-3.8-flash',
-  'gemini-3.6-flash',
   'gemini-3.5-flash',
+  'gemini-3.6-flash',
+  'gemini-3.8-flash',
 ]
 
 // Modelos descontinuados — mapeados automaticamente para substitutos
@@ -84,6 +83,8 @@ export function buildGenerationConfig(model: string): Record<string, unknown> {
   const config: Record<string, unknown> = {
     temperature: 0.0,
     maxOutputTokens: 700,
+    responseMimeType: 'application/json',
+    responseSchema: GEMINI_JSON_SCHEMA,
     response_mime_type: 'application/json',
     response_schema: GEMINI_JSON_SCHEMA,
   }
@@ -799,19 +800,19 @@ export async function analyzeWithGemini(
   //   Pro (sem thinkingConfig):  15s / 18s / 22s
 
   const keysCount = keysPool.length
-  // Com 1 chave: apenas 1 slot na Wave 1 (sem desperdício duplo de RPM)
-  // Com 2-3 chaves: 2 slots paralelos
-  // Com 4+ chaves: 3 slots (cap para não sobrecarregar)
-  const waveSize = keysCount <= 1 ? 1 : keysCount <= 3 ? 2 : 3
+  // Escalabilidade e Paralelismo Total (Multi-Key & Multi-Model Racing):
+  // - 1 chave: 2 slots paralelos (modelo escolhido + modelo turbo alternativo em cotas separadas)
+  // - 2 a 6 chaves: todas as chaves disponíveis disparadas simultaneamente em paralelo (até 6 slots)
+  const waveSize = Math.min(Math.max(keysCount, 2) + (keysCount >= 2 && keysCount < 6 ? 1 : 0), 6)
 
-  // Timeout por onda e tipo de modelo (Flash e Lite têm timeout ultrarrápido para não travar o usuário)
+  // Timeout por onda e tipo de modelo (Flash e Lite com timeouts ultrarrápidos para não travar o usuário)
   const isPrimaryPro = /pro/i.test(effectiveChosenModel)
   const getTimeout = (waveNum: number, modelInWave?: string): number => {
     const isPro = modelInWave ? /pro/i.test(modelInWave) : isPrimaryPro
     const isLite = modelInWave ? /lite/i.test(modelInWave) : /lite/i.test(effectiveChosenModel)
-    if (waveNum === 0) return isPro ? 14000 : isLite ? 5500 : 7000
-    if (waveNum === 1) return isPro ? 16000 : isLite ? 7000 : 9000
-    return isPro ? 20000 : 12000
+    if (waveNum === 0) return isPro ? 12000 : isLite ? 3800 : 4500
+    if (waveNum === 1) return isPro ? 15000 : isLite ? 5000 : 6500
+    return isPro ? 18000 : 8000
   }
 
   const MAX_WAVES = 6  // teto de segurança
