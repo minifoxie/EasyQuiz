@@ -86,29 +86,36 @@ export function getDistinctVisibleChoices(scopeRoot?: HTMLElement): HTMLElement[
   }
   root = root || document.body
 
-  // 1. Linhas de tabela com controles (essencial para matrizes V/F ou questões em tabela)
-  const rows = Array.from(root.querySelectorAll('tr')).filter((tr) => {
-    return isVisible(tr) && tr.querySelector('input[type="radio"], input[type="checkbox"]')
-  }) as HTMLElement[]
-  if (rows.length > 1) {
-    return rows
+  const collect = (container: HTMLElement): HTMLElement[] => {
+    // 1. Linhas de tabela com controles (essencial para matrizes V/F ou questões em tabela)
+    const rows = Array.from(container.querySelectorAll('tr')).filter((tr) => {
+      return isVisible(tr) && tr.querySelector('input[type="radio"], input[type="checkbox"]')
+    }) as HTMLElement[]
+    if (rows.length > 1) {
+      return rows
+    }
+
+    // 2. Coleta inputs nativos únicos visíveis (evita duplicar com label ou option-card pai)
+    const inputs = Array.from(
+      container.querySelectorAll('input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"]'),
+    ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
+
+    if (inputs.length > 0) {
+      return inputs
+    }
+
+    // 3. Fallback para option cards sem input nativo (evita nós filhos duplicados)
+    const cards = Array.from(
+      container.querySelectorAll('.option-card, [role="option"], [class*="choice-card" i], [class*="option-card" i], li[class*="choice" i], li[class*="option" i]'),
+    ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
+
+    return cards.filter((card) => !card.parentElement?.closest('.option-card, [role="option"], [class*="choice-card" i], [class*="option-card" i]'))
   }
 
-  // 2. Coleta inputs nativos únicos visíveis (evita duplicar com label ou option-card pai)
-  const inputs = Array.from(
-    root.querySelectorAll('input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"]'),
-  ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
-
-  if (inputs.length > 0) {
-    return inputs
-  }
-
-  // 3. Fallback para option cards sem input nativo (evita nós filhos duplicados)
-  const cards = Array.from(
-    root.querySelectorAll('.option-card, [role="option"], [class*="choice-card" i], [class*="option-card" i], li[class*="choice" i], li[class*="option" i]'),
-  ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
-
-  return cards.filter((card) => !card.parentElement?.closest('.option-card, [role="option"], [class*="choice-card" i], [class*="option-card" i]'))
+  const result = collect(root)
+  if (result.length > 0) return result
+  if (root !== document.body) return collect(document.body)
+  return []
 }
 
 // ---- MOTOR DE BUSCA ROBUSTA DE ELEMENTOS ----
@@ -118,15 +125,15 @@ export function findElementExt(idOrLabel: unknown, valueHint?: string, preferInp
   const trimmed = rawStr.trim().replace(/^["'“”«»]+|["'“”«»]+$/g, '')
   if (!trimmed) return null
 
-  // 1. Tenta por ID estrito gerado pelo EasyQuiz (garantindo visibilidade)
+  // 1. Tenta por ID estrito gerado pelo EasyQuiz (garantia direta de match)
   const escaped = safeCssEscape(trimmed)
   let el = document.querySelector(`[data-easyquiz-id="${escaped}"]`) as HTMLElement | null
-  if (el && !isInsideEasyQuiz(el) && isVisible(el)) return resolveTargetControlOrCard(el)
+  if (el && !isInsideEasyQuiz(el)) return resolveTargetControlOrCard(el)
 
   // 2. Tenta por ID real nativo no DOM se estiver visível (O(1) instantâneo)
   try {
     const elById = document.getElementById(trimmed)
-    if (elById && !isInsideEasyQuiz(elById) && isVisible(elById)) {
+    if (elById && !isInsideEasyQuiz(elById)) {
       const isDrop = elById.hasAttribute('data-category') || elById.hasAttribute('data-dropzone') || elById.classList.contains('dnd-zone')
       return isDrop ? elById : resolveTargetControlOrCard(elById)
     }
@@ -395,24 +402,7 @@ function dispatchEventSequence(element: HTMLElement, events: string[]): void {
 export function simulatePointerClick(element: HTMLElement, coords?: [number, number]): void {
   if (!element) return
 
-  const innerInput =
-    element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
-      ? element
-      : (element.querySelector('input[type="checkbox"], input[type="radio"]') as HTMLInputElement | null) ||
-        (element.hasAttribute('for') ? (element.ownerDocument.getElementById(element.getAttribute('for')!) as HTMLInputElement | null) : null)
-
-  if (innerInput && element !== innerInput) {
-    if (innerInput.type === 'checkbox') {
-      setCheckedState(innerInput, true)
-      return
-    }
-    if (innerInput.type === 'radio') {
-      setCheckedState(innerInput, true)
-      return
-    }
-  }
-
-  try { element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' as any }) } catch {}
+  try { element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' as any }) } catch {}
   try { element.focus?.() } catch {}
 
   const isNativeBtn =
@@ -421,16 +411,14 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
     element.tagName?.toLowerCase() === 'a' ||
     element.tagName?.toLowerCase() === 'button' ||
     (typeof HTMLInputElement !== 'undefined' && element instanceof HTMLInputElement && !['checkbox', 'radio'].includes(element.type))
-  if (isNativeBtn) {
-    try { element.click() } catch {}
-    return
-  }
 
   const rect = element.getBoundingClientRect()
   const cx = coords ? coords[0] : Math.round(rect.left + Math.max(1, rect.width / 2))
   const cy = coords ? coords[1] : Math.round(rect.top + Math.max(1, rect.height / 2))
   const commonProps = { bubbles: true, cancelable: true, composed: true, view: window, clientX: cx, clientY: cy }
 
+  try { element.dispatchEvent(new PointerEvent('pointerover', { ...commonProps })) } catch {}
+  try { element.dispatchEvent(new MouseEvent('mouseover', { ...commonProps })) } catch {}
   try { element.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, button: 0, buttons: 1 })) } catch {}
   try { element.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 })) } catch {}
   try { element.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, button: 0, buttons: 0 })) } catch {}
@@ -715,8 +703,10 @@ export function getHumanReadableLabel(idOrQuery: unknown, fallback = ''): string
 }
 
 function setCheckedState(element: HTMLElement, checked: boolean): void {
+  if (!element) return
+
   const cardParent = (element.closest(
-    '.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], li',
+    '.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], li, tr',
   ) || element) as HTMLElement
 
   let inputEl =
@@ -728,50 +718,47 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
     inputEl = cardParent.ownerDocument.getElementById(cardParent.getAttribute('for')!) as HTMLInputElement | null
   }
 
-  // Atualiza atributos semânticos de acessibilidade e classes visuais
-  if (cardParent) {
-    const s = checked ? 'true' : 'false'
-    cardParent.setAttribute('aria-checked', s)
-    cardParent.setAttribute('aria-selected', s)
-    cardParent.classList.toggle('selected', checked)
-    cardParent.classList.toggle('active', checked)
-    cardParent.classList.toggle('checked', checked)
-  }
+  // Identifica o alvo interativo que deve receber os eventos de ponteiro/clique (o elemento visível na tela)
+  const interactiveTarget = (cardParent && isVisible(cardParent)) ? cardParent : element
 
   if (inputEl) {
-    // BUG FIX: Não retornar early mesmo quando o estado já está correto.
-    // Frameworks SPA (React/Vue/Angular) controlam o estado via eventos sintéticos,
-    // não apenas via propriedade .checked. Se o evento não for disparado,
-    // o framework ignora a seleção e pode revertê-la no próximo render.
-    //
-    // Exceção: radio buttons nativos SEM framework (sem _valueTracker) já atualizam
-    // o grupo inteiro com o click nativo — double-click inverteria o estado.
+    const isRadio = inputEl.type === 'radio'
+    const isCheckbox = inputEl.type === 'checkbox'
     const isReactControlled = Boolean((inputEl as any)._valueTracker)
     const stateAlreadyCorrect = inputEl.checked === checked
 
-    if (stateAlreadyCorrect && inputEl.type === 'radio' && !isReactControlled) {
-      // Radio nativo já no estado correto e sem framework: não fazer nada
-      return
+    if (stateAlreadyCorrect) {
+      if (isRadio && checked) {
+        // Radio já no estado correto: garante sincronização de atributos e trackers
+        cardParent.setAttribute('aria-checked', 'true')
+        cardParent.setAttribute('aria-selected', 'true')
+        cardParent.classList.add('selected', 'active', 'checked')
+        return
+      }
+      if (isCheckbox) {
+        // Checkbox já no estado desejado: não clica novamente para não inverter!
+        cardParent.setAttribute('aria-checked', checked ? 'true' : 'false')
+        cardParent.setAttribute('aria-selected', checked ? 'true' : 'false')
+        cardParent.classList.toggle('selected', checked)
+        cardParent.classList.toggle('active', checked)
+        cardParent.classList.toggle('checked', checked)
+        return
+      }
     }
 
-    if (stateAlreadyCorrect && isReactControlled) {
-      // Estado já correto mas gerenciado por framework: disparar eventos sem clicar
-      // (clicar inverteria o estado no framework controlado)
-      try {
-        const tracker = (inputEl as any)._valueTracker
-        if (tracker) tracker.setValue(!checked) // engana o tracker para aceitar o evento
-      } catch {}
-      dispatchEventSequence(inputEl, ['click', 'input', 'change'])
-      return
+    // Estado divergente: precisamos marcar/alternar com clique real!
+    // 1. Simula clique completo de ponteiro no elemento interativo visível (card ou label)
+    if (interactiveTarget && interactiveTarget !== inputEl) {
+      simulatePointerClick(interactiveTarget)
     }
 
-    // Estado errado: clicar para mudar
+    // 2. Aciona o clique no input nativo
     try {
       inputEl.focus?.()
       inputEl.click()
     } catch {}
 
-    // Se após o clique o estado ainda divergir (componente controlado + preventDefault), força
+    // 3. Se após o clique o estado ainda divergir (ex: framework SPA controlado ou preventDefault), força via descriptor
     if (inputEl.checked !== checked) {
       try {
         const tracker = (inputEl as any)._valueTracker
@@ -784,30 +771,39 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
       inputEl.checked = checked
       dispatchEventSequence(inputEl, ['input', 'change'])
     }
+
+    // 4. Atualiza atributos visuais e semânticos no card APÓS o clique
+    cardParent.setAttribute('aria-checked', checked ? 'true' : 'false')
+    cardParent.setAttribute('aria-selected', checked ? 'true' : 'false')
+    cardParent.classList.toggle('selected', checked)
+    cardParent.classList.toggle('active', checked)
+    cardParent.classList.toggle('checked', checked)
   } else {
-    // Opção customizada sem input nativo (card div/span)
+    // Opção customizada sem input nativo (card div, span, button, tile)
+    // Avalia o estado ANTES de alterar qualquer classe ou atributo no DOM
     const currentState =
       cardParent.getAttribute('aria-checked') === 'true' ||
       cardParent.getAttribute('aria-selected') === 'true' ||
       cardParent.getAttribute('data-selected') === 'true' ||
+      cardParent.getAttribute('data-checked') === 'true' ||
       cardParent.classList.contains('selected') ||
       cardParent.classList.contains('active') ||
       cardParent.classList.contains('checked')
 
-    if (currentState === checked) {
-      // Já está no estado desejado — NUNCA clicar novamente para não causar toggle inverso (desmarcar o que está marcado)!
-      cardParent.setAttribute('aria-checked', checked ? 'true' : 'false')
-      cardParent.setAttribute('aria-selected', checked ? 'true' : 'false')
+    if (currentState === checked && checked) {
+      // Já está selecionado como ativo — não clica novamente para não causar toggle inverso
       return
     }
 
-    // Estado divergente: clica para alternar o estado do card
-    try { cardParent.focus?.() } catch {}
-    try {
-      cardParent.click()
-    } catch {
-      simulatePointerClick(cardParent)
-    }
+    // Dispara clique real de ponteiro no card/elemento customizado
+    simulatePointerClick(interactiveTarget)
+
+    // Atualiza atributos semânticos APÓS o clique
+    cardParent.setAttribute('aria-checked', checked ? 'true' : 'false')
+    cardParent.setAttribute('aria-selected', checked ? 'true' : 'false')
+    cardParent.classList.toggle('selected', checked)
+    cardParent.classList.toggle('active', checked)
+    cardParent.classList.toggle('checked', checked)
   }
 }
 
@@ -1350,8 +1346,7 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
   }
 
   if (!element && action.t !== 'adv') {
-    console.warn(`[EasyQuiz] Alvo '${elId}' não encontrado para ação '${action.t}'. Prosseguindo...`)
-    return
+    throw new Error(`Alvo '${elId}' não encontrado no DOM para ação '${action.t}'.`)
   }
 
   switch (action.t) {
@@ -1437,7 +1432,7 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
     case 'clk':
       if (element) {
         const isOptionCard = Boolean(
-          element.closest('.option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice') ||
+          element.closest('.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], [class*="answer" i], li, tr') ||
           element.querySelector('input[type="radio"], input[type="checkbox"]') ||
           (element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type))
         )
@@ -2095,8 +2090,9 @@ export async function executePlan(
         return false
       }
 
-      // Desmarca somente os que comprovadamente NÃO têm vínculo com os alvos da IA
-      if (targetedCheckboxes.size > 0) {
+      // Desmarca somente se TODOS os alvos prescritos foram devidamente localizados
+      // e o checkbox comprovadamente NÃO tem nenhum vínculo com as opções corretas da IA
+      if (targetedCheckboxes.size >= chkActions.length && targetedCheckboxes.size > 0) {
         const targetList = Array.from(targetedCheckboxes)
         for (const chk of allScopeCheckboxes) {
           const isTargeted = targetList.some((t) => isAssociated(t, chk))
@@ -2141,6 +2137,10 @@ export async function executePlan(
     if (verifyActionApplied(action)) {
       console.log(`[EasyQuiz Auto-Cura] ✓ Ação recuperada com sucesso pela rota de contingência!`)
       verifiedCount++
+      if (actionErrors.has(action)) {
+        actionErrors.delete(action)
+        appliedCount++
+      }
     }
   }
 
@@ -2166,6 +2166,10 @@ export async function executePlan(
     for (const action of regularActions) {
       if (verifyActionApplied(action)) {
         verifiedCount++
+        if (actionErrors.has(action)) {
+          actionErrors.delete(action)
+          appliedCount++
+        }
       }
     }
   }
