@@ -105,8 +105,21 @@ export interface ModelOption {
   discoveredAt?: number
 }
 
+export interface ManagedApiKey {
+  id: string
+  key: string
+  label?: string
+  addedAt: number
+  lastUsedAt?: number
+  lastLatencyMs?: number
+  cooldownUntil?: number
+  errorCount?: number
+  lastError?: string
+}
+
 export interface EasyQuizSettings {
   apiKey: string
+  apiKeys: string[]
   model: string
   uiMode: 'easy' | 'advanced'
   modeHint: ResponseMode | ''
@@ -121,6 +134,7 @@ export interface EasyQuizSettings {
 
 export const DEFAULT_SETTINGS: EasyQuizSettings = {
   apiKey: '',
+  apiKeys: [],
   model: 'gemini-2.5-flash',
   uiMode: 'easy',
   modeHint: '',

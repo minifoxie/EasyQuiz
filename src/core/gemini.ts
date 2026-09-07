@@ -2,8 +2,10 @@ import type { AnalysisPlan, CapturedContext, CapturedImage, EasyQuizSettings, Mo
 import { buildUserPrompt, SYSTEM_PROMPT } from './prompt'
 import { validateAnalysisPlan } from './planValidation'
 import { isValidQuizModel } from './modelValidation'
+import { keyManager, KeyManager } from './keyManager'
 
 export { isValidQuizModel } from './modelValidation'
+export { keyManager, KeyManager } from './keyManager'
 
 export const AVAILABLE_MODELS: ModelOption[] = [
   {
@@ -288,7 +290,7 @@ export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message
   }
 
   // 2. Teste direto nos modelos mais rápidos e compatíveis em v1beta e v1
-  const testCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-3.8-flash', 'gemini-1.5-flash']
+  const testCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
   for (const modelId of testCandidates) {
     for (const apiVer of ['v1beta', 'v1']) {
       const endpoint = `https://generativelanguage.googleapis.com/${apiVer}/models/${modelId}:generateContent?key=${encodeURIComponent(key)}`
@@ -325,7 +327,7 @@ async function callSingleModel(
   payloadBase: { system_instruction: { parts: Array<{ text: string }> }; contents: Array<{ role: string; parts: Array<Record<string, unknown>> }> },
   keepalive: boolean,
   signal: AbortSignal,
-): Promise<{ rawText: string; data: any; usedModel: string }> {
+): Promise<{ rawText: string; data: any; usedModel: string; usedKey: string }> {
   const versionsToTry = ['v1beta', 'v1']
   let lastErr = new Error(`Falha ao consultar modelo ${model}`)
 
@@ -336,6 +338,7 @@ async function callSingleModel(
     if (signal.aborted) throw new Error('Operação cancelada pelo usuário.')
 
     const endpoint = `https://generativelanguage.googleapis.com/${apiVer}/models/${model}:generateContent?key=${encodeURIComponent(key)}`
+    const reqStart = Date.now()
 
     try {
       const response = await fetch(endpoint, {
@@ -375,7 +378,8 @@ async function callSingleModel(
             const data = await retryRes.json()
             const candidate = data.candidates?.[0]
             if (candidate?.content?.parts?.[0]?.text) {
-              return { rawText: candidate.content.parts[0].text, data, usedModel: model }
+              keyManager.markSuccess(key, Date.now() - reqStart)
+              return { rawText: candidate.content.parts[0].text, data, usedModel: model, usedKey: key }
             }
           }
         }
@@ -385,12 +389,16 @@ async function callSingleModel(
           continue
         }
 
-        if (
-          response.status === 404 ||
-          response.status === 403 ||
-          response.status === 503 ||
-          /no capacity|overloaded|unavailable/i.test(errorText)
-        ) {
+        // Rastreamento Multi-Key: Quota (429), Sobrecarga (503) e Autorização (403)
+        if (response.status === 429) {
+          keyManager.markQuotaHit(key, 5000)
+        } else if (response.status === 503 || /no capacity|overloaded|unavailable/i.test(errorText)) {
+          keyManager.markOverloaded(key, 5000)
+          blacklistedModels.add(model)
+        } else if (response.status === 403 || /API_KEY_INVALID/i.test(errorText)) {
+          keyManager.markInvalid(key, parsedErrorMsg)
+          blacklistedModels.add(model)
+        } else if (response.status === 404) {
           blacklistedModels.add(model)
         }
 
@@ -403,10 +411,14 @@ async function callSingleModel(
         throw new Error(`[${model}] A IA não retornou uma resposta estruturada válida.`)
       }
 
+      // Registra sucesso e latência comprovada desta chave
+      keyManager.markSuccess(key, Date.now() - reqStart)
+
       return {
         rawText: candidate.content.parts[0].text,
         data,
         usedModel: model,
+        usedKey: key,
       }
     } catch (err) {
       if (signal.aborted) throw err
@@ -430,17 +442,23 @@ export async function analyzeWithGemini(
   settings: EasyQuizSettings,
   onProgress?: (message: string, type?: 'info' | 'warning' | 'error') => void,
   signal?: AbortSignal,
-): Promise<{ plan: AnalysisPlan; rawUsage?: unknown; usedModel?: string }> {
+): Promise<{ plan: AnalysisPlan; rawUsage?: unknown; usedModel?: string; usedKey?: string }> {
   if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
 
-  const key = settings.apiKey.trim().replace(/^["']|["']$/g, '')
-  if (!key) throw new Error('Chave de API não configurada.')
+  // Sincroniza chaves de API com o KeyManager inteligente
+  const rawKeyList = Array.isArray(settings.apiKeys) && settings.apiKeys.length > 0
+    ? settings.apiKeys
+    : (settings.apiKey ? [settings.apiKey] : [])
+  keyManager.init(rawKeyList)
+
+  const activeKey = keyManager.getBestKey() || settings.apiKey.trim().replace(/^["']|["']$/g, '')
+  if (!activeKey) throw new Error('Nenhuma chave de API do Gemini configurada ou disponível.')
 
   const chosenModel = normalizeModel(settings.model)
 
   // Dispara descoberta assíncrona em segundo plano se ainda não feita, SEM bloquear a primeira questão
-  if (!discoveredModelsCache && key) {
-    fetchAvailableModels(key).catch(() => {})
+  if (!discoveredModelsCache && activeKey) {
+    fetchAvailableModels(activeKey).catch(() => {})
   }
 
   if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
@@ -516,13 +534,18 @@ export async function analyzeWithGemini(
     const currentWave = waves[waveIndex].filter((m) => !blacklistedModels.has(m))
     if (currentWave.length === 0) continue
 
+    const activeKeysCount = keyManager.size()
+    const multiKeyLabel = activeKeysCount > 1 ? ` • ${activeKeysCount} chaves ativas` : ''
+
     if (waveIndex === 0) {
-      onProgress?.(`⚡ Velocidade Máxima: consultando APIs em paralelo (${currentWave.join(', ')})...`, 'info')
+      onProgress?.(`⚡ Velocidade Máxima: consultando APIs em paralelo (${currentWave.join(', ')})${multiKeyLabel}...`, 'info')
     } else {
-      onProgress?.(`⚡ Alternando onda de fallback em paralelo (${currentWave.join(', ')})...`, 'warning')
+      onProgress?.(`⚡ Alternando onda de fallback em paralelo (${currentWave.join(', ')})${multiKeyLabel}...`, 'warning')
     }
 
     const waveControllers = currentWave.map(() => new AbortController())
+    // Distribui modelos concorrentes entre chaves saudáveis distintas para dividir cota de RPM/TPM!
+    const waveKeys = keyManager.getDiverseKeys(currentWave.length)
 
     const cancelOthers = (winnerIdx: number) => {
       waveControllers.forEach((ctrl, idx) => {
@@ -554,6 +577,7 @@ export async function analyzeWithGemini(
     try {
       const racePromises = currentWave.map(async (model, idx) => {
         const ctrl = waveControllers[idx]
+        const assignedKey = waveKeys[idx] || activeKey
         const timeoutMs = currentWave.length > 1 ? 8000 : 12000
         const timeoutId = setTimeout(() => {
           try {
@@ -564,7 +588,7 @@ export async function analyzeWithGemini(
         }, timeoutMs)
 
         try {
-          const res = await callSingleModel(model, key, payloadBase, keepalive, ctrl.signal)
+          const res = await callSingleModel(model, assignedKey, payloadBase, keepalive, ctrl.signal)
           clearTimeout(timeoutId)
           const parsedPlan = validateAnalysisPlan(robustParsePlan(res.rawText))
           parsedPlan.usedModel = res.usedModel
@@ -576,7 +600,7 @@ export async function analyzeWithGemini(
           parsedPlan.rawResponse = res.rawText
 
           cancelOthers(idx)
-          return { plan: parsedPlan, rawUsage: res.data.usageMetadata, usedModel: res.usedModel }
+          return { plan: parsedPlan, rawUsage: res.data.usageMetadata, usedModel: res.usedModel, usedKey: res.usedKey }
         } catch (err) {
           clearTimeout(timeoutId)
           throw err
@@ -589,9 +613,11 @@ export async function analyzeWithGemini(
       preferredFastModel = winner.usedModel
       try {
         settings.model = winner.usedModel
+        if (winner.usedKey) settings.apiKey = winner.usedKey
       } catch {}
 
-      onProgress?.(`⚡ Resposta mais rápida recebida em ${winner.plan.durationMs}ms via '${winner.usedModel}'!`, 'info')
+      const keyMask = KeyManager.maskKey(winner.usedKey)
+      onProgress?.(`⚡ Resposta mais rápida recebida em ${winner.plan.durationMs}ms via '${winner.usedModel}' (${keyMask})!`, 'info')
       return winner
     } catch (waveErr) {
       signal?.removeEventListener('abort', onWaveParentAbort)

@@ -8,7 +8,7 @@
     "build": "node scripts/build.mjs",
     "watch": "node scripts/build.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "test:smoke": "npm run build && node scratch/test-multiselect.mjs && node scratch/test-tricky-cases.mjs && npx tsx scratch/test-quizizz-and-abort.mjs && node scratch/test-list-and-race.mjs",
+    "test:smoke": "npm run build && node scratch/test-multiselect.mjs && node scratch/test-tricky-cases.mjs && npx tsx scratch/test-quizizz-and-abort.mjs && node scratch/test-list-and-race.mjs && npx tsx scratch/test-multi-api-key.mjs",
     "test:security": "node scratch/test-plan-security.mjs && node scratch/test-execution-policy.mjs"
   },
   "repository": {

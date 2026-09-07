@@ -1,6 +1,6 @@
 import type { AnalysisPlan, CapturedContext, EasyQuizSettings, ResponseMode, ExecutionEngine, ModelOption, ActivityMetrics, QuestionTimingRecord } from '../core/types'
 import type { ExecutionResult } from '../dom/executor'
-import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey, isValidQuizModel } from '../core/gemini'
+import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey, isValidQuizModel, keyManager, KeyManager } from '../core/gemini'
 import { clearSessionMemories, getSessionMemories, resetAllData, loadActivityMetrics, resetActivityMetrics } from '../core/storage'
 import { Autopilot } from '../dom/autopilot'
 import { FloatingAnswersHud } from './floatingHud'
@@ -129,6 +129,8 @@ export class EasyQuizPanel {
   private apiKeyInput: HTMLInputElement
   private keyContextMenu: HTMLElement
   private keyMoreBtn: HTMLButtonElement
+  private keysListEl: HTMLElement
+  private keysBadgeEl: HTMLElement
   private modelSelect: HTMLSelectElement
   private modeSelect: HTMLSelectElement
   private engineSelect: HTMLSelectElement
@@ -564,21 +566,28 @@ export class EasyQuizPanel {
 
               <!-- TAB 4: CONFIGURAÇÕES -->
               <div class="eq-view-pane" id="eq-view-settings" style="display: none;">
-                <!-- Seção da Chave de API com Menu de 3 Pontinhos (⋮) -->
+                <!-- Seção Multi-API Keys Gemini com Gerenciamento Completo -->
                 <div class="eq-field-group">
                   <div class="eq-section-title">
-                    <span>Chave Gemini (Google AI Studio)</span>
-                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: #00ffcc; text-decoration: none; font-size: 11px; font-weight: 700;">
-                      Obter Grátis ↗
-                    </a>
+                    <span>Chaves Gemini (Multi-Key Inteligente)</span>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                      <span id="eq-keys-badge" class="eq-key-badge ready">1 ativa</span>
+                      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: #00ffcc; text-decoration: none; font-size: 11px; font-weight: 700;">
+                        Obter Grátis ↗
+                      </a>
+                    </div>
                   </div>
 
+                  <!-- Lista Dinâmica de Chaves Cadastradas -->
+                  <div id="eq-keys-list" class="eq-keys-list"></div>
+
+                  <!-- Formulário de Adição de Nova Chave -->
                   <div class="eq-key-input-container">
                     <div class="eq-input-wrap">
                       <span class="eq-input-prefix-icon">${ICONS.key}</span>
-                      <input id="eq-api-key" class="eq-input" type="password" placeholder="Cole sua chave AIzaSy..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
-                      <button class="eq-icon-btn" id="eq-key-save" type="button" title="Salvar Chave">${ICONS.save}</button>
-                      <button class="eq-icon-btn" id="eq-key-more-btn" type="button" title="Mais Opções da Chave">${ICONS.moreVertical}</button>
+                      <input id="eq-api-key" class="eq-input" type="password" placeholder="Adicionar nova chave AIzaSy..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+                      <button class="eq-icon-btn" id="eq-key-save" type="button" title="Adicionar Chave">${ICONS.plus}</button>
+                      <button class="eq-icon-btn" id="eq-key-more-btn" type="button" title="Mais Opções das Chaves">${ICONS.moreVertical}</button>
                     </div>
 
                     <!-- Context Menu Suspenso Dinâmico -->
@@ -594,7 +603,7 @@ export class EasyQuizPanel {
                       </button>
                       <button class="eq-context-item" id="eq-menu-toggle-vis" type="button">
                         <span class="eq-item-icon" id="eq-menu-vis-icon">${ICONS.eye}</span>
-                        <span class="eq-item-text" id="eq-menu-vis-text">Mostrar Chave</span>
+                        <span class="eq-item-text" id="eq-menu-vis-text">Mostrar/Ocultar Campo</span>
                       </button>
                       <button class="eq-context-item" id="eq-menu-clear" type="button">
                         <span class="eq-item-icon">${ICONS.eraser}</span>
@@ -602,8 +611,8 @@ export class EasyQuizPanel {
                       </button>
                       <div class="eq-context-divider"></div>
                       <button class="eq-context-item" id="eq-menu-test" type="button">
-                        <span class="eq-item-icon">${ICONS.key}</span>
-                        <span class="eq-item-text">Testar Conexão no Google</span>
+                        <span class="eq-item-icon">${ICONS.sparkles}</span>
+                        <span class="eq-item-text">Testar Todas as Chaves</span>
                       </button>
                       <button class="eq-context-item danger" id="eq-menu-reset" type="button">
                         <span class="eq-item-icon">${ICONS.trash}</span>
@@ -731,6 +740,8 @@ export class EasyQuizPanel {
     this.apiKeyInput = this.shadow.querySelector('#eq-api-key') as HTMLInputElement
     this.keyContextMenu = this.shadow.querySelector('#eq-key-context-menu') as HTMLElement
     this.keyMoreBtn = this.shadow.querySelector('#eq-key-more-btn') as HTMLButtonElement
+    this.keysListEl = this.shadow.querySelector('#eq-keys-list') as HTMLElement
+    this.keysBadgeEl = this.shadow.querySelector('#eq-keys-badge') as HTMLElement
     this.modelSelect = this.shadow.querySelector('#eq-model-select') as HTMLSelectElement
     this.modeSelect = this.shadow.querySelector('#eq-mode-select') as HTMLSelectElement
     this.engineSelect = this.shadow.querySelector('#eq-engine-select') as HTMLSelectElement
@@ -788,9 +799,27 @@ export class EasyQuizPanel {
     document.body.appendChild(this.host)
     this.applyHostDarkMode(initialSettings.hostDarkMode)
 
+    // Inicializar Pool Multi-API Key
+    const initialRawKeys = Array.isArray(initialSettings.apiKeys) && initialSettings.apiKeys.length > 0
+      ? initialSettings.apiKeys
+      : (initialSettings.apiKey ? [initialSettings.apiKey] : [])
+    keyManager.init(initialRawKeys)
+    this.renderKeysList()
+
+    // Atualização em tempo real do badge e status de cooldown a cada 1s quando nas configurações
+    const cooldownInterval = window.setInterval(() => {
+      if (this.activeTab === 'settings') {
+        this.renderKeysList()
+      }
+    }, 1000)
+    if (typeof (cooldownInterval as any)?.unref === 'function') {
+      ;(cooldownInterval as any).unref()
+    }
+
     // Se chave existir, listar modelos da conta do usuário
-    if (initialSettings.apiKey) {
-      fetchAvailableModels(initialSettings.apiKey)
+    const bestKey = keyManager.getBestKey() || initialSettings.apiKey
+    if (bestKey) {
+      fetchAvailableModels(bestKey)
         .then((models) => {
           if (models && models.length > 0) {
             this.updateModelSelect(models, initialSettings.model)
@@ -970,14 +999,38 @@ export class EasyQuizPanel {
       this.callbacks.onSettingsChange({ apiKey: cleanVal })
     })
 
-    // Botão Salvar Direto da Chave
+    // Botão Adicionar Nova Chave
     const saveKeyBtn = this.shadow.querySelector('#eq-key-save') as HTMLButtonElement
     saveKeyBtn.addEventListener('click', () => {
       const cleanVal = this.apiKeyInput.value.trim().replace(/^["']|["']$/g, '')
-      this.apiKeyInput.value = cleanVal
-      this.callbacks.onSettingsChange({ apiKey: cleanVal })
-      this.setStatus('Chave Gemini salva com sucesso!', 'success')
-      this.keyContextMenu.hidden = true
+      if (!cleanVal) {
+        this.setStatus('Insira o valor da chave antes de adicionar.', 'warning')
+        return
+      }
+
+      const res = keyManager.addKey(cleanVal)
+      if (res.ok) {
+        const rawKeys = keyManager.exportRawKeys()
+        this.callbacks.onSettingsChange({ apiKey: rawKeys[0], apiKeys: rawKeys })
+        this.apiKeyInput.value = ''
+        this.setStatus(`✓ Nova chave adicionada com sucesso! (${rawKeys.length} chaves ativas no pool)`, 'success')
+        this.renderKeysList()
+        this.keyContextMenu.hidden = true
+
+        // Valida em segundo plano
+        testApiKey(cleanVal).then((testRes) => {
+          if (testRes.ok) {
+            keyManager.markSuccess(cleanVal, 100)
+            this.setStatus('✓ Nova chave validada com sucesso no Google AI Studio!', 'success')
+          } else {
+            keyManager.markInvalid(cleanVal, testRes.message)
+            this.setStatus(`⚠️ Chave cadastrada, mas aviso retornado: ${testRes.message}`, 'warning')
+          }
+          this.renderKeysList()
+        }).catch(() => {})
+      } else {
+        this.setStatus(res.message, 'warning')
+      }
     })
 
     // Toggle do Menu de 3 Pontinhos (⋮)
@@ -998,13 +1051,18 @@ export class EasyQuizPanel {
     // 1. Inserir via Janela Nativa (Bypass total contra scripts de bloqueio)
     this.shadow.querySelector('#eq-menu-prompt')?.addEventListener('click', () => {
       this.keyContextMenu.hidden = true
-      const current = this.apiKeyInput.value.trim()
-      const entered = window.prompt('Cole sua Chave API do Google Gemini (AI Studio):', current)
-      if (entered !== null) {
+      const entered = window.prompt('Adicionar Nova Chave API do Google Gemini (AI Studio):')
+      if (entered !== null && entered.trim()) {
         const clean = entered.trim().replace(/^["']|["']$/g, '')
-        this.apiKeyInput.value = clean
-        this.callbacks.onSettingsChange({ apiKey: clean })
-        this.setStatus('Chave Gemini inserida e salva com sucesso!', 'success')
+        const res = keyManager.addKey(clean)
+        if (res.ok) {
+          const rawKeys = keyManager.exportRawKeys()
+          this.callbacks.onSettingsChange({ apiKey: rawKeys[0], apiKeys: rawKeys })
+          this.setStatus('Chave Gemini adicionada com sucesso!', 'success')
+          this.renderKeysList()
+        } else {
+          this.setStatus(res.message, 'warning')
+        }
       }
     })
 
@@ -1016,17 +1074,19 @@ export class EasyQuizPanel {
         if (text) {
           const clean = text.trim().replace(/^["']|["']$/g, '')
           this.apiKeyInput.value = clean
-          this.callbacks.onSettingsChange({ apiKey: clean })
-          this.setStatus('Chave colada e salva com sucesso!', 'success')
+          this.setStatus('Chave colada no campo. Clique no botão "+" para adicionar ao pool.', 'info')
         }
       } catch {
-        const current = this.apiKeyInput.value.trim()
-        const entered = window.prompt('Cole sua Chave API do Google Gemini (AI Studio):', current)
-        if (entered !== null) {
+        const entered = window.prompt('Adicionar Nova Chave API do Google Gemini:')
+        if (entered !== null && entered.trim()) {
           const clean = entered.trim().replace(/^["']|["']$/g, '')
-          this.apiKeyInput.value = clean
-          this.callbacks.onSettingsChange({ apiKey: clean })
-          this.setStatus('Chave Gemini inserida e salva com sucesso!', 'success')
+          const res = keyManager.addKey(clean)
+          if (res.ok) {
+            const rawKeys = keyManager.exportRawKeys()
+            this.callbacks.onSettingsChange({ apiKey: rawKeys[0], apiKeys: rawKeys })
+            this.setStatus('Chave Gemini adicionada com sucesso!', 'success')
+            this.renderKeysList()
+          }
         }
       }
     })
@@ -1039,34 +1099,36 @@ export class EasyQuizPanel {
       const iconEl = this.shadow.querySelector('#eq-menu-vis-icon') as HTMLElement
       const textEl = this.shadow.querySelector('#eq-menu-vis-text') as HTMLElement
       if (iconEl) iconEl.innerHTML = isPass ? ICONS.eyeOff : ICONS.eye
-      if (textEl) textEl.textContent = isPass ? 'Ocultar Chave' : 'Mostrar Chave'
+      if (textEl) textEl.textContent = isPass ? 'Ocultar Campo' : 'Mostrar Campo'
     })
 
     // 4. Limpar Campo
     this.shadow.querySelector('#eq-menu-clear')?.addEventListener('click', () => {
       this.keyContextMenu.hidden = true
       this.apiKeyInput.value = ''
-      this.callbacks.onSettingsChange({ apiKey: '' })
-      this.setStatus('Campo limpo. Cole a nova chave e clique em Salvar.', 'info')
+      this.setStatus('Campo de inserção limpo.', 'info')
       this.apiKeyInput.focus()
     })
 
-    // 5. Testar Conexão Google
+    // 5. Testar Conexão Google de Todas as Chaves
     this.shadow.querySelector('#eq-menu-test')?.addEventListener('click', async () => {
       this.keyContextMenu.hidden = true
-      const key = this.apiKeyInput.value.trim().replace(/^["']|["']$/g, '')
-      if (!key) return this.setStatus('Insira ou cole a chave de API.', 'error')
+      const keys = keyManager.getAllKeys()
+      if (keys.length === 0) return this.setStatus('Nenhuma chave cadastrada para testar.', 'error')
 
-      this.setStatus('Testando chave e descobrindo modelos autorizados...', 'info')
-      try {
-        const res = await testApiKey(key)
-        this.setStatus(res.message, res.ok ? 'success' : 'error')
-        if (res.ok && res.models && res.models.length > 0) {
-          this.updateModelSelect(res.models)
+      this.setStatus(`Testando ${keys.length} chave(s) no Google AI Studio...`, 'info')
+      let successCount = 0
+      for (const k of keys) {
+        const res = await testApiKey(k.key)
+        if (res.ok) {
+          successCount++
+          keyManager.markSuccess(k.key, 100)
+        } else {
+          keyManager.markInvalid(k.key, res.message)
         }
-      } catch (e) {
-        this.setStatus('Erro ao validar chave: ' + (e as Error).message, 'error')
       }
+      this.renderKeysList()
+      this.setStatus(`Teste concluído: ${successCount}/${keys.length} chave(s) operando com sucesso!`, successCount > 0 ? 'success' : 'error')
     })
 
     // 6. Resetar Todos os Dados
@@ -1902,8 +1964,137 @@ export class EasyQuizPanel {
     this.floatingAnswers.hide()
   }
 
-  public isFloatingAnswersOpen(): boolean {
-    return this.floatingAnswers.isOpen()
+  public renderKeysList(): void {
+    if (!this.keysListEl) return
+    const keys = keyManager.getAllKeys()
+
+    if (this.keysBadgeEl) {
+      const readyCount = keys.filter((k) => !k.isCooldown).length
+      this.keysBadgeEl.textContent = `${keys.length} chave${keys.length > 1 ? 's' : ''} (${readyCount} pronta${readyCount !== 1 ? 's' : ''})`
+      this.keysBadgeEl.className = `eq-key-badge ${readyCount > 0 ? 'ready' : 'cooldown'}`
+    }
+
+    this.keysListEl.replaceChildren()
+
+    keys.forEach((k, idx) => {
+      const row = document.createElement('div')
+      row.className = 'eq-key-item'
+
+      const info = document.createElement('div')
+      info.className = 'eq-key-info'
+
+      const label = document.createElement('span')
+      label.className = 'eq-key-label'
+      label.textContent = k.label || `Chave ${idx + 1}`
+
+      const masked = document.createElement('span')
+      masked.className = 'eq-key-masked'
+      masked.textContent = KeyManager.maskKey(k.key)
+      masked.title = 'Clique para copiar a chave'
+      masked.style.cursor = 'pointer'
+      masked.addEventListener('click', () => {
+        void navigator.clipboard?.writeText(k.key)
+        this.setStatus(`Chave ${idx + 1} copiada para a área de transferência!`, 'info')
+      })
+
+      const status = document.createElement('span')
+      if (k.isCooldown) {
+        status.className = 'eq-key-badge cooldown'
+        const secs = Math.ceil(k.remainingCooldownMs / 1000)
+        status.textContent = `⏱ Cooldown (${secs}s)`
+      } else if (k.lastError && k.errorCount && k.errorCount > 3) {
+        status.className = 'eq-key-badge invalid'
+        status.textContent = 'Erro'
+        status.title = k.lastError
+      } else if (k.lastLatencyMs) {
+        status.className = 'eq-key-badge ready'
+        status.textContent = `Pronta (${k.lastLatencyMs}ms)`
+      } else {
+        status.className = 'eq-key-badge ready'
+        status.textContent = 'Pronta'
+      }
+
+      info.appendChild(label)
+      info.appendChild(masked)
+      info.appendChild(status)
+
+      const actions = document.createElement('div')
+      actions.className = 'eq-key-actions'
+
+      // Botão Testar
+      const testBtn = document.createElement('button')
+      testBtn.className = 'eq-icon-btn'
+      testBtn.type = 'button'
+      testBtn.title = 'Testar esta chave'
+      testBtn.innerHTML = ICONS.sparkles
+      testBtn.addEventListener('click', async () => {
+        this.setStatus(`Testando chave ${k.label || idx + 1}...`, 'info')
+        const res = await testApiKey(k.key)
+        if (res.ok) {
+          keyManager.markSuccess(k.key, 120)
+          this.setStatus(`✓ ${k.label || `Chave ${idx + 1}`}: Conexão com Google Gemini aprovada!`, 'success')
+        } else {
+          keyManager.markInvalid(k.key, res.message)
+          this.setStatus(`⚠️ ${k.label || `Chave ${idx + 1}`}: ${res.message}`, 'error')
+        }
+        this.renderKeysList()
+      })
+
+      // Botão Editar
+      const editBtn = document.createElement('button')
+      editBtn.className = 'eq-icon-btn'
+      editBtn.type = 'button'
+      editBtn.title = 'Editar chave'
+      editBtn.innerHTML = ICONS.edit
+      editBtn.addEventListener('click', () => {
+        const newKey = window.prompt(`Editar ${k.label || `Chave ${idx + 1}`}:`, k.key)
+        if (newKey !== null && newKey.trim()) {
+          const res = keyManager.updateKey(k.id, newKey.trim())
+          if (res.ok) {
+            const rawKeys = keyManager.exportRawKeys()
+            this.callbacks.onSettingsChange({ apiKey: rawKeys[0], apiKeys: rawKeys })
+            this.setStatus(`Chave ${idx + 1} atualizada com sucesso!`, 'success')
+            this.renderKeysList()
+          } else {
+            this.setStatus(res.message, 'warning')
+          }
+        }
+      })
+
+      // Botão Excluir
+      const deleteBtn = document.createElement('button')
+      deleteBtn.className = 'eq-icon-btn'
+      deleteBtn.type = 'button'
+      deleteBtn.title = 'Remover chave'
+      deleteBtn.innerHTML = ICONS.trash
+      if (keys.length <= 1) {
+        deleteBtn.disabled = true
+        deleteBtn.style.opacity = '0.3'
+        deleteBtn.title = 'Você precisa manter pelo menos 1 chave cadastrada.'
+      } else {
+        deleteBtn.addEventListener('click', () => {
+          if (confirm(`Remover permanentemente a ${k.label || `Chave ${idx + 1}`}?`)) {
+            const res = keyManager.removeKey(k.id)
+            if (res.ok) {
+              const rawKeys = keyManager.exportRawKeys()
+              this.callbacks.onSettingsChange({ apiKey: rawKeys[0], apiKeys: rawKeys })
+              this.setStatus(`Chave removida com sucesso.`, 'info')
+              this.renderKeysList()
+            } else {
+              this.setStatus(res.message, 'warning')
+            }
+          }
+        })
+      }
+
+      actions.appendChild(testBtn)
+      actions.appendChild(editBtn)
+      actions.appendChild(deleteBtn)
+
+      row.appendChild(info)
+      row.appendChild(actions)
+      this.keysListEl.appendChild(row)
+    })
   }
 
   public updateModelSelect(models: ModelOption[], selectedId?: string): void {

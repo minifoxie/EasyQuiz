@@ -508,6 +508,95 @@ export const PANEL_STYLES = `
     margin: 4px 0;
   }
 
+  /* ===== GERENCIADOR MULTI-API KEYS ===== */
+  .eq-keys-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .eq-key-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--eq-surface);
+    border: 1px solid var(--eq-border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    gap: 8px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .eq-key-item:hover {
+    border-color: rgba(0, 255, 204, 0.4);
+  }
+
+  .eq-key-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .eq-key-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--eq-text-bright);
+    white-space: nowrap;
+  }
+
+  .eq-key-masked {
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--eq-muted);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .eq-key-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+
+  .eq-key-badge.ready {
+    background: rgba(0, 255, 136, 0.12);
+    color: #00ff88;
+    border: 1px solid rgba(0, 255, 136, 0.3);
+  }
+
+  .eq-key-badge.cooldown {
+    background: rgba(255, 204, 0, 0.15);
+    color: #ffcc00;
+    border: 1px solid rgba(255, 204, 0, 0.4);
+  }
+
+  .eq-key-badge.invalid {
+    background: rgba(255, 68, 68, 0.12);
+    color: #ff4444;
+    border: 1px solid rgba(255, 68, 68, 0.3);
+  }
+
+  .eq-key-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .eq-key-actions .eq-icon-btn {
+    width: 26px;
+    height: 26px;
+    padding: 4px;
+  }
+
   /* Selects & Inputs */
   .eq-select {
     width: 100%;

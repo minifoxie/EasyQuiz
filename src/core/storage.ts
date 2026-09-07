@@ -18,8 +18,22 @@ export function loadSettings(): EasyQuizSettings {
     }
     const parsed = JSON.parse(raw) as Partial<EasyQuizSettings>
     let model = typeof parsed.model === 'string' && isValidQuizModel(parsed.model) ? parsed.model : DEFAULT_SETTINGS.model
+
+    // Sincronização retrocompatível de Multi API Keys
+    let apiKeys: string[] = Array.isArray(parsed.apiKeys)
+      ? parsed.apiKeys.map((k) => (typeof k === 'string' ? k.trim().replace(/^["']|["']$/g, '') : '')).filter((k) => k.length > 5)
+      : []
+    const singleKey = typeof parsed.apiKey === 'string' ? parsed.apiKey.trim().replace(/^["']|["']$/g, '') : ''
+
+    if (apiKeys.length === 0 && singleKey) {
+      apiKeys = [singleKey]
+    }
+
+    const primaryKey = apiKeys[0] || singleKey || DEFAULT_SETTINGS.apiKey
+
     return {
-      apiKey: typeof parsed.apiKey === 'string' ? parsed.apiKey.trim() : DEFAULT_SETTINGS.apiKey,
+      apiKey: primaryKey,
+      apiKeys,
       model,
       uiMode: (parsed.uiMode === 'easy' || parsed.uiMode === 'advanced') ? parsed.uiMode : DEFAULT_SETTINGS.uiMode,
       modeHint: (parsed.modeHint ?? '') as ResponseMode | '',
@@ -96,7 +110,26 @@ export function saveDomainCache(hostname: string, data: Partial<DomainCache>): v
 
 export function saveSettings(settings: Partial<EasyQuizSettings>): EasyQuizSettings {
   const current = loadSettings()
-  const updated: EasyQuizSettings = { ...current, ...settings }
+  let apiKeys = Array.isArray(settings.apiKeys)
+    ? settings.apiKeys.map((k) => (typeof k === 'string' ? k.trim().replace(/^["']|["']$/g, '') : '')).filter((k) => k.length > 5)
+    : current.apiKeys
+  let apiKey: string
+  if (typeof settings.apiKey === 'string') {
+    apiKey = settings.apiKey.trim().replace(/^["']|["']$/g, '')
+  } else if (Array.isArray(settings.apiKeys) && settings.apiKeys.length > 0) {
+    apiKey = apiKeys[0] || ''
+  } else {
+    apiKey = current.apiKey
+  }
+
+  if (apiKey && !apiKeys.includes(apiKey)) {
+    apiKeys = [apiKey, ...apiKeys]
+  }
+  if (apiKeys.length > 0 && (!apiKey || !apiKeys.includes(apiKey))) {
+    apiKey = apiKeys[0]
+  }
+
+  const updated: EasyQuizSettings = { ...current, ...settings, apiKey, apiKeys }
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
   } catch (error) {
