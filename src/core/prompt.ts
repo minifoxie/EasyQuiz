@@ -1,6 +1,5 @@
 import type { CapturedContext, CapturedImage, EasyQuizSettings } from './types'
 import { getSessionMemories } from './storage'
-import { formatStrategyCatalog, type StrategyWidget } from '../dom/strategies'
 
 export const SYSTEM_PROMPT = `Você é o motor operacional inteligente do EasyQuiz. Saída EXCLUSIVA em JSON minificado, sem markdown ou conversa.
 
@@ -84,24 +83,19 @@ export function buildUserPrompt(
     context.htmlSnippet.includes('dropzone') ||
     context.controls.some((c) => c.type === 'draggable' || c.type === 'dropzone')
 
-  const widgets = new Set<StrategyWidget>(['navigation'])
-  if (context.controls.some((control) => ['text', 'number', 'textarea', 'contenteditable'].some((type) => control.type.includes(type)))) widgets.add('text')
-  if (context.controls.some((control) => ['radio', 'checkbox'].includes(control.type) || control.tag === 'button')) widgets.add('choice')
-  if (context.controls.some((control) => control.tag === 'select')) widgets.add('select')
-  if (context.controls.some((control) => /combobox|dropdown/i.test(control.type))) widgets.add('combobox')
-  if (context.controls.some((control) => ['draggable', 'dropzone'].includes(control.type)) || isComplexWidget) widgets.add('drag')
-  if (settings.engine === 'javascript') widgets.add('javascript')
 
   const hasMathOrFormulas =
     /katex|latex|math|matrix|formula|frac|\$|\^|\_/i.test(context.htmlSnippet) ||
     /calcular|calcule|resolva|matriz|equação|função|probabilidade|geometria|fórmula|coordenada|sistema/i.test(context.questionText)
 
+  // HTML: só enviar quando realmente necessario (questao curta, widget complexo, ou formula)
+  // Reduzido de 3500 para 1800 chars — economiza ~400 tokens por chamada
   const shouldIncludeHtml =
-    context.questionText.length < 250 || isComplexWidget || context.controls.length < 4 || hasMathOrFormulas
+    context.questionText.length < 150 || isComplexWidget || hasMathOrFormulas
 
   const htmlBlock = shouldIncludeHtml
-    ? `\n[HTML]:\n${context.htmlSnippet.slice(0, 3500).replace(/\s+/g, ' ')}`
-    : `\n[HTML]: Omitido.`
+    ? `\n[HTML]:\n${context.htmlSnippet.slice(0, 1800).replace(/\s+/g, ' ')}`
+    : ''
 
   const memories = getSessionMemories()
   const memoryBlock = memories.length > 0 ? `\n[MEMÓRIA]:\n${memories.join(' | ')}\n` : ''
@@ -116,8 +110,6 @@ export function buildUserPrompt(
 [MODO]: ${settings.engine} | Dica: ${settings.modeHint || 'Auto'}
 [URL]: ${context.sourceUrl}
 [PÁGINA]: ${context.pageTitle}${memoryBlock}${platformBlock}
-[ESTRATÉGIAS]:
-${formatStrategyCatalog([...widgets])}
 [DADOS]
 [TEXTO]:
 ${context.questionText}${htmlBlock}

@@ -87,12 +87,12 @@ export function buildGenerationConfig(model: string): Record<string, unknown> {
     response_schema: GEMINI_JSON_SCHEMA,
   }
 
-  // Gemini 3.5/3.6-flash: suportam thinkingLevel 'none' → máxima velocidade
-  if (/gemini-3\.[56]-flash/i.test(model)) {
+  // Gemini 3.5/3.6/3.7-flash: thinkingLevel 'none' → máxima velocidade
+  if (/gemini-3\.[567]-flash/i.test(model)) {
     config.thinkingConfig = { thinkingLevel: 'none' }
   }
-  // Gemini 3.7/3.8-flash: mínimo suportado é 'low'
-  else if (/gemini-3\.[789]|gemini-3\.[1-9][0-9]/i.test(model)) {
+  // Gemini 3.8-flash: 'low' mínimo — necessário pelo modelo
+  else if (/gemini-3\.[89]|gemini-3\.[1-9][0-9]/i.test(model)) {
     config.thinkingConfig = { thinkingLevel: 'low' }
   }
   // Gemini 2.5 Flash: thinkingBudget: 0 desativa o thinking — latência sub-segundo
