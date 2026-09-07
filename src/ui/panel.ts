@@ -1,6 +1,6 @@
 import type { AnalysisPlan, CapturedContext, EasyQuizSettings, ResponseMode, ExecutionEngine, ModelOption, ActivityMetrics, QuestionTimingRecord } from '../core/types'
 import type { ExecutionResult } from '../dom/executor'
-import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey, isValidQuizModel, keyManager, KeyManager, resetSessionBlacklist } from '../core/gemini'
+import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey, validateModelFast, isValidQuizModel, keyManager, KeyManager, resetSessionBlacklist } from '../core/gemini'
 import { clearSessionMemories, getSessionMemories, resetAllData, loadActivityMetrics, resetActivityMetrics } from '../core/storage'
 import { Autopilot } from '../dom/autopilot'
 import { FloatingAnswersHud } from './floatingHud'
@@ -625,6 +625,12 @@ export class EasyQuizPanel {
                         <span class="eq-item-text">Limpar Campo</span>
                       </button>
                       <div class="eq-context-divider"></div>
+                      <button class="eq-context-item" id="eq-menu-bulk" type="button">
+                        <span class="eq-item-icon">${ICONS.listPlus}</span>
+                        <span class="eq-item-text">Importar Chaves em Lote</span>
+                        <span class="eq-item-badge">Novo</span>
+                      </button>
+                      <div class="eq-context-divider"></div>
                       <button class="eq-context-item" id="eq-menu-test" type="button">
                         <span class="eq-item-icon">${ICONS.sparkles}</span>
                         <span class="eq-item-text">Testar Todas as Chaves</span>
@@ -1022,30 +1028,49 @@ export class EasyQuizPanel {
     const applyCollapseState = (collapsed: boolean) => {
       if (!keysCollapsible) return
       if (collapsed) {
-        keysCollapsible.style.maxHeight = '0px'
+        // Colapsar: define maxHeight para a altura atual, depois anima para 0
+        keysCollapsible.style.maxHeight = keysCollapsible.scrollHeight + 'px'
+        requestAnimationFrame(() => {
+          keysCollapsible.style.maxHeight = '0px'
+          keysCollapsible.style.overflow = 'hidden'
+        })
         if (keysChevron) keysChevron.style.transform = 'rotate(0deg)'
       } else {
-        keysCollapsible.style.maxHeight = keysCollapsible.scrollHeight + 50 + 'px'
+        // Expandir: 'none' = sem limite de altura (nunca trunca independente do nº de chaves)
+        keysCollapsible.style.overflow = 'hidden'
+        keysCollapsible.style.maxHeight = keysCollapsible.scrollHeight + 200 + 'px'
         if (keysChevron) keysChevron.style.transform = 'rotate(90deg)'
+        // Após a transição, remove o limite para não cortar conteúdo dinâmico
+        setTimeout(() => {
+          if (keysCollapsible.style.maxHeight !== '0px') {
+            keysCollapsible.style.maxHeight = 'none'
+            keysCollapsible.style.overflow = 'visible'
+          }
+        }, 300)
       }
     }
 
     // Restaurar estado salvo (com guard para Node.js / ambientes sem localStorage)
     let savedCollapsed = false
     try { savedCollapsed = localStorage.getItem('easyquiz_keys_collapsed') === 'true' } catch {}
-    // Inicializar sem transição para evitar flash
-    if (keysCollapsible) keysCollapsible.style.transition = 'none'
-    applyCollapseState(savedCollapsed)
-    try {
+
+    // Inicializar sem transição
+    if (keysCollapsible) {
+      keysCollapsible.style.transition = 'none'
+      keysCollapsible.style.overflow = savedCollapsed ? 'hidden' : 'visible'
+      keysCollapsible.style.maxHeight = savedCollapsed ? '0px' : 'none'
+      if (keysChevron) keysChevron.style.transform = savedCollapsed ? 'rotate(0deg)' : 'rotate(90deg)'
       requestAnimationFrame(() => {
         if (keysCollapsible) keysCollapsible.style.transition = 'max-height 0.25s ease'
       })
-    } catch {}
+    }
 
     keysSectionHeader?.addEventListener('click', () => {
       const isNowCollapsed = keysCollapsible?.style.maxHeight === '0px'
-      applyCollapseState(isNowCollapsed)
-      try { localStorage.setItem('easyquiz_keys_collapsed', isNowCollapsed ? 'false' : 'true') } catch {}
+      // Se 'none', está expandido — então colapsar. Se '0px', está colapsado — então expandir.
+      const shouldCollapse = keysCollapsible?.style.maxHeight !== '0px'
+      applyCollapseState(shouldCollapse)
+      try { localStorage.setItem('easyquiz_keys_collapsed', shouldCollapse ? 'true' : 'false') } catch {}
     })
 
     // Botão Adicionar Nova Chave
@@ -1159,25 +1184,112 @@ export class EasyQuizPanel {
       this.apiKeyInput.focus()
     })
 
-    // 5. Testar Conexão Google de Todas as Chaves
+    // 5. Importar Chaves em Lote
+    this.shadow.querySelector('#eq-menu-bulk')?.addEventListener('click', () => {
+      this.keyContextMenu.hidden = true
+      // Abre um dialog nativo no contexto do shadow DOM
+      const existing = this.shadow.querySelector('#eq-bulk-dialog') as HTMLDialogElement | null
+      if (existing) { existing.showModal(); return }
+
+      const dlg = document.createElement('dialog') as HTMLDialogElement
+      dlg.id = 'eq-bulk-dialog'
+      dlg.style.cssText = `
+        background: #111; color: #eee; border: 1px solid #333; border-radius: 12px;
+        padding: 20px; width: 380px; max-width: 95vw; font-family: monospace; font-size: 13px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+      `
+      dlg.innerHTML = `
+        <h3 style="margin:0 0 12px;font-size:14px;color:#00e5ff;">Importar Chaves em Lote</h3>
+        <p style="margin:0 0 10px;font-size:11px;color:#aaa;">Cole as chaves abaixo, uma por linha. Serão validadas e adicionadas automaticamente.</p>
+        <textarea id="eq-bulk-ta" style="width:100%;height:140px;background:#1a1a1a;color:#eee;border:1px solid #333;border-radius:6px;padding:8px;font-family:monospace;font-size:12px;box-sizing:border-box;resize:vertical;" placeholder="AIzaSy...\nAIzaSy...\nAIzaSy..."></textarea>
+        <div id="eq-bulk-status" style="min-height:20px;font-size:11px;color:#aaa;margin:8px 0;"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
+          <button id="eq-bulk-cancel" style="background:#222;color:#aaa;border:1px solid #333;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;">Cancelar</button>
+          <button id="eq-bulk-import" style="background:#00e5ff;color:#000;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:12px;font-weight:700;">⚡ Importar e Validar</button>
+        </div>
+      `
+      this.shadow.appendChild(dlg)
+
+      dlg.querySelector('#eq-bulk-cancel')?.addEventListener('click', () => dlg.close())
+      dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close() })
+
+      dlg.querySelector('#eq-bulk-import')?.addEventListener('click', async () => {
+        const ta = dlg.querySelector('#eq-bulk-ta') as HTMLTextAreaElement
+        const statusEl = dlg.querySelector('#eq-bulk-status') as HTMLElement
+        const lines = ta.value.split('\n').map(l => l.trim().replace(/^["']|["']$/g, '')).filter(l => l.length > 15)
+        if (lines.length === 0) { statusEl.textContent = 'Nenhuma chave válida encontrada.'; return }
+
+        statusEl.style.color = '#00e5ff'
+        statusEl.textContent = `Processando ${lines.length} linha(s)...`
+        const importBtn = dlg.querySelector('#eq-bulk-import') as HTMLButtonElement
+        importBtn.disabled = true
+
+        let added = 0, duplicates = 0
+        for (const line of lines) {
+          const res = keyManager.addKey(line)
+          if (res.ok) added++
+          else if (res.message.includes('já está cadastrada')) duplicates++
+        }
+
+        if (added > 0) {
+          const rawKeys = keyManager.exportRawKeys()
+          this.callbacks.onSettingsChange({ apiKey: rawKeys[0], apiKeys: rawKeys })
+        }
+
+        // Valida todas as novas chaves em paralelo
+        statusEl.textContent = `${added} chave(s) adicionada(s). Validando em paralelo...`
+        const allKeys = keyManager.exportRawKeys()
+        const currentModel = (this.modelSelect as HTMLSelectElement)?.value || 'gemini-3.8-flash'
+        const result = await validateModelFast(currentModel, allKeys)
+        if (result.ok) {
+          keyManager.markSuccess(result.key, 200)
+          statusEl.style.color = '#00ff88'
+          statusEl.textContent = `✓ ${added} adicionada(s), ${duplicates} duplicada(s). Modelo '${result.model}' validado!`
+        } else {
+          statusEl.style.color = '#ffaa00'
+          statusEl.textContent = `${added} adicionada(s), ${duplicates} duplicada(s). Aviso: ${result.message}`
+        }
+
+        this.renderKeysList()
+        importBtn.disabled = false
+        if (added > 0) {
+          this.setStatus(`✓ Lote importado: ${added} chave(s) adicionada(s) ao pool!`, 'success')
+        }
+      })
+
+      dlg.showModal()
+    })
+
+    // 6. Testar Todas as Chaves — paralelo com validateModelFast
     this.shadow.querySelector('#eq-menu-test')?.addEventListener('click', async () => {
       this.keyContextMenu.hidden = true
       const keys = keyManager.getAllKeys()
       if (keys.length === 0) return this.setStatus('Nenhuma chave cadastrada para testar.', 'error')
 
-      this.setStatus(`Testando ${keys.length} chave(s) no Google AI Studio...`, 'info')
-      let successCount = 0
-      for (const k of keys) {
-        const res = await testApiKey(k.key)
-        if (res.ok) {
-          successCount++
-          keyManager.markSuccess(k.key, 100)
-        } else {
-          keyManager.markInvalid(k.key, res.message)
-        }
+      this.setStatus(`⚡ Testando ${keys.length} chave(s) em paralelo...`, 'info')
+      const currentModel = (this.modelSelect as HTMLSelectElement)?.value || 'gemini-3.8-flash'
+      const allRaw = keys.map(k => k.key)
+
+      // Valida modelo com todas as chaves em paralelo (até 6 simultâneas)
+      const result = await validateModelFast(currentModel, allRaw)
+      if (result.ok) {
+        keyManager.markSuccess(result.key, 150)
+        this.setStatus(`✓ Validado! Modelo '${result.model}' respondeu com sucesso!`, 'success')
+      } else {
+        // Valida individualmente para marcar quais falharam
+        const results = await Promise.allSettled(allRaw.map(k => testApiKey(k)))
+        let okCount = 0
+        results.forEach((r, i) => {
+          if (r.status === 'fulfilled' && r.value.ok) {
+            okCount++; keyManager.markSuccess(allRaw[i], 200)
+          } else {
+            const msg = r.status === 'fulfilled' ? r.value.message : String((r as any).reason)
+            keyManager.markInvalid(allRaw[i], msg)
+          }
+        })
+        this.setStatus(`Teste: ${okCount}/${keys.length} chave(s) válidas. ${result.message}`, okCount > 0 ? 'info' : 'error')
       }
       this.renderKeysList()
-      this.setStatus(`Teste concluído: ${successCount}/${keys.length} chave(s) operando com sucesso!`, successCount > 0 ? 'success' : 'error')
     })
 
     // 6. Resetar Todos os Dados

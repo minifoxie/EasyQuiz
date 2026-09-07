@@ -2041,12 +2041,14 @@ export async function executePlan(
       actionErrors.set(action, err instanceof Error ? err.message : String(err))
       console.warn('[EasyQuiz] Ação declarativa primária falhou com segurança:', action, err)
     }
-    // Pausa inteligente entre ações para dar tempo ao framework SPA (React/Vue/Angular) processar o estado
-    await new Promise((resolve) => setTimeout(resolve, action.t === 'drag' ? 250 : 70))
+    // Pausa inteligente entre ações — dá tempo ao framework SPA (React/Vue/Angular)
+    // processar o estado antes da próxima ação. 100ms é o mínimo seguro para re-renders síncronos.
+    await new Promise((resolve) => setTimeout(resolve, action.t === 'drag' ? 300 : 100))
   }
 
-  // 2. SEGUNDA PASSAGEM: Verificação e Auto-Cura Multi-Caminho (Self-Healing Contingency Retries)
-  await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 300 : 50))
+  // Aguarda o framework processar todas as ações antes da verificação
+  // 450ms: suficiente para React setState + re-render + commit no DOM
+  await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 450 : 80))
   let verifiedCount = 0
 
   for (const action of regularActions) {
@@ -2067,7 +2069,7 @@ export async function executePlan(
       console.warn('[EasyQuiz Auto-Cura] Rota alternativa falhou:', err)
     }
 
-    await new Promise((r) => setTimeout(r, 180))
+    await new Promise((r) => setTimeout(r, 250))
     if (verifyActionApplied(action)) {
       console.log(`[EasyQuiz Auto-Cura] ✓ Ação recuperada com sucesso pela rota de contingência!`)
       verifiedCount++
@@ -2079,7 +2081,7 @@ export async function executePlan(
     console.warn(
       `[EasyQuiz Auto-Cura] ${regularActions.length - verifiedCount} de ${regularActions.length} ação(ões) ainda não verificadas. Disparando Passagem 3 final...`,
     )
-    await new Promise((r) => setTimeout(r, 200))
+    await new Promise((r) => setTimeout(r, 300))
     for (const action of regularActions) {
       if (!verifyActionApplied(action)) {
         try {
@@ -2089,7 +2091,7 @@ export async function executePlan(
         }
       }
     }
-    await new Promise((r) => setTimeout(r, 200))
+    await new Promise((r) => setTimeout(r, 300))
 
     // Recalcula contagem real verificada após passagem 3
     verifiedCount = 0
@@ -2148,8 +2150,9 @@ export async function executePlan(
   const partialSuccess = appliedCount > 0 && appliedCount >= regularActions.length / 2
 
   if (allowAdvance && (success || !isQuestion || partialSuccess)) {
-    // Aguarda o framework hospedeiro registrar o input/seleção
-    await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 400 : 150))
+  // Aguarda o framework registrar o input/seleção antes de tentar avançar
+  // 600ms com ações: SPAs precisam de tempo extra para processar o submit
+  await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 600 : 200))
 
     let checkWasClicked = false
     // 1. Em questões com etapa intermediária de checagem ("Verificar", "Check", "Conferir", "Responder")

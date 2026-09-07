@@ -353,6 +353,81 @@ export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message
   return { ok: false, message: 'Chave de API inválida, sem cota ou sem permissão para modelos Gemini.' }
 }
 
+/**
+ * Valida se um modelo específico responde, usando a estratégia mais rápida disponível:
+ *
+ * - N chaves (≥2): Dispara até 6 em paralelo com Promise.any → primeiro que responder vence.
+ *   Resultado em ~1s independente do número de chaves.
+ *
+ * - 1 chave: Proba modelos em sequência rápida (modelo escolhido → TURBO_MODELS) com timeout
+ *   de 4s por modelo. Para no primeiro que funcionar.
+ *
+ * Retorna { ok, model, key, message } — model e key identificam quem validou.
+ */
+export async function validateModelFast(
+  preferredModel: string,
+  keys: string[],
+): Promise<{ ok: boolean; model: string; key: string; message: string }> {
+  const cleanKeys = keys.map((k) => k.trim().replace(/^["']|["']$/g, '')).filter((k) => k.length > 5)
+  if (cleanKeys.length === 0) {
+    return { ok: false, model: preferredModel, key: '', message: 'Nenhuma chave disponível.' }
+  }
+
+  const targetModel = migrateDeprecated(normalizeModel(preferredModel))
+  const pingBody = JSON.stringify({
+    contents: [{ role: 'user', parts: [{ text: 'PING' }] }],
+    generationConfig: { maxOutputTokens: 5 },
+  })
+  const headers = { 'Content-Type': 'application/json' }
+
+  /** Testa um par chave+modelo, retorna { ok, model, key } ou lança */
+  async function probe(key: string, model: string, timeoutMs: number): Promise<{ ok: boolean; model: string; key: string; message: string }> {
+    const ctrl = new AbortController()
+    const tid = setTimeout(() => ctrl.abort(), timeoutMs)
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`
+      const res = await fetch(endpoint, { method: 'POST', headers: { ...headers, 'x-goog-api-key': key }, body: pingBody, signal: ctrl.signal })
+      clearTimeout(tid)
+      if (res.ok) return { ok: true, model, key, message: `Modelo '${model}' validado com sucesso!` }
+      const errText = await res.text().catch(() => '')
+      throw new Error(`HTTP ${res.status}: ${errText.slice(0, 80)}`)
+    } catch (e) {
+      clearTimeout(tid)
+      throw e
+    }
+  }
+
+  // ===== COM MÚLTIPLAS CHAVES: até 6 em paralelo com o modelo preferido =====
+  if (cleanKeys.length >= 2) {
+    const slots = cleanKeys.slice(0, 6)
+    try {
+      const winner = await Promise.any(slots.map((k) => probe(k, targetModel, 8000)))
+      return winner
+    } catch {
+      // Todas falharam com o modelo preferido — tenta fallbacks
+    }
+  }
+
+  // ===== COM 1 CHAVE (ou fallback de múltiplas): sequência inteligente de modelos =====
+  const key = cleanKeys[0]
+  const modelsToTry = [targetModel, ...TURBO_MODELS.filter((m) => m !== targetModel)]
+
+  for (const model of modelsToTry) {
+    try {
+      const result = await probe(key, model, 4000)
+      if (model !== targetModel) {
+        result.message = `Modelo preferido indisponível. Validado via fallback '${model}'.`
+      }
+      return result
+    } catch {
+      // Continua para o próximo modelo
+    }
+  }
+
+  return { ok: false, model: targetModel, key, message: 'Nenhum modelo Gemini respondeu. Verifique sua chave e cota.' }
+}
+
+
 async function callSingleModel(
   model: string,
   key: string,
