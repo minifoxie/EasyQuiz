@@ -55,10 +55,11 @@ export const AVAILABLE_MODELS: ModelOption[] = [
 ]
 
 // Modelos top em ordem de prioridade para o Turbo Blitz Race
+// gemini-2.5-flash removido: HTTP 404 para novos usuários (Set/2026)
 const TURBO_MODELS = [
   'gemini-3.8-flash',
+  'gemini-3.6-flash',
   'gemini-3.5-flash',
-  'gemini-2.5-flash',
 ]
 
 export let preferredFastModel: string | null = null
@@ -305,8 +306,8 @@ export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message
     return { ok: false, message: msg }
   }
 
-  // 2. Teste direto nos modelos mais rápidos
-  const testCandidates = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-2.5-flash']
+  // 2. Teste direto nos modelos mais rápidos (2.5-flash removido: 404 para novos usuários)
+  const testCandidates = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash']
   for (const modelId of testCandidates) {
     for (const apiVer of ['v1beta', 'v1']) {
       const endpoint = `https://generativelanguage.googleapis.com/${apiVer}/models/${modelId}:generateContent?key=${encodeURIComponent(key)}`
@@ -439,12 +440,13 @@ async function callSingleModel(
       if (signal.aborted) throw err
       lastErr = err as Error
       const errMsg = lastErr.message || ''
-      if (errMsg.includes('404') || errMsg.includes('503') || errMsg.includes('No capacity') || errMsg.includes('overloaded')) {
+      // 503 overloaded: modelo sobrecarregado mas pode funcionar na versão de API alternativa — NÃO fazer break
+      // 404: modelo não existe para este usuário — blacklist e break imediatamente
+      if (errMsg.includes('404') || /no longer available/i.test(errMsg)) {
         blacklistedModels.add(model)
+        break  // sem sentido tentar v1 se o modelo não existe
       }
-      if (!errMsg.includes('404')) {
-        break
-      }
+      // Para outros erros (429, 503, timeout), tentar próxima versão de API
     }
   }
 
@@ -551,7 +553,7 @@ export async function analyzeWithGemini(
 
   // Garantir pelo menos 1 slot
   if (blitzSlots.length === 0) {
-    blitzSlots.push({ model: uniqueModels[0] || 'gemini-2.5-flash', key: activeKey, label: 'Chave 1' })
+    blitzSlots.push({ model: uniqueModels[0] || 'gemini-3.6-flash', key: activeKey, label: 'Chave 1' })
   }
 
   const totalSlots = blitzSlots.length
@@ -635,7 +637,7 @@ export async function analyzeWithGemini(
     // Fix 5: Fallback síncrono imediato com melhor chave + modelo legacy estável
     // Evita esperar o autopilot aguardar 5s para tentar novamente do zero
     const fallbackKey = keyManager.getBestKey()
-    const fallbackModel = 'gemini-2.5-flash'  // legacy mais estável e amplamente disponível
+    const fallbackModel = 'gemini-3.6-flash'  // modelo estável 2026, mais amplamente disponível
     if (fallbackKey && !signal?.aborted) {
       try {
         onProgress?.(`Fallback: tentando ${fallbackModel} com melhor chave disponível...`, 'info')

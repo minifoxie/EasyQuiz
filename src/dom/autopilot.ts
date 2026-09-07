@@ -105,10 +105,11 @@ export class Autopilot {
       this.observer = new MutationObserver(() => {
         if (!this.active || this.isProcessing) return
         if (this.mutationTimer) clearTimeout(this.mutationTimer)
+        // 400ms de debounce — evita re-trigger durante execução de ações DOM
         this.mutationTimer = window.setTimeout(() => {
           this.mutationTimer = null
-          void this.loop()
-        }, 180)
+          if (!this.isProcessing) void this.loop()
+        }, 400)
       })
       this.observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true })
     }
@@ -258,12 +259,17 @@ export class Autopilot {
               this.stop()
               return
             }
+
+            // Fix re-análise: após análise bem-sucedida, bloquear re-análise imediata da mesma página.
+            // O próximo loop só analisa novamente se o conteúdo DOM mudar (nova sig).
+            this.lastPageSig = currentSig + '_resolved'
+            this.samePageCount = 0
           } else {
             this.errorCount++
             const cooldown = this.errorCount === 1 ? 5000 : 8000
             this.callbacks.onStatusChange(
               'waiting',
-              `> [AVISO] Falha na análise (${this.errorCount}/3). Aguardando ${cooldown / 1000}s para estabilização antes de tentar novamente...`,
+              `> [AVISO] Falha na análise (${this.errorCount}/3). Aguardando ${cooldown / 1000}s...`,
               'text-yellow',
             )
             await this.sleep(cooldown)
@@ -318,12 +324,16 @@ export class Autopilot {
               return
             }
             this.errorCount = 0
+
+            // Fix re-análise: marcar página como resolvida para evitar loop em página info/start
+            this.lastPageSig = currentSig + '_resolved'
+            this.samePageCount = 0
           } else {
             this.errorCount++
             const cooldown = this.errorCount === 1 ? 5000 : 8000
             this.callbacks.onStatusChange(
               'waiting',
-              `> [AVISO] Falha ao processar página (${this.errorCount}/3). Aguardando ${cooldown / 1000}s para estabilização antes de tentar novamente...`,
+              `> [AVISO] Falha ao processar página (${this.errorCount}/3). Aguardando ${cooldown / 1000}s...`,
               'text-yellow',
             )
             await this.sleep(cooldown)
