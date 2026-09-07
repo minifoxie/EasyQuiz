@@ -24,7 +24,11 @@ RACIOCÍNIO E CÁLCULO DIRETO (rationale):
   - Pode e DEVE haver 2, 3 ou mais ações chk corretas na mesma questão.
   - Deixar de marcar uma opção correta é tão errado quanto marcar uma incorreta.
   - NÃO limite-se a 1 resposta só porque parece mais segura — marque TODAS as corretas identificadas.
-- Para escolha única (rádio, [ESCOLHA-Única]): marque com clk ou chk APENAS a alternativa mais correta (somente 1).
+  - NUNCA emita ações com c: false para opções erradas; emita estritamente as ações das opções que DEVEM ser marcadas.
+- Para escolha única (rádio, [ESCOLHA-Única]):
+  - Emita EXATAMENTE 1 ação de resposta para a alternativa correta (somente 1).
+  - NUNCA emita mais de 1 ação de marcação/clique na mesma questão de escolha única.
+  - NUNCA emita ações com c: false para tentar desmarcar outras alternativas.
 - Para imagens e gráficos (anexados em [IMAGENS E GRÁFICOS ANEXADOS]):
   - Analise detalhadamente curvas, eixos cartesianos, vértices, coordenadas numéricas e geometria.
   - Cada anexo visual traz explicitamente seu vínculo (Enunciado ou Alternativa correspondente).

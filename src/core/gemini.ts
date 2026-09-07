@@ -57,6 +57,7 @@ export const AVAILABLE_MODELS: ModelOption[] = [
 // Modelos top em ordem de prioridade para o Turbo Blitz Race
 // gemini-2.5-flash removido: HTTP 404 para novos usuários (Set/2026)
 const TURBO_MODELS = [
+  'gemini-3.5-flash-lite',
   'gemini-3.8-flash',
   'gemini-3.6-flash',
   'gemini-3.5-flash',
@@ -148,7 +149,7 @@ const GEMINI_JSON_SCHEMA = {
 function normalizeModel(model: string): string {
   const clean = model.trim().replace(/^google\//, '').replace(/^models\//, '')
   if (!clean || !isValidQuizModel(clean)) {
-    return 'gemini-3.8-flash'
+    return 'gemini-3.5-flash-lite'
   }
   return clean
 }

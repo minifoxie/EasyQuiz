@@ -137,6 +137,73 @@ function normalizeAction(raw: unknown, index: number): DeclarativeAction | null 
   return result
 }
 
+function sanitizeActionsForMode(
+  actions: DeclarativeAction[],
+  mode: ResponseMode,
+  pageType: AnalysisPlan['pageType'],
+): DeclarativeAction[] {
+  if (pageType !== 'question') return actions
+
+  const advanceActions = actions.filter((a) => a.t === 'adv')
+  let regularActions: DeclarativeAction[] = actions.filter((a) => a.t !== 'adv')
+
+  if (mode === 'escolha_unica') {
+    // 1. Em escolha_unica, descarta qualquer ação negativa (c: false / desmarcar).
+    // Desmarcar em rádio é desnecessário e causa o bug de desmarcar a resposta ou inverter estado.
+    regularActions = regularActions.filter((a) => {
+      if (a.t === 'chk' && a.c === false) return false
+      if (a.t === 'clk' && (a as any).c === false) return false
+      return true
+    })
+
+    // 2. Em escolha_unica, deve haver no máximo 1 ação de seleção/resposta.
+    // Se a IA prescreveu múltiplos cliques/checks em opções, mantém apenas a última opção positiva indicada.
+    const selectionActions = regularActions.filter((a) => a.t === 'chk' || a.t === 'clk')
+    if (selectionActions.length > 1) {
+      const nonSelection = regularActions.filter((a) => a.t !== 'chk' && a.t !== 'clk')
+      const chosenAction = selectionActions[selectionActions.length - 1]
+      regularActions = [...nonSelection, chosenAction]
+    }
+  } else if (mode === 'escolha_multipla') {
+    // Em escolha_multipla, remove ações negativas com c: false.
+    // A IA deve indicar apenas as opções que DEVEM ser marcadas.
+    regularActions = regularActions.filter((a) => {
+      if (a.t === 'chk' && a.c === false) return false
+      if (a.t === 'clk' && (a as any).c === false) return false
+      return true
+    })
+
+    // Remove duplicatas de ações sobre o mesmo ID
+    const seenIds = new Set<string>()
+    regularActions = regularActions.filter((a) => {
+      const id = 'id' in a && typeof (a as any).id === 'string' ? (a as any).id : ''
+      if (!id) return true
+      if (seenIds.has(id)) return false
+      seenIds.add(id)
+      return true
+    })
+  } else if (mode === 'verdadeiro_falso') {
+    // Em verdadeiro_falso, para cada linha/ID deve haver no máximo 1 ação
+    const seenIds = new Set<string>()
+    const reversed = [...regularActions].reverse()
+    const deduplicated: DeclarativeAction[] = []
+    for (const act of reversed) {
+      const id = 'id' in act && typeof (act as any).id === 'string' ? (act as any).id : ''
+      if (id) {
+        if (!seenIds.has(id)) {
+          seenIds.add(id)
+          deduplicated.push(act)
+        }
+      } else {
+        deduplicated.push(act)
+      }
+    }
+    regularActions = deduplicated.reverse()
+  }
+
+  return [...regularActions, ...advanceActions]
+}
+
 export function validateAnalysisPlan(raw: unknown): AnalysisPlan {
   if (!raw || typeof raw !== 'object') {
     return {
@@ -161,7 +228,7 @@ export function validateAnalysisPlan(raw: unknown): AnalysisPlan {
   }
 
   const rawActions = Array.isArray(source.actions) ? source.actions : []
-  const actions: DeclarativeAction[] = []
+  let actions: DeclarativeAction[] = []
 
   for (let i = 0; i < Math.min(rawActions.length, MAX_ACTIONS); i++) {
     const normalized = normalizeAction(rawActions[i], i)
@@ -170,7 +237,9 @@ export function validateAnalysisPlan(raw: unknown): AnalysisPlan {
     }
   }
 
-  const regularActions = actions.filter((action) => action.t !== 'adv')
+  // Sanitização estrutural rigorosa por modo para evitar conflitos de clique/desmarcar
+  actions = sanitizeActionsForMode(actions, mode, pageType)
+
   const hasAdvance = actions.some((action) => action.t === 'adv')
 
   if (pageType === 'conclusion') {

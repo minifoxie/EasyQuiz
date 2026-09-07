@@ -1342,7 +1342,7 @@ export class EasyQuizPanel {
 
         statusEl.textContent = `${added} adicionada(s), ${duplicates} duplicada(s). Validando modelo em paralelo...`
         const allKeys = keyManager.exportRawKeys()
-        const currentModel = (this.modelSelect as HTMLSelectElement)?.value || 'gemini-3.8-flash'
+        const currentModel = (this.modelSelect as HTMLSelectElement)?.value || 'gemini-3.5-flash-lite'
         const result = await validateModelFast(currentModel, allKeys)
 
         if (result.ok) {
@@ -1373,7 +1373,7 @@ export class EasyQuizPanel {
       if (keys.length === 0) return this.setStatus('Nenhuma chave cadastrada para testar.', 'error')
 
       this.setStatus(`⚡ Testando ${keys.length} chave(s) em paralelo...`, 'info')
-      const currentModel = (this.modelSelect as HTMLSelectElement)?.value || 'gemini-3.8-flash'
+      const currentModel = (this.modelSelect as HTMLSelectElement)?.value || 'gemini-3.5-flash-lite'
       const allRaw = keys.map(k => k.key)
 
       // Valida modelo com todas as chaves em paralelo (até 6 simultâneas)

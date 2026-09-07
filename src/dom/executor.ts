@@ -786,21 +786,27 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
     }
   } else {
     // Opção customizada sem input nativo (card div/span)
-    // Verifica o estado atual pelo aria-checked para não toggle inverso
     const currentState =
       cardParent.getAttribute('aria-checked') === 'true' ||
+      cardParent.getAttribute('aria-selected') === 'true' ||
+      cardParent.getAttribute('data-selected') === 'true' ||
       cardParent.classList.contains('selected') ||
-      cardParent.classList.contains('active')
+      cardParent.classList.contains('active') ||
+      cardParent.classList.contains('checked')
+
     if (currentState === checked) {
-      // Já no estado correto, apenas reforça os eventos
+      // Já está no estado desejado — NUNCA clicar novamente para não causar toggle inverso (desmarcar o que está marcado)!
+      cardParent.setAttribute('aria-checked', checked ? 'true' : 'false')
+      cardParent.setAttribute('aria-selected', checked ? 'true' : 'false')
+      return
+    }
+
+    // Estado divergente: clica para alternar o estado do card
+    try { cardParent.focus?.() } catch {}
+    try {
+      cardParent.click()
+    } catch {
       simulatePointerClick(cardParent)
-    } else {
-      try { cardParent.focus?.() } catch {}
-      try {
-        cardParent.click()
-      } catch {
-        simulatePointerClick(cardParent)
-      }
     }
   }
 }
@@ -1643,7 +1649,15 @@ async function executeAlternativeActionPath(action: DeclarativeAction): Promise<
       el = candidates.find((c) => {
         const txt = cleanSearchTerm(c.textContent).toLowerCase()
         const val = cleanSearchTerm((c as any).value || '').toLowerCase()
-        return txt.includes(clean) || val === clean || txt.startsWith(clean + ')') || txt.startsWith('(' + clean + ')')
+        if (val === clean) return true
+        if (txt === clean) return true
+        if (txt.startsWith(clean + ')') || txt.startsWith('(' + clean + ')') || txt.startsWith(clean + '.') || txt.startsWith(clean + ' - ') || txt.startsWith(clean + ':')) {
+          return true
+        }
+        if (clean.length >= 3 && txt.includes(clean)) {
+          return true
+        }
+        return false
       }) || null
     }
 
@@ -2037,11 +2051,10 @@ export async function executePlan(
     await new Promise((resolve) => setTimeout(resolve, action.t === 'drag' ? 300 : 100))
   }
 
-  // RECONCILIAÇÃO DE MULTI-SELEÇÃO: movida para APÓS a Passagem 1.
-  // Manter ANTES era um bug crítico: se findElementExt falhasse para qualquer ação chk,
-  // aquele checkbox não entrava no targetedSet e era DESMARCADO antes de ser marcado.
-  // Agora as ações já foram aplicadas — reconciliamos o estado final (remove seleções anteriores indevidas).
-  if (isQuestion && chkActions.length > 0) {
+  // RECONCILIAÇÃO DETERMINÍSTICA DE MULTI-SELEÇÃO:
+  // Executa estritamente quando o modo for 'escolha_multipla'.
+  // Em 'escolha_unica', rádios nativos já cuidam da alternância automática e reconciliação causaria desmarcação indevida!
+  if (isQuestion && plan.mode === 'escolha_multipla' && chkActions.length > 0) {
     let scopeRoot: HTMLElement = document.body
     try { scopeRoot = findActiveScope() || document.body } catch {}
 
@@ -2058,18 +2071,36 @@ export async function executePlan(
         if (isTrue && actId) {
           const el = findElementExt(actId, (act as any).v)
           if (el) {
-            const inner = (el instanceof HTMLInputElement && el.type === 'checkbox'
-              ? el
-              : el.querySelector('input[type="checkbox"]')) as HTMLElement | null
-            targetedCheckboxes.add(inner || el)
+            targetedCheckboxes.add(el)
+            const inner = el.querySelector('input[type="checkbox"]') as HTMLElement | null
+            if (inner) targetedCheckboxes.add(inner)
+            const parentCard = el.closest('.option-card, label, [role="checkbox"], tr, li, [class*="option" i]') as HTMLElement | null
+            if (parentCard) {
+              targetedCheckboxes.add(parentCard)
+              parentCard.querySelectorAll('input[type="checkbox"]').forEach((inp) => targetedCheckboxes.add(inp as HTMLElement))
+            }
           }
         }
       }
 
-      // Desmarca somente os que não foram alvos da IA (limpeza de estado anterior)
+      function isAssociated(a: HTMLElement, b: HTMLElement): boolean {
+        if (a === b) return true
+        if (a.contains(b) || b.contains(a)) return true
+        const cardA = a.closest('.option-card, label, [role="checkbox"], [role="option"], tr, li, [class*="option" i]')
+        const cardB = b.closest('.option-card, label, [role="checkbox"], [role="option"], tr, li, [class*="option" i]')
+        if (cardA && cardB && cardA === cardB) return true
+        const forA = a.getAttribute('for') || (a as HTMLInputElement).id
+        const forB = b.getAttribute('for') || (b as HTMLInputElement).id
+        if (forA && forB && forA === forB) return true
+        return false
+      }
+
+      // Desmarca somente os que comprovadamente NÃO têm vínculo com os alvos da IA
       if (targetedCheckboxes.size > 0) {
+        const targetList = Array.from(targetedCheckboxes)
         for (const chk of allScopeCheckboxes) {
-          if (!targetedCheckboxes.has(chk)) {
+          const isTargeted = targetList.some((t) => isAssociated(t, chk))
+          if (!isTargeted) {
             const isCurrentlyChecked =
               (chk instanceof HTMLInputElement && chk.checked) ||
               chk.getAttribute('aria-checked') === 'true' ||
