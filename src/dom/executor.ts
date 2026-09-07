@@ -739,16 +739,39 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
   }
 
   if (inputEl) {
-    // Se o estado já estiver no valor desejado, encerra sem cliques repetidos
-    if (inputEl.checked === checked) return
+    // BUG FIX: Não retornar early mesmo quando o estado já está correto.
+    // Frameworks SPA (React/Vue/Angular) controlam o estado via eventos sintéticos,
+    // não apenas via propriedade .checked. Se o evento não for disparado,
+    // o framework ignora a seleção e pode revertê-la no próximo render.
+    //
+    // Exceção: radio buttons nativos SEM framework (sem _valueTracker) já atualizam
+    // o grupo inteiro com o click nativo — double-click inverteria o estado.
+    const isReactControlled = Boolean((inputEl as any)._valueTracker)
+    const stateAlreadyCorrect = inputEl.checked === checked
 
-    // Tenta clique direto no input nativo (dispara os listeners sintéticos de React/Vue/Angular/Svelte)
+    if (stateAlreadyCorrect && inputEl.type === 'radio' && !isReactControlled) {
+      // Radio nativo já no estado correto e sem framework: não fazer nada
+      return
+    }
+
+    if (stateAlreadyCorrect && isReactControlled) {
+      // Estado já correto mas gerenciado por framework: disparar eventos sem clicar
+      // (clicar inverteria o estado no framework controlado)
+      try {
+        const tracker = (inputEl as any)._valueTracker
+        if (tracker) tracker.setValue(!checked) // engana o tracker para aceitar o evento
+      } catch {}
+      dispatchEventSequence(inputEl, ['click', 'input', 'change'])
+      return
+    }
+
+    // Estado errado: clicar para mudar
     try {
       inputEl.focus?.()
       inputEl.click()
     } catch {}
 
-    // Se após o clique o estado divergir (ex: componente controlado ou preventDefault), força via property descriptor e valueTracker
+    // Se após o clique o estado ainda divergir (componente controlado + preventDefault), força
     if (inputEl.checked !== checked) {
       try {
         const tracker = (inputEl as any)._valueTracker
@@ -763,11 +786,21 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
     }
   } else {
     // Opção customizada sem input nativo (card div/span)
-    try { cardParent.focus?.() } catch {}
-    try {
-      cardParent.click()
-    } catch {
+    // Verifica o estado atual pelo aria-checked para não toggle inverso
+    const currentState =
+      cardParent.getAttribute('aria-checked') === 'true' ||
+      cardParent.classList.contains('selected') ||
+      cardParent.classList.contains('active')
+    if (currentState === checked) {
+      // Já no estado correto, apenas reforça os eventos
       simulatePointerClick(cardParent)
+    } else {
+      try { cardParent.focus?.() } catch {}
+      try {
+        cardParent.click()
+      } catch {
+        simulatePointerClick(cardParent)
+      }
     }
   }
 }
@@ -1988,10 +2021,26 @@ export async function executePlan(
 
   const isQuestion = plan.pageType === 'question'
 
-  // RECONCILIAÇÃO DETERMINÍSTICA DE MULTI-SELEÇÃO / CHECKBOXES:
-  // Se for uma questão com opções de checkbox, garante que checkboxes no escopo que NÃO
-  // foram selecionados pela IA sejam desmarcados, evitando que seleções prévias ou padrões permaneçam marcados.
   const chkActions = regularActions.filter((a) => a.t === 'chk' || (a.t === 'clk' && (a as any).c !== undefined))
+
+  // 1. PRIMEIRA PASSAGEM: Execução declarativa principal
+  for (const action of regularActions) {
+    try {
+      await executeDeclarativeAction(action, attempt, policy)
+      appliedCount++
+    } catch (err) {
+      actionErrors.set(action, err instanceof Error ? err.message : String(err))
+      console.warn('[EasyQuiz] Ação declarativa primária falhou com segurança:', action, err)
+    }
+    // Pausa inteligente entre ações — dá tempo ao framework SPA (React/Vue/Angular)
+    // processar o estado antes da próxima ação. 100ms é o mínimo seguro para re-renders síncronos.
+    await new Promise((resolve) => setTimeout(resolve, action.t === 'drag' ? 300 : 100))
+  }
+
+  // RECONCILIAÇÃO DE MULTI-SELEÇÃO: movida para APÓS a Passagem 1.
+  // Manter ANTES era um bug crítico: se findElementExt falhasse para qualquer ação chk,
+  // aquele checkbox não entrava no targetedSet e era DESMARCADO antes de ser marcado.
+  // Agora as ações já foram aplicadas — reconciliamos o estado final (remove seleções anteriores indevidas).
   if (isQuestion && chkActions.length > 0) {
     let scopeRoot: HTMLElement = document.body
     try { scopeRoot = findActiveScope() || document.body } catch {}
@@ -2001,6 +2050,7 @@ export async function executePlan(
     ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
 
     if (allScopeCheckboxes.length > 1) {
+      // Constrói o set de checkboxes que DEVEM estar marcados (c: true)
       const targetedCheckboxes = new Set<HTMLElement>()
       for (const act of chkActions) {
         const isTrue = act.t === 'chk' ? Boolean(act.c) : Boolean((act as any).c ?? true)
@@ -2016,6 +2066,7 @@ export async function executePlan(
         }
       }
 
+      // Desmarca somente os que não foram alvos da IA (limpeza de estado anterior)
       if (targetedCheckboxes.size > 0) {
         for (const chk of allScopeCheckboxes) {
           if (!targetedCheckboxes.has(chk)) {
@@ -2030,20 +2081,6 @@ export async function executePlan(
         }
       }
     }
-  }
-
-  // 1. PRIMEIRA PASSAGEM: Execução declarativa principal
-  for (const action of regularActions) {
-    try {
-      await executeDeclarativeAction(action, attempt, policy)
-      appliedCount++
-    } catch (err) {
-      actionErrors.set(action, err instanceof Error ? err.message : String(err))
-      console.warn('[EasyQuiz] Ação declarativa primária falhou com segurança:', action, err)
-    }
-    // Pausa inteligente entre ações — dá tempo ao framework SPA (React/Vue/Angular)
-    // processar o estado antes da próxima ação. 100ms é o mínimo seguro para re-renders síncronos.
-    await new Promise((resolve) => setTimeout(resolve, action.t === 'drag' ? 300 : 100))
   }
 
   // Aguarda o framework processar todas as ações antes da verificação
