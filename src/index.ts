@@ -390,9 +390,15 @@ async function initEasyQuiz(): Promise<void> {
           panel.setStatus('Injeção restrita pela página. Gabarito exibido na tela para você avançar.', 'info')
           panel.showFloatingAnswers(latestPlan)
         } else {
-          // Injeção parcial — a maioria das ações foi aplicada, prosseguir normalmente
-          panel.setProgress(90, 'Aplicação parcial — avançando.')
-          panel.setStatus('Aplicado parcialmente. Avançando para a próxima questão.', 'success')
+          // Injeção parcial — aplicou mas não verificou tudo no DOM
+          // canAdvance controla se o executor vai tentar avançar automaticamente
+          panel.setProgress(90, canAdvance ? 'Aplicação parcial — avançando...' : 'Aplicação parcial — verifique e avance manualmente.')
+          panel.setStatus(
+            canAdvance
+              ? 'Aplicado parcialmente. Tentando avançar para a próxima questão...'
+              : 'Aplicado parcialmente. Avance para a próxima questão manualmente.',
+            'success',
+          )
         }
 
 

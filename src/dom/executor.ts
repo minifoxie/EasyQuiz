@@ -2113,7 +2113,13 @@ export async function executePlan(
   let navigationVerified = false
   let navigationEvidence = 'Nenhuma ação de navegação solicitada.'
 
-  if (allowAdvance && (success || !isQuestion)) {
+  // Decide se deve tentar avançar:
+  // - Sucesso total: todas as ações verificadas
+  // - Sucesso parcial: a maioria foi aplicada (pelo menos 1 ação regular bem-sucedida)
+  //   Não faz sentido dizer "avançando" e não avançar — o usuário espera progredir
+  const partialSuccess = appliedCount > 0 && appliedCount >= regularActions.length / 2
+
+  if (allowAdvance && (success || !isQuestion || partialSuccess)) {
     // Aguarda o framework hospedeiro registrar o input/seleção
     await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 400 : 150))
 
