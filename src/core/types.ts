@@ -115,6 +115,7 @@ export interface ManagedApiKey {
   cooldownUntil?: number
   errorCount?: number
   lastError?: string
+  winCount?: number
 }
 
 export interface EasyQuizSettings {

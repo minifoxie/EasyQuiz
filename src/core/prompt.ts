@@ -29,6 +29,24 @@ RACIOCÍNIO E CÁLCULO DIRETO (rationale):
   - Cada anexo visual traz explicitamente seu vínculo (Enunciado ou Alternativa correspondente).
   - Compare as figuras de cada alternativa contra a condição do enunciado e selecione a alternativa cujo gráfico é matematicamente idêntico ou satisfaz a questão.
 
+REDAÇÃO E DISSERTAÇÃO (texto_livre):
+- Se o campo for uma textarea grande ou o enunciado pedir "escreva", "disserte", "redija", "elabore" ou "faça uma redação":
+  - Gere texto completo com título (se pedido), introdução, desenvolvimento e conclusão.
+  - Use no mínimo 15 linhas de conteúdo relevante ao tema.
+  - Em 'v', coloque o texto completo da redação pronto para inserção.
+
+VERDADEIRO/FALSO EM GRADE (tabela/coluna):
+- Se houver uma tabela ou grid onde cada linha é uma afirmação com opções V/F ou Certo/Errado:
+  - Avalie CADA LINHA individualmente e emita uma ação chk ou clk por linha.
+  - O mode deve ser 'verdadeiro_falso'.
+
+PLATAFORMAS ESPECÍFICAS:
+- Khan Academy (Perseus): Widgets interativos podem exigir 'js' via $eq como fallback.
+- Google Forms: IDs de controle podem vir de data-item-id ou data-params. Use-os.
+- Wayground/Quizizz: Alternativas são cards/botões sem inputs. Use 'clk' para selecioná-las.
+- Duolingo: Respostas são tiles clicáveis. Use 'clk' por texto do tile.
+- Moodle/AVA: Formulários padrão com radios e checkboxes. Use chk/clk normalmente.
+
 AÇÕES (actions):
 val: preencher input/textarea (v: texto ou número exato da resposta)
 chk: marcar checkbox ou radio verdadeiro (id: ID do controle, c: true)
@@ -42,6 +60,17 @@ PLANO:
 confidence: certeza de 0 a 1.
 rationale: justificativa ultra-curta (1 a 2 frases diretas).
 `
+
+function detectPlatformHint(url: string, html: string): string {
+  if (/khanacademy\.org/i.test(url) || html.includes('perseus')) return '[PLATAFORMA: Khan Academy — widgets Perseus; use js via $eq para widgets interativos se necessário]'
+  if (/forms\.google|docs\.google.*forms/i.test(url) || html.includes('Qr7Oae')) return '[PLATAFORMA: Google Forms — IDs via data-item-id, data-params]'
+  if (/wayground|quizizz/i.test(url) || html.includes('data-functional-selector')) return '[PLATAFORMA: Wayground/Quizizz — alternativas são cards clicáveis, use clk]'
+  if (/moodle|ava\.|classroom\.google/i.test(url)) return '[PLATAFORMA: Moodle/AVA/Classroom — formulários padrão]'
+  if (/duolingo/i.test(url)) return '[PLATAFORMA: Duolingo — tiles clicáveis, use clk por texto]'
+  if (/blackboard|canvas\.instructure/i.test(url)) return '[PLATAFORMA: Canvas/Blackboard — quiz-question padrão]'
+  if (/socrative|kahoot/i.test(url)) return '[PLATAFORMA: Socrative/Kahoot — alternativas são botões, use clk]'
+  return ''
+}
 
 export function buildUserPrompt(
   context: CapturedContext,
@@ -80,10 +109,13 @@ export function buildUserPrompt(
   const answerControls = context.controls.filter((c) => c.role !== 'navigation')
   const navControls = context.controls.filter((c) => c.role === 'navigation')
 
+  const platformHint = detectPlatformHint(context.sourceUrl, context.htmlSnippet)
+  const platformBlock = platformHint ? `\n${platformHint}\n` : ''
+
   return `--- ANÁLISE ---
 [MODO]: ${settings.engine} | Dica: ${settings.modeHint || 'Auto'}
 [URL]: ${context.sourceUrl}
-[PÁGINA]: ${context.pageTitle}${memoryBlock}
+[PÁGINA]: ${context.pageTitle}${memoryBlock}${platformBlock}
 [ESTRATÉGIAS]:
 ${formatStrategyCatalog([...widgets])}
 [DADOS]

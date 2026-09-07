@@ -44,6 +44,7 @@ export class KeyManager {
         cooldownUntil: prev?.cooldownUntil,
         errorCount: prev?.errorCount || 0,
         lastError: prev?.lastError,
+        winCount: prev?.winCount || 0,
       })
     })
   }
@@ -184,6 +185,16 @@ export class KeyManager {
       target.lastError = undefined
       // Reduz ou zera cooldown se estava ativo
       target.cooldownUntil = undefined
+    }
+  }
+
+  /**
+   * Registra a chave como vencedora da corrida paralela Turbo Blitz.
+   */
+  public markWinner(key: string): void {
+    const target = this.findKeyObj(key)
+    if (target) {
+      target.winCount = (target.winCount || 0) + 1
     }
   }
 

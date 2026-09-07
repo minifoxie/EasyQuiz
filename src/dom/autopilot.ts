@@ -20,7 +20,7 @@ export function detectActivityCompletion(scope?: HTMLElement | null, text = ''):
   // 1. Elementos característicos de celebração / tela final
   const hasCelebrationEl = Boolean(
     targetScope.querySelector(
-      '.celebration-icon, [class*="celebrat" i], [class*="conclu" i], [class*="finish" i], [class*="result" i], [class*="score-screen" i], [data-testid*="completion" i]',
+      '.celebration-icon, [class*="celebrat" i], [class*="conclu" i], [class*="finish" i], [class*="result" i], [class*="score-screen" i], [data-testid*="completion" i], [data-functional-selector*="game-over" i], .perseus-message-renderer, [data-congratulations]',
     ),
   )
   if (
@@ -31,7 +31,9 @@ export function detectActivityCompletion(scope?: HTMLElement | null, text = ''):
       combinedText.includes('resultado') ||
       combinedText.includes('pontua') ||
       combinedText.includes('sucesso') ||
-      combinedText.includes('🏆'))
+      combinedText.includes('🏆') ||
+      combinedText.includes('game over') ||
+      combinedText.includes('great job'))
   ) {
     return true
   }
@@ -58,6 +60,18 @@ export function detectActivityCompletion(scope?: HTMLElement | null, text = ''):
     'activity completed',
     'all questions answered',
     'view results',
+    // Wayground/Quizizz
+    'game over',
+    'leaderboard',
+    'scoreboard',
+    // Khan Academy
+    'awesome',
+    'great job',
+    'you got it right',
+    'mission complete',
+    // Google Forms
+    'your response has been recorded',
+    'sua resposta foi registrada',
   ]
 
   return completionKeywords.some((phrase) => combinedText.includes(phrase))
@@ -142,9 +156,9 @@ export class Autopilot {
     
     const now = Date.now()
     
-    // Throttle básico
-    if (now - this.lastRunTime < 2500 || this.isProcessing) {
-      this.timer = window.setTimeout(() => this.loop(), 500)
+    // Throttle básico — reduzido para máxima velocidade de resposta
+    if (now - this.lastRunTime < 1500 || this.isProcessing) {
+      this.timer = window.setTimeout(() => this.loop(), 300)
       return
     }
 
@@ -218,7 +232,6 @@ export class Autopilot {
         if (answerControls.length > 0) {
           // TEM QUESTÃO / EXERCÍCIO NA TELA (Múltipla escolha, texto, categorização, arrastar-soltar)
           this.callbacks.onStatusChange('analyzing', '> [IA] Questão/Exercício detectado. Consultando IA...', 'text-blue')
-          await this.sleep(600)
           if (!this.active) return
 
           this.abortController = new AbortController()
@@ -274,7 +287,6 @@ export class Autopilot {
             '> [IA] Página informativa/contexto detectada. Lendo e consultando IA...',
             'text-blue',
           )
-          await this.sleep(600)
           if (!this.active) return
 
           this.abortController = new AbortController()

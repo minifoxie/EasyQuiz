@@ -236,7 +236,7 @@ async function initEasyQuiz(): Promise<void> {
 
       latestPlan = plan
       panel.updateContext(context, plan)
-      highlightTargetActions(plan.actions)
+      highlightTargetActions(plan.actions, plan.confidence)
       panel.setPlan(plan, !settings.dryRun)
 
       if (plan.pageType === 'conclusion') {

@@ -585,6 +585,45 @@ export const PANEL_STYLES = `
     border: 1px solid rgba(255, 68, 68, 0.3);
   }
 
+  @keyframes eq-key-race-pulse {
+    0% { box-shadow: 0 0 4px rgba(0, 255, 136, 0.4); }
+    100% { box-shadow: 0 0 12px rgba(0, 255, 136, 0.9); }
+  }
+
+  .eq-key-badge.racing {
+    background: rgba(0, 255, 136, 0.15);
+    border: 1px solid #00ff88;
+    animation: eq-key-race-pulse 0.5s ease-in-out infinite alternate;
+    color: #00ff88;
+  }
+
+  .eq-key-badge.winner {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.1));
+    border: 1px solid #ffd700;
+    color: #ffd700;
+    font-weight: 800;
+  }
+
+  @keyframes eq-turbo-pulse {
+    0%, 100% { opacity: 1; text-shadow: 0 0 6px rgba(0, 255, 136, 0.5); }
+    50% { opacity: 0.7; text-shadow: 0 0 12px rgba(0, 255, 136, 0.9); }
+  }
+
+  .eq-turbo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(0, 255, 136, 0.12);
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    color: #00ff88;
+    animation: eq-turbo-pulse 1s ease-in-out infinite;
+    letter-spacing: 0.5px;
+  }
+
   .eq-key-actions {
     display: flex;
     align-items: center;

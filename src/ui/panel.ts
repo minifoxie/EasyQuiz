@@ -1970,13 +1970,35 @@ export class EasyQuizPanel {
 
     if (this.keysBadgeEl) {
       const readyCount = keys.filter((k) => !k.isCooldown).length
-      this.keysBadgeEl.textContent = `${keys.length} chave${keys.length > 1 ? 's' : ''} (${readyCount} pronta${readyCount !== 1 ? 's' : ''})`
-      this.keysBadgeEl.className = `eq-key-badge ${readyCount > 0 ? 'ready' : 'cooldown'}`
+      const totalWins = keys.reduce((acc, k) => acc + (k.winCount || 0), 0)
+      const turboInfo = readyCount >= 3 ? ` ⚡ TURBO` : ''
+      this.keysBadgeEl.textContent = `${keys.length} chave${keys.length > 1 ? 's' : ''} (${readyCount} pronta${readyCount !== 1 ? 's' : ''})${turboInfo}`
+      this.keysBadgeEl.className = `eq-key-badge ${readyCount >= 3 ? 'racing' : readyCount > 0 ? 'ready' : 'cooldown'}`
     }
 
     this.keysListEl.replaceChildren()
 
-    keys.forEach((k, idx) => {
+    // Ordenar: mais vitórias primeiro, depois menor latência, depois prontas
+    const sorted = [...keys].sort((a, b) => {
+      // Primeiro por vitórias (mais vitórias = topo)
+      const winsA = a.winCount || 0
+      const winsB = b.winCount || 0
+      if (winsA !== winsB) return winsB - winsA
+      // Depois por latência (menor = topo)
+      const latA = a.lastLatencyMs || 99999
+      const latB = b.lastLatencyMs || 99999
+      if (latA !== latB) return latA - latB
+      // Depois prontas antes de cooldown
+      const coolA = a.isCooldown ? 1 : 0
+      const coolB = b.isCooldown ? 1 : 0
+      return coolA - coolB
+    })
+
+    sorted.forEach((k, sortIdx) => {
+      // Encontrar o índice original para labels de "Chave N"
+      const originalIdx = keys.findIndex((orig) => orig.id === k.id)
+      const idx = originalIdx >= 0 ? originalIdx : sortIdx
+
       const row = document.createElement('div')
       row.className = 'eq-key-item'
 
@@ -1997,6 +2019,7 @@ export class EasyQuizPanel {
         this.setStatus(`Chave ${idx + 1} copiada para a área de transferência!`, 'info')
       })
 
+      // Badge de status
       const status = document.createElement('span')
       if (k.isCooldown) {
         status.className = 'eq-key-badge cooldown'
@@ -2017,6 +2040,16 @@ export class EasyQuizPanel {
       info.appendChild(label)
       info.appendChild(masked)
       info.appendChild(status)
+
+      // Badge de vitórias (se a chave já venceu alguma corrida)
+      const wins = k.winCount || 0
+      if (wins > 0) {
+        const winBadge = document.createElement('span')
+        winBadge.className = 'eq-key-badge winner'
+        winBadge.textContent = `🏆 ${wins} vitória${wins > 1 ? 's' : ''}`
+        winBadge.title = `Esta chave foi a mais rápida ${wins} vez${wins > 1 ? 'es' : ''} nas corridas paralelas`
+        info.appendChild(winBadge)
+      }
 
       const actions = document.createElement('div')
       actions.className = 'eq-key-actions'
