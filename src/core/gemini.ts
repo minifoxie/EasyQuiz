@@ -71,15 +71,19 @@ export function buildGenerationConfig(model: string): Record<string, unknown> {
     response_schema: GEMINI_JSON_SCHEMA,
   }
 
-  // Gemini 3.x: Thinking não pode ser desativado, usar thinkingLevel: 'low' para minimizar
-  if (/gemini-3\./i.test(model)) {
+  // Gemini 3.5/3.6-flash: suportam thinkingLevel 'none' → máxima velocidade
+  if (/gemini-3\.[56]-flash/i.test(model)) {
+    config.thinkingConfig = { thinkingLevel: 'none' }
+  }
+  // Gemini 3.7/3.8-flash: mínimo suportado é 'low'
+  else if (/gemini-3\.[789]|gemini-3\.[1-9][0-9]/i.test(model)) {
     config.thinkingConfig = { thinkingLevel: 'low' }
   }
-  // Gemini 2.5 Flash: thinkingBudget: 0 desativa o thinking, sub-segundo!
+  // Gemini 2.5 Flash: thinkingBudget: 0 desativa o thinking — latência sub-segundo
   else if (/gemini-2\.5-flash/i.test(model)) {
     config.thinkingConfig = { thinkingBudget: 0 }
   }
-  // Gemini 2.5 Pro: exige mínimo de thinking, não enviar config
+  // Gemini 2.5 Pro: exige mínimo de thinking — sem thinkingConfig
 
   return config
 }
@@ -447,10 +451,11 @@ async function callSingleModel(
   throw lastErr
 }
 
-// ===== TURBO BLITZ RACE: CORRIDA PARALELA MASSIVA COM TODAS AS CHAVES =====
-// Com 25 chaves × 3 modelos top = até 25 requisições simultâneas
+// ===== TURBO BLITZ RACE: CORRIDA PARALELA INTELIGENTE COM TODAS AS CHAVES =====
+// Slots adaptativos: min(N_chaves_saudáveis, 8) — sweet spot para HTTP/2 multiplexing
 // O primeiro que responder vence, todos os outros são cancelados via AbortController
-const MAX_BLITZ_CONCURRENT = 25
+// Blacklist é LOCAL à corrida — limpa a cada nova questão para evitar starvation
+const MAX_BLITZ_SLOTS = 8  // ótimo para HTTP/2 sem estourar connection pool
 
 export async function analyzeWithGemini(
   context: CapturedContext,
@@ -502,57 +507,65 @@ export async function analyzeWithGemini(
   }
   const keepalive = true
 
-  // ===== TURBO BLITZ RACE =====
-  // Montar slots de corrida: cada slot = { model, key }
-  // Distribui todas as chaves saudáveis em round-robin entre os modelos top
+  // ===== TURBO BLITZ RACE — VERSÃO CORRIGIDA =====
+  // Fix 1: blacklist LOCAL à corrida → limpa agora para evitar starvation entre questões
+  blacklistedModels.clear()
 
-  const topModels = [
-    ...(preferredFastModel && isValidQuizModel(preferredFastModel) && !blacklistedModels.has(preferredFastModel) ? [preferredFastModel] : []),
-    ...(isValidQuizModel(chosenModel) && !blacklistedModels.has(chosenModel) ? [chosenModel] : []),
-    ...TURBO_MODELS.filter(m => !blacklistedModels.has(m)),
-  ]
-  const uniqueModels = Array.from(new Set(topModels)).filter(m => isValidQuizModel(m))
-
-  if (uniqueModels.length === 0) {
-    blacklistedModels.clear()
-    uniqueModels.push(...TURBO_MODELS)
+  // Fix 2: pool de modelos SEMPRE com ≥2 modelos distintos garantidos
+  // preferredFastModel é dica de prioridade, não exclusividade
+  const candidateModels: string[] = []
+  if (preferredFastModel && isValidQuizModel(preferredFastModel)) candidateModels.push(preferredFastModel)
+  if (isValidQuizModel(chosenModel) && chosenModel !== preferredFastModel) candidateModels.push(chosenModel)
+  // Sempre adicionar os TURBO_MODELS para garantir pool robusto
+  for (const m of TURBO_MODELS) {
+    if (!candidateModels.includes(m)) candidateModels.push(m)
   }
+  // Garantia absoluta: nunca menos de 2 modelos no pool
+  const uniqueModels = candidateModels.filter(m => isValidQuizModel(m)).slice(0, 3)
+  if (uniqueModels.length < 2) uniqueModels.push(...TURBO_MODELS.filter(m => !uniqueModels.includes(m)))
 
-  // Obter todas as chaves saudáveis
+  // Fix 3: slots adaptativos — min(N_saudáveis, 8) sem repetição de chave
+  // HTTP/2 multiplexing: 8 conexões paralelas é o sweet spot sem estourar o pool
   const healthyKeys = keyManager.getHealthyKeys()
   const allKeys = keyManager.getAllKeys()
-  const keysToUse = healthyKeys.length > 0
-    ? healthyKeys.slice(0, MAX_BLITZ_CONCURRENT)
-    : allKeys.slice(0, 3).map(k => ({ key: k.key }))
 
-  // Montar slots: cada chave recebe um modelo em round-robin
+  // Ordena saudáveis por latência (menor = frente), fallback para todas se nenhuma saudável
+  const sortedHealthy = healthyKeys.sort((a, b) => (a.lastLatencyMs ?? 99999) - (b.lastLatencyMs ?? 99999))
+  const keysPool = sortedHealthy.length > 0
+    ? sortedHealthy
+    : allKeys.map(k => ({ key: k.key, lastLatencyMs: k.lastLatencyMs, label: k.label }))
+
+  // Número ótimo de slots: sem repetição de chave, cap de 8
+  const slotsToUse = Math.min(keysPool.length, MAX_BLITZ_SLOTS)
+
+  // Montar slots SEM repetição de chave — cada chave aparece no máximo 1x
   const blitzSlots: Array<{ model: string; key: string; label: string }> = []
-  for (let i = 0; i < keysToUse.length; i++) {
-    const keyObj = keysToUse[i]
-    const model = uniqueModels[i % uniqueModels.length]
-    const keyIdx = i + 1
+  for (let i = 0; i < slotsToUse; i++) {
+    const keyObj = keysPool[i]
     blitzSlots.push({
-      model,
+      model: uniqueModels[i % uniqueModels.length],
       key: keyObj.key,
-      label: `Chave ${keyIdx}`,
+      label: (keyObj as any).label || `Chave ${i + 1}`,
     })
   }
 
   // Garantir pelo menos 1 slot
   if (blitzSlots.length === 0) {
-    blitzSlots.push({ model: uniqueModels[0] || 'gemini-3.8-flash', key: activeKey, label: 'Chave 1' })
+    blitzSlots.push({ model: uniqueModels[0] || 'gemini-2.5-flash', key: activeKey, label: 'Chave 1' })
   }
 
   const totalSlots = blitzSlots.length
   const uniqueKeysUsed = new Set(blitzSlots.map(s => s.key)).size
   const uniqueModelsUsed = new Set(blitzSlots.map(s => s.model)).size
 
-  onProgress?.(
-    `⚡ TURBO BLITZ: ${totalSlots} requisições simultâneas (${uniqueKeysUsed} chaves × ${uniqueModelsUsed} modelos)...`,
-    'info',
-  )
+  if (totalSlots > 1) {
+    onProgress?.(
+      `⚡ BLITZ: ${totalSlots} slots (${uniqueKeysUsed} chave${uniqueKeysUsed > 1 ? 's' : ''} × ${uniqueModelsUsed} modelo${uniqueModelsUsed > 1 ? 's' : ''})...`,
+      'info',
+    )
+  }
 
-  // Disparar TODAS as requisições ao mesmo tempo com Promise.any()
+  // Disparar todos os slots ao mesmo tempo via Promise.any()
   const blitzControllers = blitzSlots.map(() => new AbortController())
 
   const onBlitzParentAbort = () => {
@@ -569,9 +582,10 @@ export async function analyzeWithGemini(
   try {
     const racePromises = blitzSlots.map(async (slot, idx) => {
       const ctrl = blitzControllers[idx]
+      // Timeout: 8s com múltiplos slots, 12s solo
       const timeoutMs = totalSlots > 1 ? 8000 : 12000
       const timeoutId = setTimeout(() => {
-        try { ctrl.abort(new Error(`Timeout de ${timeoutMs / 1000}s excedido (${slot.model}|${slot.label}).`)) } catch { ctrl.abort() }
+        try { ctrl.abort(new Error(`Timeout ${timeoutMs / 1000}s (${slot.model}|${slot.label})`)) } catch { ctrl.abort() }
       }, timeoutMs)
 
       try {
@@ -586,10 +600,10 @@ export async function analyzeWithGemini(
         parsedPlan.candidatesTokens = res.data.usageMetadata?.candidatesTokenCount
         parsedPlan.rawResponse = res.rawText
 
-        // Cancelar todos os outros slots ao primeiro sucesso
+        // Primeiro sucesso → cancelar todos os outros slots
         blitzControllers.forEach((c, j) => {
           if (j !== idx) {
-            try { c.abort(new Error('Cancelado: outro slot respondeu mais rápido.')) } catch { c.abort() }
+            try { c.abort(new Error('Cancelado: slot vencedor respondeu.')) } catch { c.abort() }
           }
         })
 
@@ -603,31 +617,53 @@ export async function analyzeWithGemini(
     const winner = await Promise.any(racePromises)
     signal?.removeEventListener('abort', onBlitzParentAbort)
 
-    // Registrar vitória da chave vencedora
     keyManager.markWinner(winner.usedKey)
-
     preferredFastModel = winner.usedModel
-    try {
-      settings.model = winner.usedModel
-      if (winner.usedKey) settings.apiKey = winner.usedKey
-    } catch {}
 
     const keyMask = KeyManager.maskKey(winner.usedKey)
     const durationMs = winner.plan.durationMs || (Date.now() - startTime)
     onProgress?.(
-      `⚡ Resposta em ${durationMs}ms via '${winner.usedModel}' (${winner.slotLabel}: ${keyMask})!`,
+      `⚡ ${durationMs}ms via '${winner.usedModel}' (${winner.slotLabel}: ${keyMask})`,
       'info',
     )
     return winner
+
   } catch (blitzErr) {
     signal?.removeEventListener('abort', onBlitzParentAbort)
     if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
+
+    // Fix 5: Fallback síncrono imediato com melhor chave + modelo legacy estável
+    // Evita esperar o autopilot aguardar 5s para tentar novamente do zero
+    const fallbackKey = keyManager.getBestKey()
+    const fallbackModel = 'gemini-2.5-flash'  // legacy mais estável e amplamente disponível
+    if (fallbackKey && !signal?.aborted) {
+      try {
+        onProgress?.(`Fallback: tentando ${fallbackModel} com melhor chave disponível...`, 'info')
+        const fbCtrl = new AbortController()
+        const fbTimeout = setTimeout(() => { try { fbCtrl.abort() } catch {} }, 10000)
+        const res = await callSingleModel(fallbackModel, fallbackKey, payloadBase, keepalive, fbCtrl.signal)
+        clearTimeout(fbTimeout)
+        const parsedPlan = validateAnalysisPlan(robustParsePlan(res.rawText))
+        parsedPlan.usedModel = res.usedModel
+        parsedPlan.durationMs = Date.now() - startTime
+        parsedPlan.promptSent = userText
+        parsedPlan.rawResponse = res.rawText
+        keyManager.markSuccess(fallbackKey, parsedPlan.durationMs)
+        preferredFastModel = fallbackModel
+        const fbMask = KeyManager.maskKey(fallbackKey)
+        onProgress?.(`⚡ Fallback OK: ${parsedPlan.durationMs}ms via '${fallbackModel}' (${fbMask})`, 'info')
+        return { plan: parsedPlan, rawUsage: undefined, usedModel: fallbackModel, usedKey: fallbackKey }
+      } catch {
+        // Fallback também falhou — propagar o erro original
+      }
+    }
 
     let failureDetails = ''
     if (Array.isArray((blitzErr as any)?.errors) && (blitzErr as any).errors.length > 0) {
       failureDetails = (blitzErr as any).errors
         .map((e: any) => e?.message || String(e))
         .filter(Boolean)
+        .slice(0, 3)  // máximo 3 erros no log para não poluir
         .join(' | ')
     } else if (blitzErr instanceof Error) {
       failureDetails = blitzErr.message
@@ -635,7 +671,6 @@ export async function analyzeWithGemini(
       failureDetails = String(blitzErr)
     }
 
-    console.warn(`[EasyQuiz Turbo Blitz] Todas as ${totalSlots} requisições falharam: ${failureDetails}`)
     throw new Error(failureDetails || 'Nenhum modelo respondeu com sucesso.')
   }
 }

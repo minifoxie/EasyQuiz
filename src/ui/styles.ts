@@ -1,27 +1,27 @@
 export const PANEL_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
   :host {
     all: initial;
     color-scheme: dark;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Nunito', 'gg sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-size: 13px;
     line-height: 1.5;
 
-    /* Variáveis do Tema Humanizado (Estilo VS Code Professional) */
-    --eq-bg: #1e1e1e;
-    --eq-surface: #252526;
-    --eq-surface-raised: #2d2d2d;
-    --eq-surface-hover: #37373d;
-    --eq-border: #3c3c3c;
-    --eq-text: #cccccc;
-    --eq-text-bright: #ffffff;
-    --eq-muted: #858585;
-    --eq-accent: #007acc;       /* Azul profissional padrão */
-    --eq-accent-hover: #0098ff;
-    --eq-success: #4ec9b0;      /* Verde menta suave */
-    --eq-warning: #d7ba7d;      /* Amarelo dourado suave */
-    --eq-danger: #f14c4c;       /* Vermelho suave */
+    /* === Tema Discord 2026 === */
+    --eq-bg:             #1e1f22;  /* fundo principal */
+    --eq-surface:        #2b2d31;  /* painel / cards */
+    --eq-surface-raised: #313338;  /* elementos elevados */
+    --eq-surface-hover:  #383a40;  /* hover */
+    --eq-border:         #3f4147;  /* bordas */
+    --eq-text:           #b5bac1;  /* texto principal */
+    --eq-text-bright:    #f2f3f5;  /* texto destaque */
+    --eq-muted:          #6d6f78;  /* texto secundário */
+    --eq-accent:         #5865f2;  /* Blurple */
+    --eq-accent-hover:   #4752c4;
+    --eq-success:        #23a55a;  /* verde Discord */
+    --eq-warning:        #f0b232;  /* amarelo Discord */
+    --eq-danger:         #da373c;  /* vermelho Discord */
   }
 
   * {
@@ -215,7 +215,7 @@ export const PANEL_STYLES = `
     justify-content: center;
     background: transparent;
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     color: var(--eq-muted);
     cursor: pointer;
     transition: all 0.15s;
@@ -298,14 +298,15 @@ export const PANEL_STYLES = `
   }
 
   .eq-brand-badge {
-    background: rgba(0, 122, 204, 0.15);
-    border: 1px solid rgba(0, 122, 204, 0.4);
+    background: rgba(88, 101, 242, 0.15);
+    border: 1px solid rgba(88, 101, 242, 0.35);
     color: var(--eq-accent);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: 9px;
+    font-weight: 800;
     padding: 2px 6px;
-    border-radius: 4px;
+    border-radius: 3px;
     text-transform: uppercase;
+    letter-spacing: 0.06em;
   }
 
   .eq-header-tools {
@@ -347,17 +348,17 @@ export const PANEL_STYLES = `
   }
 
   .eq-views-wrapper::-webkit-scrollbar {
-    width: 8px;
+    width: 4px;
   }
   .eq-views-wrapper::-webkit-scrollbar-track {
-    background: var(--eq-bg);
+    background: transparent;
   }
   .eq-views-wrapper::-webkit-scrollbar-thumb {
-    background: var(--eq-surface-raised);
-    border-radius: 4px;
+    background: var(--eq-surface-hover);
+    border-radius: 2px;
   }
   .eq-views-wrapper::-webkit-scrollbar-thumb:hover {
-    background: var(--eq-muted);
+    background: var(--eq-border);
   }
 
   .eq-view-pane {
@@ -373,15 +374,24 @@ export const PANEL_STYLES = `
   }
 
   /* ===== SEÇÕES E COMPONENTES ===== */
+  /* Section headers estilo Discord Channel Categories */
   .eq-section-title {
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 10px;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--eq-text-bright);
+    letter-spacing: 0.08em;
+    color: var(--eq-muted);
     display: flex;
     align-items: center;
     justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    padding: 2px 0;
+    transition: color 0.15s;
+  }
+
+  .eq-section-title:hover {
+    color: var(--eq-text);
   }
 
   .eq-field-group {
@@ -401,7 +411,7 @@ export const PANEL_STYLES = `
     align-items: center;
     background: var(--eq-surface);
     border: 1px solid var(--eq-border);
-    border-radius: 6px;
+    border-radius: 4px;
     overflow: visible;
     transition: border-color 0.15s;
   }
@@ -522,14 +532,15 @@ export const PANEL_STYLES = `
     justify-content: space-between;
     background: var(--eq-surface);
     border: 1px solid var(--eq-border);
-    border-radius: 6px;
+    border-radius: 4px;
     padding: 6px 10px;
     gap: 8px;
     transition: border-color 0.15s, background 0.15s;
   }
 
   .eq-key-item:hover {
-    border-color: rgba(0, 255, 204, 0.4);
+    border-color: var(--eq-accent);
+    background: var(--eq-surface-raised);
   }
 
   .eq-key-info {
@@ -548,10 +559,10 @@ export const PANEL_STYLES = `
   }
 
   .eq-key-masked {
-    font-family: monospace;
-    font-size: 12px;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 11px;
     color: var(--eq-muted);
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -568,21 +579,21 @@ export const PANEL_STYLES = `
   }
 
   .eq-key-badge.ready {
-    background: rgba(0, 255, 136, 0.12);
-    color: #00ff88;
-    border: 1px solid rgba(0, 255, 136, 0.3);
+    background: rgba(35, 165, 90, 0.15);
+    color: var(--eq-success);
+    border: 1px solid rgba(35, 165, 90, 0.35);
   }
 
   .eq-key-badge.cooldown {
-    background: rgba(255, 204, 0, 0.15);
-    color: #ffcc00;
-    border: 1px solid rgba(255, 204, 0, 0.4);
+    background: rgba(240, 178, 50, 0.15);
+    color: var(--eq-warning);
+    border: 1px solid rgba(240, 178, 50, 0.35);
   }
 
   .eq-key-badge.invalid {
-    background: rgba(255, 68, 68, 0.12);
-    color: #ff4444;
-    border: 1px solid rgba(255, 68, 68, 0.3);
+    background: rgba(218, 55, 60, 0.15);
+    color: var(--eq-danger);
+    border: 1px solid rgba(218, 55, 60, 0.35);
   }
 
   @keyframes eq-key-race-pulse {
@@ -642,11 +653,12 @@ export const PANEL_STYLES = `
     height: 34px;
     background: var(--eq-surface);
     border: 1px solid var(--eq-border);
-    border-radius: 6px;
+    border-radius: 4px;
     color: var(--eq-text-bright);
     padding: 0 10px;
     font-family: inherit;
     font-size: 13px;
+    font-weight: 500;
     outline: none;
     cursor: pointer;
     transition: border-color 0.15s;
@@ -775,80 +787,79 @@ export const PANEL_STYLES = `
   .eq-btn-primary {
     height: 38px;
     background: var(--eq-accent);
-    border: 1px solid var(--eq-accent);
-    border-radius: 6px;
-    color: var(--eq-text-bright);
+    border: none;
+    border-radius: 4px;
+    color: #fff;
     font-family: inherit;
     font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.15s, filter 0.1s;
+    user-select: none;
+  }
+
+  .eq-btn-primary:hover {
+    background: var(--eq-accent-hover);
+    filter: brightness(1.08);
+  }
+
+  .eq-btn-primary:active {
+    filter: brightness(0.95);
+  }
+
+  .eq-btn-primary.danger {
+    background: var(--eq-danger);
+  }
+
+  .eq-btn-primary.danger:hover {
+    filter: brightness(1.1);
+  }
+
+  .eq-btn-primary:disabled {
+    background: var(--eq-surface-raised);
+    color: var(--eq-muted);
+    cursor: not-allowed;
+    filter: none;
+  }
+
+  .eq-btn-secondary {
+    height: 34px;
+    background: var(--eq-surface-raised);
+    border: 1px solid var(--eq-border);
+    border-radius: 4px;
+    color: var(--eq-text);
+    font-family: inherit;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    transition: background 0.15s, transform 0.1s;
-    user-select: none;
-  }
-
-  .eq-btn-primary:hover {
-    background: var(--eq-accent-hover);
-    transform: translateY(-1px);
-  }
-
-  .eq-btn-primary:active {
-    transform: translateY(0);
-  }
-
-  .eq-btn-primary.danger {
-    background: var(--eq-danger);
-    border-color: var(--eq-danger);
-  }
-
-  .eq-btn-primary.danger:hover {
-    background: #d13b3b;
-  }
-
-  .eq-btn-primary:disabled {
-    background: var(--eq-surface-raised);
-    border-color: var(--eq-border);
-    color: var(--eq-muted);
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  .eq-btn-secondary {
-    height: 34px;
-    background: transparent;
-    border: 1px solid var(--eq-border);
-    border-radius: 6px;
-    color: var(--eq-text-bright);
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: all 0.15s;
+    transition: background 0.15s, border-color 0.15s;
   }
 
   .eq-btn-secondary:hover {
     background: var(--eq-surface-hover);
     border-color: var(--eq-muted);
+    color: var(--eq-text-bright);
   }
 
   .eq-btn-secondary:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: not-allowed;
   }
 
-  /* ===== TERMINAL CONSOLE ESTILO VS CODE ===== */
+  /* ===== TERMINAL CONSOLE ===== */
   .eq-terminal {
     width: 100%;
     background: var(--eq-bg);
     border: 1px solid var(--eq-border);
-    border-radius: 6px;
+    border-radius: 4px;
     padding: 12px;
     font-family: 'JetBrains Mono', Consolas, monospace;
     font-size: 12px;

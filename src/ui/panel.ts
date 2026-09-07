@@ -253,7 +253,8 @@ export class EasyQuizPanel {
               <div class="eq-brand">
                 <span class="eq-brand-icon">${ICONS.logo}</span>
                 <span class="eq-brand-name">EasyQuiz</span>
-                <span class="eq-brand-badge">2.0 SUPREME</span>
+                <span class="eq-brand-badge">SUPREME</span>
+                <span id="eq-active-model-badge" style="display:none; font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; background:rgba(88,101,242,0.2); border:1px solid rgba(88,101,242,0.4); color:#7983f5; letter-spacing:0.04em; white-space:nowrap;"></span>
               </div>
               <div class="eq-header-tools">
                 <button class="eq-icon-btn" id="eq-min-btn" type="button" title="Minimizar (Alt+Q)">${ICONS.chevronRight}</button>
@@ -568,18 +569,23 @@ export class EasyQuizPanel {
               <div class="eq-view-pane" id="eq-view-settings" style="display: none;">
                 <!-- Seção Multi-API Keys Gemini com Gerenciamento Completo -->
                 <div class="eq-field-group">
-                  <div class="eq-section-title">
-                    <span>Chaves Gemini (Multi-Key Inteligente)</span>
+                  <div class="eq-section-title" id="eq-keys-section-header">
+                    <span style="display:flex;align-items:center;gap:6px;">
+                      <span id="eq-keys-chevron" style="display:inline-flex;transition:transform 0.2s;">${ICONS.chevronRight}</span>
+                      <span>Chaves Gemini</span>
+                    </span>
                     <div style="display: flex; gap: 8px; align-items: center;">
                       <span id="eq-keys-badge" class="eq-key-badge ready">1 ativa</span>
-                      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: #00ffcc; text-decoration: none; font-size: 11px; font-weight: 700;">
-                        Obter Grátis ↗
+                      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: var(--eq-accent); text-decoration: none; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">
+                        + Obter ↗
                       </a>
                     </div>
                   </div>
 
-                  <!-- Lista Dinâmica de Chaves Cadastradas -->
+                  <!-- Lista Dinâmica de Chaves Cadastradas (colapsável) -->
+                  <div id="eq-keys-collapsible" style="overflow: hidden; transition: max-height 0.25s ease;">
                   <div id="eq-keys-list" class="eq-keys-list"></div>
+                  </div>
 
                   <!-- Formulário de Adição de Nova Chave -->
                   <div class="eq-key-input-container">
@@ -997,6 +1003,40 @@ export class EasyQuizPanel {
     this.apiKeyInput.addEventListener('input', () => {
       const cleanVal = this.apiKeyInput.value.trim().replace(/^["']|["']$/g, '')
       this.callbacks.onSettingsChange({ apiKey: cleanVal })
+    })
+
+    // ===== COLLAPSE DA LISTA DE CHAVES =====
+    const keysCollapsible = this.shadow.querySelector('#eq-keys-collapsible') as HTMLElement
+    const keysChevron = this.shadow.querySelector('#eq-keys-chevron') as HTMLElement
+    const keysSectionHeader = this.shadow.querySelector('#eq-keys-section-header') as HTMLElement
+
+    const applyCollapseState = (collapsed: boolean) => {
+      if (!keysCollapsible) return
+      if (collapsed) {
+        keysCollapsible.style.maxHeight = '0px'
+        if (keysChevron) keysChevron.style.transform = 'rotate(0deg)'
+      } else {
+        keysCollapsible.style.maxHeight = keysCollapsible.scrollHeight + 50 + 'px'
+        if (keysChevron) keysChevron.style.transform = 'rotate(90deg)'
+      }
+    }
+
+    // Restaurar estado salvo (com guard para Node.js / ambientes sem localStorage)
+    let savedCollapsed = false
+    try { savedCollapsed = localStorage.getItem('easyquiz_keys_collapsed') === 'true' } catch {}
+    // Inicializar sem transição para evitar flash
+    if (keysCollapsible) keysCollapsible.style.transition = 'none'
+    applyCollapseState(savedCollapsed)
+    try {
+      requestAnimationFrame(() => {
+        if (keysCollapsible) keysCollapsible.style.transition = 'max-height 0.25s ease'
+      })
+    } catch {}
+
+    keysSectionHeader?.addEventListener('click', () => {
+      const isNowCollapsed = keysCollapsible?.style.maxHeight === '0px'
+      applyCollapseState(isNowCollapsed)
+      try { localStorage.setItem('easyquiz_keys_collapsed', isNowCollapsed ? 'false' : 'true') } catch {}
     })
 
     // Botão Adicionar Nova Chave
@@ -1815,6 +1855,17 @@ export class EasyQuizPanel {
       this.stopStopwatch(plan.durationMs)
     }
 
+    // Atualiza badge do modelo ativo no header
+    if (plan.usedModel) {
+      const modelBadge = this.shadow.querySelector('#eq-active-model-badge') as HTMLElement | null
+      if (modelBadge) {
+        // Mostrar apenas a parte relevante do nome (ex: "3.8-flash" de "gemini-3.8-flash")
+        const shortName = plan.usedModel.replace('gemini-', '').replace('-latest', '')
+        modelBadge.textContent = `● ${shortName}`
+        modelBadge.style.display = 'inline-block'
+      }
+    }
+
     // Atualiza Badges do Avançado
     const badgesEl = this.shadow.querySelector('#eq-badges') as HTMLElement
     badgesEl.replaceChildren()
@@ -1977,6 +2028,16 @@ export class EasyQuizPanel {
     }
 
     this.keysListEl.replaceChildren()
+
+    // Recalcular maxHeight do collapsible após render (novos cards podem ter mudado a altura)
+    try {
+      requestAnimationFrame(() => {
+        const collapsible = this.shadow?.querySelector('#eq-keys-collapsible') as HTMLElement | null
+        if (collapsible && collapsible.style.maxHeight !== '0px') {
+          collapsible.style.maxHeight = collapsible.scrollHeight + 50 + 'px'
+        }
+      })
+    } catch {}
 
     // Ordenar: mais vitórias primeiro, depois menor latência, depois prontas
     const sorted = [...keys].sort((a, b) => {
