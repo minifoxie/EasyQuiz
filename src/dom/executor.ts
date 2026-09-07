@@ -53,7 +53,7 @@ export function resolveTargetControlOrCard(element: HTMLElement): HTMLElement {
 
   // 3. Procura container de alternativa/questão verdadeiro (evita match prematuro em .option-text, .option-badge e NUNCA sobe para article/section/main)
   const trueCard = element.closest(
-    'label, .option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, tr, li, .dnd-card, [class*="option-card" i], [class*="choice-card" i]',
+    'label, .option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, tr, li, .dnd-card, [class*="option-card" i], [class*="choice-card" i], .dropdown-row, [class*="dropdown" i], [class*="select-row" i]',
   ) as HTMLElement | null
 
   if (trueCard && !['article', 'section', 'main', 'form', 'body'].includes(trueCard.tagName.toLowerCase())) {
@@ -786,6 +786,9 @@ function selectValues(element: HTMLElement, values: string[]): void {
       option.selected = true
       selectEl.selectedIndex = idx
       try {
+        selectEl.value = option.value
+      } catch {}
+      try {
         const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')
         descriptor?.set?.call(selectEl, option.value)
       } catch {}
@@ -1218,9 +1221,9 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
           ? (action as any).val
           : (action as any).text
   const valHint = rawVal !== undefined && rawVal !== null ? String(rawVal).trim() : ''
-  let element = findElementExt(elId, valHint, action.t === 'val')
+  let element = findElementExt(elId, valHint, action.t === 'val' || action.t === 'sel')
   if (!element && elId) {
-    element = findElementExt(cleanSearchTerm(elId), valHint, action.t === 'val')
+    element = findElementExt(cleanSearchTerm(elId), valHint, action.t === 'val' || action.t === 'sel')
   }
   if (element && valHint) {
     if (element instanceof HTMLInputElement && element.type === 'radio' && element.name) {
@@ -1258,12 +1261,14 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
     }
   }
 
-  if (!element && action.t === 'val') {
+  if (!element && (action.t === 'val' || action.t === 'sel')) {
     let scopeRoot: HTMLElement = document.body
     try { scopeRoot = findActiveScope() || document.body } catch {}
     const activeInputs = Array.from(
       scopeRoot.querySelectorAll(
-        'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]), textarea, [contenteditable="true"]',
+        action.t === 'sel'
+          ? 'select, [role="combobox"], [role="listbox"]'
+          : 'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]), textarea, select, [contenteditable="true"]',
       ),
     ).filter((i) => isVisible(i as HTMLElement) && !isInsideEasyQuiz(i as HTMLElement)) as HTMLElement[]
 
@@ -1300,7 +1305,7 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
             (clean.length >= 2 && containerText.includes(clean))
           )
         })
-        element = match || activeInputs[0]
+        element = match || (activeInputs.length === 1 ? activeInputs[0] : null)
       }
     }
   }
@@ -1809,7 +1814,24 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
     }
 
     if (action.t === 'sel') {
-      const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLElement | null
+      let el = (findElementExt(action.id, undefined, true) || findElementExt(cleanSearchTerm(action.id), undefined, true)) as HTMLElement | null
+      if (!el) {
+        let scopeRoot: HTMLElement = document.body
+        try { scopeRoot = findActiveScope() || document.body } catch {}
+        const visibleSelects = Array.from(
+          scopeRoot.querySelectorAll('select, [role="combobox"], [role="listbox"]')
+        ).filter((i) => isVisible(i as HTMLElement) && !isInsideEasyQuiz(i as HTMLElement)) as HTMLElement[]
+
+        const clean = cleanSearchTerm(action.id).toLowerCase()
+        const match = visibleSelects.find((s) => {
+          const id = (s.id || '').toLowerCase()
+          const name = (s.getAttribute('name') || '').toLowerCase()
+          const aria = (s.getAttribute('aria-label') || '').toLowerCase()
+          const containerText = cleanSearchTerm(s.closest('.dropdown-row, [class*="dropdown" i], [class*="select" i], tr, label, div')?.textContent || '').toLowerCase()
+          return id.includes(clean) || name.includes(clean) || aria.includes(clean) || (clean.length >= 2 && containerText.includes(clean))
+        })
+        el = match || (visibleSelects.length === 1 ? visibleSelects[0] : null)
+      }
       if (!el) return false
       const selectEl = el instanceof HTMLSelectElement ? el : (el.querySelector('select') as HTMLSelectElement | null)
       if (!selectEl) {
@@ -2053,6 +2075,12 @@ export async function executePlan(
       failed.push(action.t === 'drag' ? `${action.from} -> ${action.to}` : 'id' in action ? action.id : action.t)
     }
   }
+
+  // Se a questão requer respostas mas a IA não prescreveu nenhuma ação regular
+  if (isQuestion && regularActions.length === 0) {
+    failed.push('nenhuma ação de resposta prescrita')
+  }
+
   const reports: ActionExecutionReport[] = regularActions.map((action, index) => {
     const target = action.t === 'drag' ? `${action.from} -> ${action.to}` : action.t === 'js' ? '$eq' : action.id || action.t
     const located = action.t === 'js'
@@ -2074,9 +2102,9 @@ export async function executePlan(
     }
   })
   const success =
-    !isQuestion || regularActions.length === 0
+    !isQuestion
       ? true
-      : appliedCount > 0 && (appliedCount === regularActions.length || verifiedCount > 0)
+      : regularActions.length > 0 && failed.length === 0 && verifiedCount === regularActions.length
 
   let advanced = false
   let navigationVerified = false

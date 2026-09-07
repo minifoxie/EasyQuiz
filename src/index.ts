@@ -322,7 +322,13 @@ async function initEasyQuiz(): Promise<void> {
       const result = await executePlan(latestPlan, canAdvance, attemptCount, createExecutionPolicy(settings))
       if (signal?.aborted) return
       panel.setExecutionReport(result)
-      if (result.success || result.advanced) {
+      const regularActionsCount = latestPlan.actions.filter((a) => a.t !== 'adv' && a.t !== 'js').length
+      const isQuestion = latestPlan.pageType === 'question' || regularActionsCount > 0
+      const isStrictSuccess = isQuestion
+        ? (result.success && result.verified === regularActionsCount && result.failed.length === 0)
+        : (result.success || result.advanced)
+
+      if (isStrictSuccess) {
         panel.setProgress(100, 'Sucesso! Respostas preenchidas e validadas!')
         panel.logToConsole(
           `> [VERIF] ✓ Sucesso no DOM: ${result.verified}/${result.applied} ações validadas com sucesso!`,
@@ -339,6 +345,7 @@ async function initEasyQuiz(): Promise<void> {
             : `Respostas preenchidas e validadas. Avanço não confirmado: ${result.navigationEvidence}`,
           result.advanced || !canAdvance ? 'success' : 'info',
         )
+        // O gabarito SÓ é escondido se a resposta foi aplicada e validada com sucesso
         panel.hideFloatingAnswers()
       } else {
         panel.setProgress(0, 'Injeção direta restrita. Gabarito rápido exibido.')

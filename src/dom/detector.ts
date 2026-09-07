@@ -43,7 +43,7 @@ function scoreCandidate(element: HTMLElement): number {
 
   const rect = element.getBoundingClientRect()
   const controls = Array.from(element.querySelectorAll(CONTROL_SELECTOR)).filter(isVisible)
-  const textLength = cleanText(element.innerText, 4000).length
+  const textLength = cleanText(element.innerText || element.textContent || '', 4000).length
 
   // Não pontua se texto for vazio ou se não tiver controles nem texto explicativo
   if (textLength < 10) return -Infinity
@@ -75,28 +75,41 @@ function scoreCandidate(element: HTMLElement): number {
 export function findTrueQuestionContainer(element: HTMLElement): HTMLElement {
   let curr = element
 
+  // Se o próprio elemento já é um container de questão válido (article, card, etc. que não seja main ou body)
+  if (
+    curr.matches?.(
+      'article, [data-test-id*="exercise" i], [data-testid*="exercise" i], .perseus-renderer, .framework-perseus, [class*="question-container" i], .que'
+    ) &&
+    curr.tagName.toLowerCase() !== 'main' &&
+    curr.tagName.toLowerCase() !== 'body'
+  ) {
+    return curr
+  }
+
   while (curr.parentElement && curr.parentElement !== document.body && curr.parentElement !== document.documentElement) {
     const parent = curr.parentElement
     const parentTag = parent.tagName.toLowerCase()
     if (['header', 'footer', 'nav', 'aside'].includes(parentTag)) break
 
-    // Se o pai é um seletor conhecido de container de questão
+    // Se o pai é um seletor conhecido de container de questão específico
     if (
       parent.matches?.(
-        'article, section, form, [data-test-id*="exercise" i], [data-testid*="exercise" i], .perseus-renderer, .framework-perseus, [class*="question-container" i], .que, main'
-      )
+        'article, [data-test-id*="exercise" i], [data-testid*="exercise" i], .perseus-renderer, .framework-perseus, [class*="question-container" i], .que'
+      ) &&
+      parentTag !== 'main' &&
+      parentTag !== 'body'
     ) {
       curr = parent
       break
     }
 
-    const currText = cleanText(curr.innerText, 10000)
-    const parentText = cleanText(parent.innerText, 10000)
+    const currText = cleanText(curr.innerText || curr.textContent || '', 10000)
+    const parentText = cleanText(parent.innerText || parent.textContent || '', 10000)
     const currControlsCount = curr.querySelectorAll(CONTROL_SELECTOR).length
     const parentControlsCount = parent.querySelectorAll(CONTROL_SELECTOR).length
 
     // Se o elemento atual tem texto curto (< 150 chars) e o pai agrega o enunciado sem trazer outros blocos desconexos
-    if (currText.length < 150 && parentText.length > currText.length && parentControlsCount <= currControlsCount + 4) {
+    if (currText.length < 150 && parentText.length > currText.length && parentControlsCount <= currControlsCount + 4 && parentTag !== 'main' && parentTag !== 'body') {
       curr = parent
       continue
     }
@@ -144,6 +157,16 @@ export function findActiveScope(): HTMLElement {
     .map((element) => ({ element, score: scoreCandidate(element) }))
     .filter((item) => Number.isFinite(item.score))
     .sort((a, b) => b.score - a.score)
+
+  // Dá preferência a containers de questão específicos (cards, articles, sections, que) sobre wrappers globais (main/body)
+  const specific = ranked.find((item) => {
+    const tag = item.element.tagName.toLowerCase()
+    return tag !== 'main' && tag !== 'body' && item.score > 0
+  })
+
+  if (specific) {
+    return findTrueQuestionContainer(specific.element)
+  }
 
   if (ranked.length > 0 && ranked[0].score > 0) {
     return findTrueQuestionContainer(ranked[0].element)

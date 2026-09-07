@@ -174,12 +174,17 @@ export function isInsideEasyQuiz(el: Element | null): boolean {
 }
 
 export const UTILITY_CONTROL_PATTERN =
-  /(leaderboard|scoreboard|placar|ranking|trophy|pause|pausar|mute|volume|audio|sound|som|música|music|configuraç|settings|theme|ajuda|help|report|denunciar|feedback|power-?up|streak|coins|fullscreen|full-screen)/i
+  /(leaderboard|scoreboard|placar|ranking|trophy|pause|pausar|mute|mutar|audio|sound|som|música|music|configuraç|settings|theme|ajuda|help|report|denunciar|feedback|power-?up|streak|coins|fullscreen|full-screen|(?:audio|sound|som|media)[-_ ]*volume|volume[-_ ]*(?:slider|control|level|btn|button|icon|mute)|vol-slider)/i
 
 export function isUtilityOrGamificationControl(element: Element | null): boolean {
   if (!element || typeof (element as any).getAttribute !== 'function') return false
   if (typeof Element !== 'undefined' && !(element instanceof Element)) return false
   if (isInsideEasyQuiz(element)) return true
+
+  const tag = element.tagName?.toLowerCase()
+  // Selects, textareas e campos normais de formulário NUNCA são controles utilitários de mídia/gamificação
+  if (['select', 'textarea'].includes(tag)) return false
+  if (tag === 'input' && !['button', 'submit', 'reset'].includes(((element as HTMLInputElement).type || '').toLowerCase())) return false
 
   const target = element.closest?.(
     'button, a, [role="button"], [class*="leaderboard" i], [data-testid*="leaderboard" i], [class*="scoreboard" i], [class*="trophy" i]',
@@ -277,7 +282,15 @@ export function labelForControl(element: HTMLElement): string {
     }
   }
 
-  // 2. aria-label direto
+  // 2. Linhas de Dropdown / Lista Suspensa (.dropdown-row, .dropdown-label)
+  const dropdownRow = element.closest('.dropdown-row, [class*="dropdown-row" i], [class*="select-row" i]')
+  if (dropdownRow) {
+    const labelSpan = dropdownRow.querySelector('.dropdown-label, [class*="label" i]')
+    const rowLabel = labelSpan && labelSpan !== element ? cleanText(labelSpan.textContent, 150) : ''
+    if (rowLabel) return rowLabel
+  }
+
+  // 3. aria-label direto
   const aria = element.getAttribute('aria-label')
   if (aria) return cleanText(aria)
 

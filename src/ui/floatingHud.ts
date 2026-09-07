@@ -1,6 +1,6 @@
 import type { AnalysisPlan } from '../core/types'
 import { ICONS } from './icons'
-import { cleanSearchTerm, getHumanReadableLabel } from '../dom/executor'
+import { cleanSearchTerm, findElementExt, getHumanReadableLabel } from '../dom/executor'
 
 export class FloatingAnswersHud {
   private element: HTMLElement | null = null
@@ -439,7 +439,23 @@ export class FloatingAnswersHud {
         if (!rawLabel || /^[#\.\$]|select|input|mat-|cell|field|q[0-9]|eq-/i.test(rawLabel)) {
           rawLabel = `Lista ${i + 1}`
         }
-        const values = Array.isArray(act.v) ? act.v.join(', ') : String(act.v ?? '')
+        const rawVals = Array.isArray(act.v) ? act.v : [String(act.v ?? '')]
+        const displayVals = rawVals.map((v) => {
+          const el = findElementExt(act.id, undefined, true) || findElementExt(cleanSearchTerm(act.id), undefined, true)
+          const sel = el instanceof HTMLSelectElement ? el : (el?.querySelector('select') as HTMLSelectElement | null)
+          if (sel) {
+            const norm = cleanSearchTerm(v).toLowerCase()
+            for (let j = 0; j < sel.options.length; j++) {
+              const opt = sel.options[j]
+              if (opt.value.toLowerCase() === norm || cleanSearchTerm(opt.textContent).toLowerCase() === norm) {
+                const optText = cleanSearchTerm(opt.textContent)
+                if (optText && !optText.toLowerCase().includes('selecione')) return optText
+              }
+            }
+          }
+          return v
+        })
+        const values = displayVals.join(', ')
 
         const box = document.createElement('div')
         box.className = 'eq-fah-field-box'
