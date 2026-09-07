@@ -127,22 +127,7 @@ export function clearSessionMemories(): void {
   sessionContextMemory = []
 }
 
-// ==== MÉTRICAS DINÂMICAS DE TEMPO DA ATIVIDADE (CRONÔMETRO) ====
-export function loadActivityMetrics(): ActivityMetrics {
-  // Purga permanentemente qualquer valor legado do localStorage para nunca persistir entre sessões distintas
-  try {
-    localStorage.removeItem(METRICS_STORAGE_KEY)
-  } catch {}
-
-  try {
-    const raw = sessionStorage.getItem(METRICS_STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw) as ActivityMetrics
-      if (parsed && Array.isArray(parsed.records)) {
-        return parsed
-      }
-    }
-  } catch {}
+function createEmptyMetrics(): ActivityMetrics {
   return {
     startTime: Date.now(),
     totalElapsedMs: 0,
@@ -152,21 +137,29 @@ export function loadActivityMetrics(): ActivityMetrics {
   }
 }
 
+let activeSessionMetrics: ActivityMetrics = createEmptyMetrics()
+
+// ==== MÉTRICAS DINÂMICAS DE TEMPO DA ATIVIDADE (CRONÔMETRO) ====
+export function loadActivityMetrics(): ActivityMetrics {
+  try {
+    localStorage.removeItem(METRICS_STORAGE_KEY)
+  } catch {}
+  return activeSessionMetrics
+}
+
 export function saveActivityMetrics(metrics: ActivityMetrics): void {
+  activeSessionMetrics = metrics
   try {
     const serialized = JSON.stringify(metrics)
-    // O histórico do cronômetro permanece ESTRITAMENTE na sessão ativa (sessionStorage)
     sessionStorage.setItem(METRICS_STORAGE_KEY, serialized)
     localStorage.removeItem(METRICS_STORAGE_KEY)
-  } catch (error) {
-    console.warn('[EasyQuiz] Falha ao persistir métricas de tempo na sessão:', error)
-  }
+  } catch {}
 }
 
 export function recordQuestionTiming(
   item: Omit<QuestionTimingRecord, 'timestamp'>,
 ): ActivityMetrics {
-  const current = loadActivityMetrics()
+  const current = activeSessionMetrics
   const now = Date.now()
 
   // Evita duplicar a mesma questão se já gravada recentemente (< 3s)
@@ -198,16 +191,11 @@ export function recordQuestionTiming(
 }
 
 export function resetActivityMetrics(): ActivityMetrics {
+  activeSessionMetrics = createEmptyMetrics()
   try {
     sessionStorage.removeItem(METRICS_STORAGE_KEY)
     localStorage.removeItem(METRICS_STORAGE_KEY)
   } catch {}
-  return {
-    startTime: Date.now(),
-    totalElapsedMs: 0,
-    completedQuestionsCount: 0,
-    averageDurationMs: 0,
-    records: [],
-  }
+  return activeSessionMetrics
 }
 

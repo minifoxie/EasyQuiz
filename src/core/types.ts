@@ -121,7 +121,7 @@ export interface EasyQuizSettings {
 
 export const DEFAULT_SETTINGS: EasyQuizSettings = {
   apiKey: '',
-  model: 'gemini-3.8-flash',
+  model: 'gemini-2.5-flash',
   uiMode: 'easy',
   modeHint: '',
   engine: 'smart',

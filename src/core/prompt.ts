@@ -16,11 +16,8 @@ CLASSIFICAÇÃO (pageType):
 - start: Página inicial de boas-vindas com botão de iniciar.
 - conclusion: Tela final de encerramento (actions=[]).
 
-RACIOCÍNIO E CÁLCULO EXATO (rationale):
-- Em 'rationale', você DEVE pensar e resolver a questão passo a passo com absoluto rigor ANTES de emitir as ações:
-  1. Identifique cuidadosamente os dados, fórmulas, números e o que a questão pede exatamente (atenção a unidades, decimais, sinais e restrições).
-  2. Execute a resolução detalhada (cálculos matemáticos passo a passo, conferência aritmética, análise lógica de cada afirmação, equações, matrizes ou probabilidade).
-  3. Verifique o resultado final calculado contra o enunciado para ter certeza absoluta da resposta.
+RACIOCÍNIO E CÁLCULO DIRETO (rationale):
+- Em 'rationale', forneça resolução DIRETA, ultra-objetiva e rápida em no máximo 1 a 2 frases curtas com a dedução/cálculo matemático final. NUNCA gere introduções, preâmbulos ou textos longos.
 - Para questões de preenchimento (val):
   - Emita em 'v' o valor ou número exato obtido no cálculo (apenas o número se o campo pedir valor numérico, respeitando o formato exigido).
 - Para questões de multi-seleção (escolha_multipla):

@@ -4,36 +4,77 @@ import { validateAnalysisPlan } from './planValidation'
 
 export const AVAILABLE_MODELS: ModelOption[] = [
   {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash (Ultra Rápido - 0 Thinking)',
+    description: 'Modelo de ultrabaixa latência com zero thinking overhead para respostas imediatas.',
+    stable: true,
+  },
+  {
     id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash (Mais Rápido e Estável)',
-    description: 'Modelo oficial de ultra-baixa latência do Google com suporte multimodal completo.',
+    name: 'Gemini 2.0 Flash (Máxima Disponibilidade)',
+    description: 'Ultra-baixa latência comprovada com suporte multimodal nativo.',
+    stable: true,
+  },
+  {
+    id: 'gemini-3.8-flash',
+    name: 'Gemini 3.8 Flash (Nova Geração)',
+    description: 'Modelo de ponta Flash otimizado para alta velocidade e raciocínio.',
+    stable: true,
+  },
+  {
+    id: 'gemini-3.5-flash',
+    name: 'Gemini 3.5 Flash (Equilibrado)',
+    description: 'Excelente velocidade e consistência.',
     stable: true,
   },
   {
     id: 'gemini-1.5-flash',
-    name: 'Gemini 1.5 Flash (Equilibrado e Confiável)',
-    description: 'Modelo comprovado de altíssima disponibilidade e estabilidade.',
-    stable: true,
-  },
-  {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash (Raciocínio Rápido)',
-    description: 'Modelo multimodal de raciocínio avançado.',
+    name: 'Gemini 1.5 Flash (Reserva Global)',
+    description: 'Modelo de altíssima estabilidade e ampla cota gratuita.',
     stable: true,
   },
   {
     id: 'gemini-2.0-flash-lite-preview-02-05',
     name: 'Gemini 2.0 Flash-Lite (Econômico)',
-    description: 'Modelo leve e ágil para respostas rápidas.',
+    description: 'Modelo leve para respostas ultrarrápidas.',
+    stable: true,
+  },
+  {
+    id: 'gemini-2.5-pro',
+    name: 'Gemini 2.5 Pro (Raciocínio Profundo)',
+    description: 'Modelo avançado para questões de alta complexidade.',
     stable: true,
   },
   {
     id: 'gemini-1.5-pro',
     name: 'Gemini 1.5 Pro (Alta Precisão)',
-    description: 'Modelo de máxima precisão para problemas complexos.',
+    description: 'Modelo confiável para problemas difíceis.',
     stable: true,
   },
 ]
+
+export let preferredFastModel: string | null = null
+
+export function buildGenerationConfig(model: string): Record<string, unknown> {
+  const config: Record<string, unknown> = {
+    temperature: 0.0,
+    maxOutputTokens: 2000,
+    response_mime_type: 'application/json',
+    response_schema: GEMINI_JSON_SCHEMA,
+  }
+
+  // DESATIVAÇÃO DO THINKING OVERHEAD:
+  // Modelos Gemini 2.5 possuem raciocínio interno (thinking) que gera de 1000 a 4000 tokens invisíveis,
+  // causando 3s a 8s de espera desnecessária. thinkingBudget: 0 desativa o thinking, trazendo a resposta a sub-segundo!
+  // Modelos Gemini 3.x usam thinkingLevel: 'LOW'.
+  if (/gemini-2\.5/i.test(model)) {
+    config.thinkingConfig = { thinkingBudget: 0 }
+  } else if (/gemini-3/i.test(model)) {
+    config.thinkingConfig = { thinkingLevel: 'LOW' }
+  }
+
+  return config
+}
 
 const GEMINI_JSON_SCHEMA = {
   type: 'OBJECT',
@@ -78,7 +119,7 @@ const GEMINI_JSON_SCHEMA = {
 
 function normalizeModel(model: string): string {
   const clean = model.trim().replace(/^google\//, '').replace(/^models\//, '')
-  return clean || 'gemini-2.0-flash'
+  return clean || 'gemini-2.5-flash'
 }
 
 function parseGeminiError(errorText: string, status: number): string {
@@ -199,11 +240,17 @@ export async function fetchAvailableModels(apiKey: string): Promise<ModelOption[
         if (validModels.length > 0) {
           validModels.sort((a, b) => {
             const getPriority = (id: string) => {
+              if (id === 'gemini-2.5-flash') return 130
+              if (id === 'gemini-2.0-flash') return 125
               if (id === 'gemini-3.8-flash') return 120
-              if (id === 'gemini-3.5-flash-lite') return 115
-              if (id === 'gemini-2.5-flash') return 100
-              if (id === 'gemini-3.1-pro-preview') return 90
-              if (id.includes('flash')) return 50
+              if (id === 'gemini-3.5-flash') return 115
+              if (id === 'gemini-3.5-flash-lite') return 110
+              if (id === 'gemini-2.0-flash-lite-preview-02-05') return 105
+              if (id === 'gemini-1.5-flash') return 90
+              if (id.includes('flash')) return 80
+              if (id === 'gemini-2.5-pro') return 60
+              if (id === 'gemini-3.1-pro-preview') return 55
+              if (id === 'gemini-1.5-pro') return 50
               return 10
             }
             return getPriority(b.id) - getPriority(a.id)
@@ -245,8 +292,8 @@ export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message
     return { ok: false, message: msg }
   }
 
-  // 2. Teste direto nos modelos mais compatíveis em v1beta e v1
-  const testCandidates = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash']
+  // 2. Teste direto nos modelos mais rápidos e compatíveis em v1beta e v1
+  const testCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-3.8-flash', 'gemini-1.5-flash']
   for (const modelId of testCandidates) {
     for (const apiVer of ['v1beta', 'v1']) {
       const endpoint = `https://generativelanguage.googleapis.com/${apiVer}/models/${modelId}:generateContent?key=${encodeURIComponent(key)}`
@@ -280,12 +327,15 @@ export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message
 async function callSingleModel(
   model: string,
   key: string,
-  payloadStr: string,
+  payloadBase: { system_instruction: { parts: Array<{ text: string }> }; contents: Array<{ role: string; parts: Array<Record<string, unknown>> }> },
   keepalive: boolean,
   signal: AbortSignal,
 ): Promise<{ rawText: string; data: any; usedModel: string }> {
   const versionsToTry = ['v1beta', 'v1']
   let lastErr = new Error(`Falha ao consultar modelo ${model}`)
+
+  const genConfig = buildGenerationConfig(model)
+  let currentGenConfig = { ...genConfig }
 
   for (const apiVer of versionsToTry) {
     if (signal.aborted) throw new Error('Operação cancelada pelo usuário.')
@@ -299,17 +349,51 @@ async function callSingleModel(
           'Content-Type': 'application/json',
           'x-goog-api-key': key,
         },
-        body: payloadStr,
+        body: JSON.stringify({
+          ...payloadBase,
+          generationConfig: currentGenConfig,
+        }),
         signal,
         keepalive,
       })
 
       if (!response.ok) {
         const errorText = await response.text()
+
+        // Se o modelo rejeitar thinkingConfig com HTTP 400, retenta sem thinkingConfig imediatamente
+        if (response.status === 400 && currentGenConfig.thinkingConfig && /thinking/i.test(errorText)) {
+          delete currentGenConfig.thinkingConfig
+          const retryRes = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': key,
+            },
+            body: JSON.stringify({
+              ...payloadBase,
+              generationConfig: currentGenConfig,
+            }),
+            signal,
+            keepalive,
+          })
+          if (retryRes.ok) {
+            const data = await retryRes.json()
+            const candidate = data.candidates?.[0]
+            if (candidate?.content?.parts?.[0]?.text) {
+              return { rawText: candidate.content.parts[0].text, data, usedModel: model }
+            }
+          }
+        }
+
         const parsedErrorMsg = parseGeminiError(errorText, response.status)
         if (response.status === 404 && apiVer === 'v1beta') {
           continue
         }
+
+        if (response.status === 404 || response.status === 403) {
+          blacklistedModels.add(model)
+        }
+
         throw new Error(parsedErrorMsg)
       }
 
@@ -327,6 +411,9 @@ async function callSingleModel(
     } catch (err) {
       if (signal.aborted) throw err
       lastErr = err as Error
+      if (lastErr.message.includes('404')) {
+        blacklistedModels.add(model)
+      }
       if (!lastErr.message.includes('404')) {
         break
       }
@@ -350,17 +437,9 @@ export async function analyzeWithGemini(
 
   const chosenModel = normalizeModel(settings.model)
 
-  // 1. Descoberta dinâmica de modelos na primeira execução se ainda não feita
-  if (!discoveredModelsCache || discoveredModelsCache.length === 0) {
-    try {
-      onProgress?.('Verificando modelos autorizados na sua chave de API...', 'info')
-      await fetchAvailableModels(key)
-    } catch (discoveryErr) {
-      const msg = discoveryErr instanceof Error ? discoveryErr.message : String(discoveryErr)
-      if (msg.includes('inválida') || msg.includes('não autorizada')) {
-        throw new Error(msg)
-      }
-    }
+  // Dispara descoberta assíncrona em segundo plano se ainda não feita, SEM bloquear a primeira questão
+  if (!discoveredModelsCache && key) {
+    fetchAvailableModels(key).catch(() => {})
   }
 
   if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
@@ -381,49 +460,60 @@ export async function analyzeWithGemini(
     })
   }
 
-  const genConfig: Record<string, unknown> = {
-    temperature: 0.0, // Decodificação greedy: máxima velocidade de inferência e determinismo
-    maxOutputTokens: 2500, // Amplo espaço para categorizações sem truncamento
-    response_mime_type: 'application/json',
-    response_schema: GEMINI_JSON_SCHEMA,
-  }
-
-  // Lista ordenada de modelos a tentar, priorizando o escolhido e os modelos de alta disponibilidade
-  const rawFallback = [
-    chosenModel,
-    ...(discoveredModelsCache?.map((m) => m.id) || []),
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
-    'gemini-2.5-flash',
-    'gemini-2.0-flash-lite-preview-02-05',
-    'gemini-1.5-pro',
-  ]
-  const modelsToTry = Array.from(new Set(rawFallback)).filter((m) => !blacklistedModels.has(m))
-
-  if (modelsToTry.length === 0) {
-    blacklistedModels.clear()
-    modelsToTry.push(...AVAILABLE_MODELS.map((m) => m.id))
-  }
-
-  const payload = {
+  const payloadBase = {
     system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
     contents: [{ role: 'user', parts }],
-    generationConfig: genConfig,
   }
-  const payloadStr = JSON.stringify(payload)
-  const keepalive = payloadStr.length < 60_000
+  const keepalive = true
 
-  // ---- CORRIDA OTIMISTA DE MÁXIMA VELOCIDADE (CONCURRENT API RACE) ----
-  // Dispara consultas simultâneas para os modelos mais velozes autorizados.
-  // O primeiro a responder com JSON estruturado válido vence imediatamente e cancela os outros via AbortController.
-  const racePool = modelsToTry.slice(0, 3)
-  if (racePool.length > 1) {
-    onProgress?.(`Velocidade Máxima: consultando APIs em paralelo (${racePool.join(', ')})...`, 'info')
+  // Lista ordenada de modelos a tentar: modelo rápido comprovado (preferredFastModel) em 1º,
+  // seguido pelo escolhido pelo usuário e pelos modelos oficiais de ultra-baixa latência
+  const rawFallback = [
+    ...(preferredFastModel ? [preferredFastModel] : []),
+    chosenModel,
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-3.8-flash',
+    'gemini-3.5-flash',
+    ...(discoveredModelsCache?.map((m) => m.id) || []),
+    'gemini-1.5-flash',
+    'gemini-2.0-flash-lite-preview-02-05',
+    'gemini-3.5-flash-lite',
+    'gemini-2.5-pro',
+    'gemini-1.5-pro',
+  ]
 
-    const raceControllers = racePool.map(() => new AbortController())
+  let modelsToTry = Array.from(new Set(rawFallback)).filter((m) => !blacklistedModels.has(m))
+  if (modelsToTry.length === 0) {
+    blacklistedModels.clear()
+    modelsToTry = Array.from(new Set(rawFallback))
+  }
+
+  // Divide os modelos em ondas de até 3 para corrida paralela ultrarrápida (Hedging / Concurrent Race)
+  const chunkSize = 3
+  const waves: string[][] = []
+  for (let i = 0; i < modelsToTry.length; i += chunkSize) {
+    waves.push(modelsToTry.slice(i, i + chunkSize))
+  }
+
+  let lastError = new Error('Nenhum modelo disponível para análise.')
+
+  for (let waveIndex = 0; waveIndex < waves.length; waveIndex++) {
+    if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
+
+    const currentWave = waves[waveIndex].filter((m) => !blacklistedModels.has(m))
+    if (currentWave.length === 0) continue
+
+    if (waveIndex === 0) {
+      onProgress?.(`⚡ Velocidade Máxima: consultando APIs em paralelo (${currentWave.join(', ')})...`, 'info')
+    } else {
+      onProgress?.(`⚡ Alternando onda de fallback em paralelo (${currentWave.join(', ')})...`, 'warning')
+    }
+
+    const waveControllers = currentWave.map(() => new AbortController())
 
     const cancelOthers = (winnerIdx: number) => {
-      raceControllers.forEach((ctrl, idx) => {
+      waveControllers.forEach((ctrl, idx) => {
         if (idx !== winnerIdx) {
           try {
             ctrl.abort(new Error('Cancelado: outro modelo respondeu mais rápido.'))
@@ -434,8 +524,8 @@ export async function analyzeWithGemini(
       })
     }
 
-    const onRaceParentAbort = () => {
-      raceControllers.forEach((ctrl) => {
+    const onWaveParentAbort = () => {
+      waveControllers.forEach((ctrl) => {
         try {
           ctrl.abort(new Error('Operação cancelada pelo usuário.'))
         } catch {
@@ -446,22 +536,23 @@ export async function analyzeWithGemini(
 
     if (signal) {
       if (signal.aborted) throw new Error('Operação cancelada pelo usuário.')
-      signal.addEventListener('abort', onRaceParentAbort, { once: true })
+      signal.addEventListener('abort', onWaveParentAbort, { once: true })
     }
 
     try {
-      const racePromises = racePool.map(async (model, idx) => {
-        const ctrl = raceControllers[idx]
+      const racePromises = currentWave.map(async (model, idx) => {
+        const ctrl = waveControllers[idx]
+        const timeoutMs = currentWave.length > 1 ? 8000 : 12000
         const timeoutId = setTimeout(() => {
           try {
-            ctrl.abort(new Error(`Timeout de 15s na API Gemini (${model}).`))
+            ctrl.abort(new Error(`Timeout de ${timeoutMs / 1000}s excedido na API Gemini (${model}).`))
           } catch {
             ctrl.abort()
           }
-        }, 15000)
+        }, timeoutMs)
 
         try {
-          const res = await callSingleModel(model, key, payloadStr, keepalive, ctrl.signal)
+          const res = await callSingleModel(model, key, payloadBase, keepalive, ctrl.signal)
           clearTimeout(timeoutId)
           const parsedPlan = validateAnalysisPlan(robustParsePlan(res.rawText))
           parsedPlan.usedModel = res.usedModel
@@ -481,171 +572,20 @@ export async function analyzeWithGemini(
       })
 
       const winner = await Promise.any(racePromises)
-      signal?.removeEventListener('abort', onRaceParentAbort)
+      signal?.removeEventListener('abort', onWaveParentAbort)
 
-      if (winner.usedModel !== chosenModel) {
-        onProgress?.(`⚡ Velocidade máxima alcançada com '${winner.usedModel}' (${winner.plan.durationMs}ms)!`, 'info')
-        try {
-          settings.model = winner.usedModel
-        } catch {}
-      } else {
-        onProgress?.(`⚡ Resposta mais rápida recebida em ${winner.plan.durationMs}ms via '${winner.usedModel}'!`, 'info')
-      }
-
-      return winner
-    } catch (raceErr) {
-      signal?.removeEventListener('abort', onRaceParentAbort)
-      if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
-      console.warn('[EasyQuiz Race] Corrida concorrente falhou ou esgotou pool inicial. Alternando para fallback sequencial...', raceErr)
-    }
-  }
-
-  let lastError = new Error('Nenhum modelo tentado.')
-
-  for (let i = 0; i < modelsToTry.length; i++) {
-    if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
-
-    const currentModel = modelsToTry[i]
-    const nextModel = modelsToTry[i + 1]
-
-    onProgress?.(`Consultando Gemini (${currentModel})...`, 'info')
-
-    // Tenta primeiro em v1beta, se der 404 tenta em v1
-    const versionsToTry = ['v1beta', 'v1']
-
-    for (const apiVer of versionsToTry) {
-      if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
-
-      const endpoint = `https://generativelanguage.googleapis.com/${apiVer}/models/${currentModel}:generateContent?key=${encodeURIComponent(key)}`
-
-      const controller = new AbortController()
-      const onSignalAbort = () => {
-        try {
-          controller.abort(new Error('Operação cancelada pelo usuário.'))
-        } catch {
-          controller.abort()
-        }
-      }
-
-      if (signal) {
-        if (signal.aborted) throw new Error('Operação cancelada pelo usuário.')
-        signal.addEventListener('abort', onSignalAbort, { once: true })
-      }
-
-      const timeoutId = setTimeout(() => {
-        try {
-          controller.abort(new Error(`Timeout de 18s excedido na API Gemini (${currentModel}). Servidor demorou a responder.`))
-        } catch {
-          controller.abort()
-        }
-      }, 18000)
-
+      preferredFastModel = winner.usedModel
       try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': key,
-          },
-          body: payloadStr,
-          signal: controller.signal,
-          keepalive,
-        })
+        settings.model = winner.usedModel
+      } catch {}
 
-        clearTimeout(timeoutId)
-        signal?.removeEventListener('abort', onSignalAbort)
-
-        if (!response.ok) {
-          const errorText = await response.text()
-
-          // Se o modelo rejeitou thinkingConfig com 400 (ex: modelos legados), remove e tenta novamente de imediato
-          if (response.status === 400 && genConfig.thinkingConfig && /thinking/i.test(errorText)) {
-            delete genConfig.thinkingConfig
-            payload.generationConfig = genConfig
-            continue
-          }
-
-          const parsedErrorMsg = parseGeminiError(errorText, response.status)
-
-          // Se for 404 e ainda temos a versão v1 para tentar, continua
-          if (response.status === 404 && apiVer === 'v1beta') {
-            continue
-          }
-
-          // Se for 503 (servidor sobrecarregado) ou 429, não gasta tempo tentando v1 do mesmo modelo sobrecarregado
-          throw new Error(parsedErrorMsg)
-        }
-
-        const data = await response.json()
-        const candidate = data.candidates?.[0]
-        if (!candidate || !candidate.content?.parts?.[0]?.text) {
-          throw new Error('A IA não retornou uma resposta estruturada válida.')
-        }
-
-        const rawText = candidate.content.parts[0].text
-        const parsedPlan = validateAnalysisPlan(robustParsePlan(rawText))
-        parsedPlan.usedModel = currentModel
-        parsedPlan.durationMs = Date.now() - startTime
-        parsedPlan.promptSent = userText
-        parsedPlan.tokensUsed = data.usageMetadata?.totalTokenCount
-        parsedPlan.promptTokens = data.usageMetadata?.promptTokenCount
-        parsedPlan.candidatesTokens = data.usageMetadata?.candidatesTokenCount
-        parsedPlan.rawResponse = rawText
-
-        if (currentModel !== chosenModel) {
-          onProgress?.(`Resolvido com sucesso pelo fallback '${currentModel}' (${apiVer})!`, 'info')
-          try {
-            settings.model = currentModel
-          } catch {}
-        }
-
-        return { plan: parsedPlan, rawUsage: data.usageMetadata, usedModel: currentModel }
-      } catch (err) {
-        clearTimeout(timeoutId)
-        signal?.removeEventListener('abort', onSignalAbort)
-
-        if (signal?.aborted) {
-          throw new Error('Operação cancelada pelo usuário.')
-        }
-
-        if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted') || err.message.includes('Timeout'))) {
-          lastError = new Error(`Timeout de 18s excedido na API Gemini (${currentModel}). Sem resposta imediata.`)
-        } else {
-          lastError = err as Error
-        }
-
-        // Se for erro de chave inválida, encerra imediatamente
-        if (lastError.message.includes('inválida') || lastError.message.includes('não autorizada')) {
-          throw lastError
-        }
-
-        // Se deu timeout ou 503/429 na primeira tentativa, pula imediatamente para o próximo modelo
-        if (lastError.message.includes('Timeout') || lastError.message.includes('503') || lastError.message.includes('429')) {
-          break
-        }
-      }
-    }
-
-    if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
-
-    // Se falhou em ambas as versões de API para este modelo
-    const isRateLimit = lastError.message.includes('429') || lastError.message.includes('cota')
-    const is404 = lastError.message.includes('404')
-
-    if (is404) {
-      blacklistedModels.add(currentModel)
-    }
-
-    if (nextModel) {
-      const pauseMs = isRateLimit ? 500 : 150
-      const warnMsg = `Modelo '${currentModel}' indisponível (${lastError.message}). Alternando imediatamente para '${nextModel}'...`
-      console.warn(`[EasyQuiz Fallback] ${warnMsg}`)
-      onProgress?.(warnMsg, 'warning')
-      if (pauseMs > 0) {
-        await new Promise((r) => setTimeout(r, pauseMs))
-      }
-    } else {
-      console.warn(`[EasyQuiz Fallback] Modelo '${currentModel}' falhou: ${lastError.message}. Todos os modelos esgotados.`)
+      onProgress?.(`⚡ Resposta mais rápida recebida em ${winner.plan.durationMs}ms via '${winner.usedModel}'!`, 'info')
+      return winner
+    } catch (waveErr) {
+      signal?.removeEventListener('abort', onWaveParentAbort)
+      if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
+      lastError = waveErr instanceof Error ? waveErr : new Error(String(waveErr))
+      console.warn(`[EasyQuiz Wave Race] Onda ${waveIndex + 1} (${currentWave.join(', ')}) falhou. Tentando próxima onda...`, waveErr)
     }
   }
 

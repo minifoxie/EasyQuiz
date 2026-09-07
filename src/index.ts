@@ -1,6 +1,6 @@
 import { analyzeWithGemini } from './core/gemini'
 import { buildUserPrompt } from './core/prompt'
-import { addSessionMemory, loadSettings, saveSettings, recordQuestionTiming, loadActivityMetrics } from './core/storage'
+import { addSessionMemory, loadSettings, saveSettings, recordQuestionTiming, loadActivityMetrics, resetActivityMetrics } from './core/storage'
 import { createExecutionPolicy } from './core/policy'
 import type { AnalysisPlan, EasyQuizSettings } from './core/types'
 import { captureCurrentContext, captureFullPageText } from './dom/detector'
@@ -39,6 +39,9 @@ function injectPreconnect(): void {
 
 async function initEasyQuiz(): Promise<void> {
   const eqWindow = window as EasyQuizWindow
+
+  // Limpa o histórico de métricas de tempo para que toda nova execução inicie 100% vazia
+  resetActivityMetrics()
 
   // Instala proteção inteligente de cliques em opções para evitar inversão ou cancelamento por listeners do host
   setupSmartOptionInterceptors()
