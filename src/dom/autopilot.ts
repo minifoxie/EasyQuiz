@@ -271,7 +271,7 @@ export class Autopilot {
         const btn = findElementExt(cache.advanceSelector)
         if (btn) {
           this.callbacks.onStatusChange('advancing', `> [BRUTE] Avançando via cache "${cache.advanceSelector}"...`)
-          await this.sleep(800)
+          await this.sleep(250)
           if (!this.active) return
           simulatePointerClick(btn)
           this.resolvedSigs.add(contentSig)
@@ -301,10 +301,10 @@ export class Autopilot {
 
           if (plan.pageType === 'info') {
             this.callbacks.onStatusChange('advancing', '> [IA] 📖 Leitura concluída. Avançando...', 'text-green')
-            await this.sleep(1200)
+            await this.sleep(250)
           } else if (plan.pageType === 'start') {
             this.callbacks.onStatusChange('advancing', '> [SYS] Início detectado. Iniciando...', 'text-blue')
-            await this.sleep(1200)
+            await this.sleep(250)
           } else if (plan.pageType === 'conclusion') {
             this.callbacks.onStatusChange('idle', '> [SYS] Atividade concluída! Desligando Autopilot.', 'text-green')
             this.stop()

@@ -2041,9 +2041,8 @@ export async function executePlan(
       actionErrors.set(action, err instanceof Error ? err.message : String(err))
       console.warn('[EasyQuiz] Ação declarativa primária falhou com segurança:', action, err)
     }
-    // Pausa inteligente entre ações — dá tempo ao framework SPA (React/Vue/Angular)
-    // processar o estado antes da próxima ação. 100ms é o mínimo seguro para re-renders síncronos.
-    await new Promise((resolve) => setTimeout(resolve, action.t === 'drag' ? 300 : 100))
+    // Pausa inteligente entre ações — 35ms é o ideal para dispatch síncrono e microtasks dos frameworks (React/Vue)
+    await new Promise((resolve) => setTimeout(resolve, action.t === 'drag' ? 180 : 35))
   }
 
   // RECONCILIAÇÃO DETERMINÍSTICA DE MULTI-SELEÇÃO:
@@ -2111,8 +2110,8 @@ export async function executePlan(
   }
 
   // Aguarda o framework processar todas as ações antes da verificação
-  // 450ms: suficiente para React setState + re-render + commit no DOM
-  await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 450 : 80))
+  // 100ms: suficiente para React setState + re-render + commit no DOM (1-2 frames = 16-32ms)
+  await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 100 : 25))
   let verifiedCount = 0
 
   for (const action of regularActions) {
@@ -2149,7 +2148,7 @@ export async function executePlan(
     console.warn(
       `[EasyQuiz Auto-Cura] ${regularActions.length - verifiedCount} de ${regularActions.length} ação(ões) ainda não verificadas. Disparando Passagem 3 final...`,
     )
-    await new Promise((r) => setTimeout(r, 300))
+    await new Promise((r) => setTimeout(r, 200))
     for (const action of regularActions) {
       if (!verifyActionApplied(action)) {
         try {
@@ -2159,7 +2158,7 @@ export async function executePlan(
         }
       }
     }
-    await new Promise((r) => setTimeout(r, 300))
+    await new Promise((r) => setTimeout(r, 200))
 
     // Recalcula contagem real verificada após passagem 3
     verifiedCount = 0
@@ -2222,9 +2221,8 @@ export async function executePlan(
   const partialSuccess = appliedCount > 0 && appliedCount >= regularActions.length / 2
 
   if (allowAdvance && (success || !isQuestion || partialSuccess)) {
-  // Aguarda o framework registrar o input/seleção antes de tentar avançar
-  // 600ms com ações: SPAs precisam de tempo extra para processar o submit
-  await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 600 : 200))
+    // Aguarda o framework registrar o input/seleção antes de tentar avançar
+    await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 120 : 40))
 
     let checkWasClicked = false
     // 1. Em questões com etapa intermediária de checagem ("Verificar", "Check", "Conferir", "Responder")
@@ -2234,8 +2232,8 @@ export async function executePlan(
         await waitForEnabled(checkBtn, 1200)
         simulatePointerClick(checkBtn)
         checkWasClicked = true
-        // Aguarda animação e feedback do quiz
-        await new Promise((resolve) => setTimeout(resolve, 800))
+        // Aguarda transição imediata do quiz
+        await new Promise((resolve) => setTimeout(resolve, 350))
       }
     }
 
@@ -2246,7 +2244,7 @@ export async function executePlan(
 
     // Se ainda não encontrou e houve clique intermediário, aguarda a transição de texto do botão
     if (!navBtn && checkWasClicked) {
-      await new Promise((resolve) => setTimeout(resolve, 600))
+      await new Promise((resolve) => setTimeout(resolve, 250))
       navBtn = findBestNavigationButton(preferredId)
     }
 
@@ -2257,7 +2255,7 @@ export async function executePlan(
         saveDomainCache(window.location.hostname, { advanceSelector: heuristic })
       }
       simulatePointerClick(navBtn)
-      const navigation = await waitForNavigationChange(navigationBefore, 2500)
+      const navigation = await waitForNavigationChange(navigationBefore, 1800)
       navigationVerified = navigation.changed
       navigationEvidence = navigation.evidence
       advanced = navigation.changed || checkWasClicked

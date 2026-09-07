@@ -15,15 +15,16 @@ CLASSIFICAÇÃO (pageType):
 - start: Página inicial de boas-vindas com botão de iniciar.
 - conclusion: Tela final de encerramento (actions=[]).
 
-RACIOCÍNIO E CÁLCULO DIRETO (rationale):
-- Em 'rationale', forneça resolução DIRETA, ultra-objetiva e rápida em no máximo 1 a 2 frases curtas com a dedução/cálculo matemático final. NUNCA gere introduções, preâmbulos ou textos longos.
+RACIOCÍNIO TELEGRÁFICO E RÁPIDO (rationale):
+- Em 'rationale', seja estritamente telegráfico e ultra-curto (MÁXIMO 10 PALAVRAS no total, ex: "Afirmações I e III verdadeiras" ou "Opções B e D corretas" ou "x = 42").
+- NUNCA explique opção por opção, nunca analise itens individualmente em 'rationale' e nunca faça discursos longos. A prioridade absoluta é a velocidade máxima na emissão de 'actions'.
 - Para questões de preenchimento (val):
   - Emita em 'v' o valor ou número exato obtido no cálculo (apenas o número se o campo pedir valor numérico, respeitando o formato exigido).
 - Para questões de multi-seleção (escolha_multipla) ou quando [RESPOSTAS] tiver [MULTI-SELEÇÃO]:
   - OBRIGATÓRIO: emita uma ação chk (c: true) para CADA opção comprovadamente correta.
   - Pode e DEVE haver 2, 3 ou mais ações chk corretas na mesma questão.
   - Deixar de marcar uma opção correta é tão errado quanto marcar uma incorreta.
-  - NÃO limite-se a 1 resposta só porque parece mais segura — marque TODAS as corretas identificadas.
+  - NÃO se limite a 1 resposta só porque parece mais segura — marque TODAS as corretas identificadas.
   - NUNCA emita ações com c: false para opções erradas; emita estritamente as ações das opções que DEVEM ser marcadas.
 - Para escolha única (rádio, [ESCOLHA-Única]):
   - Emita EXATAMENTE 1 ação de resposta para a alternativa correta (somente 1).
@@ -94,10 +95,12 @@ export function buildUserPrompt(
     /katex|latex|math|matrix|formula|frac|\$|\^|\_/i.test(context.htmlSnippet) ||
     /calcular|calcule|resolva|matriz|equação|função|probabilidade|geometria|fórmula|coordenada|sistema/i.test(context.questionText)
 
-  // HTML: só enviar quando realmente necessario (questao curta, widget complexo, ou formula)
-  // Reduzido de 3500 para 1800 chars — economiza ~400 tokens por chamada
+  // HTML: só enviar quando estritamente necessário (sem controles extraídos, widget complexo ou fórmula)
+  // Se os controles de resposta já foram identificados no DOM, omitir HTML economiza ~450 tokens por chamada e reduz drasticamente a latência de processamento
   const shouldIncludeHtml =
-    context.questionText.length < 150 || isComplexWidget || hasMathOrFormulas
+    (context.controls.length === 0 && context.questionText.length < 150) ||
+    isComplexWidget ||
+    hasMathOrFormulas
 
   const htmlBlock = shouldIncludeHtml
     ? `\n[HTML]:\n${context.htmlSnippet.slice(0, 1800).replace(/\s+/g, ' ')}`
@@ -125,13 +128,14 @@ ${
   (() => {
     if (answerControls.length === 0) return 'Nenhuma'
 
-    // Detecta multi-selecao: checkboxes sem nome compartilhado (radio groups compartilham name)
+    // Detecta multi-seleção por checkboxes ou termos-chave no enunciado
     const checkboxes = answerControls.filter((c) => c.type === 'checkbox' || c.type === 'chk')
     const radioNames = new Set(answerControls.filter((c) => c.type === 'radio').map((c) => c.name).filter(Boolean))
     const standaloneCheckboxes = checkboxes.filter((c) => !c.name || !radioNames.has(c.name))
-    const isMultiSelect = standaloneCheckboxes.length >= 2
+    const hasMultiKeywords = /selecione as|assinale as|quais das|todas as|marque as|escolha as|quais dessas|quais dos/i.test(context.questionText)
+    const isMultiSelect = standaloneCheckboxes.length >= 2 || hasMultiKeywords
 
-    // Detecta radio unico (apenas 1 opcao pode ser marcada)
+    // Detecta rádio único (apenas 1 opção pode ser marcada)
     const isRadioOnly = answerControls.every((c) => c.type === 'radio' || c.type === 'chk') && radioNames.size >= 1 && !isMultiSelect
 
     const header = isMultiSelect
@@ -145,9 +149,9 @@ ${
         id: c.id,
         t: c.type,
         n: c.name || undefined,
-        txt: c.label,
+        txt: c.label ? (c.label.length > 160 ? c.label.slice(0, 160) + '...' : c.label) : undefined,
         v: c.value || undefined,
-        opt: c.options.length ? c.options : undefined,
+        opt: c.options && c.options.length ? c.options.slice(0, 20).map((o) => o.label || o.value) : undefined,
       }))
     )
   })()

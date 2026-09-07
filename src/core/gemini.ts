@@ -82,7 +82,7 @@ export let preferredFastModel: string | null = null
 export function buildGenerationConfig(model: string): Record<string, unknown> {
   const config: Record<string, unknown> = {
     temperature: 0.0,
-    maxOutputTokens: 700,
+    maxOutputTokens: 500,
     responseMimeType: 'application/json',
     responseSchema: GEMINI_JSON_SCHEMA,
     response_mime_type: 'application/json',
