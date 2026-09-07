@@ -19,10 +19,12 @@ RACIOCÍNIO E CÁLCULO DIRETO (rationale):
 - Em 'rationale', forneça resolução DIRETA, ultra-objetiva e rápida em no máximo 1 a 2 frases curtas com a dedução/cálculo matemático final. NUNCA gere introduções, preâmbulos ou textos longos.
 - Para questões de preenchimento (val):
   - Emita em 'v' o valor ou número exato obtido no cálculo (apenas o número se o campo pedir valor numérico, respeitando o formato exigido).
-- Para questões de multi-seleção (escolha_multipla):
-  - Avalie cada afirmação/opção individualmente; marque com chk (c: true) EXCLUSIVAMENTE as que forem comprovadamente verdadeiras.
-  - NUNCA marque ou inclua ações para alternativas incorretas/falsas.
-- Para escolha única (rádio): marque com clk ou chk apenas a alternativa correta.
+- Para questões de multi-seleção (escolha_multipla) ou quando [RESPOSTAS] tiver [MULTI-SELEÇÃO]:
+  - OBRIGATÓRIO: emita uma ação chk (c: true) para CADA opção comprovadamente correta.
+  - Pode e DEVE haver 2, 3 ou mais ações chk corretas na mesma questão.
+  - Deixar de marcar uma opção correta é tão errado quanto marcar uma incorreta.
+  - NÃO limite-se a 1 resposta só porque parece mais segura — marque TODAS as corretas identificadas.
+- Para escolha única (rádio, [ESCOLHA-Única]): marque com clk ou chk APENAS a alternativa mais correta (somente 1).
 - Para imagens e gráficos (anexados em [IMAGENS E GRÁFICOS ANEXADOS]):
   - Analise detalhadamente curvas, eixos cartesianos, vértices, coordenadas numéricas e geometria.
   - Cada anexo visual traz explicitamente seu vínculo (Enunciado ou Alternativa correspondente).
@@ -116,18 +118,35 @@ ${context.questionText}${htmlBlock}
 
 [RESPOSTAS]:
 ${
-  answerControls.length > 0
-    ? JSON.stringify(
-        answerControls.map((c) => ({
-          id: c.id,
-          t: c.type,
-          n: c.name || undefined,
-          txt: c.label,
-          v: c.value || undefined,
-          opt: c.options.length ? c.options : undefined,
-        }))
-      )
-    : 'Nenhuma'
+  (() => {
+    if (answerControls.length === 0) return 'Nenhuma'
+
+    // Detecta multi-selecao: checkboxes sem nome compartilhado (radio groups compartilham name)
+    const checkboxes = answerControls.filter((c) => c.type === 'checkbox' || c.type === 'chk')
+    const radioNames = new Set(answerControls.filter((c) => c.type === 'radio').map((c) => c.name).filter(Boolean))
+    const standaloneCheckboxes = checkboxes.filter((c) => !c.name || !radioNames.has(c.name))
+    const isMultiSelect = standaloneCheckboxes.length >= 2
+
+    // Detecta radio unico (apenas 1 opcao pode ser marcada)
+    const isRadioOnly = answerControls.every((c) => c.type === 'radio' || c.type === 'chk') && radioNames.size >= 1 && !isMultiSelect
+
+    const header = isMultiSelect
+      ? '[MULTI-SELEÇÃO: marque TODOS os corretos, pode ser 2 ou mais]\n'
+      : isRadioOnly
+        ? '[ESCOLHA-Única: marque APENAS 1 opção]\n'
+        : ''
+
+    return header + JSON.stringify(
+      answerControls.map((c) => ({
+        id: c.id,
+        t: c.type,
+        n: c.name || undefined,
+        txt: c.label,
+        v: c.value || undefined,
+        opt: c.options.length ? c.options : undefined,
+      }))
+    )
+  })()
 }
 
 [NAVEGAÇÃO]:
