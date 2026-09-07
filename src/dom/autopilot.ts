@@ -1,6 +1,6 @@
 import type { AnalysisPlan } from '../core/types'
 import { loadDomainCache } from '../core/storage'
-import { captureCurrentContext, captureFullPageText, createContextSignature } from './detector'
+import { captureCurrentContext, captureFullPageText, createContextSignature, createContentSignature } from './detector'
 import { findElementExt, simulatePointerClick } from './executor'
 
 export type AutopilotStatus = 'idle' | 'waiting' | 'analyzing' | 'advancing' | 'error'
@@ -79,14 +79,17 @@ export function detectActivityCompletion(scope?: HTMLElement | null, text = ''):
 
 export class Autopilot {
   private active = false
-  private timer: number | null = null
   private callbacks: AutopilotCallbacks
-  private lastRunTime = 0
-  private lastActionTime = 0
   private isProcessing = false
   private observer: MutationObserver | null = null
   private mutationTimer: number | null = null
+  private heartbeatTimer: number | null = null
   private abortController: AbortController | null = null
+
+  // Estado inteligente — baseado em conteúdo, não em valores
+  private errorCount = 0
+  private resolvedSigs = new Set<string>()  // sigs de conteúdo já analisadas com sucesso
+  private lastContentSig = ''               // última sig de conteúdo vista
 
   constructor(callbacks: AutopilotCallbacks) {
     this.callbacks = callbacks
@@ -99,271 +102,220 @@ export class Autopilot {
   public start() {
     if (this.active) return
     this.active = true
-    this.lastActionTime = Date.now()
     this.callbacks.onStatusChange('waiting', '> [SYS] Autopilot ENGAGED. Monitorando...')
+
     if (typeof MutationObserver !== 'undefined') {
       this.observer = new MutationObserver(() => {
         if (!this.active || this.isProcessing) return
         if (this.mutationTimer) clearTimeout(this.mutationTimer)
-        // 400ms de debounce — evita re-trigger durante execução de ações DOM
+        // 120ms de debounce — rápido o suficiente para detectar nova página,
+        // mas sem disparar para cada pequena mutação de atributo
         this.mutationTimer = window.setTimeout(() => {
           this.mutationTimer = null
-          if (!this.isProcessing) void this.loop()
-        }, 400)
+          if (!this.isProcessing) void this.checkAndAnalyze()
+        }, 120)
       })
-      this.observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true })
+      this.observer.observe(document.body, { subtree: true, childList: true, characterData: true })
     }
-    this.loop()
+
+    // Heartbeat de 5s como fallback para SPAs que não geram mutações
+    this.scheduleHeartbeat()
+    void this.checkAndAnalyze()
   }
 
   public stop() {
     this.active = false
     if (this.abortController) {
-      try {
-        this.abortController.abort()
-      } catch {}
+      try { this.abortController.abort() } catch {}
       this.abortController = null
     }
-    if (this.timer) clearTimeout(this.timer)
-    if (this.mutationTimer) clearTimeout(this.mutationTimer)
-    this.mutationTimer = null
+    if (this.mutationTimer) { clearTimeout(this.mutationTimer); this.mutationTimer = null }
+    if (this.heartbeatTimer) { clearTimeout(this.heartbeatTimer); this.heartbeatTimer = null }
     this.observer?.disconnect()
     this.observer = null
     this.isProcessing = false
+    this.resolvedSigs.clear()
     this.callbacks.onStatusChange('idle', '> [SYS] Autopilot DESATIVADO pelo usuário.', 'text-yellow')
+  }
+
+  private scheduleHeartbeat() {
+    if (this.heartbeatTimer) clearTimeout(this.heartbeatTimer)
+    this.heartbeatTimer = window.setTimeout(() => {
+      this.heartbeatTimer = null
+      if (this.active && !this.isProcessing) void this.checkAndAnalyze()
+      if (this.active) this.scheduleHeartbeat()
+    }, 5000)
   }
 
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => {
       if (!this.active) return resolve()
-      let timeoutId: number | null = null
-      const onAbort = () => {
-        if (timeoutId) clearTimeout(timeoutId)
-        resolve()
-      }
-      timeoutId = window.setTimeout(() => {
-        resolve()
-      }, ms)
+      let tid: number | null = null
+      const onAbort = () => { if (tid) clearTimeout(tid); resolve() }
+      tid = window.setTimeout(resolve, ms)
       this.abortController?.signal.addEventListener('abort', onAbort, { once: true })
     })
   }
 
-  private errorCount = 0
-  private lastPageSig = ''
-  private samePageCount = 0
-
-  private async loop() {
-    if (!this.active) return
-    
-    const now = Date.now()
-    
-    // Throttle básico — reduzido para máxima velocidade de resposta
-    if (now - this.lastRunTime < 1500 || this.isProcessing) {
-      this.timer = window.setTimeout(() => this.loop(), 300)
-      return
-    }
-
-    this.lastRunTime = now
+  /**
+   * Verificação principal — orientada a eventos, sem cooldown.
+   * Só analisa se o CONTEÚDO mudou (nova questão), não valores preenchidos.
+   */
+  private async checkAndAnalyze() {
+    if (!this.active || this.isProcessing) return
 
     try {
       this.isProcessing = true
-      if (!this.active) return
-      
+
       let context = captureCurrentContext(false)
+      if (!context) context = captureFullPageText()
+      if (!this.active) return
+
       if (!context) {
-        context = captureFullPageText()
+        this.callbacks.onStatusChange('waiting', '> [SYS] Monitorando página... Aguardando elementos.')
+        return
       }
 
-      if (!this.active) return
+      // Detecção de fim de atividade
+      if (detectActivityCompletion(context.scope, context.questionText)) {
+        this.callbacks.onStatusChange('idle', '> [SYS] 🏆 Atividade concluída! Autopilot finalizado.', 'text-green')
+        this.stop()
+        return
+      }
 
-      if (context) {
-        // Auto-Finalização Inteligente: se a atividade já foi concluída, desliga o Autopilot com certeza absoluta
-        if (detectActivityCompletion(context.scope, context.questionText)) {
-          this.callbacks.onStatusChange(
-            'idle',
-            '> [SYS] 🏆 Atividade concluída detectada na página! Desligando Autopilot com sucesso.',
-            'text-green',
-          )
-          this.stop()
-          return
-        }
+      // Gabarito manual ativo — aguardar intervenção do usuário
+      if (this.callbacks.isManualModeActive?.()) {
+        this.callbacks.onStatusChange('waiting', '> [SYS] Gabarito manual ativo. Aguardando você avançar...', 'text-yellow')
+        return
+      }
 
-        const currentSig = createContextSignature(context)
-        if (currentSig === this.lastPageSig) {
-          this.samePageCount++
-        } else {
-          const hadRepetition = this.samePageCount > 1
-          this.lastPageSig = currentSig
-          this.samePageCount = 1
-          if (hadRepetition) {
-            this.callbacks.onStatusChange(
-              'waiting',
-              '> [SYS] Avanço de página detectado! Retomando monitoramento automático...',
-              'text-green',
-            )
-            this.callbacks.onPageAdvance?.()
-          }
-        }
+      // Assinatura de CONTEÚDO (sem valores preenchidos)
+      const contentSig = createContentSignature(context)
 
-        // Se o gabarito manual estiver aberto na tela (resolução manual pelo usuário),
-        // aguarda o usuário posicionar e avançar a tela, sem gastar tokens da IA nem forçar skip!
-        if (this.callbacks.isManualModeActive?.()) {
-          this.callbacks.onStatusChange(
-            'waiting',
-            '> [SYS] Gabarito manual ativo na tela. Aguardando você posicionar as respostas e avançar a página...',
-            'text-yellow',
-          )
-          this.lastRunTime = Date.now()
-          return
-        }
+      // Se o conteúdo já foi resolvido com sucesso → ignorar, não é questão nova
+      if (this.resolvedSigs.has(contentSig)) {
+        return
+      }
 
-        if (this.samePageCount > 1) {
-          this.callbacks.onStatusChange(
-            'waiting',
-            `> [AUTOPILOT] Resolução pendente (${this.samePageCount}ª verificação). Conclua e avance para prosseguir...`,
-            'text-yellow',
-          )
-          await this.sleep(4000)
-          if (!this.active) return
-        }
+      // Se o conteúdo não mudou desde o último check → ignorar
+      if (contentSig === this.lastContentSig && this.resolvedSigs.size > 0) {
+        return
+      }
 
-        const answerControls = context.controls.filter((c) => c.role === 'answer')
-        const cache = loadDomainCache(window.location.hostname)
+      // NOVA QUESTÃO DETECTADA ou primeira execução
+      const isNewPage = contentSig !== this.lastContentSig
+      if (isNewPage && this.lastContentSig !== '') {
+        this.callbacks.onStatusChange('waiting', '> [SYS] Nova questão detectada! Analisando...', 'text-green')
+        this.callbacks.onPageAdvance?.()
+      }
+      this.lastContentSig = contentSig
 
-        if (answerControls.length > 0) {
-          // TEM QUESTÃO / EXERCÍCIO NA TELA (Múltipla escolha, texto, categorização, arrastar-soltar)
-          this.callbacks.onStatusChange('analyzing', '> [IA] Questão/Exercício detectado. Consultando IA...', 'text-blue')
-          if (!this.active) return
+      const answerControls = context.controls.filter((c) => c.role === 'answer')
+      const cache = loadDomainCache(window.location.hostname)
 
-          this.abortController = new AbortController()
-          const plan = await this.callbacks.onRequestAnalysis(this.samePageCount, this.abortController.signal)
-          this.abortController = null
-          if (!this.active) return
+      if (answerControls.length > 0) {
+        // QUESTÃO COM CONTROLES DE RESPOSTA
+        this.callbacks.onStatusChange('analyzing', '> [IA] Questão detectada. Consultando IA...', 'text-blue')
+        if (!this.active) return
 
-          if (plan) {
-            this.callbacks.onStatusChange(
-              'analyzing',
-              `> [IA] (${plan.usedModel || 'gemini'}) Confiança: ${(plan.confidence * 100).toFixed(1)}% | Modo: ${plan.mode}`,
-              'text-blue',
-            )
-            this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
-            this.callbacks.onStatusChange('analyzing', `> [IA] Ações geradas: ${plan.actions.length}`, 'text-blue')
-            this.errorCount = 0
+        this.abortController = new AbortController()
+        const plan = await this.callbacks.onRequestAnalysis(1, this.abortController.signal)
+        this.abortController = null
+        if (!this.active) return
 
-            if (plan.memoryToStore) {
-              this.callbacks.onStatusChange('analyzing', `> [IA] 🧠 Memória RAG salva: "${plan.memoryToStore}"`, 'text-yellow')
-            }
-
-            if (plan.pageType === 'conclusion') {
-              this.callbacks.onStatusChange('idle', '> [SYS] Atividade concluída! Desligando Autopilot.', 'text-green')
-              this.stop()
-              return
-            }
-
-            // Fix re-análise: após análise bem-sucedida, bloquear re-análise imediata da mesma página.
-            // O próximo loop só analisa novamente se o conteúdo DOM mudar (nova sig).
-            this.lastPageSig = currentSig + '_resolved'
-            this.samePageCount = 0
-            // Cooldown pós-sucesso: aguarda DOM estabilizar após ações do executor
-            // antes de checar novamente (evita re-análise disparada por mutações das próprias ações)
-            await this.sleep(1500)
-          } else {
-            this.errorCount++
-            const cooldown = this.errorCount === 1 ? 5000 : 8000
-            this.callbacks.onStatusChange(
-              'waiting',
-              `> [AVISO] Falha na análise (${this.errorCount}/3). Aguardando ${cooldown / 1000}s...`,
-              'text-yellow',
-            )
-            await this.sleep(cooldown)
-          }
-          this.lastActionTime = Date.now()
-        } else if (cache.advanceSelector && findElementExt(cache.advanceSelector) && context.questionText.length < 50) {
-          // TELA INFORMATIVA SIMPLES E JÁ SABEMOS O BOTÃO DE AVANÇO
-          const btn = findElementExt(cache.advanceSelector)
-          if (btn) {
-            this.callbacks.onStatusChange('advancing', `> [BRUTE] Avançando via cache "${cache.advanceSelector}"...`)
-            await this.sleep(1000)
-            if (!this.active) return
-            simulatePointerClick(btn)
-            this.lastActionTime = Date.now()
-            this.errorCount = 0
-          }
-        } else {
-          // PÁGINA DE CONTEXTO, ARTIGO TEÓRICO, TELA DE INÍCIO OU FALLBACK
+        if (plan) {
           this.callbacks.onStatusChange(
             'analyzing',
-            '> [IA] Página informativa/contexto detectada. Lendo e consultando IA...',
+            `> [IA] (${plan.usedModel || 'gemini'}) Confiança: ${(plan.confidence * 100).toFixed(1)}% | Modo: ${plan.mode}`,
             'text-blue',
           )
-          if (!this.active) return
+          this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
+          this.callbacks.onStatusChange('analyzing', `> [IA] Ações: ${plan.actions.length}`, 'text-blue')
+          this.errorCount = 0
 
-          this.abortController = new AbortController()
-          const plan = await this.callbacks.onRequestAnalysis(this.samePageCount, this.abortController.signal)
-          this.abortController = null
-          if (!this.active) return
-
-          if (plan) {
-            this.callbacks.onStatusChange(
-              'analyzing',
-              `> [IA] (${plan.usedModel || 'gemini'}) Tipo: ${plan.pageType} | Modo: ${plan.mode}`,
-              'text-blue',
-            )
-            this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
-
-            if (plan.memoryToStore) {
-              this.callbacks.onStatusChange('analyzing', `> [IA] 🧠 Conteúdo absorvido na memória: "${plan.memoryToStore}"`, 'text-yellow')
-            }
-
-            if (plan.pageType === 'info') {
-              this.callbacks.onStatusChange('advancing', '> [IA] 📖 Leitura concluída. Avançando automaticamente...', 'text-green')
-              await this.sleep(1800)
-            } else if (plan.pageType === 'start') {
-              this.callbacks.onStatusChange('advancing', '> [SYS] Início de módulo detectado. Iniciando...', 'text-blue')
-              await this.sleep(1800)
-            } else if (plan.pageType === 'conclusion') {
-              this.callbacks.onStatusChange('idle', '> [SYS] Atividade concluída! Desligando Autopilot.', 'text-green')
-              this.stop()
-              return
-            }
-            this.errorCount = 0
-
-            // Fix re-análise: marcar página como resolvida para evitar loop em página info/start
-            this.lastPageSig = currentSig + '_resolved'
-            this.samePageCount = 0
-          } else {
-            this.errorCount++
-            const cooldown = this.errorCount === 1 ? 5000 : 8000
-            this.callbacks.onStatusChange(
-              'waiting',
-              `> [AVISO] Falha ao processar página (${this.errorCount}/3). Aguardando ${cooldown / 1000}s...`,
-              'text-yellow',
-            )
-            await this.sleep(cooldown)
+          if (plan.memoryToStore) {
+            this.callbacks.onStatusChange('analyzing', `> [IA] 🧠 Memória RAG: "${plan.memoryToStore}"`, 'text-yellow')
           }
-          this.lastActionTime = Date.now()
+
+          if (plan.pageType === 'conclusion') {
+            this.callbacks.onStatusChange('idle', '> [SYS] Atividade concluída! Desligando Autopilot.', 'text-green')
+            this.stop()
+            return
+          }
+
+          // Marcar conteúdo como resolvido — MutationObserver vai ignorar próximas mutações
+          // de valores (checkmarks, campos preenchidos) desta mesma questão
+          this.resolvedSigs.add(contentSig)
+
+        } else {
+          this.errorCount++
+          const cooldown = this.errorCount === 1 ? 5000 : 8000
+          this.callbacks.onStatusChange('waiting', `> [AVISO] Falha na análise (${this.errorCount}/3). Aguardando ${cooldown / 1000}s...`, 'text-yellow')
+          await this.sleep(cooldown)
         }
 
-        if (this.errorCount >= 3) {
-          this.callbacks.onStatusChange(
-            'error',
-            '> [ERRO] 3 falhas consecutivas. Abortando Autopilot para poupar sua cota e tokens.',
-            'text-red',
-          )
-          this.callbacks.onStatusChange(
-            'waiting',
-            '> [DICA] Verifique a mensagem vermelha de [ERRO DETALHADO] no console acima para saber o motivo exato.',
-            'text-yellow',
-          )
-          this.stop()
-          return
+      } else if (cache.advanceSelector && findElementExt(cache.advanceSelector) && context.questionText.length < 50) {
+        // TELA INFORMATIVA SIMPLES COM BOTÃO CACHEADO
+        const btn = findElementExt(cache.advanceSelector)
+        if (btn) {
+          this.callbacks.onStatusChange('advancing', `> [BRUTE] Avançando via cache "${cache.advanceSelector}"...`)
+          await this.sleep(800)
+          if (!this.active) return
+          simulatePointerClick(btn)
+          this.resolvedSigs.add(contentSig)
+          this.errorCount = 0
         }
       } else {
-        this.callbacks.onStatusChange(
-          'waiting',
-          '> [SYS] Monitorando página... Aguardando carregamento dos elementos.',
-        )
+        // PÁGINA INFORMATIVA / ARTIGO / INÍCIO — análise de contexto
+        this.callbacks.onStatusChange('analyzing', '> [IA] Página informativa detectada. Consultando IA...', 'text-blue')
+        if (!this.active) return
+
+        this.abortController = new AbortController()
+        const plan = await this.callbacks.onRequestAnalysis(1, this.abortController.signal)
+        this.abortController = null
+        if (!this.active) return
+
+        if (plan) {
+          this.callbacks.onStatusChange(
+            'analyzing',
+            `> [IA] (${plan.usedModel || 'gemini'}) Tipo: ${plan.pageType} | Modo: ${plan.mode}`,
+            'text-blue',
+          )
+          this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
+
+          if (plan.memoryToStore) {
+            this.callbacks.onStatusChange('analyzing', `> [IA] 🧠 Absorvido: "${plan.memoryToStore}"`, 'text-yellow')
+          }
+
+          if (plan.pageType === 'info') {
+            this.callbacks.onStatusChange('advancing', '> [IA] 📖 Leitura concluída. Avançando...', 'text-green')
+            await this.sleep(1200)
+          } else if (plan.pageType === 'start') {
+            this.callbacks.onStatusChange('advancing', '> [SYS] Início detectado. Iniciando...', 'text-blue')
+            await this.sleep(1200)
+          } else if (plan.pageType === 'conclusion') {
+            this.callbacks.onStatusChange('idle', '> [SYS] Atividade concluída! Desligando Autopilot.', 'text-green')
+            this.stop()
+            return
+          }
+          this.errorCount = 0
+          this.resolvedSigs.add(contentSig)
+
+        } else {
+          this.errorCount++
+          const cooldown = this.errorCount === 1 ? 5000 : 8000
+          this.callbacks.onStatusChange('waiting', `> [AVISO] Falha ao processar página (${this.errorCount}/3). Aguardando ${cooldown / 1000}s...`, 'text-yellow')
+          await this.sleep(cooldown)
+        }
       }
+
+      if (this.errorCount >= 3) {
+        this.callbacks.onStatusChange('error', '> [ERRO] 3 falhas consecutivas. Abortando Autopilot.', 'text-red')
+        this.callbacks.onStatusChange('waiting', '> [DICA] Verifique o [ERRO DETALHADO] acima para o motivo exato.', 'text-yellow')
+        this.stop()
+        return
+      }
+
     } catch (err) {
       if (!this.active) return
       const errText = err instanceof Error ? err.message : String(err)
@@ -374,9 +326,6 @@ export class Autopilot {
       this.abortController = null
       this.isProcessing = false
     }
-    
-    if (this.active) {
-      this.timer = window.setTimeout(() => this.loop(), 1000)
-    }
   }
 }
+

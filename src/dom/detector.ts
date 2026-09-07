@@ -376,3 +376,20 @@ export function createContextSignature(context: CapturedContext): string {
     controls,
   ].join('::')
 }
+
+/**
+ * Assinatura baseada apenas no CONTEÚDO da questão (texto + estrutura de controles).
+ * NÃO inclui valores preenchidos ou estado disabled.
+ * Usada para detectar mudanças reais de página vs mutações DOM de execução de ações.
+ */
+export function createContentSignature(context: CapturedContext): string {
+  const controlStructure = context.controls
+    .map((c) => `${c.role}:${c.id}:${c.type}`)
+    .join('|')
+  return [
+    window.location.href,
+    context.pageTitle,
+    context.questionText.slice(0, 400),
+    controlStructure,
+  ].join('::')
+}
