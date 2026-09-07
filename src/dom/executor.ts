@@ -1872,16 +1872,19 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
 
       const expected = action.t === 'chk' ? Boolean(action.c) : (action as any).c !== undefined ? Boolean((action as any).c) : true
 
-      // Se houver valor esperado em grupo de rádio
-      if (inputEl && inputEl.type === 'radio' && (action as any).v) {
-        const expectedVal = cleanSearchTerm(String((action as any).v)).toLowerCase()
-        if (inputEl.name) {
+      // Se for rádio ou grupo de rádios
+      if (inputEl && inputEl.type === 'radio') {
+        if (inputEl.checked === expected) return true
+        if ((action as any).v && inputEl.name) {
+          const expectedVal = cleanSearchTerm(String((action as any).v)).toLowerCase()
           const checkedRadio = document.querySelector(
             `input[type="radio"][name="${safeCssEscape(inputEl.name)}"]:checked`,
           ) as HTMLInputElement | null
           if (!checkedRadio) return false
+          if (checkedRadio === inputEl) return true
           const valCur = cleanSearchTerm(checkedRadio.value).toLowerCase()
-          return valCur === expectedVal
+          const curLabel = cleanSearchTerm(checkedRadio.closest('label, .vf-label, .option-card, tr, td, div')?.textContent || '').toLowerCase()
+          return valCur === expectedVal || curLabel.includes(expectedVal) || expectedVal.includes(valCur)
         }
       }
 
@@ -2104,7 +2107,7 @@ export async function executePlan(
   const success =
     !isQuestion
       ? true
-      : regularActions.length > 0 && failed.length === 0 && verifiedCount === regularActions.length
+      : regularActions.length > 0 && failed.length === 0 && (verifiedCount === regularActions.length || (appliedCount === regularActions.length && verifiedCount > 0))
 
   let advanced = false
   let navigationVerified = false

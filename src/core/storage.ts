@@ -123,3 +123,84 @@ export function getSessionMemories(): string[] {
 export function clearSessionMemories(): void {
   sessionContextMemory = []
 }
+
+// ==== MÉTRICAS DINÂMICAS DE TEMPO DA ATIVIDADE (CRONÔMETRO) ====
+import type { ActivityMetrics, QuestionTimingRecord } from './types'
+
+const METRICS_STORAGE_KEY = 'easyquiz_activity_metrics'
+
+export function loadActivityMetrics(): ActivityMetrics {
+  try {
+    const raw = sessionStorage.getItem(METRICS_STORAGE_KEY) || localStorage.getItem(METRICS_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as ActivityMetrics
+      if (parsed && Array.isArray(parsed.records)) {
+        return parsed
+      }
+    }
+  } catch {}
+  return {
+    startTime: Date.now(),
+    totalElapsedMs: 0,
+    completedQuestionsCount: 0,
+    averageDurationMs: 0,
+    records: [],
+  }
+}
+
+export function saveActivityMetrics(metrics: ActivityMetrics): void {
+  try {
+    const serialized = JSON.stringify(metrics)
+    sessionStorage.setItem(METRICS_STORAGE_KEY, serialized)
+    localStorage.setItem(METRICS_STORAGE_KEY, serialized)
+  } catch (error) {
+    console.warn('[EasyQuiz] Falha ao persistir métricas de tempo:', error)
+  }
+}
+
+export function recordQuestionTiming(
+  item: Omit<QuestionTimingRecord, 'timestamp'>,
+): ActivityMetrics {
+  const current = loadActivityMetrics()
+  const now = Date.now()
+
+  // Evita duplicar a mesma questão se já gravada recentemente (< 3s)
+  const lastRecord = current.records[current.records.length - 1]
+  if (lastRecord && lastRecord.id === item.id && now - lastRecord.timestamp < 3000) {
+    return current
+  }
+
+  const record: QuestionTimingRecord = {
+    ...item,
+    timestamp: now,
+  }
+
+  const updatedRecords = [...current.records, record]
+  const completedCount = updatedRecords.filter((r) => r.status === 'answered' || r.status === 'verified').length
+  const totalDuration = updatedRecords.reduce((acc, r) => acc + r.durationMs, 0)
+  const avgDuration = completedCount > 0 ? Math.round(totalDuration / completedCount) : 0
+
+  const updated: ActivityMetrics = {
+    startTime: current.startTime || now,
+    totalElapsedMs: Math.max(now - (current.startTime || now), totalDuration),
+    completedQuestionsCount: completedCount,
+    averageDurationMs: avgDuration,
+    records: updatedRecords,
+  }
+
+  saveActivityMetrics(updated)
+  return updated
+}
+
+export function resetActivityMetrics(): ActivityMetrics {
+  const initial: ActivityMetrics = {
+    startTime: Date.now(),
+    totalElapsedMs: 0,
+    completedQuestionsCount: 0,
+    averageDurationMs: 0,
+    records: [],
+  }
+  saveActivityMetrics(initial)
+  return initial
+}
+

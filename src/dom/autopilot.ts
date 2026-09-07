@@ -12,6 +12,57 @@ export interface AutopilotCallbacks {
   onPageAdvance?: () => void
 }
 
+export function detectActivityCompletion(scope?: HTMLElement | null, text = ''): boolean {
+  if (typeof document === 'undefined') return false
+  const targetScope = scope || document.body
+  const combinedText = (text + ' ' + (targetScope.textContent || '')).toLowerCase()
+
+  // 1. Elementos característicos de celebração / tela final
+  const hasCelebrationEl = Boolean(
+    targetScope.querySelector(
+      '.celebration-icon, [class*="celebrat" i], [class*="conclu" i], [class*="finish" i], [class*="result" i], [class*="score-screen" i], [data-testid*="completion" i]',
+    ),
+  )
+  if (
+    hasCelebrationEl &&
+    (combinedText.includes('parabéns') ||
+      combinedText.includes('conclu') ||
+      combinedText.includes('finaliz') ||
+      combinedText.includes('resultado') ||
+      combinedText.includes('pontua') ||
+      combinedText.includes('sucesso') ||
+      combinedText.includes('🏆'))
+  ) {
+    return true
+  }
+
+  // 2. Frases inequívocas de encerramento da atividade
+  const completionKeywords = [
+    'parabéns! lista de exercícios concluída',
+    'exercícios concluída',
+    'lista de exercícios concluída',
+    'atividade concluída',
+    'atividade finalizada',
+    'finalizado com sucesso',
+    'finalizada com sucesso',
+    'simulado concluído',
+    'simulado finalizado',
+    'questionário concluído',
+    'questionário finalizado',
+    'você concluiu a atividade',
+    'você concluiu o questionário',
+    'sua resposta foi registrada',
+    'todas as perguntas foram respondidas',
+    'quiz completed',
+    'exercise completed',
+    'activity completed',
+    'all questions answered',
+    'view results',
+  ]
+
+  return completionKeywords.some((phrase) => combinedText.includes(phrase))
+}
+
 export class Autopilot {
   private active = false
   private timer: number | null = null
@@ -111,6 +162,17 @@ export class Autopilot {
       if (!this.active) return
 
       if (context) {
+        // Auto-Finalização Inteligente: se a atividade já foi concluída, desliga o Autopilot com certeza absoluta
+        if (detectActivityCompletion(context.scope, context.questionText)) {
+          this.callbacks.onStatusChange(
+            'idle',
+            '> [SYS] 🏆 Atividade concluída detectada na página! Desligando Autopilot com sucesso.',
+            'text-green',
+          )
+          this.stop()
+          return
+        }
+
         const currentSig = createContextSignature(context)
         if (currentSig === this.lastPageSig) {
           this.samePageCount++

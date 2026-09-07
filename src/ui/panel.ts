@@ -1,7 +1,7 @@
-import type { AnalysisPlan, CapturedContext, EasyQuizSettings, ResponseMode, ExecutionEngine, ModelOption } from '../core/types'
+import type { AnalysisPlan, CapturedContext, EasyQuizSettings, ResponseMode, ExecutionEngine, ModelOption, ActivityMetrics, QuestionTimingRecord } from '../core/types'
 import type { ExecutionResult } from '../dom/executor'
 import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey } from '../core/gemini'
-import { clearSessionMemories, getSessionMemories, resetAllData } from '../core/storage'
+import { clearSessionMemories, getSessionMemories, resetAllData, loadActivityMetrics, resetActivityMetrics } from '../core/storage'
 import { Autopilot } from '../dom/autopilot'
 import { FloatingAnswersHud } from './floatingHud'
 import { ICONS } from './icons'
@@ -41,12 +41,27 @@ export class EasyQuizPanel {
   private floatingAnswers: FloatingAnswersHud
   private initialSettings: EasyQuizSettings
   private isCollapsed: boolean = false
-  private activeTab: 'resolver' | 'brain' | 'debug' | 'settings' = 'resolver'
+  private activeTab: 'resolver' | 'brain' | 'metrics' | 'debug' | 'settings' = 'resolver'
+  private isBusy: boolean = false
   private stopwatchInterval: any = null
   private stopwatchStartTime: number = 0
   private latestPlan: AnalysisPlan | null = null
   private latestContext: CapturedContext | null = null
   private latestPromptText: string = ''
+
+  // Métricas & Cronômetro
+  private metricsLiveTime!: HTMLElement
+  private metricsLiveStatus!: HTMLElement
+  private metricsTotalBadge!: HTMLElement
+  private metricTotalTime!: HTMLElement
+  private metricAvgTime!: HTMLElement
+  private metricTotalCount!: HTMLElement
+  private metricsHistoryList!: HTMLElement
+  private metricsHistoryCount!: HTMLElement
+  private metricsCopyBtn!: HTMLButtonElement
+  private metricsResetBtn!: HTMLButtonElement
+  private currentQuestionStartTime: number = 0
+  private questionLiveTimerInterval: any = null
 
   // Debug & Terminal Elements
   private liveDebugTerminal: HTMLElement
@@ -195,6 +210,11 @@ export class EasyQuizPanel {
               <button class="eq-activity-btn" id="eq-tab-brain" role="tab" title="Cérebro da IA (Contexto e Inspeção)">
                 <span class="eq-activity-indicator"></span>
                 <span class="eq-activity-icon">${ICONS.chip}</span>
+              </button>
+
+              <button class="eq-activity-btn" id="eq-tab-metrics" role="tab" title="Métricas & Cronômetro (Tempo por Questão e Histórico)">
+                <span class="eq-activity-indicator"></span>
+                <span class="eq-activity-icon">${ICONS.stopwatch}</span>
               </button>
 
               <button class="eq-activity-btn" id="eq-tab-debug" role="tab" title="Terminal & Debug Output (Logs, Tokens, Prompts, Erros)">
@@ -356,7 +376,71 @@ export class EasyQuizPanel {
                 <div class="eq-footer-note" style="margin-top: auto;">Inspetor em Tempo Real • 100% Transparente</div>
               </div>
 
-              <!-- TAB 3: DEBUG OUTPUT & TERMINAL -->
+              <!-- TAB 3: MÉTRICAS & CRONÔMETRO -->
+              <div class="eq-view-pane" id="eq-view-metrics" style="display: none;">
+                <div class="eq-operation-header">
+                  <div>
+                    <div class="eq-eyebrow">ESTATÍSTICAS & CRONÔMETRO</div>
+                    <h1 class="eq-operation-title" style="font-size: 15px;">Tempo e Rendimento</h1>
+                    <p class="eq-operation-subtitle">Monitore o tempo de resposta por questão e o rendimento total.</p>
+                  </div>
+                  <span class="eq-brand-badge" id="eq-metrics-total-badge" style="background: rgba(0, 122, 204, 0.2); color: #0098ff;">0 Questões</span>
+                </div>
+
+                <!-- Cronômetro em Tempo Real da Questão Atual -->
+                <div class="eq-live-stopwatch-box">
+                  <div class="eq-live-stopwatch-header">
+                    <span class="eq-live-stopwatch-label">CRONÔMETRO AO VIVO</span>
+                    <span class="eq-live-stopwatch-status" id="eq-metrics-live-status">Em espera</span>
+                  </div>
+                  <div class="eq-live-stopwatch-time" id="eq-metrics-live-time">00:00.00</div>
+                  <div class="eq-live-stopwatch-hint">Tempo decorrido na questão ativa (0 tokens extras consumidos)</div>
+                </div>
+
+                <!-- Grade de Cartões de Resumo (3 Colunas) -->
+                <div class="eq-metrics-grid">
+                  <div class="eq-metric-card">
+                    <div class="eq-metric-card-title">Tempo Total</div>
+                    <div class="eq-metric-card-val" id="eq-metric-total-time">00:00</div>
+                    <div class="eq-metric-card-sub">Duração da sessão</div>
+                  </div>
+                  <div class="eq-metric-card">
+                    <div class="eq-metric-card-title">Média / Questão</div>
+                    <div class="eq-metric-card-val" id="eq-metric-avg-time">0.0s</div>
+                    <div class="eq-metric-card-sub">Ritmo médio</div>
+                  </div>
+                  <div class="eq-metric-card">
+                    <div class="eq-metric-card-title">Respondidas</div>
+                    <div class="eq-metric-card-val" id="eq-metric-total-count">0</div>
+                    <div class="eq-metric-card-sub">Questões concluídas</div>
+                  </div>
+                </div>
+
+                <!-- Barra de Ações Rápidas -->
+                <div class="eq-metrics-actions">
+                  <button class="eq-btn-secondary" id="eq-metrics-copy-btn" type="button">
+                    ${ICONS.copy} Copiar Relatório
+                  </button>
+                  <button class="eq-btn-secondary danger" id="eq-metrics-reset-btn" type="button">
+                    ${ICONS.trash} Zerar Métricas
+                  </button>
+                </div>
+
+                <!-- Histórico Detalhado de Respostas -->
+                <div class="eq-field-group" style="flex: 1; display: flex; flex-direction: column; min-height: 180px;">
+                  <div class="eq-section-title">
+                    <span>Histórico Detalhado por Questão</span>
+                    <span class="eq-item-badge" id="eq-metrics-history-count">0 registros</span>
+                  </div>
+                  <div class="eq-metrics-history-list" id="eq-metrics-history-list">
+                    <div class="eq-metrics-empty">Nenhuma questão respondida nesta sessão ainda.</div>
+                  </div>
+                </div>
+
+                <div class="eq-footer-note" style="margin-top: auto;">Métricas calculadas nativamente no navegador • 100% livre de consumo de tokens</div>
+              </div>
+
+              <!-- TAB 4: DEBUG OUTPUT & TERMINAL -->
               <div class="eq-view-pane" id="eq-view-debug" style="display: none;">
                 <!-- Cabeçalho da Aba -->
                 <div class="eq-operation-header" style="margin-bottom: 8px;">
@@ -673,7 +757,20 @@ export class EasyQuizPanel {
     this.hostDarkModeCheckbox.checked = initialSettings.hostDarkMode
     this.useVisionCheckbox.checked = initialSettings.useVision
 
+    // Elementos da Aba de Métricas & Cronômetro
+    this.metricsLiveTime = this.shadow.querySelector('#eq-metrics-live-time') as HTMLElement
+    this.metricsLiveStatus = this.shadow.querySelector('#eq-metrics-live-status') as HTMLElement
+    this.metricsTotalBadge = this.shadow.querySelector('#eq-metrics-total-badge') as HTMLElement
+    this.metricTotalTime = this.shadow.querySelector('#eq-metric-total-time') as HTMLElement
+    this.metricAvgTime = this.shadow.querySelector('#eq-metric-avg-time') as HTMLElement
+    this.metricTotalCount = this.shadow.querySelector('#eq-metric-total-count') as HTMLElement
+    this.metricsHistoryList = this.shadow.querySelector('#eq-metrics-history-list') as HTMLElement
+    this.metricsHistoryCount = this.shadow.querySelector('#eq-metrics-history-count') as HTMLElement
+    this.metricsCopyBtn = this.shadow.querySelector('#eq-metrics-copy-btn') as HTMLButtonElement
+    this.metricsResetBtn = this.shadow.querySelector('#eq-metrics-reset-btn') as HTMLButtonElement
+
     this.setupEventListeners()
+    this.updateTimingMetrics()
     document.body.appendChild(this.host)
     this.applyHostDarkMode(initialSettings.hostDarkMode)
 
@@ -689,11 +786,12 @@ export class EasyQuizPanel {
     }
   }
 
-  private switchTab(tab: 'resolver' | 'brain' | 'debug' | 'settings') {
+  private switchTab(tab: 'resolver' | 'brain' | 'metrics' | 'debug' | 'settings') {
     this.activeTab = tab
-    const tabs: Array<'resolver' | 'brain' | 'debug' | 'settings'> = [
+    const tabs: Array<'resolver' | 'brain' | 'metrics' | 'debug' | 'settings'> = [
       'resolver',
       'brain',
+      'metrics',
       'debug',
       'settings',
     ]
@@ -713,6 +811,8 @@ export class EasyQuizPanel {
     if (tab === 'brain') {
       this.renderContextTree()
       this.refreshInspectorView()
+    } else if (tab === 'metrics') {
+      this.updateTimingMetrics()
     } else if (tab === 'debug') {
       this.refreshDebugView()
       this.renderTerminalEntries()
@@ -723,8 +823,19 @@ export class EasyQuizPanel {
     // Abas do Activity Bar Vertical
     this.shadow.querySelector('#eq-tab-resolver')?.addEventListener('click', () => this.switchTab('resolver'))
     this.shadow.querySelector('#eq-tab-brain')?.addEventListener('click', () => this.switchTab('brain'))
+    this.shadow.querySelector('#eq-tab-metrics')?.addEventListener('click', () => this.switchTab('metrics'))
     this.shadow.querySelector('#eq-tab-debug')?.addEventListener('click', () => this.switchTab('debug'))
     this.shadow.querySelector('#eq-tab-settings')?.addEventListener('click', () => this.switchTab('settings'))
+
+    // Ações de Métricas & Cronômetro
+    this.metricsResetBtn?.addEventListener('click', () => {
+      resetActivityMetrics()
+      this.updateTimingMetrics()
+      this.logToConsole('> [SYS] Métricas e histórico de tempo zerados com sucesso.', 'text-yellow')
+    })
+    this.metricsCopyBtn?.addEventListener('click', () => {
+      this.copyMetricsReport()
+    })
 
     // Filtros do Terminal de Debug
     this.shadow.querySelector('#eq-dbg-filter-all')?.addEventListener('click', () => this.setLogFilter('all'))
@@ -1032,6 +1143,12 @@ export class EasyQuizPanel {
     })
 
     this.analyzeBtn.addEventListener('click', async () => {
+      if (this.isBusy) {
+        this.callbacks.onCancel?.()
+        this.setBusy(false)
+        this.setStatus('Análise interrompida pelo usuário.', 'info')
+        return
+      }
       const plan = await this.callbacks.onAnalyze()
       if (plan && !this.dryRunCheckbox.checked && !this.autoApplyCheckbox.checked) {
         this.callbacks.onApply()
@@ -1467,19 +1584,29 @@ export class EasyQuizPanel {
   }
 
   public setBusy(busy: boolean, message?: string): void {
-    this.analyzeBtn.disabled = busy
+    this.isBusy = busy
     ;[this.modelSelect, this.modeSelect, this.engineSelect, this.dryRunCheckbox, this.autoApplyCheckbox, this.autoAdvanceCheckbox, this.useVisionCheckbox].forEach(
       (e) => ((e as any).disabled = busy),
     )
 
     if (busy) {
+      this.analyzeBtn.disabled = false
+      this.analyzeBtn.classList.add('danger')
+      this.analyzeBtn.innerHTML = `${ICONS.stop} Parar Análise`
+      this.analyzeBtn.title = 'Interromper e cancelar análise em andamento'
       this.startStopwatch()
+      this.startQuestionTimer()
       this.dotPulseAp.className = 'eq-dot-pulse busy'
       this.dotPulseAdv.className = 'eq-dot-pulse busy'
       this.launcherDot.className = 'eq-launcher-dot busy'
       if (message) this.setStatus(message, 'info')
     } else {
+      this.analyzeBtn.disabled = false
+      this.analyzeBtn.classList.remove('danger')
+      this.analyzeBtn.innerHTML = `${ICONS.sparkles} Resolver com IA (Alt+R)`
+      this.analyzeBtn.title = 'Analisar e responder questão ativa'
       this.stopStopwatch()
+      this.stopQuestionTimer()
       this.dotPulseAp.className = 'eq-dot-pulse'
       this.dotPulseAdv.className = 'eq-dot-pulse'
       this.launcherDot.className = 'eq-launcher-dot'
@@ -1702,8 +1829,152 @@ export class EasyQuizPanel {
     this.host.classList.toggle('eq-dark-mode-active', enable)
   }
 
+  public startQuestionTimer(): void {
+    this.currentQuestionStartTime = Date.now()
+    if (this.questionLiveTimerInterval) {
+      clearInterval(this.questionLiveTimerInterval)
+    }
+    if (this.metricsLiveStatus) {
+      this.metricsLiveStatus.textContent = 'Calculando...'
+      this.metricsLiveStatus.classList.add('active')
+    }
+    const update = () => {
+      if (!this.metricsLiveTime) return
+      const elapsed = Date.now() - this.currentQuestionStartTime
+      const mins = Math.floor(elapsed / 60000)
+      const secs = Math.floor((elapsed % 60000) / 1000)
+      const ms = Math.floor((elapsed % 1000) / 10)
+      this.metricsLiveTime.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(2, '0')}`
+    }
+    update()
+    this.questionLiveTimerInterval = setInterval(update, 50)
+  }
+
+  public stopQuestionTimer(): void {
+    if (this.questionLiveTimerInterval) {
+      clearInterval(this.questionLiveTimerInterval)
+      this.questionLiveTimerInterval = null
+    }
+    if (this.metricsLiveStatus) {
+      this.metricsLiveStatus.textContent = 'Em espera'
+      this.metricsLiveStatus.classList.remove('active')
+    }
+  }
+
+  public updateTimingMetrics(metrics?: ActivityMetrics): void {
+    const data = metrics || loadActivityMetrics()
+    if (!this.metricTotalTime) return
+
+    // Total Time
+    const totalSec = Math.floor(data.totalElapsedMs / 1000)
+    const mins = Math.floor(totalSec / 60)
+    const secs = totalSec % 60
+    this.metricTotalTime.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+
+    // Average Time
+    const avgSec = (data.averageDurationMs / 1000).toFixed(1)
+    this.metricAvgTime.textContent = `${avgSec}s`
+
+    // Completed count
+    this.metricTotalCount.textContent = String(data.completedQuestionsCount)
+    if (this.metricsTotalBadge) {
+      this.metricsTotalBadge.textContent = `${data.completedQuestionsCount} Questão(ões)`
+    }
+    if (this.metricsHistoryCount) {
+      this.metricsHistoryCount.textContent = `${data.records.length} registros`
+    }
+
+    this.renderMetricsHistory(data.records)
+  }
+
+  private renderMetricsHistory(records: QuestionTimingRecord[]): void {
+    if (!this.metricsHistoryList) return
+    if (records.length === 0) {
+      this.metricsHistoryList.innerHTML = '<div class="eq-metrics-empty">Nenhuma questão respondida nesta sessão ainda.</div>'
+      return
+    }
+
+    this.metricsHistoryList.innerHTML = ''
+    const reversed = [...records].reverse()
+    for (const rec of reversed) {
+      const item = document.createElement('div')
+      item.className = 'eq-metrics-item'
+
+      const left = document.createElement('div')
+      left.className = 'eq-metrics-item-left'
+
+      const badge = document.createElement('span')
+      badge.className = 'eq-metrics-badge'
+      badge.textContent = `Q${rec.questionIndex}`
+
+      const info = document.createElement('div')
+      info.className = 'eq-metrics-item-info'
+
+      const title = document.createElement('div')
+      title.className = 'eq-metrics-item-title'
+      title.textContent = rec.questionTitle || `Questão ${rec.questionIndex}`
+
+      const meta = document.createElement('div')
+      meta.className = 'eq-metrics-item-meta'
+      const timeStr = new Date(rec.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      const modeStr = rec.mode ? rec.mode.replace('_', ' ') : 'auto'
+      meta.textContent = `${timeStr} • Modo: ${modeStr}${rec.actionsCount ? ` • ${rec.actionsCount} ação(ões)` : ''}`
+
+      info.appendChild(title)
+      info.appendChild(meta)
+      left.appendChild(badge)
+      left.appendChild(info)
+
+      const right = document.createElement('div')
+      right.className = 'eq-metrics-item-right'
+
+      const dur = document.createElement('span')
+      dur.className = 'eq-metrics-item-dur'
+      dur.textContent = `${(rec.durationMs / 1000).toFixed(2)}s`
+
+      const status = document.createElement('span')
+      status.className = `eq-metrics-item-status is-${rec.status}`
+      status.textContent = rec.status === 'verified' || rec.status === 'answered' ? '✓ Injetado' : rec.status === 'manual' ? 'Gabarito' : 'Pendente'
+
+      right.appendChild(dur)
+      right.appendChild(status)
+
+      item.appendChild(left)
+      item.appendChild(right)
+      this.metricsHistoryList.appendChild(item)
+    }
+  }
+
+  private copyMetricsReport(): void {
+    const data = loadActivityMetrics()
+    const lines: string[] = []
+    lines.push('# Relatório de Desempenho e Tempo — EasyQuiz')
+    lines.push(`- **Questões Respondidas:** ${data.completedQuestionsCount}`)
+    lines.push(`- **Tempo Total:** ${(data.totalElapsedMs / 1000).toFixed(1)}s`)
+    lines.push(`- **Tempo Médio por Questão:** ${(data.averageDurationMs / 1000).toFixed(2)}s`)
+    lines.push('')
+    lines.push('### Histórico:')
+    if (data.records.length === 0) {
+      lines.push('_Nenhum registro ainda._')
+    } else {
+      data.records.forEach((r, idx) => {
+        lines.push(`${idx + 1}. **${r.questionTitle || `Q${r.questionIndex}`}**: ${(r.durationMs / 1000).toFixed(2)}s (${r.status})`)
+      })
+    }
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+      if (this.metricsCopyBtn) {
+        const orig = this.metricsCopyBtn.innerHTML
+        this.metricsCopyBtn.innerHTML = '✓ Copiado!'
+        setTimeout(() => {
+          this.metricsCopyBtn.innerHTML = orig
+        }, 1500)
+      }
+    })
+  }
+
   public destroy(): void {
     this.stopStopwatch()
+    this.stopQuestionTimer()
     this.autopilot.stop()
     this.applyHostDarkMode(false)
     this.callbacks.onDestroy()

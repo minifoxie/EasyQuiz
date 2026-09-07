@@ -133,3 +133,24 @@ export const DEFAULT_SETTINGS: EasyQuizSettings = {
   confidenceThreshold: 0.8,
 }
 
+export interface QuestionTimingRecord {
+  id: string
+  questionIndex: number
+  questionTitle: string
+  durationMs: number
+  timestamp: number
+  status: 'answered' | 'verified' | 'manual' | 'skipped'
+  mode?: string
+  modelUsed?: string
+  actionsCount?: number
+}
+
+export interface ActivityMetrics {
+  startTime: number
+  totalElapsedMs: number
+  completedQuestionsCount: number
+  averageDurationMs: number
+  records: QuestionTimingRecord[]
+}
+
+

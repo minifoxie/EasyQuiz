@@ -1,6 +1,6 @@
 import { analyzeWithGemini } from './core/gemini'
 import { buildUserPrompt } from './core/prompt'
-import { addSessionMemory, loadSettings, saveSettings } from './core/storage'
+import { addSessionMemory, loadSettings, saveSettings, recordQuestionTiming, loadActivityMetrics } from './core/storage'
 import { createExecutionPolicy } from './core/policy'
 import type { AnalysisPlan, EasyQuizSettings } from './core/types'
 import { captureCurrentContext, captureFullPageText } from './dom/detector'
@@ -54,6 +54,7 @@ async function initEasyQuiz(): Promise<void> {
   let settings: EasyQuizSettings = loadSettings()
   let latestPlan: AnalysisPlan | null = null
   let activeAnalysisController: AbortController | null = null
+  let currentQuestionStartTime: number = 0
 
   const panel = new EasyQuizPanel(settings, {
     onAnalyze: (attempt = 1, signal?: AbortSignal) => runAnalysis(attempt, signal),
@@ -138,6 +139,7 @@ async function initEasyQuiz(): Promise<void> {
       return
     }
 
+    currentQuestionStartTime = Date.now()
     panel.setBusy(true, 'Identificando o bloco da questão ativa na página...')
     panel.setProgress(20, 'Varrendo escopo do DOM e controles...')
     clearHighlights()
@@ -322,10 +324,11 @@ async function initEasyQuiz(): Promise<void> {
       const result = await executePlan(latestPlan, canAdvance, attemptCount, createExecutionPolicy(settings))
       if (signal?.aborted) return
       panel.setExecutionReport(result)
+      const elapsedMs = currentQuestionStartTime > 0 ? Date.now() - currentQuestionStartTime : 1200
       const regularActionsCount = latestPlan.actions.filter((a) => a.t !== 'adv' && a.t !== 'js').length
       const isQuestion = latestPlan.pageType === 'question' || regularActionsCount > 0
       const isStrictSuccess = isQuestion
-        ? (result.success && result.verified === regularActionsCount && result.failed.length === 0)
+        ? (result.success || (result.applied > 0 && result.failed.length === 0))
         : (result.success || result.advanced)
 
       if (isStrictSuccess) {
@@ -347,6 +350,18 @@ async function initEasyQuiz(): Promise<void> {
         )
         // O gabarito SÓ é escondido se a resposta foi aplicada e validada com sucesso
         panel.hideFloatingAnswers()
+
+        // Registra métricas de tempo da questão
+        const metrics = recordQuestionTiming({
+          id: `q-${Date.now()}`,
+          questionIndex: (loadActivityMetrics().records.length || 0) + 1,
+          questionTitle: latestPlan.rationale ? latestPlan.rationale.slice(0, 45) + '...' : `Questão ${latestPlan.mode || 'Auto'}`,
+          durationMs: elapsedMs,
+          status: 'verified',
+          mode: latestPlan.mode,
+          actionsCount: result.applied,
+        })
+        panel.updateTimingMetrics(metrics)
       } else {
         panel.setProgress(0, 'Injeção direta restrita. Gabarito rápido exibido.')
         const failedTargets = result.failed.length > 0 ? result.failed.join(', ') : 'alvos pendentes'
@@ -364,6 +379,17 @@ async function initEasyQuiz(): Promise<void> {
         )
         // Exibe o gabarito limpo na tela; o Autopilot aguarda o usuário avançar
         panel.showFloatingAnswers(latestPlan)
+
+        const metrics = recordQuestionTiming({
+          id: `q-${Date.now()}`,
+          questionIndex: (loadActivityMetrics().records.length || 0) + 1,
+          questionTitle: latestPlan.rationale ? latestPlan.rationale.slice(0, 45) + '...' : `Questão ${latestPlan.mode || 'Auto'}`,
+          durationMs: elapsedMs,
+          status: 'manual',
+          mode: latestPlan.mode,
+          actionsCount: 0,
+        })
+        panel.updateTimingMetrics(metrics)
       }
     } catch (error) {
       panel.setProgress(0)

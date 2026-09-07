@@ -545,8 +545,18 @@ export class FloatingAnswersHud {
       lines.push('')
     } else if (choiceActions.length > 0) {
       lines.push(`## ✅ Alternativas Corretas:`)
-      for (const act of choiceActions) {
-        lines.push(`- [x] ${cleanSearchTerm(act.id)}`)
+      for (let i = 0; i < choiceActions.length; i++) {
+        const act = choiceActions[i]
+        let choiceText = getHumanReadableLabel(act.id)
+        if ((!choiceText || /^(eq-|#|\$|\.|input_|mat-|choice_|radio_|chk_)/i.test(choiceText)) && (act as any).v) {
+          choiceText = String((act as any).v)
+        }
+        choiceText = cleanSearchTerm(choiceText)
+        if (/^(eq-|#|\$|\.|input_|mat-|choice_|radio_|chk_)/i.test(choiceText)) {
+          choiceText = ''
+        }
+        const letter = choiceActions.length > 1 ? `${String.fromCharCode(65 + i)}) ` : ''
+        lines.push(`- [x] ${letter}${choiceText || 'Alternativa ' + String.fromCharCode(65 + i)}`)
       }
       lines.push('')
     } else if (selectActions.length > 0) {
