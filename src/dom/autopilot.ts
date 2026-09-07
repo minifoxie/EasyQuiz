@@ -115,7 +115,9 @@ export class Autopilot {
           if (!this.isProcessing) void this.checkAndAnalyze()
         }, 120)
       })
-      this.observer.observe(document.body, { subtree: true, childList: true, characterData: true })
+      // Observar tudo: childList + characterData + attributes
+      // attributes=true é essencial para SPAs React/Vue que trocam conteúdo via props/estado
+      this.observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true })
     }
 
     // Heartbeat de 5s como fallback para SPAs que não geram mutações
@@ -144,7 +146,7 @@ export class Autopilot {
       this.heartbeatTimer = null
       if (this.active && !this.isProcessing) void this.checkAndAnalyze()
       if (this.active) this.scheduleHeartbeat()
-    }, 5000)
+    }, 2000)  // 2s fallback — pega mudanças perdidas durante isProcessing
   }
 
   private sleep(ms: number): Promise<void> {
@@ -325,6 +327,11 @@ export class Autopilot {
     } finally {
       this.abortController = null
       this.isProcessing = false
+      // Re-verificar imediatamente após análise concluir:
+      // captura mudanças de página que ocorreram DURANTE o fetch da IA (isProcessing bloqueava o observer)
+      if (this.active) {
+        window.setTimeout(() => void this.checkAndAnalyze(), 150)
+      }
     }
   }
 }
