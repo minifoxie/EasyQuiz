@@ -415,7 +415,12 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
   try { element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' as any }) } catch {}
   try { element.focus?.() } catch {}
 
-  const isNativeBtn = element instanceof HTMLButtonElement || element instanceof HTMLAnchorElement || (element instanceof HTMLInputElement && !['checkbox', 'radio'].includes(element.type))
+  const isNativeBtn =
+    (typeof HTMLButtonElement !== 'undefined' && element instanceof HTMLButtonElement) ||
+    (typeof HTMLAnchorElement !== 'undefined' && element instanceof HTMLAnchorElement) ||
+    element.tagName?.toLowerCase() === 'a' ||
+    element.tagName?.toLowerCase() === 'button' ||
+    (typeof HTMLInputElement !== 'undefined' && element instanceof HTMLInputElement && !['checkbox', 'radio'].includes(element.type))
   if (isNativeBtn) {
     try { element.click() } catch {}
     return
@@ -442,6 +447,25 @@ function setNativeValue(element: HTMLElement, value: string): void {
     const forId = target.getAttribute('for')!
     const forInput = target.ownerDocument.getElementById(forId)
     if (forInput) target = forInput
+  }
+
+  // Se o elemento ou alvo for um <select> ou combobox/listbox customizado, redireciona diretamente
+  const isSelectTarget =
+    (typeof HTMLSelectElement !== 'undefined' && target instanceof HTMLSelectElement) ||
+    target.tagName?.toLowerCase() === 'select' ||
+    target.getAttribute('role') === 'combobox' ||
+    target.getAttribute('role') === 'listbox' ||
+    target.matches?.('[role="combobox"], [role="listbox"], [class*="select" i], [class*="dropdown" i]')
+
+  if (isSelectTarget) {
+    selectValues(target, [value])
+    return
+  }
+
+  const innerSelect = target.querySelector('select, [role="combobox"], [role="listbox"]') as HTMLElement | null
+  if (innerSelect) {
+    selectValues(innerSelect, [value])
+    return
   }
 
   if (
@@ -533,11 +557,7 @@ function setNativeValue(element: HTMLElement, value: string): void {
     }
   }
 
-  // Se o elemento for um <select>, redireciona para selectValues
-  if (target instanceof HTMLSelectElement) {
-    selectValues(target, [value])
-    return
-  }
+
 
   // Se o elemento for um radio ou checkbox
   if (target instanceof HTMLInputElement && ['checkbox', 'radio'].includes(target.type)) {
@@ -754,13 +774,29 @@ function setCheckedState(element: HTMLElement, checked: boolean): void {
 
 function selectValues(element: HTMLElement, values: string[]): void {
   const selectEl =
-    element instanceof HTMLSelectElement
-      ? element
+    (typeof HTMLSelectElement !== 'undefined' && element instanceof HTMLSelectElement) || element.tagName?.toLowerCase() === 'select'
+      ? (element as HTMLSelectElement)
       : (element.querySelector('select') as HTMLSelectElement | null)
 
   if (selectEl) {
     const normValues = values.map((v) => cleanSearchTerm(v).toLowerCase())
     let matched = false
+
+    const applyOptionSelected = (option: HTMLOptionElement, idx: number) => {
+      option.selected = true
+      selectEl.selectedIndex = idx
+      try {
+        const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')
+        descriptor?.set?.call(selectEl, option.value)
+      } catch {}
+      try {
+        const tracker = (selectEl as any)._valueTracker
+        if (tracker) {
+          tracker.setValue(option.value)
+        }
+      } catch {}
+      matched = true
+    }
 
     // Passagem 1: Correspondência exata em value ou textContent
     for (let i = 0; i < selectEl.options.length; i++) {
@@ -770,50 +806,106 @@ function selectValues(element: HTMLElement, values: string[]): void {
 
       const isExact = normValues.some((v) => v === optVal || v === optTxt)
       if (isExact) {
-        option.selected = true
-        selectEl.selectedIndex = i
-        matched = true
+        applyOptionSelected(option, i)
         if (!selectEl.multiple) break
       } else if (!selectEl.multiple) {
         option.selected = false
       }
     }
 
-    // Passagem 2: Correspondência parcial por contenção (apenas se a exata não encontrou nada)
+    // Passagem 2: Correspondência numérica ou ordinal (ex: "1", "2", "Opção 1", "Item 2")
     if (!matched) {
+      for (const v of normValues) {
+        const numMatch = v.match(/^(?:item|opção|opcao|alternativa|linha|escolha|campo)?\s*#?_?([0-9]+)$/i)
+        if (numMatch) {
+          const rawNum = parseInt(numMatch[1], 10)
+          const hasPlaceholder = selectEl.options[0]?.value === '' || selectEl.options[0]?.disabled
+          const targetIdx = hasPlaceholder ? rawNum : (rawNum >= 1 ? rawNum - 1 : 0)
+          if (targetIdx >= 0 && targetIdx < selectEl.options.length) {
+            applyOptionSelected(selectEl.options[targetIdx], targetIdx)
+            if (!selectEl.multiple) break
+          }
+        }
+      }
+    }
+
+    // Passagem 3: Correspondência por letra de alternativa (ex: "A", "B", "C", "D")
+    if (!matched) {
+      for (const v of normValues) {
+        if (/^[a-z]$/i.test(v)) {
+          const letterIdx = v.toUpperCase().charCodeAt(0) - 65
+          const hasPlaceholder = selectEl.options[0]?.value === '' || selectEl.options[0]?.disabled
+          const targetIdx = hasPlaceholder ? letterIdx + 1 : letterIdx
+          if (targetIdx >= 0 && targetIdx < selectEl.options.length) {
+            applyOptionSelected(selectEl.options[targetIdx], targetIdx)
+            if (!selectEl.multiple) break
+          }
+        }
+      }
+    }
+
+    // Passagem 4: Correspondência parcial por contenção e texto normalizado sem acentos
+    if (!matched) {
+      const stripAccents = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       for (let i = 0; i < selectEl.options.length; i++) {
         const option = selectEl.options[i]
-        const optVal = option.value.toLowerCase()
-        const optTxt = cleanSearchTerm(option.textContent).toLowerCase()
+        const optVal = stripAccents(option.value.toLowerCase())
+        const optTxt = stripAccents(cleanSearchTerm(option.textContent).toLowerCase())
 
-        const isPartial = normValues.some(
-          (v) => optVal.includes(v) || optTxt.includes(v) || (v.length > 3 && (v.includes(optVal) || v.includes(optTxt))),
-        )
+        const isPartial = normValues.some((rawV) => {
+          const v = stripAccents(rawV)
+          return optVal.includes(v) || optTxt.includes(v) || (v.length > 2 && (v.includes(optVal) || v.includes(optTxt)))
+        })
         if (isPartial) {
-          option.selected = true
-          selectEl.selectedIndex = i
-          matched = true
+          applyOptionSelected(option, i)
           if (!selectEl.multiple) break
         }
       }
     }
 
     if (matched) {
-      dispatchEventSequence(selectEl, ['input', 'change', 'blur'])
+      dispatchEventSequence(selectEl, ['focus', 'input', 'change', 'blur'])
       return
     }
   }
 
-  // Fallback para menu suspenso / combobox customizado
-  const combobox = element.closest('[role="combobox"], [class*="select" i], [class*="dropdown" i]') as HTMLElement | null
+  // Fallback para menu suspenso / combobox customizado (Material UI, Ant Design, Bootstrap, custom spans/divs)
+  const combobox = (element.matches?.('[role="combobox"], [role="listbox"], [class*="select" i], [class*="dropdown" i]')
+    ? element
+    : element.closest('[role="combobox"], [role="listbox"], [class*="select" i], [class*="dropdown" i]')) as HTMLElement | null
+
   if (combobox) {
     simulatePointerClick(combobox)
-    for (const v of values) {
-      const optItem = findElementExt(v)
-      if (optItem) {
-        simulatePointerClick(optItem)
-        return
-      }
+  }
+
+  // Procura opções tanto dentro do combobox quanto em popups/menus anexados ao document.body
+  const normValues = values.map((v) => cleanSearchTerm(v).toLowerCase())
+  const popupOptions = Array.from(
+    document.querySelectorAll(
+      '[role="listbox"] [role="option"], [role="menu"] [role="menuitem"], .select-dropdown li, .dropdown-menu .dropdown-item, .ant-select-item-option, .MuiMenuItem-root, [class*="option-item"], li[data-value]',
+    ),
+  ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
+
+  for (const v of normValues) {
+    // 1. Procura no conjunto de opções de popups
+    const matchedOpt = popupOptions.find((opt) => {
+      const txt = cleanSearchTerm(opt.textContent).toLowerCase()
+      const val = cleanSearchTerm(opt.getAttribute('data-value') || opt.getAttribute('value') || '').toLowerCase()
+      return txt === v || val === v || txt.includes(v) || (v.length > 2 && v.includes(txt))
+    })
+
+    if (matchedOpt) {
+      simulatePointerClick(matchedOpt)
+      const innerInput = matchedOpt.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null
+      if (innerInput) setCheckedState(innerInput, true)
+      return
+    }
+
+    // 2. Procura com o motor estendido geral
+    const optItem = findElementExt(v)
+    if (optItem) {
+      simulatePointerClick(optItem)
+      return
     }
   }
 }
@@ -1698,6 +1790,16 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
         }
       }
 
+      if (targetInput instanceof HTMLSelectElement) {
+        const normExp = cleanSearchTerm(expected).toLowerCase()
+        return Array.from(targetInput.options).some((o) => {
+          if (!o.selected) return false
+          const optVal = o.value.toLowerCase()
+          const optTxt = cleanSearchTerm(o.textContent).toLowerCase()
+          return normExp === optVal || normExp === optTxt || optVal.includes(normExp) || optTxt.includes(normExp)
+        })
+      }
+
       const cur = (targetInput instanceof HTMLInputElement || targetInput instanceof HTMLTextAreaElement ? targetInput.value : targetInput?.textContent ?? el.textContent ?? '').trim()
       if (!cur && !expected) return true
       if (!cur && expected) return false
@@ -1710,7 +1812,18 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
       const el = (findElementExt(action.id) || findElementExt(cleanSearchTerm(action.id))) as HTMLElement | null
       if (!el) return false
       const selectEl = el instanceof HTMLSelectElement ? el : (el.querySelector('select') as HTMLSelectElement | null)
-      if (!selectEl) return false
+      if (!selectEl) {
+        const combobox = (el.matches?.('[role="combobox"], [role="listbox"], [class*="select" i], [class*="dropdown" i]')
+          ? el
+          : el.closest('[role="combobox"], [role="listbox"], [class*="select" i], [class*="dropdown" i]')) as HTMLElement | null
+        if (combobox) {
+          const values = Array.isArray(action.v) ? action.v : [String(action.v)]
+          const normValues = values.map((v) => cleanSearchTerm(v).toLowerCase())
+          const text = cleanSearchTerm(combobox.textContent).toLowerCase()
+          return normValues.some((v) => text.includes(v) || v.includes(text))
+        }
+        return false
+      }
       const values = Array.isArray(action.v) ? action.v : [String(action.v)]
       const normValues = values.map((v) => cleanSearchTerm(v).toLowerCase())
       return Array.from(selectEl.options).some((o) => {

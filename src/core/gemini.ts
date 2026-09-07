@@ -277,6 +277,65 @@ export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message
   return { ok: false, message: 'Chave de API inválida, sem cota ou sem permissão para modelos Gemini.' }
 }
 
+async function callSingleModel(
+  model: string,
+  key: string,
+  payloadStr: string,
+  keepalive: boolean,
+  signal: AbortSignal,
+): Promise<{ rawText: string; data: any; usedModel: string }> {
+  const versionsToTry = ['v1beta', 'v1']
+  let lastErr = new Error(`Falha ao consultar modelo ${model}`)
+
+  for (const apiVer of versionsToTry) {
+    if (signal.aborted) throw new Error('Operação cancelada pelo usuário.')
+
+    const endpoint = `https://generativelanguage.googleapis.com/${apiVer}/models/${model}:generateContent?key=${encodeURIComponent(key)}`
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': key,
+        },
+        body: payloadStr,
+        signal,
+        keepalive,
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        const parsedErrorMsg = parseGeminiError(errorText, response.status)
+        if (response.status === 404 && apiVer === 'v1beta') {
+          continue
+        }
+        throw new Error(parsedErrorMsg)
+      }
+
+      const data = await response.json()
+      const candidate = data.candidates?.[0]
+      if (!candidate || !candidate.content?.parts?.[0]?.text) {
+        throw new Error('A IA não retornou uma resposta estruturada válida.')
+      }
+
+      return {
+        rawText: candidate.content.parts[0].text,
+        data,
+        usedModel: model,
+      }
+    } catch (err) {
+      if (signal.aborted) throw err
+      lastErr = err as Error
+      if (!lastErr.message.includes('404')) {
+        break
+      }
+    }
+  }
+
+  throw lastErr
+}
+
 export async function analyzeWithGemini(
   context: CapturedContext,
   images: CapturedImage[],
@@ -346,6 +405,101 @@ export async function analyzeWithGemini(
     modelsToTry.push(...AVAILABLE_MODELS.map((m) => m.id))
   }
 
+  const payload = {
+    system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    contents: [{ role: 'user', parts }],
+    generationConfig: genConfig,
+  }
+  const payloadStr = JSON.stringify(payload)
+  const keepalive = payloadStr.length < 60_000
+
+  // ---- CORRIDA OTIMISTA DE MÁXIMA VELOCIDADE (CONCURRENT API RACE) ----
+  // Dispara consultas simultâneas para os modelos mais velozes autorizados.
+  // O primeiro a responder com JSON estruturado válido vence imediatamente e cancela os outros via AbortController.
+  const racePool = modelsToTry.slice(0, 3)
+  if (racePool.length > 1) {
+    onProgress?.(`Velocidade Máxima: consultando APIs em paralelo (${racePool.join(', ')})...`, 'info')
+
+    const raceControllers = racePool.map(() => new AbortController())
+
+    const cancelOthers = (winnerIdx: number) => {
+      raceControllers.forEach((ctrl, idx) => {
+        if (idx !== winnerIdx) {
+          try {
+            ctrl.abort(new Error('Cancelado: outro modelo respondeu mais rápido.'))
+          } catch {
+            ctrl.abort()
+          }
+        }
+      })
+    }
+
+    const onRaceParentAbort = () => {
+      raceControllers.forEach((ctrl) => {
+        try {
+          ctrl.abort(new Error('Operação cancelada pelo usuário.'))
+        } catch {
+          ctrl.abort()
+        }
+      })
+    }
+
+    if (signal) {
+      if (signal.aborted) throw new Error('Operação cancelada pelo usuário.')
+      signal.addEventListener('abort', onRaceParentAbort, { once: true })
+    }
+
+    try {
+      const racePromises = racePool.map(async (model, idx) => {
+        const ctrl = raceControllers[idx]
+        const timeoutId = setTimeout(() => {
+          try {
+            ctrl.abort(new Error(`Timeout de 15s na API Gemini (${model}).`))
+          } catch {
+            ctrl.abort()
+          }
+        }, 15000)
+
+        try {
+          const res = await callSingleModel(model, key, payloadStr, keepalive, ctrl.signal)
+          clearTimeout(timeoutId)
+          const parsedPlan = validateAnalysisPlan(robustParsePlan(res.rawText))
+          parsedPlan.usedModel = res.usedModel
+          parsedPlan.durationMs = Date.now() - startTime
+          parsedPlan.promptSent = userText
+          parsedPlan.tokensUsed = res.data.usageMetadata?.totalTokenCount
+          parsedPlan.promptTokens = res.data.usageMetadata?.promptTokenCount
+          parsedPlan.candidatesTokens = res.data.usageMetadata?.candidatesTokenCount
+          parsedPlan.rawResponse = res.rawText
+
+          cancelOthers(idx)
+          return { plan: parsedPlan, rawUsage: res.data.usageMetadata, usedModel: res.usedModel }
+        } catch (err) {
+          clearTimeout(timeoutId)
+          throw err
+        }
+      })
+
+      const winner = await Promise.any(racePromises)
+      signal?.removeEventListener('abort', onRaceParentAbort)
+
+      if (winner.usedModel !== chosenModel) {
+        onProgress?.(`⚡ Velocidade máxima alcançada com '${winner.usedModel}' (${winner.plan.durationMs}ms)!`, 'info')
+        try {
+          settings.model = winner.usedModel
+        } catch {}
+      } else {
+        onProgress?.(`⚡ Resposta mais rápida recebida em ${winner.plan.durationMs}ms via '${winner.usedModel}'!`, 'info')
+      }
+
+      return winner
+    } catch (raceErr) {
+      signal?.removeEventListener('abort', onRaceParentAbort)
+      if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
+      console.warn('[EasyQuiz Race] Corrida concorrente falhou ou esgotou pool inicial. Alternando para fallback sequencial...', raceErr)
+    }
+  }
+
   let lastError = new Error('Nenhum modelo tentado.')
 
   for (let i = 0; i < modelsToTry.length; i++) {
@@ -353,14 +507,6 @@ export async function analyzeWithGemini(
 
     const currentModel = modelsToTry[i]
     const nextModel = modelsToTry[i + 1]
-
-    const payload = {
-      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{ role: 'user', parts }],
-      generationConfig: genConfig,
-    }
-    const payloadStr = JSON.stringify(payload)
-    const keepalive = payloadStr.length < 60_000
 
     onProgress?.(`Consultando Gemini (${currentModel})...`, 'info')
 

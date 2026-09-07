@@ -45,6 +45,7 @@ export interface CapturedImage {
   source: string
   associatedLabel?: string
   targetControlId?: string
+  element?: Element
 }
 
 // Comandos declarativos minificados para economizar tokens:

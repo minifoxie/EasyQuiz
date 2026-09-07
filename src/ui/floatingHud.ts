@@ -212,8 +212,9 @@ export class FloatingAnswersHud {
       return !/continu|avan[cç]|pr[oó]xim|submet|enviar|check|verific/i.test(label)
     })
     const choiceActions = plan.actions.filter((a) => a.t === 'clk' || a.t === 'chk')
+    const selectActions = plan.actions.filter((a) => a.t === 'sel')
 
-    let totalAnswersCount = dragActions.length || valActions.length || choiceActions.length
+    let totalAnswersCount = dragActions.length || valActions.length || choiceActions.length || selectActions.length
 
     // Meta cabeçalho
     const meta = document.createElement('div')
@@ -412,6 +413,64 @@ export class FloatingAnswersHud {
 
       groupEl.appendChild(itemsContainer)
       body.appendChild(groupEl)
+    }
+    // 4. MODO: SELEÇÃO EM LISTA / DROPDOWN
+    else if (selectActions.length > 0) {
+      pillText.textContent = `Seleção (${selectActions.length} listas)`
+      pillBadge.textContent = String(selectActions.length)
+
+      const groupEl = document.createElement('div')
+      groupEl.className = 'eq-fah-group'
+
+      const groupTitle = document.createElement('div')
+      groupTitle.className = 'eq-fah-group-title'
+      groupTitle.textContent = '📋 Opções para Selecionar na Lista:'
+      groupEl.appendChild(groupTitle)
+
+      const itemsContainer = document.createElement('div')
+      itemsContainer.className = 'eq-fah-group-items'
+
+      for (let i = 0; i < selectActions.length; i++) {
+        const act = selectActions[i]
+        const itemEl = document.createElement('div')
+        itemEl.className = 'eq-fah-item'
+
+        let rawLabel = getHumanReadableLabel(act.id)
+        if (!rawLabel || /^[#\.\$]|select|input|mat-|cell|field|q[0-9]|eq-/i.test(rawLabel)) {
+          rawLabel = `Lista ${i + 1}`
+        }
+        const values = Array.isArray(act.v) ? act.v.join(', ') : String(act.v ?? '')
+
+        const box = document.createElement('div')
+        box.className = 'eq-fah-field-box'
+
+        const labelEl = document.createElement('div')
+        labelEl.className = 'eq-fah-field-label'
+        labelEl.textContent = rawLabel
+        box.appendChild(labelEl)
+
+        const valEl = document.createElement('div')
+        valEl.className = 'eq-fah-field-val'
+        valEl.textContent = values
+        box.appendChild(valEl)
+
+        itemEl.appendChild(box)
+
+        const copyBtn = document.createElement('button')
+        copyBtn.className = 'eq-fah-copy-inline'
+        copyBtn.textContent = 'Copiar'
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard.writeText(values)
+          copyBtn.textContent = '✓ Copiado'
+          setTimeout(() => (copyBtn.textContent = 'Copiar'), 1200)
+        })
+        itemEl.appendChild(copyBtn)
+
+        itemsContainer.appendChild(itemEl)
+      }
+
+      groupEl.appendChild(itemsContainer)
+      body.appendChild(groupEl)
     } else {
       pillText.textContent = 'Gabarito'
       pillBadge.textContent = '0'
@@ -444,6 +503,7 @@ export class FloatingAnswersHud {
     const dragActions = plan.actions.filter((a) => a.t === 'drag')
     const valActions = plan.actions.filter((a) => a.t === 'val')
     const choiceActions = plan.actions.filter((a) => a.t === 'clk' || a.t === 'chk')
+    const selectActions = plan.actions.filter((a) => a.t === 'sel')
 
     if (dragActions.length > 0) {
       lines.push(`## 📂 Categorização:`)
@@ -471,6 +531,14 @@ export class FloatingAnswersHud {
       lines.push(`## ✅ Alternativas Corretas:`)
       for (const act of choiceActions) {
         lines.push(`- [x] ${cleanSearchTerm(act.id)}`)
+      }
+      lines.push('')
+    } else if (selectActions.length > 0) {
+      lines.push(`## 📋 Opções Selecionadas em Lista:`)
+      for (const act of selectActions) {
+        const label = cleanSearchTerm(act.id) || 'Lista'
+        const values = Array.isArray(act.v) ? act.v.join(', ') : String(act.v ?? '')
+        lines.push(`- **${label}:** \`${values}\``)
       }
       lines.push('')
     }

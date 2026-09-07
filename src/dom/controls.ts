@@ -377,6 +377,21 @@ export function describeControl(element: HTMLElement, role: 'answer' | 'navigati
         label: cleanText(option.textContent),
       })
     }
+  } else if (customRole === 'combobox' || customRole === 'listbox' || classStr.includes('select') || classStr.includes('dropdown')) {
+    const listboxId = element.getAttribute('aria-controls') || element.getAttribute('aria-owns')
+    const listbox = listboxId ? document.getElementById(listboxId) : element
+    if (listbox) {
+      const childOptions = listbox.querySelectorAll('[role="option"], li, .dropdown-item, .option')
+      for (const opt of Array.from(childOptions).slice(0, 80)) {
+        const text = cleanText(opt.textContent)
+        if (text) {
+          options.push({
+            value: (opt as HTMLElement).getAttribute('data-value') || (opt as HTMLElement).getAttribute('value') || text,
+            label: text,
+          })
+        }
+      }
+    }
   }
 
   const required = Boolean(input.required || element.getAttribute('aria-required') === 'true')

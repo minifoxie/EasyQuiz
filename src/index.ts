@@ -5,7 +5,7 @@ import { createExecutionPolicy } from './core/policy'
 import type { AnalysisPlan, EasyQuizSettings } from './core/types'
 import { captureCurrentContext, captureFullPageText } from './dom/detector'
 import { executePlan, setupSmartOptionInterceptors } from './dom/executor'
-import { clearHighlights, highlightScope, highlightTargetActions } from './dom/highlighter'
+import { clearHighlights, highlightAttachedImages, highlightScope, highlightTargetActions } from './dom/highlighter'
 import { captureImages } from './media/capture'
 import { EasyQuizPanel } from './ui/panel'
 
@@ -162,6 +162,10 @@ async function initEasyQuiz(): Promise<void> {
       panel.setStatus(`Questão localizada (${context.controls.length} controles). Preparando análise...`, 'info')
       panel.setProgress(40, `Consultando Gemini (${settings.model})...`)
       let images = await captureImages(context.scope, settings.useVision)
+      if (images.length > 0) {
+        const attachedElements = images.map((img) => img.element).filter(Boolean) as Element[]
+        highlightAttachedImages(attachedElements)
+      }
 
       if (currentController.signal.aborted) return undefined
 
@@ -199,6 +203,10 @@ async function initEasyQuiz(): Promise<void> {
         highlightScope(context.scope)
         panel.updateContext(context)
         images = await captureImages(context.scope, settings.useVision)
+        if (images.length > 0) {
+          const attachedElements = images.map((img) => img.element).filter(Boolean) as Element[]
+          highlightAttachedImages(attachedElements)
+        }
         panel.setStatus(`Reconsultando IA com escopo ampliado (${context.controls.length} controles)...`, 'info')
 
         const expandedPromptPreview = buildUserPrompt(context, images, settings)
@@ -333,24 +341,31 @@ async function initEasyQuiz(): Promise<void> {
         )
         panel.hideFloatingAnswers()
       } else {
-        panel.setProgress(0, 'Aplicação parcial: verificação incompleta.')
+        panel.setProgress(0, 'Injeção direta restrita. Gabarito rápido exibido.')
         const failedTargets = result.failed.length > 0 ? result.failed.join(', ') : 'alvos pendentes'
         panel.logToConsole(
-          `> [VERIF] Alerta: ${result.verified}/${result.applied} ações verificadas. Pendências: ${failedTargets}.`,
+          `> [VERIF] Alerta: ${result.verified}/${result.applied} ações verificadas no DOM. Pendências: ${failedTargets}.`,
+          'text-yellow',
+        )
+        panel.logToConsole(
+          `> [GABARITO] Injeção direta restrita pela página. Gabarito rápido exibido na tela; o Autopilot aguarda você marcar e avançar.`,
           'text-yellow',
         )
         panel.setStatus(
-          `Aplicação parcial (${result.applied} enviadas, ${result.verified} verificadas).`,
+          'Injeção restrita pela página. Gabarito direto exibido na tela para você avançar.',
           'info',
         )
-        panel.hideFloatingAnswers()
+        // Exibe o gabarito limpo na tela; o Autopilot aguarda o usuário avançar
+        panel.showFloatingAnswers(latestPlan)
       }
     } catch (error) {
       panel.setProgress(0)
       const msg = error instanceof Error ? error.message : 'Falha ao aplicar plano.'
-      panel.setStatus(msg, 'error')
+      panel.setStatus('Injeção restrita pela página. Gabarito direto exibido na tela para você avançar.', 'info')
       panel.logToConsole(`> [ERRO] ${msg}`, 'text-red')
-      panel.hideFloatingAnswers()
+      if (latestPlan) {
+        panel.showFloatingAnswers(latestPlan)
+      }
     } finally {
       panel.setBusy(false)
     }

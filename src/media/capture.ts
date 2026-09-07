@@ -288,6 +288,7 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
     const meta = findAssociatedContextForMedia(el, scope)
     cap.associatedLabel = meta.associatedLabel
     cap.targetControlId = meta.targetControlId
+    cap.element = el
 
     captures.push(cap)
     totalLength += cap.base64.length

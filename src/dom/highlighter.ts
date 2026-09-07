@@ -3,6 +3,32 @@ import { findElementExt } from './executor'
 
 let highlightedScope: HTMLElement | null = null
 let highlightedElements: HTMLElement[] = []
+let highlightedImages: HTMLElement[] = []
+
+const IMAGE_PULSE_KEYFRAMES = `
+@keyframes eq-image-pulse-yellow-white {
+  0%, 100% {
+    outline-color: #ffd600;
+    box-shadow: 0 0 14px rgba(255, 214, 0, 0.95), 0 0 6px rgba(255, 214, 0, 0.6);
+  }
+  50% {
+    outline-color: #ffffff;
+    box-shadow: 0 0 18px rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.8);
+  }
+}
+`
+
+function ensureImageHighlightKeyframes(): void {
+  try {
+    if (typeof document === 'undefined' || !document.head) return
+    if (!document.getElementById('eq-image-pulse-style')) {
+      const style = document.createElement('style')
+      style.id = 'eq-image-pulse-style'
+      style.textContent = IMAGE_PULSE_KEYFRAMES
+      document.head.appendChild(style)
+    }
+  } catch {}
+}
 
 export function clearHighlights(): void {
   if (highlightedScope) {
@@ -19,6 +45,29 @@ export function clearHighlights(): void {
     el.removeAttribute('data-easyquiz-highlight')
   }
   highlightedElements = []
+
+  for (const imgEl of highlightedImages) {
+    imgEl.style.removeProperty('animation')
+    imgEl.style.removeProperty('outline')
+    imgEl.style.removeProperty('outline-offset')
+    imgEl.style.removeProperty('box-shadow')
+    imgEl.removeAttribute('data-easyquiz-image-highlight')
+  }
+  highlightedImages = []
+}
+
+export function highlightAttachedImages(elements: Element[]): void {
+  ensureImageHighlightKeyframes()
+  for (const el of elements) {
+    if (!el || !(el instanceof (typeof HTMLElement !== 'undefined' ? HTMLElement : (el as any).constructor))) continue
+    const node = el as HTMLElement
+
+    node.style.outline = '3px solid #ffd600'
+    node.style.outlineOffset = '3px'
+    node.style.animation = 'eq-image-pulse-yellow-white 1.2s ease-in-out infinite'
+    node.setAttribute('data-easyquiz-image-highlight', 'true')
+    highlightedImages.push(node)
+  }
 }
 
 export function highlightScope(scope: HTMLElement): void {
