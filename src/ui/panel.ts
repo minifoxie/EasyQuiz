@@ -1028,49 +1028,27 @@ export class EasyQuizPanel {
     const applyCollapseState = (collapsed: boolean) => {
       if (!keysCollapsible) return
       if (collapsed) {
-        // Colapsar: define maxHeight para a altura atual, depois anima para 0
-        keysCollapsible.style.maxHeight = keysCollapsible.scrollHeight + 'px'
-        requestAnimationFrame(() => {
-          keysCollapsible.style.maxHeight = '0px'
-          keysCollapsible.style.overflow = 'hidden'
-        })
+        keysCollapsible.style.display = 'none'
         if (keysChevron) keysChevron.style.transform = 'rotate(0deg)'
       } else {
-        // Expandir: 'none' = sem limite de altura (nunca trunca independente do nº de chaves)
-        keysCollapsible.style.overflow = 'hidden'
-        keysCollapsible.style.maxHeight = keysCollapsible.scrollHeight + 200 + 'px'
+        keysCollapsible.style.display = 'block'
+        keysCollapsible.style.maxHeight = 'none'
+        keysCollapsible.style.overflow = 'visible'
         if (keysChevron) keysChevron.style.transform = 'rotate(90deg)'
-        // Após a transição, remove o limite para não cortar conteúdo dinâmico
-        setTimeout(() => {
-          if (keysCollapsible.style.maxHeight !== '0px') {
-            keysCollapsible.style.maxHeight = 'none'
-            keysCollapsible.style.overflow = 'visible'
-          }
-        }, 300)
       }
     }
 
     // Restaurar estado salvo (com guard para Node.js / ambientes sem localStorage)
     let savedCollapsed = false
     try { savedCollapsed = localStorage.getItem('easyquiz_keys_collapsed') === 'true' } catch {}
+    applyCollapseState(savedCollapsed)
 
-    // Inicializar sem transição
-    if (keysCollapsible) {
-      keysCollapsible.style.transition = 'none'
-      keysCollapsible.style.overflow = savedCollapsed ? 'hidden' : 'visible'
-      keysCollapsible.style.maxHeight = savedCollapsed ? '0px' : 'none'
-      if (keysChevron) keysChevron.style.transform = savedCollapsed ? 'rotate(0deg)' : 'rotate(90deg)'
-      requestAnimationFrame(() => {
-        if (keysCollapsible) keysCollapsible.style.transition = 'max-height 0.25s ease'
-      })
-    }
-
-    keysSectionHeader?.addEventListener('click', () => {
-      const isNowCollapsed = keysCollapsible?.style.maxHeight === '0px'
-      // Se 'none', está expandido — então colapsar. Se '0px', está colapsado — então expandir.
-      const shouldCollapse = keysCollapsible?.style.maxHeight !== '0px'
-      applyCollapseState(shouldCollapse)
-      try { localStorage.setItem('easyquiz_keys_collapsed', shouldCollapse ? 'true' : 'false') } catch {}
+    keysSectionHeader?.addEventListener('click', (e) => {
+      // Se clicou em link externo (+ Obter), não colapsa/expande
+      if ((e.target as HTMLElement)?.closest('a')) return
+      const isNowCollapsed = keysCollapsible?.style.display === 'none'
+      applyCollapseState(!isNowCollapsed)
+      try { localStorage.setItem('easyquiz_keys_collapsed', (!isNowCollapsed) ? 'true' : 'false') } catch {}
     })
 
     // Botão Adicionar Nova Chave
@@ -1088,6 +1066,8 @@ export class EasyQuizPanel {
         this.callbacks.onSettingsChange({ apiKey: rawKeys[0], apiKeys: rawKeys })
         this.apiKeyInput.value = ''
         this.setStatus(`✓ Nova chave adicionada com sucesso! (${rawKeys.length} chaves ativas no pool)`, 'success')
+        applyCollapseState(false) // Auto-expande para garantir que o usuário veja a chave imediatamente
+        try { localStorage.setItem('easyquiz_keys_collapsed', 'false') } catch {}
         this.renderKeysList()
         this.keyContextMenu.hidden = true
 
@@ -1187,46 +1167,168 @@ export class EasyQuizPanel {
     // 5. Importar Chaves em Lote
     this.shadow.querySelector('#eq-menu-bulk')?.addEventListener('click', () => {
       this.keyContextMenu.hidden = true
-      // Abre um dialog nativo no contexto do shadow DOM
-      const existing = this.shadow.querySelector('#eq-bulk-dialog') as HTMLDialogElement | null
-      if (existing) { existing.showModal(); return }
 
-      const dlg = document.createElement('dialog') as HTMLDialogElement
-      dlg.id = 'eq-bulk-dialog'
-      dlg.style.cssText = `
-        background: #111; color: #eee; border: 1px solid #333; border-radius: 12px;
-        padding: 20px; width: 380px; max-width: 95vw; font-family: monospace; font-size: 13px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.8);
-      `
-      dlg.innerHTML = `
-        <h3 style="margin:0 0 12px;font-size:14px;color:#00e5ff;">Importar Chaves em Lote</h3>
-        <p style="margin:0 0 10px;font-size:11px;color:#aaa;">Cole as chaves abaixo, uma por linha. Serão validadas e adicionadas automaticamente.</p>
-        <textarea id="eq-bulk-ta" style="width:100%;height:140px;background:#1a1a1a;color:#eee;border:1px solid #333;border-radius:6px;padding:8px;font-family:monospace;font-size:12px;box-sizing:border-box;resize:vertical;" placeholder="AIzaSy...\nAIzaSy...\nAIzaSy..."></textarea>
-        <div id="eq-bulk-status" style="min-height:20px;font-size:11px;color:#aaa;margin:8px 0;"></div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
-          <button id="eq-bulk-cancel" style="background:#222;color:#aaa;border:1px solid #333;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;">Cancelar</button>
-          <button id="eq-bulk-import" style="background:#00e5ff;color:#000;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:12px;font-weight:700;">⚡ Importar e Validar</button>
+      // Remove overlay anterior se existir
+      this.shadow.querySelector('#eq-bulk-overlay')?.remove()
+
+      // ── Overlay dentro do Shadow DOM com isolamento e pointer-events: auto ──
+      const overlay = document.createElement('div')
+      overlay.id = 'eq-bulk-overlay'
+      overlay.style.cssText = [
+        'position:fixed',
+        'inset:0',
+        'z-index:2147483647',
+        'pointer-events:auto',
+        'background:rgba(0,0,0,0.78)',
+        'backdrop-filter:blur(4px)',
+        '-webkit-backdrop-filter:blur(4px)',
+        'display:flex',
+        'align-items:center',
+        'justify-content:center',
+        'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+        'user-select:text',
+        '-webkit-user-select:text',
+      ].join(';')
+
+      const card = document.createElement('div')
+      card.style.cssText = [
+        'background:#11151c',
+        'color:#e2e8f0',
+        'border:1px solid #283548',
+        'border-radius:12px',
+        'padding:20px',
+        'width:440px',
+        'max-width:92vw',
+        'font-size:13px',
+        'box-shadow:0 12px 40px rgba(0,0,0,0.85), 0 0 0 1px rgba(0,229,255,0.15)',
+        'display:flex',
+        'flex-direction:column',
+        'gap:10px',
+        'pointer-events:auto',
+      ].join(';')
+
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1f2937;padding-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:16px;">🔑</span>
+            <h3 style="margin:0;font-size:14px;color:#00e5ff;font-weight:700;letter-spacing:0.02em;">Importar Chaves em Lote</h3>
+          </div>
+          <button id="eq-bulk-x" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;border-radius:4px;pointer-events:auto;" title="Fechar (Esc)">✕</button>
+        </div>
+        <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.4;">
+          Cole suas chaves Gemini abaixo (uma por linha ou qualquer texto contendo chaves). O EasyQuiz extrai, adiciona e valida tudo automaticamente.
+        </p>
+        <div style="display:flex;gap:8px;">
+          <button id="eq-bulk-paste-btn" type="button" style="background:#1e293b;color:#38bdf8;border:1px solid #0284c7;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;pointer-events:auto;">
+            📋 Colar do Clipboard
+          </button>
+          <button id="eq-bulk-clear-btn" type="button" style="background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;pointer-events:auto;">
+            Limpar
+          </button>
+        </div>
+        <textarea id="eq-bulk-ta"
+          style="width:100%;height:150px;background:#0b0f17;color:#f8fafc;border:1px solid #334155;border-radius:8px;padding:10px;font-family:'JetBrains Mono',Consolas,monospace;font-size:11px;box-sizing:border-box;resize:vertical;outline:none;line-height:1.5;pointer-events:auto;user-select:text;-webkit-user-select:text;"
+          placeholder="AIzaSyA123...&#10;AIzaSyB456...&#10;AIzaSyC789..."></textarea>
+        <div id="eq-bulk-status" style="min-height:18px;font-size:11px;color:#94a3b8;line-height:1.4;"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:2px;">
+          <button id="eq-bulk-cancel" type="button" style="background:#1e293b;color:#cbd5e1;border:1px solid #334155;border-radius:6px;padding:7px 16px;cursor:pointer;font-size:12px;font-weight:600;pointer-events:auto;">Cancelar</button>
+          <button id="eq-bulk-import" type="button" style="background:#00e5ff;color:#031326;border:none;border-radius:6px;padding:7px 18px;cursor:pointer;font-size:12px;font-weight:700;box-shadow:0 0 12px rgba(0,229,255,0.25);pointer-events:auto;">⚡ Importar e Validar</button>
         </div>
       `
-      this.shadow.appendChild(dlg)
 
-      dlg.querySelector('#eq-bulk-cancel')?.addEventListener('click', () => dlg.close())
-      dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close() })
+      overlay.appendChild(card)
+      this.shadow.appendChild(overlay)
 
-      dlg.querySelector('#eq-bulk-import')?.addEventListener('click', async () => {
-        const ta = dlg.querySelector('#eq-bulk-ta') as HTMLTextAreaElement
-        const statusEl = dlg.querySelector('#eq-bulk-status') as HTMLElement
-        const lines = ta.value.split('\n').map(l => l.trim().replace(/^["']|["']$/g, '')).filter(l => l.length > 15)
-        if (lines.length === 0) { statusEl.textContent = 'Nenhuma chave válida encontrada.'; return }
+      const ta = card.querySelector('#eq-bulk-ta') as HTMLTextAreaElement
+      const statusEl = card.querySelector('#eq-bulk-status') as HTMLElement
+      const importBtn = card.querySelector('#eq-bulk-import') as HTMLButtonElement
+      const pasteBtn = card.querySelector('#eq-bulk-paste-btn') as HTMLButtonElement
+      const clearBtn = card.querySelector('#eq-bulk-clear-btn') as HTMLButtonElement
+
+      requestAnimationFrame(() => ta?.focus())
+
+      const close = () => {
+        overlay.remove()
+      }
+
+      // Event shielding: isola o modal de scripts do site hospedeiro
+      ['keydown', 'keyup', 'keypress', 'paste', 'copy', 'cut'].forEach((evt) => {
+        overlay.addEventListener(evt, (e) => e.stopPropagation())
+      })
+
+      // Fechar com Escape
+      overlay.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Escape') close()
+      })
+
+      // Fechar ao clicar no backdrop (fora do card)
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close()
+      })
+
+      card.querySelector('#eq-bulk-x')?.addEventListener('click', close)
+      card.querySelector('#eq-bulk-cancel')?.addEventListener('click', close)
+
+      clearBtn.addEventListener('click', () => {
+        ta.value = ''
+        statusEl.textContent = ''
+        ta.focus()
+      })
+
+      pasteBtn.addEventListener('click', async () => {
+        try {
+          const text = await navigator.clipboard?.readText()
+          if (text) {
+            ta.value = text
+            ta.focus()
+            statusEl.style.color = '#38bdf8'
+            statusEl.textContent = 'Conteúdo colado da área de transferência com sucesso!'
+          } else {
+            statusEl.style.color = '#fbbf24'
+            statusEl.textContent = 'Área de transferência vazia ou sem permissão de leitura.'
+          }
+        } catch {
+          statusEl.style.color = '#fbbf24'
+          statusEl.textContent = 'Permissão de clipboard negada pelo navegador. Use Ctrl+V diretamente na caixa.'
+          ta.focus()
+        }
+      })
+
+      card.querySelector('#eq-bulk-import')?.addEventListener('click', async () => {
+        const raw = ta.value.trim()
+        if (!raw) {
+          statusEl.style.color = '#f87171'
+          statusEl.textContent = 'Insira pelo menos uma chave de API antes de importar.'
+          return
+        }
+
+        // Extração inteligente de chaves (AIza... ou fallback por quebra de linha/vírgula)
+        const regexMatches = raw.match(/AIza[0-9A-Za-z\-_]{35}/g)
+        let keysToImport: string[] = []
+        if (regexMatches && regexMatches.length > 0) {
+          keysToImport = Array.from(new Set(regexMatches))
+        } else {
+          keysToImport = Array.from(new Set(
+            raw.split(/[\n,;\s]+/)
+              .map(s => s.trim().replace(/^["'`]|["'`]$/g, ''))
+              .filter(s => s.length >= 20)
+          ))
+        }
+
+        if (keysToImport.length === 0) {
+          statusEl.style.color = '#f87171'
+          statusEl.textContent = 'Nenhuma chave válida encontrada (mínimo 20 caracteres).'
+          return
+        }
 
         statusEl.style.color = '#00e5ff'
-        statusEl.textContent = `Processando ${lines.length} linha(s)...`
-        const importBtn = dlg.querySelector('#eq-bulk-import') as HTMLButtonElement
+        statusEl.textContent = `Processando ${keysToImport.length} chave(s)...`
         importBtn.disabled = true
+        importBtn.style.opacity = '0.6'
 
         let added = 0, duplicates = 0
-        for (const line of lines) {
-          const res = keyManager.addKey(line)
+        for (const k of keysToImport) {
+          const res = keyManager.addKey(k)
           if (res.ok) added++
           else if (res.message.includes('já está cadastrada')) duplicates++
         }
@@ -1234,31 +1336,35 @@ export class EasyQuizPanel {
         if (added > 0) {
           const rawKeys = keyManager.exportRawKeys()
           this.callbacks.onSettingsChange({ apiKey: rawKeys[0], apiKeys: rawKeys })
+          applyCollapseState(false) // Auto-expande para o usuário ver
+          try { localStorage.setItem('easyquiz_keys_collapsed', 'false') } catch {}
         }
 
-        // Valida todas as novas chaves em paralelo
-        statusEl.textContent = `${added} chave(s) adicionada(s). Validando em paralelo...`
+        statusEl.textContent = `${added} adicionada(s), ${duplicates} duplicada(s). Validando modelo em paralelo...`
         const allKeys = keyManager.exportRawKeys()
         const currentModel = (this.modelSelect as HTMLSelectElement)?.value || 'gemini-3.8-flash'
         const result = await validateModelFast(currentModel, allKeys)
+
         if (result.ok) {
           keyManager.markSuccess(result.key, 200)
-          statusEl.style.color = '#00ff88'
-          statusEl.textContent = `✓ ${added} adicionada(s), ${duplicates} duplicada(s). Modelo '${result.model}' validado!`
+          statusEl.style.color = '#4ade80'
+          statusEl.textContent = `✓ ${added} adicionada(s), ${duplicates} duplicada(s). Modelo '${result.model}' pronto!`
         } else {
-          statusEl.style.color = '#ffaa00'
+          statusEl.style.color = '#fbbf24'
           statusEl.textContent = `${added} adicionada(s), ${duplicates} duplicada(s). Aviso: ${result.message}`
         }
 
         this.renderKeysList()
         importBtn.disabled = false
+        importBtn.style.opacity = '1'
+
         if (added > 0) {
           this.setStatus(`✓ Lote importado: ${added} chave(s) adicionada(s) ao pool!`, 'success')
+          setTimeout(close, 2200)
         }
       })
-
-      dlg.showModal()
     })
+
 
     // 6. Testar Todas as Chaves — paralelo com validateModelFast
     this.shadow.querySelector('#eq-menu-test')?.addEventListener('click', async () => {
@@ -2151,15 +2257,12 @@ export class EasyQuizPanel {
 
     this.keysListEl.replaceChildren()
 
-    // Recalcular maxHeight do collapsible após render (novos cards podem ter mudado a altura)
-    try {
-      requestAnimationFrame(() => {
-        const collapsible = this.shadow?.querySelector('#eq-keys-collapsible') as HTMLElement | null
-        if (collapsible && collapsible.style.maxHeight !== '0px') {
-          collapsible.style.maxHeight = collapsible.scrollHeight + 50 + 'px'
-        }
-      })
-    } catch {}
+    // Garante que se o collapsible estiver visível, não haja restrição de altura
+    const collapsible = this.shadow?.querySelector('#eq-keys-collapsible') as HTMLElement | null
+    if (collapsible && collapsible.style.display !== 'none') {
+      collapsible.style.maxHeight = 'none'
+      collapsible.style.overflow = 'visible'
+    }
 
     // Ordenar: mais vitórias primeiro, depois menor latência, depois prontas
     const sorted = [...keys].sort((a, b) => {
