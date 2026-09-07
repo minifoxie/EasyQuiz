@@ -1,6 +1,6 @@
 import type { AnalysisPlan, CapturedContext, EasyQuizSettings, ResponseMode, ExecutionEngine, ModelOption, ActivityMetrics, QuestionTimingRecord } from '../core/types'
 import type { ExecutionResult } from '../dom/executor'
-import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey } from '../core/gemini'
+import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey, isValidQuizModel } from '../core/gemini'
 import { clearSessionMemories, getSessionMemories, resetAllData, loadActivityMetrics, resetActivityMetrics } from '../core/storage'
 import { Autopilot } from '../dom/autopilot'
 import { FloatingAnswersHud } from './floatingHud'
@@ -759,7 +759,7 @@ export class EasyQuizPanel {
     }
 
     // Preencher Selects
-    AVAILABLE_MODELS.forEach((m) => this.modelSelect.add(new Option(m.name, m.id, false, m.id === initialSettings.model)))
+    AVAILABLE_MODELS.filter((m) => isValidQuizModel(m.id)).forEach((m) => this.modelSelect.add(new Option(m.name, m.id, false, m.id === initialSettings.model)))
     RESPONSE_MODE_LABELS.forEach((m) => this.modeSelect.add(new Option(m.label, m.value, false, m.value === initialSettings.modeHint)))
     ENGINE_LABELS.forEach((m) => this.engineSelect.add(new Option(m.label, m.value, false, m.value === initialSettings.engine)))
 
@@ -1907,21 +1907,25 @@ export class EasyQuizPanel {
   }
 
   public updateModelSelect(models: ModelOption[], selectedId?: string): void {
-    const targetId = selectedId || this.initialSettings.model || this.modelSelect.value
+    const validModels = models.filter((m) => isValidQuizModel(m.id))
+    const targetId = selectedId && isValidQuizModel(selectedId)
+      ? selectedId
+      : (isValidQuizModel(this.initialSettings.model) ? this.initialSettings.model : 'gemini-2.5-flash')
     this.modelSelect.innerHTML = ''
     let matched = false
-    models.forEach((m) => {
+    validModels.forEach((m) => {
       const isSelected = m.id === targetId
       if (isSelected) matched = true
       this.modelSelect.add(new Option(m.name, m.id, false, isSelected))
     })
-    if (!matched && targetId) {
+    if (!matched && targetId && isValidQuizModel(targetId)) {
       this.modelSelect.add(new Option(`Gemini (${targetId})`, targetId, false, true))
     }
     this.modelSelect.value = targetId
   }
 
   public updateSelectedModel(modelId: string): void {
+    if (!isValidQuizModel(modelId)) return
     const exists = Array.from(this.modelSelect.options).some((opt) => opt.value === modelId)
     if (!exists) {
       this.modelSelect.add(new Option(`Gemini (${modelId})`, modelId, false, true))

@@ -40,7 +40,7 @@ adv: intenção de avançar para a próxima etapa
 
 PLANO:
 confidence: certeza de 0 a 1.
-rationale: resolução passo a passo e dedução da resposta correta.
+rationale: justificativa ultra-curta (1 a 2 frases diretas).
 `
 
 export function buildUserPrompt(

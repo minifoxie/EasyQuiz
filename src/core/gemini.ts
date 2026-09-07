@@ -1,6 +1,9 @@
 import type { AnalysisPlan, CapturedContext, CapturedImage, EasyQuizSettings, ModelOption } from './types'
 import { buildUserPrompt, SYSTEM_PROMPT } from './prompt'
 import { validateAnalysisPlan } from './planValidation'
+import { isValidQuizModel } from './modelValidation'
+
+export { isValidQuizModel } from './modelValidation'
 
 export const AVAILABLE_MODELS: ModelOption[] = [
   {
@@ -58,7 +61,7 @@ export let preferredFastModel: string | null = null
 export function buildGenerationConfig(model: string): Record<string, unknown> {
   const config: Record<string, unknown> = {
     temperature: 0.0,
-    maxOutputTokens: 2000,
+    maxOutputTokens: 1200,
     response_mime_type: 'application/json',
     response_schema: GEMINI_JSON_SCHEMA,
   }
@@ -119,7 +122,10 @@ const GEMINI_JSON_SCHEMA = {
 
 function normalizeModel(model: string): string {
   const clean = model.trim().replace(/^google\//, '').replace(/^models\//, '')
-  return clean || 'gemini-2.5-flash'
+  if (!clean || !isValidQuizModel(clean)) {
+    return 'gemini-2.5-flash'
+  }
+  return clean
 }
 
 function parseGeminiError(errorText: string, status: number): string {
@@ -172,7 +178,13 @@ function robustParsePlan(rawText: string): AnalysisPlan {
 export let discoveredModelsCache: ModelOption[] | null = (() => {
   try {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('easyquiz_cached_models') : null
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed)) {
+      const filtered = parsed.filter((m: any) => m && typeof m.id === 'string' && isValidQuizModel(m.id))
+      return filtered.length > 0 ? filtered : null
+    }
+    return null
   } catch {
     return null
   }
@@ -211,15 +223,9 @@ export async function fetchAvailableModels(apiKey: string): Promise<ModelOption[
         const validModels: ModelOption[] = data.models
           .filter((m: any) => {
             const methods = m.supportedGenerationMethods || []
-            const isGemini = (m.name || '').includes('gemini')
+            const id = (m.name || '').replace(/^models\//, '')
             const supportsGen = methods.includes('generateContent')
-            const isExcluded =
-              (m.name || '').includes('embedding') ||
-              (m.name || '').includes('tts') ||
-              (m.name || '').includes('imagen') ||
-              (m.name || '').includes('aqa') ||
-              (m.name || '').includes('computer-use')
-            return isGemini && supportsGen && !isExcluded
+            return isValidQuizModel(id) && supportsGen
           })
           .map((m: any) => {
             const methods = m.supportedGenerationMethods || []
@@ -230,7 +236,7 @@ export async function fetchAvailableModels(apiKey: string): Promise<ModelOption[
               name: displayName.includes(id) ? displayName : `${displayName} (${id})`,
               description: m.description || '',
               stable: !/-preview|-experimental|-latest/i.test(id),
-              supportsVision: !/embedding|tts|transcribe|live|image/i.test(id),
+              supportsVision: !/embedding|tts|transcribe|live|image|sound|voice/i.test(id),
               supportsStructuredOutput: methods.includes('generateContent'),
               supportedGenerationMethods: methods,
               discoveredAt: Date.now(),
@@ -466,28 +472,39 @@ export async function analyzeWithGemini(
   }
   const keepalive = true
 
-  // Lista ordenada de modelos a tentar: modelo rápido comprovado (preferredFastModel) em 1º,
-  // seguido pelo escolhido pelo usuário e pelos modelos oficiais de ultra-baixa latência
-  const rawFallback = [
-    ...(preferredFastModel ? [preferredFastModel] : []),
-    chosenModel,
+  // Lista ordenada de modelos estritamente válidos para resolução de testes (QA)
+  // 1. Modelo rápido comprovado da sessão atual (preferredFastModel) se for válido
+  // 2. Modelo escolhido pelo usuário (chosenModel) se for válido
+  // 3. Modelos oficiais Flash e Pro de ponta com ultrabaixa latência
+  const prioritizedFastQA = [
     'gemini-2.5-flash',
     'gemini-2.0-flash',
     'gemini-3.8-flash',
     'gemini-3.5-flash',
-    ...(discoveredModelsCache?.map((m) => m.id) || []),
-    'gemini-1.5-flash',
     'gemini-2.0-flash-lite-preview-02-05',
+    'gemini-1.5-flash',
     'gemini-3.5-flash-lite',
+  ]
+
+  const rawFallback = [
+    ...(preferredFastModel && isValidQuizModel(preferredFastModel) ? [preferredFastModel] : []),
+    ...(isValidQuizModel(chosenModel) ? [chosenModel] : []),
+    ...prioritizedFastQA,
+    ...(discoveredModelsCache?.filter((m) => isValidQuizModel(m.id)).map((m) => m.id) || []),
     'gemini-2.5-pro',
     'gemini-1.5-pro',
   ]
 
-  let modelsToTry = Array.from(new Set(rawFallback)).filter((m) => !blacklistedModels.has(m))
+  const validCandidates = Array.from(new Set(rawFallback)).filter((m) => isValidQuizModel(m))
+
+  let modelsToTry = validCandidates.filter((m) => !blacklistedModels.has(m))
   if (modelsToTry.length === 0) {
     blacklistedModels.clear()
-    modelsToTry = Array.from(new Set(rawFallback))
+    modelsToTry = validCandidates
   }
+
+  // Limita o pool de corrida aos top 6 modelos mais velozes para evitar contenção de rede
+  modelsToTry = modelsToTry.slice(0, 6)
 
   // Divide os modelos em ondas de até 3 para corrida paralela ultrarrápida (Hedging / Concurrent Race)
   const chunkSize = 3
@@ -542,7 +559,7 @@ export async function analyzeWithGemini(
     try {
       const racePromises = currentWave.map(async (model, idx) => {
         const ctrl = waveControllers[idx]
-        const timeoutMs = currentWave.length > 1 ? 8000 : 12000
+        const timeoutMs = currentWave.length > 1 ? 5000 : 8000
         const timeoutId = setTimeout(() => {
           try {
             ctrl.abort(new Error(`Timeout de ${timeoutMs / 1000}s excedido na API Gemini (${model}).`))

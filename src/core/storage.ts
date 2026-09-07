@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, type EasyQuizSettings, type ResponseMode, type ExecutionEngine, type ActivityMetrics, type QuestionTimingRecord } from './types'
+import { isValidQuizModel } from './modelValidation'
 
 const STORAGE_KEY = 'easyquiz_settings_v2'
 const METRICS_STORAGE_KEY = 'easyquiz_activity_metrics'
@@ -16,7 +17,7 @@ export function loadSettings(): EasyQuizSettings {
       return { ...DEFAULT_SETTINGS }
     }
     const parsed = JSON.parse(raw) as Partial<EasyQuizSettings>
-    let model = typeof parsed.model === 'string' && parsed.model ? parsed.model : DEFAULT_SETTINGS.model
+    let model = typeof parsed.model === 'string' && isValidQuizModel(parsed.model) ? parsed.model : DEFAULT_SETTINGS.model
     return {
       apiKey: typeof parsed.apiKey === 'string' ? parsed.apiKey.trim() : DEFAULT_SETTINGS.apiKey,
       model,
