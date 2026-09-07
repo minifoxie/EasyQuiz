@@ -606,8 +606,9 @@ export async function analyzeWithGemini(
   try {
     const racePromises = blitzSlots.map(async (slot, idx) => {
       const ctrl = blitzControllers[idx]
-      // Timeout: 8s com múltiplos slots, 12s solo
-      const timeoutMs = totalSlots > 1 ? 8000 : 12000
+      // Timeout: 14s com múltiplos slots, 20s solo
+      // Aumentado de 8s/12s pois servidores Gemini ficam sob carga em horário de pico
+      const timeoutMs = totalSlots > 1 ? 14000 : 20000
       const timeoutId = setTimeout(() => {
         try { ctrl.abort(new Error(`Timeout ${timeoutMs / 1000}s (${slot.model}|${slot.label})`)) } catch { ctrl.abort() }
       }, timeoutMs)
@@ -664,7 +665,7 @@ export async function analyzeWithGemini(
       try {
         onProgress?.(`Fallback: tentando ${fallbackModel} com melhor chave disponível...`, 'info')
         const fbCtrl = new AbortController()
-        const fbTimeout = setTimeout(() => { try { fbCtrl.abort() } catch {} }, 10000)
+        const fbTimeout = setTimeout(() => { try { fbCtrl.abort() } catch {} }, 15000)
         const res = await callSingleModel(fallbackModel, fallbackKey, payloadBase, keepalive, fbCtrl.signal)
         clearTimeout(fbTimeout)
         const parsedPlan = validateAnalysisPlan(robustParsePlan(res.rawText))

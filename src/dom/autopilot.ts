@@ -88,8 +88,10 @@ export class Autopilot {
 
   // Estado inteligente — baseado em conteúdo, não em valores
   private errorCount = 0
-  private resolvedSigs = new Set<string>()  // sigs de conteúdo já analisadas com sucesso
+  private resolvedSigs = new Set<string>()  // sigs de conteúdo já analisadas com SUCESSO
   private lastContentSig = ''               // última sig de conteúdo vista
+  private lastAttemptSig = ''               // última sig tentada (independente de sucesso)
+  private lastAttemptTime = 0              // timestamp da última tentativa
 
   constructor(callbacks: AutopilotCallbacks) {
     this.callbacks = callbacks
@@ -194,13 +196,16 @@ export class Autopilot {
       // Assinatura de CONTEÚDO (sem valores preenchidos)
       const contentSig = createContentSignature(context)
 
-      // Se o conteúdo já foi resolvido com sucesso → ignorar, não é questão nova
+      // REGRA PRINCIPAL: só pular se já foi resolvido com SUCESSO
+      // NÃO bloquear retries após falha — a condição anterior era incorreta
       if (this.resolvedSigs.has(contentSig)) {
         return
       }
 
-      // Se o conteúdo não mudou desde o último check → ignorar
-      if (contentSig === this.lastContentSig && this.resolvedSigs.size > 0) {
+      // Throttle leve: evitar re-análise em ráfaga da mesma página não-resolvida
+      // (ex: múltiplas mutações do observer em sequência)
+      const now = Date.now()
+      if (contentSig === this.lastAttemptSig && now - this.lastAttemptTime < 3000) {
         return
       }
 
@@ -209,8 +214,11 @@ export class Autopilot {
       if (isNewPage && this.lastContentSig !== '') {
         this.callbacks.onStatusChange('waiting', '> [SYS] Nova questão detectada! Analisando...', 'text-green')
         this.callbacks.onPageAdvance?.()
+        this.errorCount = 0  // reset contador de erros em nova página
       }
       this.lastContentSig = contentSig
+      this.lastAttemptSig = contentSig
+      this.lastAttemptTime = now
 
       const answerControls = context.controls.filter((c) => c.role === 'answer')
       const cache = loadDomainCache(window.location.hostname)
@@ -254,6 +262,8 @@ export class Autopilot {
           const cooldown = this.errorCount === 1 ? 5000 : 8000
           this.callbacks.onStatusChange('waiting', `> [AVISO] Falha na análise (${this.errorCount}/3). Aguardando ${cooldown / 1000}s...`, 'text-yellow')
           await this.sleep(cooldown)
+          // Reset do throttle para permitir retry imediato após o cooldown
+          this.lastAttemptTime = 0
         }
 
       } else if (cache.advanceSelector && findElementExt(cache.advanceSelector) && context.questionText.length < 50) {
