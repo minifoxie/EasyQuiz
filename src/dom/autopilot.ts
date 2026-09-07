@@ -264,6 +264,9 @@ export class Autopilot {
             // O próximo loop só analisa novamente se o conteúdo DOM mudar (nova sig).
             this.lastPageSig = currentSig + '_resolved'
             this.samePageCount = 0
+            // Cooldown pós-sucesso: aguarda DOM estabilizar após ações do executor
+            // antes de checar novamente (evita re-análise disparada por mutações das próprias ações)
+            await this.sleep(1500)
           } else {
             this.errorCount++
             const cooldown = this.errorCount === 1 ? 5000 : 8000

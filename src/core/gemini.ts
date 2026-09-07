@@ -62,6 +62,21 @@ const TURBO_MODELS = [
   'gemini-3.5-flash',
 ]
 
+// Modelos descontinuados — mapeados automaticamente para substitutos
+// Evita 404s silenciosos quando o usuário tem um modelo antigo salvo nas configurações
+const DEPRECATED_MODEL_MAP: Record<string, string> = {
+  'gemini-2.5-flash': 'gemini-3.6-flash',
+  'gemini-2.0-flash': 'gemini-3.5-flash',
+  'gemini-2.0-flash-lite': 'gemini-3.5-flash-lite',
+  'gemini-1.5-flash': 'gemini-3.5-flash',
+  'gemini-1.5-pro': 'gemini-3.6-flash',
+}
+
+/** Migra modelo deprecado para substituto estável automaticamente */
+function migrateDeprecated(model: string): string {
+  return DEPRECATED_MODEL_MAP[model] ?? model
+}
+
 export let preferredFastModel: string | null = null
 
 export function buildGenerationConfig(model: string): Record<string, unknown> {
@@ -514,16 +529,23 @@ export async function analyzeWithGemini(
   blacklistedModels.clear()
 
   // Fix 2: pool de modelos SEMPRE com ≥2 modelos distintos garantidos
-  // preferredFastModel é dica de prioridade, não exclusividade
+  // Auto-migrar modelos deprecados (ex: 2.5-flash → 3.6-flash) para evitar 404
+  const effectiveChosenModel = migrateDeprecated(chosenModel)
+  const effectivePreferred = preferredFastModel ? migrateDeprecated(preferredFastModel) : null
+
   const candidateModels: string[] = []
-  if (preferredFastModel && isValidQuizModel(preferredFastModel)) candidateModels.push(preferredFastModel)
-  if (isValidQuizModel(chosenModel) && chosenModel !== preferredFastModel) candidateModels.push(chosenModel)
+  if (effectivePreferred && isValidQuizModel(effectivePreferred)) candidateModels.push(effectivePreferred)
+  if (isValidQuizModel(effectiveChosenModel) && effectiveChosenModel !== effectivePreferred) candidateModels.push(effectiveChosenModel)
   // Sempre adicionar os TURBO_MODELS para garantir pool robusto
   for (const m of TURBO_MODELS) {
     if (!candidateModels.includes(m)) candidateModels.push(m)
   }
-  // Garantia absoluta: nunca menos de 2 modelos no pool
-  const uniqueModels = candidateModels.filter(m => isValidQuizModel(m)).slice(0, 3)
+  // Garantia absoluta: nunca menos de 2 modelos no pool, todos migrados
+  const uniqueModels = candidateModels
+    .map(m => migrateDeprecated(m))
+    .filter(m => isValidQuizModel(m))
+    .filter((m, i, arr) => arr.indexOf(m) === i)  // dedup
+    .slice(0, 3)
   if (uniqueModels.length < 2) uniqueModels.push(...TURBO_MODELS.filter(m => !uniqueModels.includes(m)))
 
   // Fix 3: slots adaptativos — min(N_saudáveis, 8) sem repetição de chave

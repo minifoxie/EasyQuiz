@@ -89,6 +89,7 @@ export class EasyQuizPanel {
   private activeLogFilter: 'all' | 'error' | 'ai' | 'dom' = 'all'
   private autoScrollLogs: boolean = true
   private lastErrorMsg: string | null = null
+  private _autopilotAnalyzingShown: boolean = false  // evita spam de "IA analisando..." por ciclo
 
   // Barra de Progresso
   private progressContainer: HTMLElement
@@ -151,11 +152,17 @@ export class EasyQuizPanel {
       onStatusChange: (status, msg, colorClass) => {
         this.logToConsole(msg, colorClass)
         if (status === 'analyzing') {
-          this.setBusy(true, 'Autopilot: IA analisando...')
+          // Evitar spam de 'IA analisando...' para cada mensagem de log — só mostrar uma vez
+          if (!this._autopilotAnalyzingShown) {
+            this._autopilotAnalyzingShown = true
+            this.setBusy(true, 'Autopilot: IA analisando...')
+          }
         } else if (status === 'advancing' || status === 'waiting') {
+          this._autopilotAnalyzingShown = false  // reset para pr\u00f3ximo ciclo
           this.setBusy(false)
           this.updateAutopilotUi(true)
         } else if (status === 'idle') {
+          this._autopilotAnalyzingShown = false
           this.setBusy(false)
           this.updateAutopilotUi(false)
           if (msg.includes('conclusão') || msg.includes('finalizada') || msg.includes('Parabéns')) {
@@ -164,6 +171,7 @@ export class EasyQuizPanel {
             this.setStatus('Autopilot desativado.', 'info')
           }
         } else if (status === 'error') {
+          this._autopilotAnalyzingShown = false
           this.setBusy(false)
           this.updateAutopilotUi(false)
           this.setStatus('Autopilot interrompido por erro.', 'error')
