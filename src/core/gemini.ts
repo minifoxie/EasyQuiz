@@ -19,18 +19,6 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     stable: true,
   },
   {
-    id: 'gemini-3.8-flash',
-    name: 'Gemini 3.8 Flash (Nova Geração)',
-    description: 'Modelo de ponta Flash otimizado para alta velocidade e raciocínio.',
-    stable: true,
-  },
-  {
-    id: 'gemini-3.5-flash',
-    name: 'Gemini 3.5 Flash (Equilibrado)',
-    description: 'Excelente velocidade e consistência.',
-    stable: true,
-  },
-  {
     id: 'gemini-1.5-flash',
     name: 'Gemini 1.5 Flash (Reserva Global)',
     description: 'Modelo de altíssima estabilidade e ampla cota gratuita.',
@@ -40,6 +28,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     id: 'gemini-2.0-flash-lite-preview-02-05',
     name: 'Gemini 2.0 Flash-Lite (Econômico)',
     description: 'Modelo leve para respostas ultrarrápidas.',
+    stable: true,
+  },
+  {
+    id: 'gemini-1.5-flash-8b',
+    name: 'Gemini 1.5 Flash-8B (Super Leve)',
+    description: 'Modelo ultraleve e veloz com alta cota de requisições.',
     stable: true,
   },
   {
@@ -72,8 +66,6 @@ export function buildGenerationConfig(model: string): Record<string, unknown> {
   // Modelos Gemini 3.x usam thinkingLevel: 'LOW'.
   if (/gemini-2\.5/i.test(model)) {
     config.thinkingConfig = { thinkingBudget: 0 }
-  } else if (/gemini-3/i.test(model)) {
-    config.thinkingConfig = { thinkingLevel: 'LOW' }
   }
 
   return config
@@ -248,14 +240,11 @@ export async function fetchAvailableModels(apiKey: string): Promise<ModelOption[
             const getPriority = (id: string) => {
               if (id === 'gemini-2.5-flash') return 130
               if (id === 'gemini-2.0-flash') return 125
-              if (id === 'gemini-3.8-flash') return 120
-              if (id === 'gemini-3.5-flash') return 115
-              if (id === 'gemini-3.5-flash-lite') return 110
+              if (id === 'gemini-1.5-flash') return 110
               if (id === 'gemini-2.0-flash-lite-preview-02-05') return 105
-              if (id === 'gemini-1.5-flash') return 90
+              if (id === 'gemini-1.5-flash-8b') return 100
               if (id.includes('flash')) return 80
               if (id === 'gemini-2.5-pro') return 60
-              if (id === 'gemini-3.1-pro-preview') return 55
               if (id === 'gemini-1.5-pro') return 50
               return 10
             }
@@ -396,17 +385,22 @@ async function callSingleModel(
           continue
         }
 
-        if (response.status === 404 || response.status === 403) {
+        if (
+          response.status === 404 ||
+          response.status === 403 ||
+          response.status === 503 ||
+          /no capacity|overloaded|unavailable/i.test(errorText)
+        ) {
           blacklistedModels.add(model)
         }
 
-        throw new Error(parsedErrorMsg)
+        throw new Error(`[${model}] ${parsedErrorMsg}`)
       }
 
       const data = await response.json()
       const candidate = data.candidates?.[0]
       if (!candidate || !candidate.content?.parts?.[0]?.text) {
-        throw new Error('A IA não retornou uma resposta estruturada válida.')
+        throw new Error(`[${model}] A IA não retornou uma resposta estruturada válida.`)
       }
 
       return {
@@ -417,10 +411,11 @@ async function callSingleModel(
     } catch (err) {
       if (signal.aborted) throw err
       lastErr = err as Error
-      if (lastErr.message.includes('404')) {
+      const errMsg = lastErr.message || ''
+      if (errMsg.includes('404') || errMsg.includes('503') || errMsg.includes('No capacity') || errMsg.includes('overloaded')) {
         blacklistedModels.add(model)
       }
-      if (!lastErr.message.includes('404')) {
+      if (!errMsg.includes('404')) {
         break
       }
     }
@@ -479,11 +474,11 @@ export async function analyzeWithGemini(
   const prioritizedFastQA = [
     'gemini-2.5-flash',
     'gemini-2.0-flash',
-    'gemini-3.8-flash',
-    'gemini-3.5-flash',
-    'gemini-2.0-flash-lite-preview-02-05',
     'gemini-1.5-flash',
-    'gemini-3.5-flash-lite',
+    'gemini-2.0-flash-lite-preview-02-05',
+    'gemini-1.5-flash-8b',
+    'gemini-2.5-pro',
+    'gemini-1.5-pro',
   ]
 
   const rawFallback = [
@@ -559,7 +554,7 @@ export async function analyzeWithGemini(
     try {
       const racePromises = currentWave.map(async (model, idx) => {
         const ctrl = waveControllers[idx]
-        const timeoutMs = currentWave.length > 1 ? 5000 : 8000
+        const timeoutMs = currentWave.length > 1 ? 8000 : 12000
         const timeoutId = setTimeout(() => {
           try {
             ctrl.abort(new Error(`Timeout de ${timeoutMs / 1000}s excedido na API Gemini (${model}).`))
@@ -601,8 +596,21 @@ export async function analyzeWithGemini(
     } catch (waveErr) {
       signal?.removeEventListener('abort', onWaveParentAbort)
       if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
-      lastError = waveErr instanceof Error ? waveErr : new Error(String(waveErr))
-      console.warn(`[EasyQuiz Wave Race] Onda ${waveIndex + 1} (${currentWave.join(', ')}) falhou. Tentando próxima onda...`, waveErr)
+
+      let failureDetails = ''
+      if (Array.isArray((waveErr as any)?.errors) && (waveErr as any).errors.length > 0) {
+        failureDetails = (waveErr as any).errors
+          .map((e: any) => e?.message || String(e))
+          .filter(Boolean)
+          .join(' | ')
+      } else if (waveErr instanceof Error) {
+        failureDetails = waveErr.message
+      } else {
+        failureDetails = String(waveErr)
+      }
+
+      lastError = new Error(failureDetails || 'Nenhum modelo respondeu com sucesso.')
+      console.warn(`[EasyQuiz Wave Race] Onda ${waveIndex + 1} (${currentWave.join(', ')}) falhou: ${failureDetails}`)
     }
   }
 

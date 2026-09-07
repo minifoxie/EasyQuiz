@@ -186,9 +186,6 @@ async function initEasyQuiz(): Promise<void> {
 
       const onProgressCallback = (msg: string, type?: 'info' | 'warning' | 'error') => {
         panel.setStatus(msg, type === 'warning' ? 'info' : type)
-        const prefix = type === 'error' ? '[ERRO]' : type === 'warning' ? '[FALLBACK]' : '[SYS]'
-        const color = type === 'error' ? 'text-red' : type === 'warning' ? 'text-yellow' : 'text-muted'
-        panel.logToConsole(`> ${prefix} ${msg}`, color)
       }
 
       let { plan, usedModel } = await analyzeWithGemini(context, images, settings, onProgressCallback, currentController.signal)
@@ -287,7 +284,6 @@ async function initEasyQuiz(): Promise<void> {
       panel.setProgress(0)
       const message = error instanceof Error ? error.message : 'Falha desconhecida na análise.'
       panel.setStatus(message, 'error')
-      panel.logToConsole(`> [ERRO] ${message}`, 'text-red')
       panel.setErrorDiagnostic(message, 'Análise da IA')
       return undefined
     } finally {
