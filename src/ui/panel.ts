@@ -150,7 +150,7 @@ export class EasyQuizPanel {
         this.logToConsole(msg, colorClass)
         if (status === 'analyzing') {
           this.setBusy(true, 'Autopilot: IA analisando...')
-        } else if (status === 'advancing' || status === 'waiting') {
+        } else if (status === 'advancing' || status === 'waiting' || status === 'idle' || status === 'error') {
           this.setBusy(false)
         }
       },
@@ -830,6 +830,13 @@ export class EasyQuizPanel {
     // Ações de Métricas & Cronômetro
     this.metricsResetBtn?.addEventListener('click', () => {
       resetActivityMetrics()
+      this.stopQuestionTimer(0)
+      this.currentQuestionStartTime = 0
+      if (this.metricsLiveTime) this.metricsLiveTime.textContent = '00:00.00'
+      if (this.metricsLiveStatus) {
+        this.metricsLiveStatus.textContent = 'Em espera'
+        this.metricsLiveStatus.classList.remove('active')
+      }
       this.updateTimingMetrics()
       this.logToConsole('> [SYS] Métricas e histórico de tempo zerados com sucesso.', 'text-yellow')
     })
@@ -1054,6 +1061,15 @@ export class EasyQuizPanel {
       const confirmed = window.confirm('Deseja realmente resetar todos os dados, chaves e memória de sessão do EasyQuiz?')
       if (confirmed) {
         resetAllData()
+        resetActivityMetrics()
+        this.stopQuestionTimer(0)
+        this.currentQuestionStartTime = 0
+        if (this.metricsLiveTime) this.metricsLiveTime.textContent = '00:00.00'
+        if (this.metricsLiveStatus) {
+          this.metricsLiveStatus.textContent = 'Em espera'
+          this.metricsLiveStatus.classList.remove('active')
+        }
+        this.updateTimingMetrics()
         this.apiKeyInput.value = ''
         this.callbacks.onSettingsChange({ apiKey: '' })
         this.setStatus('Todos os dados do EasyQuiz foram limpos.', 'info')
@@ -1073,6 +1089,7 @@ export class EasyQuizPanel {
         this.apToggleBtn.innerHTML = `${ICONS.play} INICIAR AUTOPILOT`
         this.apToggleBtn.classList.remove('danger')
         this.stopStopwatch()
+        this.stopQuestionTimer()
         this.setStatus('Autopilot interrompido imediatamente pelo usuário.', 'info')
       } else {
         const key = this.apiKeyInput.value.trim().replace(/^["']|["']$/g, '')
@@ -1850,14 +1867,21 @@ export class EasyQuizPanel {
     this.questionLiveTimerInterval = setInterval(update, 50)
   }
 
-  public stopQuestionTimer(): void {
+  public stopQuestionTimer(finalElapsedMs?: number): void {
     if (this.questionLiveTimerInterval) {
       clearInterval(this.questionLiveTimerInterval)
       this.questionLiveTimerInterval = null
     }
     if (this.metricsLiveStatus) {
-      this.metricsLiveStatus.textContent = 'Em espera'
+      this.metricsLiveStatus.textContent = 'Parado'
       this.metricsLiveStatus.classList.remove('active')
+    }
+    if (this.metricsLiveTime && this.currentQuestionStartTime > 0) {
+      const elapsed = finalElapsedMs !== undefined ? finalElapsedMs : Math.max(0, Date.now() - this.currentQuestionStartTime)
+      const mins = Math.floor(elapsed / 60000)
+      const secs = Math.floor((elapsed % 60000) / 1000)
+      const ms = Math.floor((elapsed % 1000) / 10)
+      this.metricsLiveTime.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(2, '0')}`
     }
   }
 

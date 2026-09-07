@@ -1,6 +1,7 @@
-import { DEFAULT_SETTINGS, type EasyQuizSettings, type ResponseMode, type ExecutionEngine } from './types'
+import { DEFAULT_SETTINGS, type EasyQuizSettings, type ResponseMode, type ExecutionEngine, type ActivityMetrics, type QuestionTimingRecord } from './types'
 
 const STORAGE_KEY = 'easyquiz_settings_v2'
+const METRICS_STORAGE_KEY = 'easyquiz_activity_metrics'
 
 export function loadSettings(): EasyQuizSettings {
   try {
@@ -41,6 +42,8 @@ export function resetAllData(): void {
   try {
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem('easyquiz_settings_v1')
+    localStorage.removeItem(METRICS_STORAGE_KEY)
+    sessionStorage.removeItem(METRICS_STORAGE_KEY)
     const keysToRemove: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)
@@ -125,13 +128,14 @@ export function clearSessionMemories(): void {
 }
 
 // ==== MÉTRICAS DINÂMICAS DE TEMPO DA ATIVIDADE (CRONÔMETRO) ====
-import type { ActivityMetrics, QuestionTimingRecord } from './types'
-
-const METRICS_STORAGE_KEY = 'easyquiz_activity_metrics'
-
 export function loadActivityMetrics(): ActivityMetrics {
+  // Purga permanentemente qualquer valor legado do localStorage para nunca persistir entre sessões distintas
   try {
-    const raw = sessionStorage.getItem(METRICS_STORAGE_KEY) || localStorage.getItem(METRICS_STORAGE_KEY)
+    localStorage.removeItem(METRICS_STORAGE_KEY)
+  } catch {}
+
+  try {
+    const raw = sessionStorage.getItem(METRICS_STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as ActivityMetrics
       if (parsed && Array.isArray(parsed.records)) {
@@ -151,10 +155,11 @@ export function loadActivityMetrics(): ActivityMetrics {
 export function saveActivityMetrics(metrics: ActivityMetrics): void {
   try {
     const serialized = JSON.stringify(metrics)
+    // O histórico do cronômetro permanece ESTRITAMENTE na sessão ativa (sessionStorage)
     sessionStorage.setItem(METRICS_STORAGE_KEY, serialized)
-    localStorage.setItem(METRICS_STORAGE_KEY, serialized)
+    localStorage.removeItem(METRICS_STORAGE_KEY)
   } catch (error) {
-    console.warn('[EasyQuiz] Falha ao persistir métricas de tempo:', error)
+    console.warn('[EasyQuiz] Falha ao persistir métricas de tempo na sessão:', error)
   }
 }
 
@@ -193,14 +198,16 @@ export function recordQuestionTiming(
 }
 
 export function resetActivityMetrics(): ActivityMetrics {
-  const initial: ActivityMetrics = {
+  try {
+    sessionStorage.removeItem(METRICS_STORAGE_KEY)
+    localStorage.removeItem(METRICS_STORAGE_KEY)
+  } catch {}
+  return {
     startTime: Date.now(),
     totalElapsedMs: 0,
     completedQuestionsCount: 0,
     averageDurationMs: 0,
     records: [],
   }
-  saveActivityMetrics(initial)
-  return initial
 }
 
