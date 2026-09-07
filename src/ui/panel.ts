@@ -1,6 +1,6 @@
 import type { AnalysisPlan, CapturedContext, EasyQuizSettings, ResponseMode, ExecutionEngine, ModelOption, ActivityMetrics, QuestionTimingRecord } from '../core/types'
 import type { ExecutionResult } from '../dom/executor'
-import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey, isValidQuizModel, keyManager, KeyManager } from '../core/gemini'
+import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey, isValidQuizModel, keyManager, KeyManager, resetSessionBlacklist } from '../core/gemini'
 import { clearSessionMemories, getSessionMemories, resetAllData, loadActivityMetrics, resetActivityMetrics } from '../core/storage'
 import { Autopilot } from '../dom/autopilot'
 import { FloatingAnswersHud } from './floatingHud'
@@ -1227,6 +1227,7 @@ export class EasyQuizPanel {
         this.callbacks.onSettingsChange({ autoApply: true, autoAdvance: true })
         this.autoApplyCheckbox.checked = true
         this.autoAdvanceCheckbox.checked = true
+        resetSessionBlacklist()  // limpar blacklist de 429 da sessão anterior
         this.autopilot.start()
         this.updateAutopilotUi(true)
         this.startStopwatch()
