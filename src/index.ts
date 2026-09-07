@@ -1,4 +1,4 @@
-import { analyzeWithGemini } from './core/gemini'
+import { analyzeWithGemini, preferredFastModel } from './core/gemini'
 import { buildUserPrompt } from './core/prompt'
 import { addSessionMemory, loadSettings, saveSettings, recordQuestionTiming, loadActivityMetrics, resetActivityMetrics } from './core/storage'
 import { createExecutionPolicy } from './core/policy'
@@ -173,10 +173,12 @@ async function initEasyQuiz(): Promise<void> {
 
       if (currentController.signal.aborted) return undefined
 
+      // Mostrar o modelo real que será usado: winner anterior (mais rápido) ou o escolhido pelo usuário
+      const activeModel = preferredFastModel || settings.model
       panel.setStatus(
         images.length > 0
-          ? `Consultando Gemini (${settings.model}) com ${images.length} imagem(ns) anexada(s)...`
-          : `Consultando Gemini (${settings.model}) via DOM nativo (modo rápido)...`,
+          ? `Consultando Gemini (${activeModel}) com ${images.length} imagem(ns) anexada(s)...`
+          : `Consultando Gemini (${activeModel}) via DOM nativo (modo rápido)...`,
         'info',
       )
 

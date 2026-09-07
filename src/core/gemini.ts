@@ -553,12 +553,19 @@ export async function analyzeWithGemini(
   const effectiveChosenModel = migrateDeprecated(chosenModel)
   const effectivePreferred = preferredFastModel ? migrateDeprecated(preferredFastModel) : null
 
+  // ===== POOL DE MODELOS: sempre priorizar os mais r\u00e1pidos =====
+  // preferredFast → TURBO_MODELS (velocidade comprovada) → chosenModel (prefer\u00eancia do usu\u00e1rio)
+  // chosenModel vai por \u00faltimo para n\u00e3o bloquear Onda 1 com um modelo lento
   const candidateModels: string[] = []
   if (effectivePreferred && isValidQuizModel(effectivePreferred)) candidateModels.push(effectivePreferred)
-  if (isValidQuizModel(effectiveChosenModel) && effectiveChosenModel !== effectivePreferred) candidateModels.push(effectiveChosenModel)
   for (const m of TURBO_MODELS) {
     if (!candidateModels.includes(m)) candidateModels.push(m)
   }
+  // chosenModel s\u00f3 entra se ainda n\u00e3o estiver no pool (por exemplo, modelo customizado do usu\u00e1rio)
+  if (isValidQuizModel(effectiveChosenModel) && !candidateModels.includes(effectiveChosenModel)) {
+    candidateModels.push(effectiveChosenModel)
+  }
+
   const modelPool = candidateModels
     .map(m => migrateDeprecated(m))
     .filter(m => isValidQuizModel(m))
