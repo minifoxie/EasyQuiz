@@ -8,7 +8,7 @@ import { ICONS } from './icons'
 import { PANEL_STYLES } from './styles'
 
 export interface PanelCallbacks {
-  onAnalyze: (attempt?: number, signal?: AbortSignal) => Promise<AnalysisPlan | void>
+  onAnalyze: (attempt?: number, signal?: AbortSignal, isAutopilot?: boolean) => Promise<AnalysisPlan | void>
   onApply: (attempt?: number) => void
   onDestroy: () => void
   onSettingsChange: (settings: Partial<EasyQuizSettings>) => void
@@ -179,7 +179,8 @@ export class EasyQuizPanel {
       },
       onRequestAnalysis: async (attempt?: number, signal?: AbortSignal) => {
         try {
-          const plan = await this.callbacks.onAnalyze(attempt, signal)
+          // isAutopilot=true: garante que o aplicador sempre tente avançar (forceAdvance)
+          const plan = await this.callbacks.onAnalyze(attempt, signal, true)
           return plan || null
         } catch {
           return null

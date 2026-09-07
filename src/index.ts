@@ -60,7 +60,7 @@ async function initEasyQuiz(): Promise<void> {
   let currentQuestionStartTime: number = 0
 
   const panel = new EasyQuizPanel(settings, {
-    onAnalyze: (attempt = 1, signal?: AbortSignal) => runAnalysis(attempt, signal),
+    onAnalyze: (attempt = 1, signal?: AbortSignal, isAutopilot = false) => runAnalysis(attempt, signal, isAutopilot),
     onApply: (attempt = 1) => void runApply(attempt),
     onDestroy: () => {
       if (activeAnalysisController) {
@@ -107,7 +107,7 @@ async function initEasyQuiz(): Promise<void> {
     }
   })
 
-  async function runAnalysis(attemptCount = 1, externalSignal?: AbortSignal): Promise<AnalysisPlan | void> {
+  async function runAnalysis(attemptCount = 1, externalSignal?: AbortSignal, isAutopilot = false): Promise<AnalysisPlan | void> {
     if (!settings.apiKey) {
       panel.setStatus('Configure sua chave de API Gemini acima para começar.', 'error')
       panel.toggle(true)
@@ -273,9 +273,9 @@ async function initEasyQuiz(): Promise<void> {
 
       if (currentController.signal.aborted) return undefined
 
-      // Auto aplicação opcional
-      if (settings.autoApply && !settings.dryRun) {
-        await runApply(attemptCount, currentController.signal)
+      // Auto aplicação: sempre no Autopilot; opt-in no modo manual (autoApply setting)
+      if ((isAutopilot || settings.autoApply) && !settings.dryRun) {
+        await runApply(attemptCount, currentController.signal, isAutopilot)
       }
       return plan
     } catch (error) {
@@ -306,7 +306,7 @@ async function initEasyQuiz(): Promise<void> {
     }
   }
 
-  async function runApply(attemptCount = 1, signal?: AbortSignal): Promise<void> {
+  async function runApply(attemptCount = 1, signal?: AbortSignal, forceAdvance = false): Promise<void> {
     if (signal?.aborted) return
     if (!latestPlan) {
       panel.setStatus('Nenhum plano disponível para aplicar. Execute a análise primeiro.', 'error')
@@ -319,8 +319,10 @@ async function initEasyQuiz(): Promise<void> {
     }
 
     const isInfoOrStart = latestPlan.pageType === 'info' || latestPlan.pageType === 'start'
+    // forceAdvance=true quando chamado pelo Autopilot — ignora autoAdvance (que é opt-in para modo manual)
+    // No Autopilot, o avanço é SEMPRE desejado quando a confiança atinge o limiar
     const canAdvance =
-      (settings.autoAdvance || isInfoOrStart) &&
+      (forceAdvance || settings.autoAdvance || isInfoOrStart) &&
       latestPlan.confidence >= settings.confidenceThreshold &&
       !latestPlan.needsMoreContext
 

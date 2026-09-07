@@ -1512,7 +1512,7 @@ export function findBestNavigationButton(preferredId?: string): HTMLElement | nu
   return null
 }
 
-export async function waitForEnabled(el: HTMLElement, maxMs = 1500): Promise<void> {
+export async function waitForEnabled(el: HTMLElement, maxMs = 2500): Promise<void> {
   const start = Date.now()
   while (Date.now() - start < maxMs) {
     const isDisabled =
@@ -1521,9 +1521,9 @@ export async function waitForEnabled(el: HTMLElement, maxMs = 1500): Promise<voi
       el.classList.contains('disabled') ||
       el.getAttribute('disabled') !== null
     if (!isDisabled) return
-    await new Promise((r) => setTimeout(r, 100))
+    await new Promise((r) => setTimeout(r, 80))
   }
-  // O estado do host nunca deve ser alterado só porque o timeout terminou.
+  // Timeout: botão ainda desativado, mas prosseguimos — pode funcionar mesmo assim
 }
 
 export interface ExecutionResult {
@@ -1538,21 +1538,49 @@ export interface ExecutionResult {
 }
 
 function getNavigationSignature(): string {
-  const text = (document.body?.innerText || document.body?.textContent || '').replace(/\s+/g, ' ').trim()
-  const controls = document.querySelectorAll('input, textarea, select, button, [role="button"], [role="option"]').length
-  return `${window.location.href}|${document.title}|${text.slice(0, 900)}|${controls}`
+  // Usa apenas indicadores ESTRUTURAIS da página — não o texto completo do body.
+  // Isso evita falso-positivos quando feedbacks visuais ("Correto! ✓", "Errado") aparecem
+  // na tela sem efetivamente mudar de questão.
+  const url = window.location.href
+  const title = document.title
+  const controlCount = document.querySelectorAll('input, textarea, select, button, [role="button"], [role="option"], [role="radio"], [role="checkbox"]').length
+  // Número de caracteres do texto visível: muda substancialmente quando troca de questão
+  const textLen = (document.body?.innerText || document.body?.textContent || '').length
+  return `${url}|${title}|${controlCount}|${textLen}`
 }
 
-async function waitForNavigationChange(before: string, maxMs = 1800): Promise<{ changed: boolean; evidence: string }> {
+async function waitForNavigationChange(before: string, maxMs = 3500): Promise<{ changed: boolean; evidence: string }> {
+  const [beforeUrl, beforeTitle, beforeControls, beforeTextLen] = before.split('|')
+  const beforeTextLenNum = parseInt(beforeTextLen || '0', 10)
   const start = Date.now()
+
   while (Date.now() - start < maxMs) {
-    const current = getNavigationSignature()
-    if (current !== before) {
-      return { changed: true, evidence: 'URL, texto, título ou conjunto de controles mudou após a ação.' }
+    const url = window.location.href
+    const title = document.title
+    const controlCount = String(document.querySelectorAll('input, textarea, select, button, [role="button"], [role="option"], [role="radio"], [role="checkbox"]').length)
+    const textLen = (document.body?.innerText || document.body?.textContent || '').length
+
+    // 1. Mudança de URL = navegação real inequívoca
+    if (url !== beforeUrl) {
+      return { changed: true, evidence: `URL mudou: ${beforeUrl} → ${url}` }
     }
+    // 2. Título da página mudou = SPA trocou de rota/estado
+    if (title !== beforeTitle) {
+      return { changed: true, evidence: `Título da página mudou: "${beforeTitle}" → "${title}"` }
+    }
+    // 3. Número de controles mudou substancialmente (nova questão apareceu ou desapareceu)
+    if (Math.abs(parseInt(controlCount) - parseInt(beforeControls || '0')) >= 2) {
+      return { changed: true, evidence: `Controles interativos: ${beforeControls} → ${controlCount}` }
+    }
+    // 4. Texto da página mudou SUBSTANCIALMENTE (>50 chars)
+    // Diferença pequena pode ser só feedback ("Correto!", "Errado") sem trocar de questão
+    if (Math.abs(textLen - beforeTextLenNum) > 50) {
+      return { changed: true, evidence: `Conteúdo da página mudou substancialmente (${Math.abs(textLen - beforeTextLenNum)} chars)` }
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
-  return { changed: false, evidence: 'Nenhuma mudança observável foi detectada dentro do tempo limite.' }
+  return { changed: false, evidence: 'Nenhuma mudança estrutural detectada dentro do tempo limite.' }
 }
 
 // ---- ROTA ALTERNATIVA DE APLICAÇÃO (AUTO-CURA RESILIENTE MULTI-CAMINHO) ----
