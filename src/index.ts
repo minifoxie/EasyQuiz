@@ -362,22 +362,30 @@ async function initEasyQuiz(): Promise<void> {
         })
         panel.updateTimingMetrics(metrics)
       } else {
-        panel.setProgress(0, 'Injeção direta restrita. Gabarito rápido exibido.')
+        // Injeção parcial ou totalmente falhou
+        const totallyFailed = result.verified === 0 && result.applied > 0
         const failedTargets = result.failed.length > 0 ? result.failed.join(', ') : 'alvos pendentes'
+
         panel.logToConsole(
-          `> [VERIF] Alerta: ${result.verified}/${result.applied} ações verificadas no DOM. Pendências: ${failedTargets}.`,
-          'text-yellow',
+          `> [VERIF] ${totallyFailed ? 'Alerta' : 'Info'}: ${result.verified}/${result.applied} ações verificadas no DOM. Pendências: ${failedTargets}.`,
+          totallyFailed ? 'text-yellow' : 'text-blue',
         )
-        panel.logToConsole(
-          `> [GABARITO] Injeção direta restrita pela página. Gabarito rápido exibido na tela; o Autopilot aguarda você marcar e avançar.`,
-          'text-yellow',
-        )
-        panel.setStatus(
-          'Injeção restrita pela página. Gabarito direto exibido na tela para você avançar.',
-          'info',
-        )
-        // Exibe o gabarito limpo na tela; o Autopilot aguarda o usuário avançar
-        panel.showFloatingAnswers(latestPlan)
+
+        if (totallyFailed) {
+          // Injeção TOTALMENTE bloqueada — exibir gabarito para intervenção manual
+          panel.setProgress(0, 'Injeção restrita. Gabarito exibido.')
+          panel.logToConsole(
+            `> [GABARITO] Injeção totalmente bloqueada pela página. Gabarito exibido para você marcar e avançar.`,
+            'text-yellow',
+          )
+          panel.setStatus('Injeção restrita pela página. Gabarito exibido na tela para você avançar.', 'info')
+          panel.showFloatingAnswers(latestPlan)
+        } else {
+          // Injeção parcial — a maioria das ações foi aplicada, prosseguir normalmente
+          panel.setProgress(90, 'Aplicação parcial — avançando.')
+          panel.setStatus('Aplicado parcialmente. Avançando para a próxima questão.', 'success')
+        }
+
 
         const metrics = recordQuestionTiming({
           id: `q-${Date.now()}`,

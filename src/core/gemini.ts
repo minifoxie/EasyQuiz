@@ -481,8 +481,20 @@ async function callSingleModel(
 //   - Onda 2 usa chaves frescas → distribui a cota entre mais contas
 //   - Total de chaves usadas: até 5 por questão (2+2+1), escalável
 
-// Blacklist de SESSÃO: chaves que bateram 429 não são reutilizadas nesta sessão
-const sessionQuotaBlacklist = new Set<string>()
+// Blacklist TIME-BASED: chaves que bateram 429 ficam bloqueadas por 60s
+// Após 60s, a chave é liberada automaticamente (essencial para usuários com 1 única chave)
+const sessionQuotaBlacklist = new Map<string, number>()  // Map<key, expiresAt>
+
+function isKeyBlacklisted(key: string): boolean {
+  const exp = sessionQuotaBlacklist.get(key)
+  if (exp === undefined) return false
+  if (Date.now() > exp) { sessionQuotaBlacklist.delete(key); return false }
+  return true
+}
+
+function blacklistKey(key: string, ms = 60000): void {
+  sessionQuotaBlacklist.set(key, Date.now() + ms)
+}
 
 /** Limpar blacklist de sessão — chamar quando Autopilot for reiniciado */
 export function resetSessionBlacklist(): void {
@@ -554,49 +566,65 @@ export async function analyzeWithGemini(
     .slice(0, 3)
   if (modelPool.length < 2) modelPool.push(...TURBO_MODELS.filter(m => !modelPool.includes(m)))
 
-  // ===== POOL DE CHAVES =====
-  // Excluir chaves que bateram 429 nesta sessão
+  // ===== POOL DE CHAVES (excluir blacklistadas por 429) =====
   const allHealthy = keyManager.getHealthyKeys()
-    .filter(k => !sessionQuotaBlacklist.has(k.key))
+    .filter(k => !isKeyBlacklisted(k.key))
     .sort((a, b) => (a.lastLatencyMs ?? 99999) - (b.lastLatencyMs ?? 99999))
 
-  const allKeys = keyManager.getAllKeys()
-    .filter(k => !sessionQuotaBlacklist.has(k.key))
+  const allAvailableKeys = keyManager.getAllKeys()
+    .filter(k => !isKeyBlacklisted(k.key))
 
-  // Se todas as saudáveis estão na blacklist, usar qualquer disponível
   const keysPool = allHealthy.length > 0
     ? allHealthy
-    : allKeys.map(k => ({ key: k.key, lastLatencyMs: k.lastLatencyMs, label: k.label }))
+    : allAvailableKeys.map(k => ({ key: k.key, lastLatencyMs: k.lastLatencyMs, label: k.label }))
 
-  // ===== FUNÇÃO AUXILIAR: disparar N slots e retornar o primeiro vencedor =====
+  // ===== PARES KEY+MODEL: estratégia que funciona com 1 ou N chaves =====
+  // Com 1 chave: usa a mesma chave com modelos diferentes (cada modelo tem quota separada)
+  // Com N chaves: usa chaves diferentes com o mesmo modelo (distribui RPM entre contas)
+  // Cada par só é usado UMA vez em todas as ondas combinadas
+  const usedPairs = new Set<string>()  // "key::model"
+
+  function buildSlots(
+    keys: Array<{ key: string; label?: string }>,
+    models: string[],
+    maxSlots: number,
+    timeoutMs: number,
+  ): Array<{ model: string; key: string; label: string; timeout: number }> {
+    const slots: Array<{ model: string; key: string; label: string; timeout: number }> = []
+    // Iterar: para cada modelo, tentar cada chave
+    for (const model of models) {
+      for (const kObj of keys) {
+        const pair = `${kObj.key}::${model}`
+        if (!usedPairs.has(pair) && slots.length < maxSlots) {
+          slots.push({ model, key: kObj.key, label: (kObj as any).label || 'Chave', timeout: timeoutMs })
+          usedPairs.add(pair)
+        }
+      }
+      if (slots.length >= maxSlots) break
+    }
+    return slots
+  }
+
+  // ===== FUNÇÃO AUXILIAR: disparar slots e retornar o primeiro vencedor =====
   const runWave = async (
     waveName: string,
-    waveKeys: Array<{ key: string; label?: string }>,
-    waveModels: string[],
-    usedKeysSet: Set<string>,
+    slots: Array<{ model: string; key: string; label: string; timeout: number }>,
   ): Promise<{ plan: AnalysisPlan; rawUsage?: unknown; usedModel: string; usedKey: string; slotLabel: string } | null> => {
-    if (waveKeys.length === 0 || signal?.aborted) return null
+    if (slots.length === 0 || signal?.aborted) return null
 
-    const waveSlots = waveKeys.slice(0, 2).map((kObj, i) => ({
-      model: waveModels[i % waveModels.length],
-      key: kObj.key,
-      label: (kObj as any).label || `Chave ${i + 1}`,
-    }))
-
-    const waveControllers = waveSlots.map(() => new AbortController())
+    const waveControllers = slots.map(() => new AbortController())
     const onParentAbort = () => waveControllers.forEach(c => { try { c.abort() } catch {} })
     signal?.addEventListener('abort', onParentAbort, { once: true })
 
-    onProgress?.(`⚡ ${waveName}: ${waveSlots.length} slot(s) [${waveSlots.map(s => s.model.replace('gemini-', '')).join(', ')}]...`, 'info')
+    const slotDesc = slots.map(s => s.model.replace('gemini-', '')).join(', ')
+    onProgress?.(`⚡ ${waveName}: ${slots.length} slot(s) [${slotDesc}]...`, 'info')
 
     try {
-      const promises = waveSlots.map(async (slot, idx) => {
+      const promises = slots.map(async (slot, idx) => {
         const ctrl = waveControllers[idx]
-        // Timeout: 14s por slot (generoso para servidores sob carga)
-        const timeoutMs = 14000
         const timeoutId = setTimeout(() => {
-          try { ctrl.abort(new Error(`Timeout ${timeoutMs / 1000}s (${slot.model}|${slot.label})`)) } catch { ctrl.abort() }
-        }, timeoutMs)
+          try { ctrl.abort(new Error(`Timeout ${slot.timeout / 1000}s (${slot.model}|${slot.label})`)) } catch { ctrl.abort() }
+        }, slot.timeout)
 
         try {
           const res = await callSingleModel(slot.model, slot.key, payloadBase, keepalive, ctrl.signal)
@@ -618,10 +646,10 @@ export async function analyzeWithGemini(
           return { plan: parsedPlan, rawUsage: res.data.usageMetadata, usedModel: res.usedModel, usedKey: res.usedKey, slotLabel: slot.label }
         } catch (err) {
           clearTimeout(timeoutId)
-          // Se 429: adicionar à blacklist de sessão para não reusar nesta sessão
+          // 429: blacklist por 60s — não por sessão permanente
           const errMsg = err instanceof Error ? err.message : String(err)
           if (errMsg.includes('429') || errMsg.includes('Quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
-            sessionQuotaBlacklist.add(slot.key)
+            blacklistKey(slot.key, 60000)
           }
           throw err
         }
@@ -629,28 +657,23 @@ export async function analyzeWithGemini(
 
       const winner = await Promise.any(promises)
       signal?.removeEventListener('abort', onParentAbort)
-
-      // Marcar chaves usadas para próxima onda não reutilizar
-      waveSlots.forEach(s => usedKeysSet.add(s.key))
       keyManager.markWinner(winner.usedKey)
       preferredFastModel = winner.usedModel
-
       return winner
     } catch {
       signal?.removeEventListener('abort', onParentAbort)
-      // Marcar todas as chaves da onda como usadas (falharam)
-      waveSlots.forEach(s => usedKeysSet.add(s.key))
       return null
     }
   }
 
   // ===== EXECUÇÃO EM ONDAS =====
-  const usedKeys = new Set<string>()
   let lastErrors = ''
 
-  // Onda 1: 2 chaves mais rápidas
-  const wave1Keys = keysPool.filter(k => !usedKeys.has(k.key)).slice(0, 2)
-  const wave1Result = await runWave('Onda 1', wave1Keys, modelPool, usedKeys)
+  // Onda 1: 2 pares key+model mais rápidos (12s timeout)
+  // - 1 chave + 3 modelos → [key+3.8-flash, key+3.6-flash]
+  // - 2 chaves + 1 modelo → [key1+3.8-flash, key2+3.8-flash]
+  const wave1Slots = buildSlots(keysPool, modelPool, 2, 12000)
+  const wave1Result = await runWave('Onda 1', wave1Slots)
   if (wave1Result) {
     const durationMs = wave1Result.plan.durationMs || (Date.now() - startTime)
     const keyMask = KeyManager.maskKey(wave1Result.usedKey)
@@ -660,12 +683,13 @@ export async function analyzeWithGemini(
 
   if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
 
-  // Onda 2: próximas 2 chaves não usadas (se existirem)
-  const wave2Keys = keysPool.filter(k => !usedKeys.has(k.key)).slice(0, 2)
-  if (wave2Keys.length > 0) {
-    // Modelo alternativo na onda 2 para diversificar
-    const wave2Models = [...modelPool].reverse()
-    const wave2Result = await runWave('Onda 2', wave2Keys, wave2Models, usedKeys)
+  // Onda 2: próximos 2 pares não usados, modelos em ordem reversa (14s timeout)
+  // - 1 chave + 3 modelos → [key+3.5-flash]  (3.8 e 3.6 já foram na Onda 1)
+  // - 2 chaves + 3 modelos → [key1+3.6-flash, key2+3.6-flash]
+  const wave2Models = [...modelPool].reverse()
+  const wave2Slots = buildSlots(keysPool, wave2Models, 2, 14000)
+  if (wave2Slots.length > 0) {
+    const wave2Result = await runWave('Onda 2', wave2Slots)
     if (wave2Result) {
       const durationMs = wave2Result.plan.durationMs || (Date.now() - startTime)
       const keyMask = KeyManager.maskKey(wave2Result.usedKey)
@@ -676,32 +700,15 @@ export async function analyzeWithGemini(
 
   if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
 
-  // Fallback final: 1 chave não usada (incluindo as em cooldown curto)
-  const allFallbackKeys = keyManager.getAllKeys()
-    .filter(k => !usedKeys.has(k.key) && !sessionQuotaBlacklist.has(k.key))
-    .sort((a, b) => (a.lastLatencyMs ?? 99999) - (b.lastLatencyMs ?? 99999))
-
-  if (allFallbackKeys.length > 0) {
-    const fbKey = allFallbackKeys[0]
-    const fbModel = modelPool[0] || 'gemini-3.6-flash'
-    onProgress?.(`Fallback: ${fbModel} com ${(fbKey as any).label || 'chave reserva'}...`, 'info')
-    try {
-      const fbCtrl = new AbortController()
-      const fbTimeout = setTimeout(() => { try { fbCtrl.abort() } catch {} }, 16000)
-      const res = await callSingleModel(fbModel, fbKey.key, payloadBase, keepalive, fbCtrl.signal)
-      clearTimeout(fbTimeout)
-      const parsedPlan = validateAnalysisPlan(robustParsePlan(res.rawText))
-      parsedPlan.usedModel = res.usedModel
-      parsedPlan.durationMs = Date.now() - startTime
-      parsedPlan.promptSent = userText
-      parsedPlan.rawResponse = res.rawText
-      keyManager.markSuccess(fbKey.key, parsedPlan.durationMs)
-      preferredFastModel = fbModel
-      const fbMask = KeyManager.maskKey(fbKey.key)
-      onProgress?.(`⚡ Fallback OK: ${parsedPlan.durationMs}ms via '${fbModel}' (${fbMask})`, 'info')
-      return { plan: parsedPlan, rawUsage: undefined, usedModel: fbModel, usedKey: fbKey.key }
-    } catch (fbErr) {
-      lastErrors = fbErr instanceof Error ? fbErr.message : String(fbErr)
+  // Fallback: 1 par final não usado ainda (16s timeout) — inclui modelos já usados mas chaves diferentes
+  const fallbackSlots = buildSlots(keysPool, modelPool, 1, 16000)
+  if (fallbackSlots.length > 0) {
+    const fbResult = await runWave('Fallback', fallbackSlots)
+    if (fbResult) {
+      const durationMs = fbResult.plan.durationMs || (Date.now() - startTime)
+      const keyMask = KeyManager.maskKey(fbResult.usedKey)
+      onProgress?.(`⚡ Fallback OK: ${durationMs}ms via '${fbResult.usedModel}' (${fbResult.slotLabel}: ${keyMask})`, 'info')
+      return fbResult
     }
   }
 
