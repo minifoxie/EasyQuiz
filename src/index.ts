@@ -188,6 +188,13 @@ async function initEasyQuiz(): Promise<void> {
 
       const onProgressCallback = (msg: string, type?: 'info' | 'warning' | 'error') => {
         panel.setStatus(msg, type === 'warning' ? 'info' : type)
+        // Atualizar card fixo superior com o modelo em processo em tempo real
+        // ex: "⚡ Onda 2: 2 slot(s) [3.6-flash, 3.6-flash]..." → "Gemini 3.6-flash respondendo..."
+        const waveMatch = msg.match(/Onda\s+\d+.*?\[([^\]]+)\]/)
+        if (waveMatch) {
+          const modelShort = waveMatch[1].split(',')[0].trim()
+          panel.setProgress(50, `Gemini ${modelShort} respondendo...`)
+        }
       }
 
       let { plan, usedModel } = await analyzeWithGemini(context, images, settings, onProgressCallback, currentController.signal)

@@ -673,53 +673,63 @@ export async function analyzeWithGemini(
     }
   }
 
-  // ===== EXECUÇÃO EM ONDAS =====
-  let lastErrors = ''
+  // ===== EXECUÇÃO EM ONDAS DINÂMICAS =====
+  // Esgota todos os pares key+model disponíveis em ondas sequenciais.
+  // A cada onda usa novos pares (nunca repete), com timeout crescente.
+  //
+  // Tamanho da onda adaptativo:
+  //   1 chave  → 2 slots (mesma chave, 2 modelos paralelos)
+  //   2-3 chaves → 2 slots (2 chaves, mesmo modelo)
+  //   4+ chaves  → 3 slots (3 chaves, mesmo modelo)
+  //
+  // Com 1 chave + 3 modelos = 3 pares:
+  //   Onda 1: [key+3.8, key+3.6]   ← 2 modelos simultâneos
+  //   Onda 2: [key+3.5]             ← último modelo restante
+  //
+  // Com 8 chaves + 3 modelos = 24 pares:
+  //   Onda 1: [k1+3.8, k2+3.8, k3+3.8]
+  //   Onda 2: [k4+3.8, k5+3.8, k6+3.8]
+  //   Onda 3: [k7+3.8, k8+3.8, k1+3.6]
+  //   ... até 24÷3 = 8 ondas máx (mas cap em 6 para não demorar demais)
 
-  // Onda 1: 2 pares key+model mais rápidos (12s timeout)
-  // - 1 chave + 3 modelos → [key+3.8-flash, key+3.6-flash]
-  // - 2 chaves + 1 modelo → [key1+3.8-flash, key2+3.8-flash]
-  const wave1Slots = buildSlots(keysPool, modelPool, 2, 12000)
-  const wave1Result = await runWave('Onda 1', wave1Slots)
-  if (wave1Result) {
-    const durationMs = wave1Result.plan.durationMs || (Date.now() - startTime)
-    const keyMask = KeyManager.maskKey(wave1Result.usedKey)
-    onProgress?.(`⚡ ${durationMs}ms via '${wave1Result.usedModel}' (${wave1Result.slotLabel}: ${keyMask})`, 'info')
-    return wave1Result
+  const keysCount = keysPool.length
+  const waveSize = keysCount <= 1 ? 2 : keysCount <= 3 ? 2 : 3
+
+  // Timeout progressivo: rápido nas primeiras ondas, mais generoso nas últimas
+  const getTimeout = (waveNum: number): number => {
+    if (waveNum === 0) return 10000   // Onda 1: 10s — chaves mais rápidas
+    if (waveNum === 1) return 13000   // Onda 2: 13s — segunda melhor
+    return 16000                      // Ondas 3+: 16s — sobreviventes
   }
 
-  if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
+  const MAX_WAVES = 6  // teto de segurança: nunca mais de 6 ondas
+  let waveNum = 0
+  let lastError = ''
 
-  // Onda 2: próximos 2 pares não usados, modelos em ordem reversa (14s timeout)
-  // - 1 chave + 3 modelos → [key+3.5-flash]  (3.8 e 3.6 já foram na Onda 1)
-  // - 2 chaves + 3 modelos → [key1+3.6-flash, key2+3.6-flash]
-  const wave2Models = [...modelPool].reverse()
-  const wave2Slots = buildSlots(keysPool, wave2Models, 2, 14000)
-  if (wave2Slots.length > 0) {
-    const wave2Result = await runWave('Onda 2', wave2Slots)
-    if (wave2Result) {
-      const durationMs = wave2Result.plan.durationMs || (Date.now() - startTime)
-      const keyMask = KeyManager.maskKey(wave2Result.usedKey)
-      onProgress?.(`⚡ ${durationMs}ms via '${wave2Result.usedModel}' (${wave2Result.slotLabel}: ${keyMask})`, 'info')
-      return wave2Result
+  while (waveNum < MAX_WAVES) {
+    if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
+
+    const timeout = getTimeout(waveNum)
+    const slots = buildSlots(keysPool, modelPool, waveSize, timeout)
+
+    if (slots.length === 0) break  // todos os pares key+model foram esgotados
+
+    const waveName = waveNum === 0 ? 'Onda 1' : `Onda ${waveNum + 1}`
+    const result = await runWave(waveName, slots)
+
+    if (result) {
+      const durationMs = result.plan.durationMs || (Date.now() - startTime)
+      const keyMask = KeyManager.maskKey(result.usedKey)
+      onProgress?.(`⚡ ${durationMs}ms via '${result.usedModel}' (${result.slotLabel}: ${keyMask})`, 'info')
+      return result
     }
+
+    waveNum++
   }
 
-  if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
-
-  // Fallback: 1 par final não usado ainda (16s timeout) — inclui modelos já usados mas chaves diferentes
-  const fallbackSlots = buildSlots(keysPool, modelPool, 1, 16000)
-  if (fallbackSlots.length > 0) {
-    const fbResult = await runWave('Fallback', fallbackSlots)
-    if (fbResult) {
-      const durationMs = fbResult.plan.durationMs || (Date.now() - startTime)
-      const keyMask = KeyManager.maskKey(fbResult.usedKey)
-      onProgress?.(`⚡ Fallback OK: ${durationMs}ms via '${fbResult.usedModel}' (${fbResult.slotLabel}: ${keyMask})`, 'info')
-      return fbResult
-    }
-  }
-
-  // Todos os métodos falharam
-  throw new Error(lastErrors || 'Todas as ondas e fallback falharam. Verifique sua cota e conexão.')
+  // Todos os pares esgotados ou MAX_WAVES atingido
+  throw new Error(lastError || 'Todas as ondas falharam. Verifique sua cota e conexão com a internet.')
 }
+
+
 
