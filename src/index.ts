@@ -337,28 +337,30 @@ async function initEasyQuiz(): Promise<void> {
       const elapsedMs = currentQuestionStartTime > 0 ? Date.now() - currentQuestionStartTime : 1200
       const regularActionsCount = latestPlan.actions.filter((a) => a.t !== 'adv' && a.t !== 'js').length
       const isQuestion = latestPlan.pageType === 'question' || regularActionsCount > 0
+      // Aplicação bem sucedida: qualquer ação prescrita aplicada com sucesso no DOM
+      const hasApplied = result.applied > 0
       const isStrictSuccess = isQuestion
-        ? (result.success || (result.applied > 0 && result.failed.length === 0))
+        ? (result.success || hasApplied)
         : (result.success || result.advanced)
 
-      if (isStrictSuccess) {
-        panel.setProgress(100, 'Sucesso! Respostas preenchidas e validadas!')
+      if (isStrictSuccess || hasApplied) {
+        panel.setProgress(100, 'Sucesso! Resposta preenchida.')
         panel.logToConsole(
-          `> [VERIF] ✓ Sucesso no DOM: ${result.verified}/${result.applied} ações validadas com sucesso!`,
+          `> [DOM] ✓ ${result.applied} ação(ões) aplicada(s) com sucesso na página!`,
           'text-green',
         )
         if (result.advanced) {
           panel.logToConsole(`> [NAV] ✓ Botão de confirmação/avanço acionado com sucesso!`, 'text-green')
         } else if (canAdvance) {
-          panel.logToConsole(`> [NAV] ⚠️ ${result.navigationEvidence}`, 'text-yellow')
+          panel.logToConsole(`> [NAV] ${result.navigationEvidence}`, 'text-blue')
         }
         panel.setStatus(
           result.advanced
-            ? `Sucesso: ${result.applied} resposta(s) preenchida(s) e próxima questão confirmada.`
-            : `Respostas preenchidas e validadas. Avanço não confirmado: ${result.navigationEvidence}`,
-          result.advanced || !canAdvance ? 'success' : 'info',
+            ? `Sucesso: ${result.applied} resposta(s) preenchida(s) e avançando.`
+            : `Resposta aplicada na página (${result.applied} ação(ões)).`,
+          'success',
         )
-        // O gabarito SÓ é escondido se a resposta foi aplicada e validada com sucesso
+        // O gabarito flutuante fica SEMPRE fechado após preencher a questão
         panel.hideFloatingAnswers()
 
         // Registra métricas de tempo da questão
@@ -367,62 +369,30 @@ async function initEasyQuiz(): Promise<void> {
           questionIndex: (loadActivityMetrics().records.length || 0) + 1,
           questionTitle: latestPlan.rationale ? latestPlan.rationale.slice(0, 45) + '...' : `Questão ${latestPlan.mode || 'Auto'}`,
           durationMs: elapsedMs,
-          status: 'verified',
+          status: 'answered',
           mode: latestPlan.mode,
           actionsCount: result.applied,
         })
         panel.updateTimingMetrics(metrics)
       } else {
-        // Injeção parcial ou totalmente falhou
-        const totallyFailed = result.verified === 0 && result.applied > 0
-        const failedTargets = result.failed.length > 0 ? result.failed.join(', ') : 'alvos pendentes'
-
+        // Nenhuma ação aplicada (alvo de resposta não localizado no DOM)
+        panel.setProgress(0, 'Alvo de resposta não localizado.')
         panel.logToConsole(
-          `> [VERIF] ${totallyFailed ? 'Alerta' : 'Info'}: ${result.verified}/${result.applied} ações verificadas no DOM. Pendências: ${failedTargets}.`,
-          totallyFailed ? 'text-yellow' : 'text-blue',
+          `> [DOM] Alerta: nenhum controle de resposta foi modificado no DOM. Pendências: ${result.failed.join(', ') || 'nenhuma ação'}.`,
+          'text-yellow',
         )
-
-        if (totallyFailed) {
-          // Injeção TOTALMENTE bloqueada — exibir gabarito para intervenção manual
-          panel.setProgress(0, 'Injeção restrita. Gabarito exibido.')
-          panel.logToConsole(
-            `> [GABARITO] Injeção totalmente bloqueada pela página. Gabarito exibido para você marcar e avançar.`,
-            'text-yellow',
-          )
-          panel.setStatus('Injeção restrita pela página. Gabarito exibido na tela para você avançar.', 'info')
+        panel.setStatus('Controle de resposta não encontrado na página. Use o botão Gabarito no painel se desejar.', 'warning')
+        // NUNCA força a abertura automática do gabarito em modo normal/Autopilot
+        if (settings.dryRun) {
           panel.showFloatingAnswers(latestPlan)
-        } else {
-          // Injeção parcial — aplicou mas não verificou tudo no DOM
-          // canAdvance controla se o executor vai tentar avançar automaticamente
-          panel.setProgress(90, canAdvance ? 'Aplicação parcial — avançando...' : 'Aplicação parcial — verifique e avance manualmente.')
-          panel.setStatus(
-            canAdvance
-              ? 'Aplicado parcialmente. Tentando avançar para a próxima questão...'
-              : 'Aplicado parcialmente. Avance para a próxima questão manualmente.',
-            'success',
-          )
         }
-
-
-        const metrics = recordQuestionTiming({
-          id: `q-${Date.now()}`,
-          questionIndex: (loadActivityMetrics().records.length || 0) + 1,
-          questionTitle: latestPlan.rationale ? latestPlan.rationale.slice(0, 45) + '...' : `Questão ${latestPlan.mode || 'Auto'}`,
-          durationMs: elapsedMs,
-          status: 'manual',
-          mode: latestPlan.mode,
-          actionsCount: 0,
-        })
-        panel.updateTimingMetrics(metrics)
       }
     } catch (error) {
       panel.setProgress(0)
       const msg = error instanceof Error ? error.message : 'Falha ao aplicar plano.'
-      panel.setStatus('Injeção restrita pela página. Gabarito direto exibido na tela para você avançar.', 'info')
+      panel.setStatus(`Erro ao aplicar: ${msg}`, 'error')
       panel.logToConsole(`> [ERRO] ${msg}`, 'text-red')
-      if (latestPlan) {
-        panel.showFloatingAnswers(latestPlan)
-      }
+      // NUNCA exibe gabarito intrusivo de surpresa
     } finally {
       panel.setBusy(false)
     }

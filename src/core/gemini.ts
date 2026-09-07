@@ -83,13 +83,19 @@ export let preferredFastModel: string | null = null
 export function buildGenerationConfig(model: string): Record<string, unknown> {
   const config: Record<string, unknown> = {
     temperature: 0.0,
-    maxOutputTokens: 1200,
+    maxOutputTokens: 700,
     response_mime_type: 'application/json',
     response_schema: GEMINI_JSON_SCHEMA,
   }
 
+  // Modelos 'lite' (ex: gemini-3.5-flash-lite):
+  // NUNCA enviar thinkingConfig! Modelos lite não suportam thinking no endpoint do Google AI Studio;
+  // enviar causava erro HTTP 400 e forçava uma segunda chamada inteira, dobrando a latência.
+  if (/lite/i.test(model)) {
+    // Sem thinkingConfig
+  }
   // Gemini 3.5/3.6/3.7-flash: thinkingLevel 'none' → máxima velocidade
-  if (/gemini-3\.[567]-flash/i.test(model)) {
+  else if (/gemini-3\.[567]-flash/i.test(model)) {
     config.thinkingConfig = { thinkingLevel: 'none' }
   }
   // Gemini 3.8-flash: 'low' mínimo — necessário pelo modelo
@@ -798,13 +804,14 @@ export async function analyzeWithGemini(
   // Com 4+ chaves: 3 slots (cap para não sobrecarregar)
   const waveSize = keysCount <= 1 ? 1 : keysCount <= 3 ? 2 : 3
 
-  // Timeout por onda e tipo de modelo
+  // Timeout por onda e tipo de modelo (Flash e Lite têm timeout ultrarrápido para não travar o usuário)
   const isPrimaryPro = /pro/i.test(effectiveChosenModel)
   const getTimeout = (waveNum: number, modelInWave?: string): number => {
     const isPro = modelInWave ? /pro/i.test(modelInWave) : isPrimaryPro
-    if (waveNum === 0) return isPro ? 15000 : 10000  // Pro precisa de mais tempo para thinking
-    if (waveNum === 1) return isPro ? 18000 : 13000
-    return isPro ? 22000 : 16000
+    const isLite = modelInWave ? /lite/i.test(modelInWave) : /lite/i.test(effectiveChosenModel)
+    if (waveNum === 0) return isPro ? 14000 : isLite ? 5500 : 7000
+    if (waveNum === 1) return isPro ? 16000 : isLite ? 7000 : 9000
+    return isPro ? 20000 : 12000
   }
 
   const MAX_WAVES = 6  // teto de segurança
