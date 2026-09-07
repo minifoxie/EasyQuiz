@@ -150,8 +150,21 @@ export class EasyQuizPanel {
         this.logToConsole(msg, colorClass)
         if (status === 'analyzing') {
           this.setBusy(true, 'Autopilot: IA analisando...')
-        } else if (status === 'advancing' || status === 'waiting' || status === 'idle' || status === 'error') {
+        } else if (status === 'advancing' || status === 'waiting') {
           this.setBusy(false)
+          this.updateAutopilotUi(true)
+        } else if (status === 'idle') {
+          this.setBusy(false)
+          this.updateAutopilotUi(false)
+          if (msg.includes('conclusão') || msg.includes('finalizada') || msg.includes('Parabéns')) {
+            this.setStatus('Atividade concluída com sucesso! Autopilot finalizado.', 'success')
+          } else {
+            this.setStatus('Autopilot desativado.', 'info')
+          }
+        } else if (status === 'error') {
+          this.setBusy(false)
+          this.updateAutopilotUi(false)
+          this.setStatus('Autopilot interrompido por erro.', 'error')
         }
       },
       onRequestAnalysis: async (attempt?: number, signal?: AbortSignal) => {
@@ -728,6 +741,7 @@ export class EasyQuizPanel {
     this.useVisionCheckbox = this.shadow.querySelector('#eq-use-vision') as HTMLInputElement
     this.analyzeBtn = this.shadow.querySelector('#eq-analyze-btn') as HTMLButtonElement
     this.applyBtn = this.shadow.querySelector('#eq-apply-btn') as HTMLButtonElement
+    this.applyBtn.disabled = true
     this.resultContainer = this.shadow.querySelector('#eq-result') as HTMLElement
 
     // Instanciação do Gabarito Flutuante Arrastável e Minimizável
@@ -1060,6 +1074,11 @@ export class EasyQuizPanel {
       this.keyContextMenu.hidden = true
       const confirmed = window.confirm('Deseja realmente resetar todos os dados, chaves e memória de sessão do EasyQuiz?')
       if (confirmed) {
+        if (this.autopilot.isActive()) {
+          this.autopilot.stop()
+        }
+        this.updateAutopilotUi(false)
+        this.setBusy(false)
         resetAllData()
         resetActivityMetrics()
         this.stopQuestionTimer(0)
@@ -1067,7 +1086,7 @@ export class EasyQuizPanel {
         if (this.metricsLiveTime) this.metricsLiveTime.textContent = '00:00.00'
         if (this.metricsLiveStatus) {
           this.metricsLiveStatus.textContent = 'Em espera'
-          this.metricsLiveStatus.classList.remove('active')
+          this.metricsLiveStatus.className = 'eq-live-stopwatch-status'
         }
         this.updateTimingMetrics()
         this.apiKeyInput.value = ''
@@ -1084,13 +1103,9 @@ export class EasyQuizPanel {
       if (this.autopilot.isActive()) {
         this.autopilot.stop()
         this.callbacks.onCancel?.()
-        this.setBusy(false)
         this.setProgress(0)
-        this.apToggleBtn.innerHTML = `${ICONS.play} INICIAR AUTOPILOT`
-        this.apToggleBtn.classList.remove('danger')
-        this.stopStopwatch()
-        this.stopQuestionTimer()
-        this.setStatus('Autopilot interrompido imediatamente pelo usuário.', 'info')
+        this.updateAutopilotUi(false)
+        this.setInterrupted('Autopilot interrompido imediatamente pelo usuário.')
       } else {
         const key = this.apiKeyInput.value.trim().replace(/^["']|["']$/g, '')
         if (!key) {
@@ -1103,8 +1118,7 @@ export class EasyQuizPanel {
         this.autoApplyCheckbox.checked = true
         this.autoAdvanceCheckbox.checked = true
         this.autopilot.start()
-        this.apToggleBtn.innerHTML = `${ICONS.stop} PARAR AUTOPILOT`
-        this.apToggleBtn.classList.add('danger')
+        this.updateAutopilotUi(true)
         this.startStopwatch()
         this.setStatus('Autopilot ativo. Monitorando exercícios...', 'info')
       }
@@ -1162,8 +1176,7 @@ export class EasyQuizPanel {
     this.analyzeBtn.addEventListener('click', async () => {
       if (this.isBusy) {
         this.callbacks.onCancel?.()
-        this.setBusy(false)
-        this.setStatus('Análise interrompida pelo usuário.', 'info')
+        this.setInterrupted('Análise cancelada pelo usuário. Pronto para nova tentativa.')
         return
       }
       const plan = await this.callbacks.onAnalyze()
@@ -1600,6 +1613,57 @@ export class EasyQuizPanel {
     }
   }
 
+  public updateAutopilotUi(active: boolean): void {
+    if (active) {
+      this.apToggleBtn.innerHTML = `${ICONS.stop} PARAR AUTOPILOT`
+      this.apToggleBtn.classList.add('danger')
+      this.apToggleBtn.title = 'Interromper execução contínua do Autopilot'
+    } else {
+      this.apToggleBtn.innerHTML = `${ICONS.play} INICIAR AUTOPILOT`
+      this.apToggleBtn.classList.remove('danger')
+      this.apToggleBtn.title = 'Iniciar resolução automática contínua de questões'
+    }
+  }
+
+  public setOperationState(label: string, type: 'idle' | 'busy' | 'success' | 'error' | 'warning' | 'info'): void {
+    const operationState = this.shadow.querySelector('#eq-operation-state') as HTMLElement | null
+    if (operationState) {
+      operationState.textContent = label
+      operationState.className = `eq-operation-state is-${type}`
+    }
+  }
+
+  public setInterrupted(message = 'Análise interrompida pelo usuário.'): void {
+    this.isBusy = false
+    ;[this.modelSelect, this.modeSelect, this.engineSelect, this.dryRunCheckbox, this.autoApplyCheckbox, this.autoAdvanceCheckbox, this.useVisionCheckbox].forEach(
+      (e) => ((e as any).disabled = false),
+    )
+
+    this.analyzeBtn.disabled = false
+    this.analyzeBtn.classList.remove('danger')
+    this.analyzeBtn.innerHTML = `${ICONS.sparkles} Resolver com IA (Alt+R)`
+    this.analyzeBtn.title = 'Analisar e responder questão ativa'
+    this.applyBtn.disabled = !this.latestPlan || !this.latestPlan.actions.length
+
+    this.stopStopwatch()
+    this.stopQuestionTimer()
+
+    this.dotPulseAp.className = 'eq-dot-pulse stopped'
+    this.dotPulseAdv.className = 'eq-dot-pulse stopped'
+    this.launcherDot.className = 'eq-launcher-dot stopped'
+
+    if (this.metricsLiveStatus) {
+      this.metricsLiveStatus.textContent = 'Interrompido'
+      this.metricsLiveStatus.className = 'eq-live-stopwatch-status is-warning'
+    }
+
+    if (!this.autopilot.isActive()) {
+      this.updateAutopilotUi(false)
+    }
+
+    this.setStatus(message, 'warning')
+  }
+
   public setBusy(busy: boolean, message?: string): void {
     this.isBusy = busy
     ;[this.modelSelect, this.modeSelect, this.engineSelect, this.dryRunCheckbox, this.autoApplyCheckbox, this.autoAdvanceCheckbox, this.useVisionCheckbox].forEach(
@@ -1611,47 +1675,73 @@ export class EasyQuizPanel {
       this.analyzeBtn.classList.add('danger')
       this.analyzeBtn.innerHTML = `${ICONS.stop} Parar Análise`
       this.analyzeBtn.title = 'Interromper e cancelar análise em andamento'
+      this.applyBtn.disabled = true
       this.startStopwatch()
       this.startQuestionTimer()
       this.dotPulseAp.className = 'eq-dot-pulse busy'
       this.dotPulseAdv.className = 'eq-dot-pulse busy'
       this.launcherDot.className = 'eq-launcher-dot busy'
+      this.setOperationState('Analisando...', 'busy')
+      if (this.metricsLiveStatus) {
+        this.metricsLiveStatus.textContent = 'Calculando...'
+        this.metricsLiveStatus.className = 'eq-live-stopwatch-status is-busy'
+      }
       if (message) this.setStatus(message, 'info')
     } else {
       this.analyzeBtn.disabled = false
       this.analyzeBtn.classList.remove('danger')
       this.analyzeBtn.innerHTML = `${ICONS.sparkles} Resolver com IA (Alt+R)`
       this.analyzeBtn.title = 'Analisar e responder questão ativa'
+      this.applyBtn.disabled = !this.latestPlan || !this.latestPlan.actions.length
       this.stopStopwatch()
       this.stopQuestionTimer()
       this.dotPulseAp.className = 'eq-dot-pulse'
       this.dotPulseAdv.className = 'eq-dot-pulse'
       this.launcherDot.className = 'eq-launcher-dot'
+      this.setOperationState(this.autopilot.isActive() ? 'Monitorando' : 'Pronto', 'idle')
+      if (this.metricsLiveStatus && this.metricsLiveStatus.textContent === 'Calculando...') {
+        this.metricsLiveStatus.textContent = 'Em espera'
+        this.metricsLiveStatus.className = 'eq-live-stopwatch-status'
+      }
     }
   }
 
-  public setStatus(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
+  public setStatus(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info'): void {
     this.statusTextAp.textContent = message
     this.statusTextAdv.textContent = message
-    const operationState = this.shadow.querySelector('#eq-operation-state') as HTMLElement | null
-    if (operationState) {
-      operationState.textContent = type === 'error' ? 'Bloqueado' : type === 'success' ? 'Confirmado' : this.autopilot.isActive() ? 'Monitorando' : 'Pronto'
-      operationState.className = `eq-operation-state is-${type}`
-    }
 
     if (type === 'error') {
+      this.setOperationState('Bloqueado', 'error')
       this.dotPulseAp.className = 'eq-dot-pulse error'
       this.dotPulseAdv.className = 'eq-dot-pulse error'
       this.launcherDot.className = 'eq-launcher-dot error'
+    } else if (type === 'warning') {
+      this.setOperationState('Interrompido', 'warning')
+      this.dotPulseAp.className = 'eq-dot-pulse stopped'
+      this.dotPulseAdv.className = 'eq-dot-pulse stopped'
+      this.launcherDot.className = 'eq-launcher-dot stopped'
     } else if (type === 'success') {
+      this.setOperationState('Confirmado', 'success')
       this.dotPulseAp.className = 'eq-dot-pulse'
       this.dotPulseAdv.className = 'eq-dot-pulse'
       this.launcherDot.className = 'eq-launcher-dot'
+    } else {
+      if (this.isBusy) {
+        this.setOperationState('Analisando...', 'busy')
+        this.dotPulseAp.className = 'eq-dot-pulse busy'
+        this.dotPulseAdv.className = 'eq-dot-pulse busy'
+        this.launcherDot.className = 'eq-launcher-dot busy'
+      } else {
+        this.setOperationState(this.autopilot.isActive() ? 'Monitorando' : 'Pronto', 'info')
+        this.dotPulseAp.className = 'eq-dot-pulse'
+        this.dotPulseAdv.className = 'eq-dot-pulse'
+        this.launcherDot.className = 'eq-launcher-dot'
+      }
     }
 
     const isFallback = message.includes('Alternando') || message.includes('indisponível') || message.includes('fallback') || message.includes('alternativo')
-    const prefix = type === 'error' ? '> [ERRO] ' : type === 'success' ? '> [SUCESSO] ' : isFallback ? '> [FALLBACK] ' : '> [SYS] '
-    const color = type === 'error' ? 'text-red' : type === 'success' ? 'text-green' : isFallback ? 'text-yellow' : 'text-blue'
+    const prefix = type === 'error' ? '> [ERRO] ' : type === 'success' ? '> [SUCESSO] ' : type === 'warning' ? '> [PARADO] ' : isFallback ? '> [FALLBACK] ' : '> [SYS] '
+    const color = type === 'error' ? 'text-red' : type === 'success' ? 'text-green' : type === 'warning' ? 'text-yellow' : isFallback ? 'text-yellow' : 'text-blue'
     this.logToConsole(`${prefix}${message}`, color)
   }
 

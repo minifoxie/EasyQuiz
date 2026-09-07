@@ -77,9 +77,8 @@ async function initEasyQuiz(): Promise<void> {
         activeAnalysisController = null
       }
       clearHighlights()
-      panel.setBusy(false)
       panel.setProgress(0)
-      panel.logToConsole('> [SYS] Operação cancelada imediatamente pelo usuário.', 'text-yellow')
+      panel.setInterrupted('Operação cancelada imediatamente pelo usuário.')
     },
     onSettingsChange: (newPartial) => {
       settings = saveSettings(newPartial)
@@ -277,8 +276,7 @@ async function initEasyQuiz(): Promise<void> {
       ) {
         clearHighlights()
         panel.setProgress(0)
-        panel.setBusy(false)
-        panel.setStatus('Operação cancelada pelo usuário.', 'info')
+        panel.setInterrupted('Operação cancelada pelo usuário.')
         return undefined
       }
 
@@ -294,7 +292,9 @@ async function initEasyQuiz(): Promise<void> {
       if (activeAnalysisController === currentController) {
         activeAnalysisController = null
       }
-      panel.setBusy(false)
+      if (!currentController.signal.aborted) {
+        panel.setBusy(false)
+      }
     }
   }
 
