@@ -1589,27 +1589,49 @@ export function findBestNavigationButton(preferredId?: string): HTMLElement | nu
   ].join(',')
 
   const all = Array.from(document.querySelectorAll(query)) as HTMLElement[]
+
+  // Helper: texto legível do elemento
+  const elText = (el: HTMLElement): string => {
+    const val = el instanceof HTMLInputElement || el instanceof HTMLButtonElement ? el.value : ''
+    return (el.getAttribute('aria-label') || el.textContent || val || '').trim()
+  }
+
+  // Helper: é número puro de paginação (ex: "1","2","3" num paginador)?
+  const isPurePageNumber = (el: HTMLElement): boolean => {
+    const txt = elText(el).trim()
+    if (!/^\d{1,3}$/.test(txt)) return false
+    return Boolean(el.closest(
+      '[class*="pagination" i], [class*="pager" i], [class*="page-nav" i], ' +
+      '[class*="step-indicator" i], [class*="breadcrumb" i], [class*="steps" i], ' +
+      '[aria-label*="página" i], [aria-label*="page" i], [role="navigation"], nav'
+    ))
+  }
+
   const candidates = all.filter((el) =>
     isVisible(el) &&
     !isInsideEasyQuiz(el) &&
-    !el.closest('header, nav, aside') &&
+    !el.closest('header, aside') &&
     !isUtilityOrGamificationControl(el) &&
-    !isAntiAdvance(el) // Filtro anti-retrocesso aplicado aqui
+    !isAntiAdvance(el)
   )
 
-  // Prioridade A: Satisfaz isNavigationControl (já inclui o filtro ANTI_NAVIGATION_PATTERN)
+  // Prioridade A1 (MÁXIMA): Texto explícito de avanço via NAVIGATION_PATTERN
   for (const el of candidates) {
-    if (isNavigationControl(el) && !isUtilityOrGamificationControl(el)) return el
+    const text = elText(el)
+    const testable = text.replace(/[\d\(\)\[\]\u2192>\u2022\-\/\\]+/g, ' ').trim()
+    if (
+      (NAVIGATION_PATTERN.test(text) || NAVIGATION_PATTERN.test(testable)) &&
+      !isPurePageNumber(el) &&
+      !isUtilityOrGamificationControl(el)
+    ) return el
   }
 
-  // Prioridade B: Match com NAVIGATION_PATTERN em texto, valor ou aria-label
+  // Prioridade A2: isNavigationControl genérico (inclui números com contexto paginação)
   for (const el of candidates) {
-    const val = el instanceof HTMLInputElement || el instanceof HTMLButtonElement ? el.value : ''
-    const text = (el.textContent || val || el.getAttribute('aria-label') || '').trim()
-    if (NAVIGATION_PATTERN.test(text) && !isUtilityOrGamificationControl(el)) return el
+    if (isNavigationControl(el) && !isUtilityOrGamificationControl(el) && !isPurePageNumber(el)) return el
   }
 
-  // Prioridade C: Seletor genérico por atributo de acessibilidade ou teste
+  // Prioridade B: data-testid/aria-label explícito de navegação
   const genericNext = document.querySelector(
     '[data-test-id*="next" i], [data-testid*="next" i], [aria-label*="next" i], [aria-label*="próxim" i], [aria-label*="avançar" i], [aria-label*="continuar" i]',
   ) as HTMLElement | null
@@ -1617,22 +1639,23 @@ export function findBestNavigationButton(preferredId?: string): HTMLElement | nu
     return genericNext
   }
 
-  // Prioridade D: input[type="submit"] visível não filtrado por texto (formulários que usam submit)
+  // Prioridade C: input[type="submit"] / button[type="submit"] visível sem texto de retrocesso
   const submitInputs = Array.from(
     document.querySelectorAll('input[type="submit"], button[type="submit"]')
   ) as HTMLElement[]
   for (const el of submitInputs) {
-    if (isVisible(el) && !isInsideEasyQuiz(el) && !isAntiAdvance(el) && !isUtilityOrGamificationControl(el)) {
+    if (isVisible(el) && !isInsideEasyQuiz(el) && !isAntiAdvance(el) && !isUtilityOrGamificationControl(el) && !isPurePageNumber(el)) {
       return el
     }
   }
 
-  // Prioridade E (último recurso): qualquer botão visível na metade inferior da viewport
+  // Prioridade D (último recurso): qualquer botão visível na metade inferior da viewport
   const allButtons = Array.from(document.querySelectorAll('button, [role="button"]')) as HTMLElement[]
   const viewH = window.innerHeight
   const bottomButtons = allButtons.filter(el => {
     if (!isVisible(el) || isInsideEasyQuiz(el) || isAntiAdvance(el) || isUtilityOrGamificationControl(el)) return false
     if (el.closest('header, nav, aside, .eq-sidebar')) return false
+    if (isPurePageNumber(el)) return false
     const rect = el.getBoundingClientRect()
     return rect.top > viewH * 0.45 && rect.height >= 24 && rect.width >= 24
   })
@@ -1645,6 +1668,11 @@ export function findBestNavigationButton(preferredId?: string): HTMLElement | nu
       return scoreB - scoreA
     })
     return bottomButtons[0]
+  }
+
+  // Último recurso absoluto: número de paginação se for o único "nav" restante
+  for (const el of candidates) {
+    if (isNavigationControl(el) && !isUtilityOrGamificationControl(el)) return el
   }
 
   return null
