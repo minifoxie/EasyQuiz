@@ -205,7 +205,8 @@ export class Autopilot {
       // Throttle leve: evitar re-análise em ráfaga da mesma página não-resolvida
       // (ex: múltiplas mutações do observer em sequência)
       const now = Date.now()
-      if (contentSig === this.lastAttemptSig && now - this.lastAttemptTime < 3000) {
+      if (contentSig === this.lastAttemptSig && now - this.lastAttemptTime < 1500) {
+        // Silenciosamente aguarda — não loga para não poluir a UI
         return
       }
 
@@ -260,25 +261,16 @@ export class Autopilot {
         } else {
           this.errorCount++
           const cooldown = this.errorCount === 1 ? 5000 : 8000
-          this.callbacks.onStatusChange('waiting', `> [AVISO] Falha na análise (${this.errorCount}/5). Aguardando ${cooldown / 1000}s...`, 'text-yellow')
+          this.callbacks.onStatusChange('waiting', `> [AVISO] Falha na análise (${this.errorCount}). Aguardando ${cooldown / 1000}s...`, 'text-yellow')
           await this.sleep(cooldown)
           // Reset do throttle para permitir retry imediato após o cooldown
           this.lastAttemptTime = 0
         }
 
-      } else if (cache.advanceSelector && findElementExt(cache.advanceSelector) && context.questionText.length < 50) {
-        // TELA INFORMATIVA SIMPLES COM BOTÃO CACHEADO
-        const btn = findElementExt(cache.advanceSelector)
-        if (btn) {
-          this.callbacks.onStatusChange('advancing', `> [BRUTE] Avançando via cache "${cache.advanceSelector}"...`)
-          await this.sleep(250)
-          if (!this.active) return
-          simulatePointerClick(btn)
-          this.resolvedSigs.add(contentSig)
-          this.errorCount = 0
-        }
       } else {
-        this.callbacks.onStatusChange('analyzing', '> [IA] Página informativa detectada. Consultando IA...', 'text-blue')
+        // SEM CONTROLES DE RESPOSTA — envia para a IA de qualquer forma
+        // (pode ser página info, start, conclusion, ou questão com DOM não carregado)
+        this.callbacks.onStatusChange('analyzing', '> [IA] Página sem controles detectados. Consultando IA...', 'text-blue')
         if (!this.active) return
 
         this.abortController = new AbortController()
@@ -298,33 +290,40 @@ export class Autopilot {
             this.callbacks.onStatusChange('analyzing', `> [IA] 🧠 Absorvido: "${plan.memoryToStore}"`, 'text-yellow')
           }
 
-          if (plan.pageType === 'info') {
-            this.callbacks.onStatusChange('advancing', '> [IA] 📖 Leitura concluída. Avançando...', 'text-green')
-            await this.sleep(250)
-          } else if (plan.pageType === 'start') {
-            this.callbacks.onStatusChange('advancing', '> [SYS] Início detectado. Iniciando...', 'text-blue')
-            await this.sleep(250)
-          } else if (plan.pageType === 'conclusion') {
+          if (plan.pageType === 'conclusion') {
             this.callbacks.onStatusChange('idle', '> [SYS] Atividade concluída! Desligando Autopilot.', 'text-green')
             this.stop()
             return
           }
+
+          if (plan.pageType === 'info') {
+            this.callbacks.onStatusChange('advancing', '> [IA] 📖 Leitura concluída. Avançando...', 'text-green')
+            await this.sleep(100)
+          } else if (plan.pageType === 'start') {
+            this.callbacks.onStatusChange('advancing', '> [SYS] Início detectado. Iniciando...', 'text-blue')
+            await this.sleep(100)
+          }
+
           this.errorCount = 0
-          this.resolvedSigs.add(contentSig)
+          // Só marca como resolvido se a IA confirmou o tipo de página e emitiu actions
+          if (plan.actions.length > 0) this.resolvedSigs.add(contentSig)
 
         } else {
           this.errorCount++
           const cooldown = this.errorCount === 1 ? 5000 : 8000
-          this.callbacks.onStatusChange('waiting', `> [AVISO] Falha ao processar página (${this.errorCount}/5). Aguardando ${cooldown / 1000}s...`, 'text-yellow')
+          this.callbacks.onStatusChange('waiting', `> [AVISO] Falha ao processar página (${this.errorCount}). Aguardando ${cooldown / 1000}s...`, 'text-yellow')
           await this.sleep(cooldown)
+          this.lastAttemptTime = 0
         }
       }
 
+      // Após muitas falhas consecutivas: não para — apenas emite aviso e reinicia o contador
+      // Parar permanentemente causava o bug de "desistir" que o usuário relatou
       if (this.errorCount >= 5) {
-        this.callbacks.onStatusChange('error', '> [ERRO] 5 falhas consecutivas. Abortando Autopilot.', 'text-red')
-        this.callbacks.onStatusChange('waiting', '> [DICA] Verifique o [ERRO DETALHADO] acima para o motivo exato.', 'text-yellow')
-        this.stop()
-        return
+        this.callbacks.onStatusChange('waiting', '> [AVISO] Muitas falhas. Reiniciando contadores e aguardando 15s...', 'text-yellow')
+        this.errorCount = 0
+        this.lastAttemptTime = 0
+        await this.sleep(15000)
       }
 
     } catch (err) {
