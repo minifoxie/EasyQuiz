@@ -151,6 +151,14 @@ export function expandToGeneralSelection(scope: HTMLElement): HTMLElement {
 }
 
 export function findActiveScope(): HTMLElement {
+  // 0. PRIORIDADE MÁXIMA: widget de classificação (Wayground/Quizizz) — escopo é o container completo
+  const classificationWidget = document.querySelector(
+    '[class*="classification-layout" i], [class*="quiz-container" i][class*="classification" i]'
+  ) as HTMLElement | null
+  if (classificationWidget && isVisible(classificationWidget)) {
+    return classificationWidget
+  }
+
   // 1. Verificar se o elemento com foco do usuário está dentro de uma questão candidata
   const active = document.activeElement as HTMLElement | null
   if (active && active !== document.body) {
@@ -284,34 +292,45 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
   }
 
   // 3ª passada (Fallback): widgets de classificação custom (Wayground, Quizizz classification)
-  // Ativado SOMENTE quando há seletores DOM explícitos de widget de classificação — NUNCA por texto
-  if (selectedElements.length === 0) {
-    const hasClassificationDOM =
-      scope.querySelector('[class*="classification" i]') !== null ||
-      scope.querySelector('[data-cy*="quiz" i]') !== null ||
-      scope.querySelector('[class*="draggable-item" i]') !== null ||
-      scope.querySelector('[class*="drag-item" i]') !== null ||
-      scope.querySelector('[class*="sortable-card" i]') !== null ||
-      scope.matches?.('[class*="classification" i]')
+  // Ativa quando: (a) nenhum controle encontrado, OU (b) só utilitários como read-aloud foram coletados
+  // Usa document.body para não perder cards fora do escopo estreito
+  const onlyUtilityButtons = selectedElements.length > 0 && selectedElements.every(el =>
+    isUtilityOrGamificationControl(el) ||
+    /read-?aloud|audio/i.test(el.getAttribute('data-testid') || el.getAttribute('aria-label') || '')
+  )
+  const classRoot = (
+    document.body.querySelector('[class*="classification-layout" i]') ||
+    document.body.querySelector('[class*="classification" i]') ||
+    scope
+  ) as HTMLElement
 
-    if (hasClassificationDOM) {
-      // Coleta todos os nós folha clicáveis com texto não-vazio que não são navegação
-      const leafCandidates = Array.from(
-        scope.querySelectorAll('div[class], span[class], p, li, button')
-      ) as HTMLElement[]
-      for (const el of leafCandidates) {
-        if (!isVisible(el) || isNavigationControl(el) || isUtilityOrGamificationControl(el)) continue
-        const txt = (el.textContent || '').trim()
-        if (txt.length < 2 || txt.length > 300) continue
-        // Só nós folha: não ter filhos com classe/texto (evitar containers)
-        const hasComplexChildren = Array.from(el.children).some(
-          (c) => (c as HTMLElement).className && (c as HTMLElement).textContent?.trim()
-        )
-        if (!hasComplexChildren) selectedElements.push(el)
-        if (selectedElements.length >= 50) break
-      }
+  const hasClassificationDOM =
+    document.body.querySelector('[class*="classification" i]') !== null ||
+    scope.querySelector('[class*="classification" i]') !== null ||
+    scope.querySelector('[data-cy*="quiz" i]') !== null ||
+    scope.querySelector('[class*="draggable-item" i]') !== null ||
+    scope.querySelector('[class*="drag-item" i]') !== null ||
+    scope.querySelector('[class*="sortable-card" i]') !== null ||
+    scope.matches?.('[class*="classification" i]')
+
+  if ((selectedElements.length === 0 || onlyUtilityButtons) && hasClassificationDOM) {
+    if (onlyUtilityButtons) selectedElements.length = 0 // descarta falsos positivos
+    const leafCandidates = Array.from(
+      classRoot.querySelectorAll('button, div[class], span[class], p, li')
+    ) as HTMLElement[]
+    for (const el of leafCandidates) {
+      if (!isVisible(el) || isNavigationControl(el) || isUtilityOrGamificationControl(el)) continue
+      if (ANTI_NAVIGATION_PATTERN.test((el.textContent || '').trim())) continue
+      const txt = (el.textContent || '').trim()
+      if (txt.length < 2 || txt.length > 300) continue
+      const hasComplexChildren = Array.from(el.children).some(
+        (c) => (c as HTMLElement).className && (c as HTMLElement).textContent?.trim()
+      )
+      if (!hasComplexChildren) selectedElements.push(el)
+      if (selectedElements.length >= 50) break
     }
   }
+
 
   return selectedElements
     .slice(0, 100)

@@ -267,7 +267,8 @@ export function buildUserPrompt(
     (hasMathOrFormulas && context.questionText.length < 60)
 
   // Quando não há controles, enviar HTML mais longo para a IA inspecionar a página completa
-  const htmlLimit = noAnswerControls ? 4500 : 1800
+  // Wayground classificação recebe até 6000 chars — widget é grande e contém muitos cards
+  const htmlLimit = noAnswerControls ? 4500 : isWaygroundClassification ? 6000 : 1800
   const htmlBlock = shouldIncludeHtml
     ? `\n[HTML]:\n${context.htmlSnippet.slice(0, htmlLimit).replace(/\s+/g, ' ')}`
     : ''
