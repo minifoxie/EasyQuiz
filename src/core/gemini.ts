@@ -683,8 +683,9 @@ export async function analyzeWithGemini(
   //
   // Os outros modelos (TURBO_MODELS / preferredFastModel) só entram em ondas de
   // FALLBACK — quando o modelo do usuário falhou em TODAS as chaves disponíveis.
-  blacklistedModels.clear()
-
+  // Pool de modelos: modelo do usuário primeiro, fallbacks em ordem de velocidade
+  // blacklistedModels NÃO é resetado por chamada — persiste durante a sessão
+  // Modelos com 404/503 anteriores não são retestados desnecessariamente
   const effectiveChosenModel = migrateDeprecated(chosenModel)
 
   // Modelos de fallback: preferredFastModel (último vencedor de fallback) → TURBO_MODELS
@@ -850,19 +851,21 @@ export async function analyzeWithGemini(
   //   Pro: 15s / 18s / 20s
 
   const keysCount = keysPool.length
-  // Escalabilidade e Paralelismo Total (Multi-Key & Multi-Model Racing):
-  // - 1 chave: 2 slots paralelos (modelo escolhido + modelo turbo alternativo em cotas separadas)
-  // - 2 a 6 chaves: todas as chaves disponíveis disparadas simultaneamente em paralelo (até 6 slots)
-  const waveSize = Math.min(Math.max(keysCount, 2) + (keysCount >= 2 && keysCount < 6 ? 1 : 0), 6)
+  // waveSize: número real de chaves disponíveis (sem inflar artificialmente)
+  // Com 1 chave: 1 slot por onda (não duplica pair key+model inúeis)
+  // Com 2-6 chaves: todas as chaves em paralelo por onda
+  const waveSize = Math.min(Math.max(keysCount, 1), 6)
 
-  // Timeout por onda e tipo de modelo (Flash e Lite calibrados para suportar múltiplos inputs sem travar)
+  // Timeout adaptativo por tipo de modelo e número de onda:
+  // Flash/Lite: Onda1=6s, Onda2=9s, Onda3+=12s (flash deve responder em <2s; 6s é margem sem travar UI)
+  // Pro: Onda1=12s, Onda2=16s, Onda3+=20s
   const isPrimaryPro = /pro/i.test(effectiveChosenModel)
   const getTimeout = (waveNum: number, modelInWave?: string): number => {
     const isPro = modelInWave ? /pro/i.test(modelInWave) : isPrimaryPro
     const isLite = modelInWave ? /lite/i.test(modelInWave) : /lite/i.test(effectiveChosenModel)
-    if (waveNum === 0) return isPro ? 15000 : isLite ? 8000 : 9000
-    if (waveNum === 1) return isPro ? 18000 : isLite ? 10000 : 12000
-    return isPro ? 20000 : 14000
+    if (waveNum === 0) return isPro ? 12000 : isLite ? 5000 : 6000
+    if (waveNum === 1) return isPro ? 16000 : isLite ? 8000 : 9000
+    return isPro ? 20000 : 12000
   }
 
   const MAX_WAVES = 6  // teto de segurança
