@@ -825,7 +825,7 @@ export class EasyQuizPanel {
 
     this.setupEventListeners()
     this.updateTimingMetrics()
-    document.body.appendChild(this.host)
+    this.mountHost()
     this.applyHostDarkMode(initialSettings.hostDarkMode)
 
     // Inicializar Pool Multi-API Key
@@ -2569,6 +2569,29 @@ export class EasyQuizPanel {
       this.modelSelect.add(new Option(`Gemini (${modelId})`, modelId, false, true))
     }
     this.modelSelect.value = modelId
+  }
+
+  private mountHost(): void {
+    const attachTo = document.body || document.documentElement
+    if (!attachTo) {
+      const onReady = () => {
+        const fallbackRoot = document.body || document.documentElement
+        if (fallbackRoot && !this.host.isConnected) {
+          fallbackRoot.appendChild(this.host)
+        }
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', onReady, { once: true })
+      } else {
+        setTimeout(onReady, 0)
+      }
+      return
+    }
+
+    if (!this.host.isConnected) {
+      attachTo.appendChild(this.host)
+    }
   }
 
   private applyHostDarkMode(enable: boolean) {
