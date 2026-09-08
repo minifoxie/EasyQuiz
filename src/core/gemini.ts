@@ -91,21 +91,27 @@ export function buildGenerationConfig(model: string): Record<string, unknown> {
 
   // Modelos 'lite' (ex: gemini-3.5-flash-lite):
   // NUNCA enviar thinkingConfig! Modelos lite não suportam thinking no endpoint do Google AI Studio;
+  // enviar causava erro HTTP 400 e forçava uma segunda chamada inteira, dobrando a latência.
   if (/lite/i.test(model)) {
     // Sem thinkingConfig
   }
-  // Gemini 3.5/3.6/3.7-flash: thinkingLevel 'low' — raciocínio leve antes de responder
-  // Evita respostas impulsivas sem penalidade severa de latência
-  else if (/gemini-3\.[567]-flash/i.test(model)) {
+  // Gemini 3.5-flash: thinkingLevel 'none' → máxima velocidade
+  // O raciocínio estruturado é garantido pelo SYSTEM_PROMPT (6 passos + campo thinking)
+  // sem custo de latência de thinking tokens nativos
+  else if (/gemini-3\.5-flash/i.test(model)) {
+    config.thinkingConfig = { thinkingLevel: 'none' }
+  }
+  // Gemini 3.6/3.7-flash: 'low' — modelos intermediários onde thinking traz ganho proporcional
+  else if (/gemini-3\.[67]-flash/i.test(model)) {
     config.thinkingConfig = { thinkingLevel: 'low' }
   }
   // Gemini 3.8-flash e acima: 'low' mínimo — necessário pelo modelo
   else if (/gemini-3\.[89]|gemini-3\.[1-9][0-9]/i.test(model)) {
     config.thinkingConfig = { thinkingLevel: 'low' }
   }
-  // Gemini 2.5 Flash: thinkingBudget: 128 — pensamento leve habilitado
+  // Gemini 2.5 Flash: thinkingBudget: 0 — latência sub-segundo
   else if (/gemini-2\.5-flash/i.test(model)) {
-    config.thinkingConfig = { thinkingBudget: 128 }
+    config.thinkingConfig = { thinkingBudget: 0 }
   }
   // Gemini 2.5 Pro: exige mínimo de thinking — sem thinkingConfig
 
