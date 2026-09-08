@@ -237,6 +237,12 @@ export function validateAnalysisPlan(raw: unknown): AnalysisPlan {
     }
   }
 
+  // Se as ações contêm ações 'val' e o modo veio como escolha_unica ou indefinido,
+  // ajusta o modo automaticamente para 'preenchimento' para evitar descarte indevido
+  if (actions.some((a) => a.t === 'val') && (mode === 'escolha_unica' || !source.mode)) {
+    mode = 'preenchimento'
+  }
+
   // Sanitização estrutural rigorosa por modo para evitar conflitos de clique/desmarcar
   actions = sanitizeActionsForMode(actions, mode, pageType)
 

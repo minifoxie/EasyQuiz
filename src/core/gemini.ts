@@ -82,7 +82,7 @@ export let preferredFastModel: string | null = null
 export function buildGenerationConfig(model: string): Record<string, unknown> {
   const config: Record<string, unknown> = {
     temperature: 0.0,
-    maxOutputTokens: 500,
+    maxOutputTokens: 1500, // Permite preenchimento de múltiplos campos (ex: matrizes 3x3 com 9+ campos) sem truncar JSON
     responseMimeType: 'application/json',
     responseSchema: GEMINI_JSON_SCHEMA,
     response_mime_type: 'application/json',
@@ -173,8 +173,8 @@ function parseGeminiError(errorText: string, status: number): string {
   if (/API_KEY_INVALID|API key not valid|key.*invalid|unregistered/i.test(googleMsg)) {
     return 'Chave de API do Gemini inválida ou não autorizada no Google AI Studio.'
   }
-  if (/RESOURCE_EXHAUSTED|Quota exceeded/i.test(googleMsg) || status === 429) {
-    return 'Limite temporário de cota do Gemini (HTTP 429) atingido. Aguardando recuperação...'
+  if (/RESOURCE_EXHAUSTED|Quota exceeded|rate limit|quota/i.test(googleMsg) || status === 429) {
+    return `Cota do Gemini excedida (HTTP 429): ${googleMsg || 'Aguarde'}`
   }
   if (status === 404) {
     return `HTTP 404: ${googleMsg || 'Modelo ou endpoint não encontrado no Google AI Studio'}`
@@ -205,6 +205,43 @@ function robustParsePlan(rawText: string): AnalysisPlan {
       return JSON.parse(jsonMatch[0].trim()) as AnalysisPlan
     } catch {}
   }
+
+  // 4. Auto-reparação resiliente de JSON truncado (ex: corte de tokens no meio do array de ações)
+  try {
+    const firstBrace = text.indexOf('{')
+    if (firstBrace !== -1) {
+      let sub = text.slice(firstBrace).trim()
+      // Remove item de ação incompleto no final ou vírgula solta
+      sub = sub.replace(/,\s*\{[^}]*$/, '')
+      sub = sub.replace(/,\s*$/, '')
+
+      let openBraces = 0
+      let openBrackets = 0
+      let inString = false
+      let escape = false
+      for (let i = 0; i < sub.length; i++) {
+        const char = sub[i]
+        if (escape) { escape = false; continue }
+        if (char === '\\') { escape = true; continue }
+        if (char === '"') { inString = !inString; continue }
+        if (!inString) {
+          if (char === '{') openBraces++
+          else if (char === '}') openBraces = Math.max(0, openBraces - 1)
+          else if (char === '[') openBrackets++
+          else if (char === ']') openBrackets = Math.max(0, openBrackets - 1)
+        }
+      }
+      if (inString) sub += '"'
+      while (openBrackets > 0) { sub += ']'; openBrackets-- }
+      while (openBraces > 0) { sub += '}'; openBraces-- }
+
+      const repaired = JSON.parse(sub)
+      if (repaired && typeof repaired === 'object') {
+        return repaired as AnalysisPlan
+      }
+    }
+  } catch {}
+
   throw new Error('Falha ao decodificar JSON da IA.')
 }
 
@@ -779,8 +816,14 @@ export async function analyzeWithGemini(
         preferredFastModel = winner.usedModel
       }
       return winner
-    } catch {
+    } catch (waveErr) {
       signal?.removeEventListener('abort', onParentAbort)
+      if (waveErr instanceof AggregateError && waveErr.errors.length > 0) {
+        lastError = waveErr.errors.map(e => e instanceof Error ? e.message : String(e)).join(' | ')
+      } else if (waveErr instanceof Error) {
+        lastError = waveErr.message
+      }
+      console.warn(`[EasyQuiz ${waveName}] Falha na onda:`, lastError)
       return null
     }
   }
@@ -796,8 +839,8 @@ export async function analyzeWithGemini(
   //   usa o próximo modelo do pool (fallback) com chaves ainda disponíveis
   //
   // Timeout adaptativo por tipo de modelo:
-  //   Flash (thinking=none/low): 10s / 13s / 16s
-  //   Pro (sem thinkingConfig):  15s / 18s / 22s
+  //   Flash / Lite: 8s / 10s / 14s (tempo seguro para cálculos matemáticos e múltiplos campos)
+  //   Pro: 15s / 18s / 20s
 
   const keysCount = keysPool.length
   // Escalabilidade e Paralelismo Total (Multi-Key & Multi-Model Racing):
@@ -805,14 +848,14 @@ export async function analyzeWithGemini(
   // - 2 a 6 chaves: todas as chaves disponíveis disparadas simultaneamente em paralelo (até 6 slots)
   const waveSize = Math.min(Math.max(keysCount, 2) + (keysCount >= 2 && keysCount < 6 ? 1 : 0), 6)
 
-  // Timeout por onda e tipo de modelo (Flash e Lite com timeouts ultrarrápidos para não travar o usuário)
+  // Timeout por onda e tipo de modelo (Flash e Lite calibrados para suportar múltiplos inputs sem travar)
   const isPrimaryPro = /pro/i.test(effectiveChosenModel)
   const getTimeout = (waveNum: number, modelInWave?: string): number => {
     const isPro = modelInWave ? /pro/i.test(modelInWave) : isPrimaryPro
     const isLite = modelInWave ? /lite/i.test(modelInWave) : /lite/i.test(effectiveChosenModel)
-    if (waveNum === 0) return isPro ? 12000 : isLite ? 3800 : 4500
-    if (waveNum === 1) return isPro ? 15000 : isLite ? 5000 : 6500
-    return isPro ? 18000 : 8000
+    if (waveNum === 0) return isPro ? 15000 : isLite ? 8000 : 9000
+    if (waveNum === 1) return isPro ? 18000 : isLite ? 10000 : 12000
+    return isPro ? 20000 : 14000
   }
 
   const MAX_WAVES = 6  // teto de segurança

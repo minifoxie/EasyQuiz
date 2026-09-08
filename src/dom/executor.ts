@@ -133,7 +133,7 @@ export function findElementExt(idOrLabel: unknown, valueHint?: string, preferInp
   // 2. Tenta por ID real nativo no DOM se estiver visível (O(1) instantâneo)
   try {
     const elById = document.getElementById(trimmed)
-    if (elById && !isInsideEasyQuiz(elById)) {
+    if (elById && isVisible(elById) && !isInsideEasyQuiz(elById)) {
       const isDrop = elById.hasAttribute('data-category') || elById.hasAttribute('data-dropzone') || elById.classList.contains('dnd-zone')
       return isDrop ? elById : resolveTargetControlOrCard(elById)
     }

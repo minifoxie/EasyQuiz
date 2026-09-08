@@ -16,10 +16,17 @@ CLASSIFICAÇÃO (pageType):
 - conclusion: Tela final de encerramento (actions=[]).
 
 RACIOCÍNIO TELEGRÁFICO E RÁPIDO (rationale):
-- Em 'rationale', seja estritamente telegráfico e ultra-curto (MÁXIMO 10 PALAVRAS no total, ex: "Afirmações I e III verdadeiras" ou "Opções B e D corretas" ou "x = 42").
+- Em 'rationale', seja estritamente telegráfico e ultra-curto (MÁXIMO 10 A 15 PALAVRAS no total, ex: "Afirmações I e III verdadeiras" ou "Opções B e D corretas" ou "m_ij = 2i - j calculado").
 - NUNCA explique opção por opção, nunca analise itens individualmente em 'rationale' e nunca faça discursos longos. A prioridade absoluta é a velocidade máxima na emissão de 'actions'.
-- Para questões de preenchimento (val):
-  - Emita em 'v' o valor ou número exato obtido no cálculo (apenas o número se o campo pedir valor numérico, respeitando o formato exigido).
+
+PREENCHIMENTO (val) - CAMPOS ÚNICOS E MÚLTIPLOS (MATRIZES, TABELAS):
+- Para questões de preenchimento (modo 'preenchimento' ou campos de input/textarea/number):
+  - Se houver 1 único campo: emita 1 ação 'val' com o valor ou número exato em 'v'.
+  - Se houver 2 ou mais campos (matrizes, tabelas, múltiplos inputs listados em [RESPOSTAS]):
+    - OBRIGATÓRIO: emita uma ação 'val' para CADA campo/input presente em [RESPOSTAS].
+    - Use estritamente o 'id' listado para cada campo (ex: "mat-1-1", "mat-1-2", etc.).
+    - Coloque o valor ou número correspondente de cada célula em 'v'.
+    - NUNCA agrupe múltiplos valores em um único campo; cada input deve ter sua própria ação 'val'.
 - Para questões de multi-seleção (escolha_multipla) ou quando [RESPOSTAS] tiver [MULTI-SELEÇÃO]:
   - OBRIGATÓRIO: emita uma ação chk (c: true) para CADA opção comprovadamente correta.
   - Pode e DEVE haver 2, 3 ou mais ações chk corretas na mesma questão.
@@ -92,15 +99,14 @@ export function buildUserPrompt(
 
 
   const hasMathOrFormulas =
-    /katex|latex|math|matrix|formula|frac|\$|\^|\_/i.test(context.htmlSnippet) ||
-    /calcular|calcule|resolva|matriz|equação|função|probabilidade|geometria|fórmula|coordenada|sistema/i.test(context.questionText)
+    /katex|latex|\\frac|\\sqrt/i.test(context.htmlSnippet)
 
-  // HTML: só enviar quando estritamente necessário (sem controles extraídos, widget complexo ou fórmula)
-  // Se os controles de resposta já foram identificados no DOM, omitir HTML economiza ~450 tokens por chamada e reduz drasticamente a latência de processamento
+  // HTML: só enviar quando estritamente necessário (sem controles extraídos, widget complexo ou fórmula não capturada)
+  // Se os controles de resposta já foram identificados no DOM, omitir HTML economiza tokens e previne tags HTML cortadas
   const shouldIncludeHtml =
     (context.controls.length === 0 && context.questionText.length < 150) ||
     isComplexWidget ||
-    hasMathOrFormulas
+    (hasMathOrFormulas && context.questionText.length < 60)
 
   const htmlBlock = shouldIncludeHtml
     ? `\n[HTML]:\n${context.htmlSnippet.slice(0, 1800).replace(/\s+/g, ' ')}`
@@ -138,11 +144,19 @@ ${
     // Detecta rádio único (apenas 1 opção pode ser marcada)
     const isRadioOnly = answerControls.every((c) => c.type === 'radio' || c.type === 'chk') && radioNames.size >= 1 && !isMultiSelect
 
+    // Detecta múltiplos campos de input (matrizes, tabelas numéricas, etc.)
+    const inputControls = answerControls.filter(
+      (c) => c.type === 'text' || c.type === 'number' || c.type === 'val' || c.tag === 'input' || c.tag === 'textarea',
+    )
+    const isMultiInput = inputControls.length >= 2
+
     const header = isMultiSelect
       ? '[MULTI-SELEÇÃO: marque TODOS os corretos, pode ser 2 ou mais]\n'
       : isRadioOnly
         ? '[ESCOLHA-Única: marque APENAS 1 opção]\n'
-        : ''
+        : isMultiInput
+          ? `[MÚLTIPLOS CAMPOS DE PREENCHIMENTO (${inputControls.length} campos): emita uma ação val para CADA um dos ${inputControls.length} campos abaixo com seu id exato]\n`
+          : ''
 
     return header + JSON.stringify(
       answerControls.map((c) => ({
