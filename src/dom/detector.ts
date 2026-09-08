@@ -16,6 +16,8 @@ const CANDIDATE_SELECTORS = [
   '.framework-perseus',
   // Google Forms
   '.Qr7Oae',
+  '[data-item-id]',
+  '.freebirdFormviewerViewItemsItemItem',
   // Moodle & AVA
   '.que',
   '.question-holder',
@@ -26,12 +28,17 @@ const CANDIDATE_SELECTORS = [
   // Kahoot & Quizizz
   '[data-functional-selector*="question"]',
   '.question-container',
+  // Wayground/Quizizz classification
+  '[class*="classification-layout" i]',
+  '[class*="quiz-container" i]',
+  '[data-cy="quiz-container"]',
   // Genéricos e semânticos de bloco completo
   '[data-question-id]',
   '[data-testid*="question" i]',
   '[class*="question-container" i]',
   '[class*="question" i]',
   '[class*="pergunta" i]',
+  '[class*="categoriz" i]',
   'article',
   'form',
   'section',
@@ -268,6 +275,34 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
     selectedElements.push(el)
   }
 
+  // 3ª passada (Fallback): widgets de classificação custom (Wayground, Quizizz classification)
+  // Ativado quando nenhum controle padrão foi encontrado mas o escopo parece ser um widget de classificação
+  if (selectedElements.length === 0) {
+    const isClassificationWidget =
+      scope.querySelector('[class*="classification" i], [data-cy*="quiz" i]') !== null ||
+      scope.matches?.('[class*="classification" i]') ||
+      (scope.textContent || '').includes('FATO') ||
+      (scope.textContent || '').includes('OPINI')
+
+    if (isClassificationWidget) {
+      // Coleta todos os nós folha clicáveis com texto não-vazio que não são navegação
+      const leafCandidates = Array.from(
+        scope.querySelectorAll('div[class], span[class], p, li, button')
+      ) as HTMLElement[]
+      for (const el of leafCandidates) {
+        if (!isVisible(el) || isNavigationControl(el) || isUtilityOrGamificationControl(el)) continue
+        const txt = (el.textContent || '').trim()
+        if (txt.length < 2 || txt.length > 300) continue
+        // Só nós folha: não ter filhos com classe/texto (evitar containers)
+        const hasComplexChildren = Array.from(el.children).some(
+          (c) => (c as HTMLElement).className && (c as HTMLElement).textContent?.trim()
+        )
+        if (!hasComplexChildren) selectedElements.push(el)
+        if (selectedElements.length >= 50) break
+      }
+    }
+  }
+
   return selectedElements
     .slice(0, 100)
     .map((el) => describeControl(el, 'answer'))
@@ -322,8 +357,11 @@ export function captureCurrentContext(expanded = false): CapturedContext | null 
     navs = extractNavigationControls(document.body)
   }
 
+  // Captura de texto com limite inteligente para páginas extensas
   const rawText = scope.innerText && scope.innerText.trim().length > 0 ? scope.innerText : scope.textContent || ''
-  const questionText = cleanText(rawText, 16_000)
+  const questionText = rawText.length > 40_000
+    ? cleanText(rawText.slice(0, 8000), 8000) + '\n[...conteúdo extenso truncado...]\n' + cleanText(rawText.slice(-2000), 2000)
+    : cleanText(rawText, 16_000)
   const controls = [...answers, ...navs].slice(0, 120)
 
   // Se tem texto explicativo relevante (> 30 chars), mesmo sem controles de resposta direta,

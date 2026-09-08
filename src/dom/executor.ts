@@ -1,7 +1,7 @@
 import type { ActionExecutionReport, AnalysisPlan, DeclarativeAction } from '../core/types'
 import { assertActionAllowed, createExecutionPolicy, validateJavaScriptSource, type ExecutionPolicy } from '../core/policy'
 import { loadDomainCache, saveDomainCache } from '../core/storage'
-import { cleanText, isNavigationControl, isUtilityOrGamificationControl, isVisible, labelForControl, NAVIGATION_PATTERN, safeCssEscape } from './controls'
+import { cleanText, isNavigationControl, isUtilityOrGamificationControl, isVisible, labelForControl, NAVIGATION_PATTERN, ANTI_NAVIGATION_PATTERN, safeCssEscape } from './controls'
 import { findActiveScope } from './detector'
 
 export function isInsideEasyQuiz(el: HTMLElement | null): boolean {
@@ -109,7 +109,21 @@ export function getDistinctVisibleChoices(scopeRoot?: HTMLElement): HTMLElement[
       container.querySelectorAll('.option-card, [role="option"], [class*="choice-card" i], [class*="option-card" i], li[class*="choice" i], li[class*="option" i]'),
     ).filter((e) => isVisible(e as HTMLElement) && !isInsideEasyQuiz(e as HTMLElement)) as HTMLElement[]
 
-    return cards.filter((card) => !card.parentElement?.closest('.option-card, [role="option"], [class*="choice-card" i], [class*="option-card" i]'))
+    const filteredCards = cards.filter((card) => !card.parentElement?.closest('.option-card, [role="option"], [class*="choice-card" i], [class*="option-card" i]'))
+    if (filteredCards.length > 0) return filteredCards
+
+    // 4. Fallback para widgets de classificação (Wayground classification, tiles custom)
+    const classCards = Array.from(
+      container.querySelectorAll('[class*="classification" i] [class], [class*="draggable-item" i], [class*="drag-item" i], [class*="sortable-card" i]')
+    ).filter((e) => {
+      const el = e as HTMLElement
+      return isVisible(el) && !isInsideEasyQuiz(el) &&
+        (el.textContent || '').trim().length > 2 &&
+        !isNavigationControl(el) && !isUtilityOrGamificationControl(el) &&
+        !el.querySelector('[class]') // nó folha com texto
+    }) as HTMLElement[]
+
+    return classCards
   }
 
   const result = collect(root)
@@ -136,6 +150,14 @@ export function findElementExt(idOrLabel: unknown, valueHint?: string, preferInp
     if (elById && isVisible(elById) && !isInsideEasyQuiz(elById)) {
       const isDrop = elById.hasAttribute('data-category') || elById.hasAttribute('data-dropzone') || elById.classList.contains('dnd-zone')
       return isDrop ? elById : resolveTargetControlOrCard(elById)
+    }
+  } catch {}
+
+  // 2.5 Tenta por data-item-id (Google Forms) e data-easyquiz-id
+  try {
+    const gformEl = document.querySelector(`[data-item-id="${escaped}"]`) as HTMLElement | null
+    if (gformEl && isVisible(gformEl) && !isInsideEasyQuiz(gformEl)) {
+      return resolveTargetControlOrCard(gformEl)
     }
   } catch {}
 
@@ -1485,10 +1507,21 @@ export function findCheckButton(): HTMLElement | null {
 }
 
 export function findBestNavigationButton(preferredId?: string): HTMLElement | null {
+  // Filtro de anti-retrocesso: garante que botões de "Voltar", "Anterior", "Back" NUNCA sejam selecionados como avanço
+  const isAntiAdvance = (el: HTMLElement): boolean => {
+    const text = (
+      el.getAttribute('aria-label') ||
+      el.textContent ||
+      (el instanceof HTMLInputElement || el instanceof HTMLButtonElement ? el.value : '') ||
+      ''
+    ).trim()
+    return ANTI_NAVIGATION_PATTERN.test(text)
+  }
+
   // 1. Seletor ou ID preferencial informado pela IA
   if (preferredId) {
     const el = findElementExt(preferredId)
-    if (el && isVisible(el) && !isInsideEasyQuiz(el) && !isUtilityOrGamificationControl(el)) return el
+    if (el && isVisible(el) && !isInsideEasyQuiz(el) && !isUtilityOrGamificationControl(el) && !isAntiAdvance(el)) return el
   }
 
   // 2. Cache de domínio salvo de execuções anteriores bem-sucedidas
@@ -1496,7 +1529,7 @@ export function findBestNavigationButton(preferredId?: string): HTMLElement | nu
     const cache = loadDomainCache(window.location.hostname)
     if (cache.advanceSelector) {
       const cached = findElementExt(cache.advanceSelector)
-      if (cached && isVisible(cached) && !isInsideEasyQuiz(cached) && !isUtilityOrGamificationControl(cached)) return cached
+      if (cached && isVisible(cached) && !isInsideEasyQuiz(cached) && !isUtilityOrGamificationControl(cached) && !isAntiAdvance(cached)) return cached
     }
   } catch {}
 
@@ -1521,9 +1554,15 @@ export function findBestNavigationButton(preferredId?: string): HTMLElement | nu
   ].join(',')
 
   const all = Array.from(document.querySelectorAll(query)) as HTMLElement[]
-  const candidates = all.filter((el) => isVisible(el) && !isInsideEasyQuiz(el) && !el.closest('header, nav, aside') && !isUtilityOrGamificationControl(el))
+  const candidates = all.filter((el) =>
+    isVisible(el) &&
+    !isInsideEasyQuiz(el) &&
+    !el.closest('header, nav, aside') &&
+    !isUtilityOrGamificationControl(el) &&
+    !isAntiAdvance(el) // Filtro anti-retrocesso aplicado aqui
+  )
 
-  // Prioridade A: Satisfaz isNavigationControl
+  // Prioridade A: Satisfaz isNavigationControl (já inclui o filtro ANTI_NAVIGATION_PATTERN)
   for (const el of candidates) {
     if (isNavigationControl(el) && !isUtilityOrGamificationControl(el)) return el
   }
@@ -1539,7 +1578,7 @@ export function findBestNavigationButton(preferredId?: string): HTMLElement | nu
   const genericNext = document.querySelector(
     '[data-test-id*="next" i], [data-testid*="next" i], [aria-label*="next" i], [aria-label*="próxim" i], [aria-label*="avançar" i], [aria-label*="continuar" i]',
   ) as HTMLElement | null
-  if (genericNext && isVisible(genericNext) && !isInsideEasyQuiz(genericNext) && !isUtilityOrGamificationControl(genericNext)) {
+  if (genericNext && isVisible(genericNext) && !isInsideEasyQuiz(genericNext) && !isUtilityOrGamificationControl(genericNext) && !isAntiAdvance(genericNext)) {
     return genericNext
   }
 

@@ -243,6 +243,11 @@ export function validateAnalysisPlan(raw: unknown): AnalysisPlan {
     mode = 'preenchimento'
   }
 
+  // Se há ações drag e o modo não é adequado para drag/categorização, corrigir automaticamente
+  if (actions.some((a) => a.t === 'drag') && !['categorizacao', 'arrastar_soltar', 'ordenacao'].includes(mode)) {
+    mode = 'arrastar_soltar'
+  }
+
   // Sanitização estrutural rigorosa por modo para evitar conflitos de clique/desmarcar
   actions = sanitizeActionsForMode(actions, mode, pageType)
 

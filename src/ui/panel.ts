@@ -1004,8 +1004,11 @@ export class EasyQuizPanel {
     )
 
     // ==== BLINDAGEM COMPLETA DE TECLADO CONTRA SITES DE EXAMES ====
+    // Permite eventos que se originam dentro do nosso Shadow DOM (inclui overlays de importação)
     const keyboardCaptureShield = (e: KeyboardEvent) => {
       const path = e.composedPath()
+      // Se o evento veio de dentro do shadow root, deixar fluir normalmente
+      if (path.includes(this.shadow as any)) return
       if (path.includes(this.sidebarEl) || path.includes(this.host)) {
         e.stopImmediatePropagation()
       }
@@ -1251,9 +1254,12 @@ export class EasyQuizPanel {
         overlay.remove()
       }
 
-      // Event shielding: isola o modal de scripts do site hospedeiro
-      ['keydown', 'keyup', 'keypress', 'paste', 'copy', 'cut'].forEach((evt) => {
-        overlay.addEventListener(evt, (e) => e.stopPropagation())
+      // Event shielding em fase CAPTURE: bloqueia sites que usam capture:true antes do nosso modal
+      ;['keydown', 'keyup', 'keypress', 'paste', 'copy', 'cut'].forEach((evt) => {
+        overlay.addEventListener(evt, (e) => {
+          e.stopPropagation()
+          e.stopImmediatePropagation()
+        }, true) // capture:true — garante que interceptamos antes de qualquer listener do site
       })
 
       // Fechar com Escape

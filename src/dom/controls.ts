@@ -45,10 +45,24 @@ export const CONTROL_SELECTOR = [
   'li[class*="answer" i]',
   '[data-role="dropzone"]',
   '[data-category]',
+  // Google Forms
+  '[data-item-id]',
+  '[data-params][jsmodel]',
+  // Wayground/Quizizz classification widgets
+  '[class*="draggable-item" i]',
+  '[class*="drag-item" i]',
+  '[class*="sortable-card" i]',
+  // Cards e tiles genéricos de quiz
+  '[class*="card-option" i]',
+  '[class*="tile" i][class*="option" i]',
 ].join(',')
 
 export const NAVIGATION_PATTERN =
   /(verificar|checar|check|conferir|validar|próxim[oa]|next|continuar|continue|avançar|prosseguir|enviar|submit|concluir|finalizar|terminar|começar|iniciar|start|vamos lá|próxima tarefa|next task|próxima pergunta|next question|marcar como concluíd[oa]|mostrar resumo|entendi|compreendi|ok|leitura concluída|seguir|ir para o exercício|fazer o teste|próximo artigo|ir para a aula)/i
+
+/** Padrão de retrocesso: nunca identificar estes como botões de avanço */
+export const ANTI_NAVIGATION_PATTERN =
+  /(\banterior\b|\bvoltar\b|\bback\b|\bprev\b|\bprevious\b|recomecar|recomecar|recomeçar|\brestart\b|\breplay\b|retornar|\binício\b|\bhome\b|\bmenu\b|\bexit\b|\bsair\b|\bpular\b|\bskip\b)/i
 
 let idSequence = 0
 
@@ -248,7 +262,7 @@ export function isNavigationControl(element: Element | null): boolean {
       rawValue,
   )
   const type = (element as any).type
-  const testableText = text.replace(/[\d\(\)\[\]→\>\•\-\/\\]+/g, ' ').trim()
+  const testableText = text.replace(/[\d\(\)\[\]\u2192>\u2022\-\/\\]+/g, ' ').trim()
   const testId = String(
     element.getAttribute?.('data-testid') ||
       element.getAttribute?.('data-test-id') ||
@@ -256,6 +270,9 @@ export function isNavigationControl(element: Element | null): boolean {
       element.getAttribute?.('href') ||
       '',
   ).toLowerCase()
+
+  // Nunca marcar como navegação se o texto indica retrocesso (voltar, anterior, back, etc.)
+  if (ANTI_NAVIGATION_PATTERN.test(testableText) || ANTI_NAVIGATION_PATTERN.test(text)) return false
 
   return (
     NAVIGATION_PATTERN.test(testableText) ||

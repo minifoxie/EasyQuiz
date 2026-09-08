@@ -1,7 +1,7 @@
 import type { AnalysisPlan } from '../core/types'
 import { loadDomainCache } from '../core/storage'
 import { captureCurrentContext, captureFullPageText, createContextSignature, createContentSignature } from './detector'
-import { findElementExt, simulatePointerClick } from './executor'
+import { findElementExt, simulatePointerClick, findBestNavigationButton } from './executor'
 
 export type AutopilotStatus = 'idle' | 'waiting' | 'analyzing' | 'advancing' | 'error'
 
@@ -148,7 +148,7 @@ export class Autopilot {
       this.heartbeatTimer = null
       if (this.active && !this.isProcessing) void this.checkAndAnalyze()
       if (this.active) this.scheduleHeartbeat()
-    }, 2000)  // 2s fallback — pega mudanças perdidas durante isProcessing
+    }, 3000)  // 3s fallback — reduz spam em páginas lentas
   }
 
   private sleep(ms: number): Promise<void> {
@@ -260,7 +260,7 @@ export class Autopilot {
         } else {
           this.errorCount++
           const cooldown = this.errorCount === 1 ? 5000 : 8000
-          this.callbacks.onStatusChange('waiting', `> [AVISO] Falha na análise (${this.errorCount}/3). Aguardando ${cooldown / 1000}s...`, 'text-yellow')
+          this.callbacks.onStatusChange('waiting', `> [AVISO] Falha na análise (${this.errorCount}/5). Aguardando ${cooldown / 1000}s...`, 'text-yellow')
           await this.sleep(cooldown)
           // Reset do throttle para permitir retry imediato após o cooldown
           this.lastAttemptTime = 0
@@ -279,6 +279,21 @@ export class Autopilot {
         }
       } else {
         // PÁGINA INFORMATIVA / ARTIGO / INÍCIO — análise de contexto
+        // Otimização: páginas de leitura extensa (>5000 chars, 0 controles de resposta) avançam direto
+        const isLongArticle = context.questionText.length > 5000 && answerControls.length === 0
+        if (isLongArticle) {
+          this.callbacks.onStatusChange('advancing', '> [SYS] 📖 Página de leitura extensa. Absorvendo e avançando...', 'text-blue')
+          const navBtn = findBestNavigationButton()
+          if (navBtn) {
+            await this.sleep(300)
+            if (!this.active) return
+            simulatePointerClick(navBtn)
+          }
+          this.resolvedSigs.add(contentSig)
+          this.errorCount = 0
+          return
+        }
+
         this.callbacks.onStatusChange('analyzing', '> [IA] Página informativa detectada. Consultando IA...', 'text-blue')
         if (!this.active) return
 
@@ -316,13 +331,13 @@ export class Autopilot {
         } else {
           this.errorCount++
           const cooldown = this.errorCount === 1 ? 5000 : 8000
-          this.callbacks.onStatusChange('waiting', `> [AVISO] Falha ao processar página (${this.errorCount}/3). Aguardando ${cooldown / 1000}s...`, 'text-yellow')
+          this.callbacks.onStatusChange('waiting', `> [AVISO] Falha ao processar página (${this.errorCount}/5). Aguardando ${cooldown / 1000}s...`, 'text-yellow')
           await this.sleep(cooldown)
         }
       }
 
-      if (this.errorCount >= 3) {
-        this.callbacks.onStatusChange('error', '> [ERRO] 3 falhas consecutivas. Abortando Autopilot.', 'text-red')
+      if (this.errorCount >= 5) {
+        this.callbacks.onStatusChange('error', '> [ERRO] 5 falhas consecutivas. Abortando Autopilot.', 'text-red')
         this.callbacks.onStatusChange('waiting', '> [DICA] Verifique o [ERRO DETALHADO] acima para o motivo exato.', 'text-yellow')
         this.stop()
         return
@@ -332,6 +347,9 @@ export class Autopilot {
       if (!this.active) return
       const errText = err instanceof Error ? err.message : String(err)
       if (errText.includes('cancelada') || errText.includes('aborted')) return
+      // Erros de infraestrutura (rede/timeout) não contam como falha de conteúdo
+      const isInfraError = /timeout|aborted|network|failed to fetch|cancelad/i.test(errText)
+      if (!isInfraError) this.errorCount++
       console.warn('[EasyQuiz Autopilot]', err)
       this.callbacks.onStatusChange('error', `> [ERRO NO AUTOPILOT] ${errText}`, 'text-red')
     } finally {

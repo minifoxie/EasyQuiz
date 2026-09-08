@@ -23,9 +23,11 @@ export class KeyManager {
     const existing = new Map(this.keys)
     this.keys.clear()
 
+    // Expandir strings que contenham newlines (caso de paste multi-linha num único slot do array)
+    const expanded = rawKeys.flatMap((k) => k.split(/[\n\r]+/))
     const sanitized = Array.from(
       new Set(
-        rawKeys
+        expanded
           .map((k) => k.trim().replace(/^["']|["']$/g, ''))
           .filter((k) => k.length > 5)
       )
@@ -55,7 +57,10 @@ export class KeyManager {
       hash = (hash << 5) - hash + key.charCodeAt(i)
       hash |= 0
     }
-    return `key_${Math.abs(hash).toString(36).slice(0, 8)}`
+    // Usar os últimos 6 chars alphanuméricos da chave como sufixo para evitar colisões
+    // em chaves com mesmo prefixo (ex: AIzaSy...)
+    const suffix = key.slice(-12).replace(/[^a-zA-Z0-9]/g, '').slice(0, 6)
+    return `key_${Math.abs(hash).toString(36).slice(0, 6)}${suffix}`
   }
 
   /**
@@ -218,7 +223,9 @@ export class KeyManager {
     if (clean.length < 15) return { ok: false, message: 'Chave de API inválida ou muito curta.' }
 
     const id = this.generateId(clean)
-    if (this.keys.has(id)) {
+    // Verificar tanto por ID (hash) quanto por valor exato da chave — evita falso positivo de colisão de hash
+    const isDuplicate = this.keys.has(id) || Array.from(this.keys.values()).some((k) => k.key === clean)
+    if (isDuplicate) {
       return { ok: false, message: 'Esta chave de API já está cadastrada.' }
     }
 

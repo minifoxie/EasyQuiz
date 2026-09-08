@@ -53,10 +53,20 @@ VERDADEIRO/FALSO EM GRADE (tabela/coluna):
   - Avalie CADA LINHA individualmente e emita uma ação chk ou clk por linha.
   - O mode deve ser 'verdadeiro_falso'.
 
+CATEGORIZAÇÃO / CLASSIFICAÇÃO (mode: categorizacao ou arrastar_soltar):
+- Se a questão pedir para classificar itens em categorias (ex: FATO/OPINIÃO, SIM/NÃO, V/F, Verdadeiro/Falso por grupo):
+  - Para CADA ITEM a classificar, emita uma ação de resposta.
+  - Se os items e categorias aparecem em [RESPOSTAS] como cards clicáveis (Wayground, Quizizz): use clk com o id do item OU use drag com from=id_item, to=id_categoria.
+  - Se o widget usa drag-and-drop real: use drag com from=texto_exato_do_item, to=nome_exato_da_categoria.
+  - Se os cards têm botões internos de categoria: use clk no botão correto dentro do card.
+  - mode: 'categorizacao' quando há categorias fixas; 'arrastar_soltar' quando o item é movido para uma zona.
+  - NUNCA emita adv antes de classificar TODOS os itens visíveis.
+
 PLATAFORMAS ESPECÍFICAS:
 - Khan Academy (Perseus): Widgets interativos podem exigir 'js' via $eq como fallback.
-- Google Forms: IDs de controle podem vir de data-item-id ou data-params. Use-os.
+- Google Forms: IDs de controle podem vir de data-item-id ou data-params. Use clk no container da alternativa correta.
 - Wayground/Quizizz: Alternativas são cards/botões sem inputs. Use 'clk' para selecioná-las.
+- Wayground/Quizizz CLASSIFICAÇÃO: Items são cards com botões de categoria. Use clk no card correto.
 - Duolingo: Respostas são tiles clicáveis. Use 'clk' por texto do tile.
 - Moodle/AVA: Formulários padrão com radios e checkboxes. Use chk/clk normalmente.
 
@@ -75,9 +85,20 @@ rationale: justificativa ultra-curta (1 a 2 frases diretas).
 `
 
 function detectPlatformHint(url: string, html: string): string {
+  // Google Forms — múltiplos indicadores
+  if (/forms\.(google|gle)\.com|docs\.google\.com\/forms/i.test(url) ||
+      html.includes('Qr7Oae') || html.includes('freebirdFormviewer') || html.includes('data-item-id')) {
+    return '[PLATAFORMA: Google Forms — use clk nos containers de alternativa; IDs via data-item-id ou texto da opção]'
+  }
+  // Wayground/Quizizz — detectar classificação separadamente
+  if (/wayground|quizizz/i.test(url) || html.includes('data-functional-selector')) {
+    const isClassification = html.includes('classification') || html.toLowerCase().includes('fato') || html.toLowerCase().includes('opini')
+    if (isClassification) {
+      return '[PLATAFORMA: Wayground/Quizizz CLASSIFICAÇÃO — items são cards com botões de categoria; use clk no id do item/categoria OU drag com from=texto_item, to=nome_categoria]'
+    }
+    return '[PLATAFORMA: Wayground/Quizizz — alternativas são cards clicáveis, use clk]'
+  }
   if (/khanacademy\.org/i.test(url) || html.includes('perseus')) return '[PLATAFORMA: Khan Academy — widgets Perseus; use js via $eq para widgets interativos se necessário]'
-  if (/forms\.google|docs\.google.*forms/i.test(url) || html.includes('Qr7Oae')) return '[PLATAFORMA: Google Forms — IDs via data-item-id, data-params]'
-  if (/wayground|quizizz/i.test(url) || html.includes('data-functional-selector')) return '[PLATAFORMA: Wayground/Quizizz — alternativas são cards clicáveis, use clk]'
   if (/moodle|ava\.|classroom\.google/i.test(url)) return '[PLATAFORMA: Moodle/AVA/Classroom — formulários padrão]'
   if (/duolingo/i.test(url)) return '[PLATAFORMA: Duolingo — tiles clicáveis, use clk por texto]'
   if (/blackboard|canvas\.instructure/i.test(url)) return '[PLATAFORMA: Canvas/Blackboard — quiz-question padrão]'
@@ -101,11 +122,25 @@ export function buildUserPrompt(
   const hasMathOrFormulas =
     /katex|latex|\\frac|\\sqrt/i.test(context.htmlSnippet)
 
+  // Detectar plataformas que exigem HTML para funcionar corretamente
+  const isGoogleForms =
+    /forms\.(google|gle)\.com|docs\.google\.com\/forms/i.test(context.sourceUrl) ||
+    context.htmlSnippet.includes('Qr7Oae') ||
+    context.htmlSnippet.includes('data-item-id') ||
+    context.htmlSnippet.includes('freebirdFormviewer')
+
+  const isWaygroundClassification =
+    (/wayground|quizizz/i.test(context.sourceUrl) || context.htmlSnippet.includes('data-functional-selector')) &&
+    (context.htmlSnippet.includes('classification') ||
+      context.controls.filter((c) => c.role === 'answer').length === 0)
+
   // HTML: só enviar quando estritamente necessário (sem controles extraídos, widget complexo ou fórmula não capturada)
   // Se os controles de resposta já foram identificados no DOM, omitir HTML economiza tokens e previne tags HTML cortadas
   const shouldIncludeHtml =
     (context.controls.length === 0 && context.questionText.length < 150) ||
     isComplexWidget ||
+    isGoogleForms ||
+    isWaygroundClassification ||
     (hasMathOrFormulas && context.questionText.length < 60)
 
   const htmlBlock = shouldIncludeHtml
