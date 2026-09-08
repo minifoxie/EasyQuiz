@@ -380,6 +380,7 @@ export function describeControl(element: HTMLElement, role: 'answer' | 'navigati
     element.getAttribute('draggable') === 'true' ||
     element.classList.contains('perseus-drag-item') ||
     element.classList.contains('sortable-item') ||
+    classStr.includes('cursor-grab') ||        // Wayground classification cards
     Boolean(element.getAttribute('aria-grabbed')) ||
     /drag|card|option|item/i.test(testId) ||
     /drag|card-item|sortable/i.test(classStr)

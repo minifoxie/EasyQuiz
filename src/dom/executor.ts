@@ -1032,15 +1032,49 @@ function dispatchSingleClick(element: HTMLElement): void {
 function findDragTarget(query: string, kind: 'source' | 'destination'): HTMLElement | null {
   const cleanQuery = cleanSearchTerm(query).toLowerCase()
   if (!cleanQuery) return null
-  const selector = kind === 'source' ? '.dnd-card, [draggable="true"]' : '[data-dropzone], [data-category], [data-role="dropzone"]'
-  const candidates = Array.from(document.querySelectorAll(selector)) as HTMLElement[]
-  const exactAttribute = kind === 'destination'
-    ? candidates.find((candidate) => [candidate.getAttribute('data-category'), candidate.getAttribute('data-dropzone')]
-      .some((value) => value?.trim().toLowerCase() === cleanQuery))
-    : null
+
+  if (kind === 'source') {
+    // 1. ID nativo exato (Wayground usa IDs hexadecimais nos cards)
+    if (/^[0-9a-f]{10,}$/.test(query.trim())) {
+      const byId = document.getElementById(query.trim())
+      if (byId && isVisible(byId) && !isInsideEasyQuiz(byId)) return byId
+    }
+    // 2. Seletores de origem drag: cursor-grab (Wayground), dnd-card, draggable=true
+    const sourceSelectors = [
+      '[class*="cursor-grab"][id]',
+      '.dnd-card',
+      '[draggable="true"]',
+    ]
+    for (const sel of sourceSelectors) {
+      const candidates = Array.from(document.querySelectorAll(sel)) as HTMLElement[]
+      const found = candidates.find((candidate) => {
+        if (!isVisible(candidate) || isInsideEasyQuiz(candidate)) return false
+        const haystack = cleanSearchTerm(
+          `${candidate.id} ${candidate.textContent || ''} ${candidate.getAttribute('data-id') || ''}`,
+        ).toLowerCase()
+        return haystack === cleanQuery || haystack.includes(cleanQuery) || candidate.id === query.trim()
+      })
+      if (found) return found
+    }
+    return null
+  }
+
+  // kind === 'destination'
+  // 1. Atributo data-category / data-dropzone exato
+  const destSelectors = '[data-dropzone], [data-category], [data-role="dropzone"], [class*="dropzone" i]'
+  const candidates = Array.from(document.querySelectorAll(destSelectors)) as HTMLElement[]
+
+  const exactAttribute = candidates.find((candidate) =>
+    [candidate.getAttribute('data-category'), candidate.getAttribute('data-dropzone')]
+      .some((value) => value?.trim().toLowerCase() === cleanQuery)
+  )
   if (exactAttribute && isVisible(exactAttribute) && !isInsideEasyQuiz(exactAttribute)) return exactAttribute
+
+  // 2. Busca por texto na zona (FATO, OPINIÃO, etc.)
   return candidates.find((candidate) => {
     if (!isVisible(candidate) || isInsideEasyQuiz(candidate)) return false
+    // Evita a zona unclassified como destino
+    if (/unclassified/i.test(candidate.className)) return false
     const haystack = cleanSearchTerm(
       `${candidate.textContent || ''} ${candidate.getAttribute('data-category') || ''} ${candidate.getAttribute('data-dropzone') || ''}`,
     ).toLowerCase()

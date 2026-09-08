@@ -279,11 +279,22 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
 
     if (tag === 'a') {
       const role = el.getAttribute('role')
+      const classStr = el.getAttribute('class') || ''
+      const testId = el.getAttribute('data-testid') || ''
+      const isDraggable =
+        el.getAttribute('draggable') === 'true' ||
+        el.classList.contains('perseus-drag-item') ||
+        el.classList.contains('sortable-item') ||
+        classStr.includes('cursor-grab') ||
+        Boolean(el.getAttribute('aria-grabbed')) ||
+        /drag|card|option|item/i.test(testId) ||
+        /drag|card-item|sortable/i.test(classStr)
       const isOption =
         role === 'button' ||
         role === 'radio' ||
         role === 'checkbox' ||
         role === 'option' ||
+        isDraggable ||
         el.closest('[class*="choice" i], [class*="option" i], [class*="answer" i], [data-testid*="option" i]')
       if (!isOption) continue
     }
@@ -315,22 +326,35 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
 
   if ((selectedElements.length === 0 || onlyUtilityButtons) && hasClassificationDOM) {
     if (onlyUtilityButtons) selectedElements.length = 0 // descarta falsos positivos
-    const leafCandidates = Array.from(
-      classRoot.querySelectorAll('button, div[class], span[class], p, li')
+
+    // PRIORIDADE 1: cards dragáveis com ID nativo (Wayground: cursor-grab + id hex)
+    const cursorGrabCards = Array.from(
+      classRoot.querySelectorAll('[class*="cursor-grab"][id], [draggable="true"][id], .dnd-card[id]')
     ) as HTMLElement[]
-    for (const el of leafCandidates) {
-      if (!isVisible(el) || isNavigationControl(el) || isUtilityOrGamificationControl(el)) continue
-      if (ANTI_NAVIGATION_PATTERN.test((el.textContent || '').trim())) continue
-      const txt = (el.textContent || '').trim()
-      if (txt.length < 2 || txt.length > 300) continue
-      const hasComplexChildren = Array.from(el.children).some(
-        (c) => (c as HTMLElement).className && (c as HTMLElement).textContent?.trim()
-      )
-      if (!hasComplexChildren) selectedElements.push(el)
-      if (selectedElements.length >= 50) break
+    if (cursorGrabCards.length > 0) {
+      for (const card of cursorGrabCards) {
+        if (!isVisible(card) || isUtilityOrGamificationControl(card)) continue
+        selectedElements.push(card)
+        if (selectedElements.length >= 50) break
+      }
+    } else {
+      // PRIORIDADE 2 (fallback): nós folha com texto (classificação por clique)
+      const leafCandidates = Array.from(
+        classRoot.querySelectorAll('button, div[class], span[class], p, li')
+      ) as HTMLElement[]
+      for (const el of leafCandidates) {
+        if (!isVisible(el) || isNavigationControl(el) || isUtilityOrGamificationControl(el)) continue
+        if (ANTI_NAVIGATION_PATTERN.test((el.textContent || '').trim())) continue
+        const txt = (el.textContent || '').trim()
+        if (txt.length < 2 || txt.length > 300) continue
+        const hasComplexChildren = Array.from(el.children).some(
+          (c) => (c as HTMLElement).className && (c as HTMLElement).textContent?.trim()
+        )
+        if (!hasComplexChildren) selectedElements.push(el)
+        if (selectedElements.length >= 50) break
+      }
     }
   }
-
 
   return selectedElements
     .slice(0, 100)
