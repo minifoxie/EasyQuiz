@@ -630,10 +630,18 @@ export class EasyQuizPanel {
                         <span class="eq-item-text">Importar Chaves em Lote</span>
                         <span class="eq-item-badge">Novo</span>
                       </button>
+                      <button class="eq-context-item" id="eq-menu-edit-text" type="button">
+                        <span class="eq-item-icon">${ICONS.edit}</span>
+                        <span class="eq-item-text">Ver / Editar Chaves como Texto</span>
+                      </button>
                       <div class="eq-context-divider"></div>
                       <button class="eq-context-item" id="eq-menu-test" type="button">
                         <span class="eq-item-icon">${ICONS.sparkles}</span>
                         <span class="eq-item-text">Testar Todas as Chaves</span>
+                      </button>
+                      <button class="eq-context-item danger" id="eq-menu-delete-all" type="button">
+                        <span class="eq-item-icon">${ICONS.trash}</span>
+                        <span class="eq-item-text">Apagar Todas as Chaves</span>
                       </button>
                       <button class="eq-context-item danger" id="eq-menu-reset" type="button">
                         <span class="eq-item-icon">${ICONS.trash}</span>
@@ -1372,7 +1380,127 @@ export class EasyQuizPanel {
     })
 
 
-    // 6. Testar Todas as Chaves — paralelo com validateModelFast
+    // 6. Ver / Editar Chaves como Texto
+    this.shadow.querySelector('#eq-menu-edit-text')?.addEventListener('click', () => {
+      this.keyContextMenu.hidden = true
+
+      // Remove overlay anterior se existir
+      this.shadow.querySelector('#eq-text-editor-overlay')?.remove()
+
+      const currentKeys = keyManager.exportRawKeys()
+      const overlay = document.createElement('div')
+      overlay.id = 'eq-text-editor-overlay'
+      overlay.style.cssText = [
+        'position:fixed', 'inset:0', 'z-index:2147483647', 'pointer-events:auto',
+        'background:rgba(0,0,0,0.82)', 'backdrop-filter:blur(4px)', '-webkit-backdrop-filter:blur(4px)',
+        'display:flex', 'align-items:center', 'justify-content:center',
+        'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+      ].join(';')
+
+      const card = document.createElement('div')
+      card.style.cssText = [
+        'background:#11151c', 'color:#e2e8f0', 'border:1px solid #283548',
+        'border-radius:12px', 'padding:20px', 'width:460px', 'max-width:94vw',
+        'font-size:13px', 'box-shadow:0 12px 40px rgba(0,0,0,0.85),0 0 0 1px rgba(0,229,255,0.15)',
+        'display:flex', 'flex-direction:column', 'gap:10px', 'pointer-events:auto',
+      ].join(';')
+
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1f2937;padding-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:16px;">🗝️</span>
+            <h3 style="margin:0;font-size:14px;color:#00e5ff;font-weight:700;">Ver / Editar Chaves como Texto</h3>
+          </div>
+          <button id="eq-edittext-x" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;border-radius:4px;" title="Fechar (Esc)">✕</button>
+        </div>
+        <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.5;">
+          Cada linha = uma chave. Edite, apague linhas ou cole novas. Clique <b style="color:#e2e8f0;">Salvar</b> para substituir todas as chaves atuais pelas do texto.
+        </p>
+        <textarea id="eq-edittext-ta"
+          style="width:100%;height:180px;background:#0b0f17;color:#4ade80;border:1px solid #334155;border-radius:8px;padding:10px;font-family:'JetBrains Mono',Consolas,monospace;font-size:11.5px;box-sizing:border-box;resize:vertical;outline:none;line-height:1.6;pointer-events:auto;user-select:text;-webkit-user-select:text;letter-spacing:0.02em;"
+          placeholder="Cole ou edite suas chaves aqui (uma por linha)"></textarea>
+        <div id="eq-edittext-status" style="min-height:16px;font-size:11px;color:#94a3b8;"></div>
+        <div style="display:flex;gap:8px;justify-content:space-between;margin-top:2px;align-items:center;">
+          <button id="eq-edittext-clear" type="button" style="background:#1e293b;color:#f87171;border:1px solid #7f1d1d;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:11px;font-weight:600;">🗑 Apagar Tudo</button>
+          <div style="display:flex;gap:8px;">
+            <button id="eq-edittext-cancel" type="button" style="background:#1e293b;color:#cbd5e1;border:1px solid #334155;border-radius:6px;padding:7px 16px;cursor:pointer;font-size:12px;font-weight:600;">Cancelar</button>
+            <button id="eq-edittext-save" type="button" style="background:#00e5ff;color:#031326;border:none;border-radius:6px;padding:7px 18px;cursor:pointer;font-size:12px;font-weight:700;box-shadow:0 0 12px rgba(0,229,255,0.25);">💾 Salvar</button>
+          </div>
+        </div>
+      `
+
+      overlay.appendChild(card)
+      this.shadow.appendChild(overlay)
+
+      const ta = card.querySelector('#eq-edittext-ta') as HTMLTextAreaElement
+      const statusEl = card.querySelector('#eq-edittext-status') as HTMLElement
+
+      // Popular textarea com as chaves atuais
+      ta.value = currentKeys.join('\n')
+
+      requestAnimationFrame(() => { ta.focus(); ta.select() })
+
+      const close = () => overlay.remove()
+
+      // Event shielding
+      ;['keydown', 'keyup', 'keypress', 'paste', 'copy', 'cut'].forEach((evt) => {
+        overlay.addEventListener(evt, (e) => { e.stopPropagation(); e.stopImmediatePropagation() }, true)
+      })
+      overlay.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Escape') close() })
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
+
+      card.querySelector('#eq-edittext-x')?.addEventListener('click', close)
+      card.querySelector('#eq-edittext-cancel')?.addEventListener('click', close)
+
+      card.querySelector('#eq-edittext-clear')?.addEventListener('click', () => {
+        if (confirm('Apagar todas as chaves? Esta ação é irreversível.')) {
+          ta.value = ''
+          statusEl.style.color = '#fbbf24'
+          statusEl.textContent = 'Campo limpo. Clique em Salvar para confirmar a remoção de todas as chaves.'
+        }
+      })
+
+      card.querySelector('#eq-edittext-save')?.addEventListener('click', () => {
+        const lines = ta.value
+          .split(/[\n\r]+/)
+          .map(l => l.trim().replace(/^["']|["']$/g, ''))
+          .filter(l => l.length > 5)
+
+        // Remove duplicatas
+        const unique = Array.from(new Set(lines))
+
+        // Reinicia o keyManager com as novas chaves
+        keyManager.init(unique)
+        const rawKeys = keyManager.exportRawKeys()
+        this.callbacks.onSettingsChange({ apiKey: rawKeys[0] || '', apiKeys: rawKeys })
+        this.renderKeysList()
+
+        statusEl.style.color = '#4ade80'
+        if (unique.length === 0) {
+          statusEl.textContent = '✓ Todas as chaves removidas.'
+        } else {
+          statusEl.textContent = `✓ ${unique.length} chave(s) salva(s) com sucesso!`
+        }
+        this.setStatus(unique.length > 0 ? `✓ ${unique.length} chave(s) salva(s)!` : 'Todas as chaves foram removidas.', unique.length > 0 ? 'success' : 'info')
+        setTimeout(close, 1400)
+      })
+    })
+
+    // 7. Apagar Todas as Chaves
+    this.shadow.querySelector('#eq-menu-delete-all')?.addEventListener('click', () => {
+      this.keyContextMenu.hidden = true
+      const keys = keyManager.getAllKeys()
+      if (keys.length === 0) return this.setStatus('Nenhuma chave para apagar.', 'info')
+      if (confirm(`Apagar todas as ${keys.length} chave(s) permanentemente?`)) {
+        keyManager.init([])
+        this.callbacks.onSettingsChange({ apiKey: '', apiKeys: [] })
+        this.renderKeysList()
+        this.setStatus('Todas as chaves foram removidas.', 'info')
+      }
+    })
+
+    // 8. Testar Todas as Chaves — paralelo com validateModelFast
+
     this.shadow.querySelector('#eq-menu-test')?.addEventListener('click', async () => {
       this.keyContextMenu.hidden = true
       const keys = keyManager.getAllKeys()
@@ -2386,31 +2514,25 @@ export class EasyQuizPanel {
         }
       })
 
-      // Botão Excluir
+      // Botão Excluir — sem restrição de mínimo de chaves
       const deleteBtn = document.createElement('button')
       deleteBtn.className = 'eq-icon-btn'
       deleteBtn.type = 'button'
       deleteBtn.title = 'Remover chave'
       deleteBtn.innerHTML = ICONS.trash
-      if (keys.length <= 1) {
-        deleteBtn.disabled = true
-        deleteBtn.style.opacity = '0.3'
-        deleteBtn.title = 'Você precisa manter pelo menos 1 chave cadastrada.'
-      } else {
-        deleteBtn.addEventListener('click', () => {
-          if (confirm(`Remover permanentemente a ${k.label || `Chave ${idx + 1}`}?`)) {
-            const res = keyManager.removeKey(k.id)
-            if (res.ok) {
-              const rawKeys = keyManager.exportRawKeys()
-              this.callbacks.onSettingsChange({ apiKey: rawKeys[0], apiKeys: rawKeys })
-              this.setStatus(`Chave removida com sucesso.`, 'info')
-              this.renderKeysList()
-            } else {
-              this.setStatus(res.message, 'warning')
-            }
+      deleteBtn.addEventListener('click', () => {
+        if (confirm(`Remover permanentemente a ${k.label || `Chave ${idx + 1}`}?`)) {
+          const res = keyManager.removeKey(k.id)
+          if (res.ok) {
+            const rawKeys = keyManager.exportRawKeys()
+            this.callbacks.onSettingsChange({ apiKey: rawKeys[0] || '', apiKeys: rawKeys })
+            this.setStatus(`Chave removida com sucesso.`, 'info')
+            this.renderKeysList()
+          } else {
+            this.setStatus(res.message, 'warning')
           }
-        })
-      }
+        }
+      })
 
       actions.appendChild(testBtn)
       actions.appendChild(editBtn)

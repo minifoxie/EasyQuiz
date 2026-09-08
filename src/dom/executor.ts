@@ -427,13 +427,6 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
   try { element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' as any }) } catch {}
   try { element.focus?.() } catch {}
 
-  const isNativeBtn =
-    (typeof HTMLButtonElement !== 'undefined' && element instanceof HTMLButtonElement) ||
-    (typeof HTMLAnchorElement !== 'undefined' && element instanceof HTMLAnchorElement) ||
-    element.tagName?.toLowerCase() === 'a' ||
-    element.tagName?.toLowerCase() === 'button' ||
-    (typeof HTMLInputElement !== 'undefined' && element instanceof HTMLInputElement && !['checkbox', 'radio'].includes(element.type))
-
   const rect = element.getBoundingClientRect()
   const cx = coords ? coords[0] : Math.round(rect.left + Math.max(1, rect.width / 2))
   const cy = coords ? coords[1] : Math.round(rect.top + Math.max(1, rect.height / 2))
@@ -447,7 +440,49 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
   try { element.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 })) } catch {}
   try { element.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 })) } catch {}
   try { element.click() } catch {}
+
+  // ---- FRAMEWORKS JS: React, Vue, Angular ----
+  // React: tentar acionar o onClick via internal fiber/props
+  try {
+    const fiberKey = Object.keys(element).find(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'))
+    if (fiberKey) {
+      let fiber = (element as any)[fiberKey]
+      while (fiber) {
+        const props = fiber.memoizedProps || fiber.pendingProps
+        if (props?.onClick) { props.onClick({ type: 'click', target: element, currentTarget: element, bubbles: true, cancelable: true, preventDefault: () => {}, stopPropagation: () => {} }); break }
+        fiber = fiber.return
+      }
+    }
+  } catch {}
+
+  // React (versão alternativa via __reactProps)
+  try {
+    const propsKey = Object.keys(element).find(k => k.startsWith('__reactProps'))
+    if (propsKey) {
+      const props = (element as any)[propsKey]
+      if (props?.onClick) props.onClick({ type: 'click', target: element, currentTarget: element, bubbles: true, cancelable: true, preventDefault: () => {}, stopPropagation: () => {} })
+    }
+  } catch {}
+
+  // Vue 3: _vei (vue event internals)
+  try {
+    const vei = (element as any)._vei
+    if (vei?.onClick) {
+      const handlers = Array.isArray(vei.onClick.value) ? vei.onClick.value : [vei.onClick.value]
+      handlers.forEach((h: Function) => { try { h({ type: 'click', target: element }) } catch {} })
+    }
+  } catch {}
+
+  // Angular: __zone_symbol__ ou ng_* atributos (disparo de evento já cobre)
+  // Último recurso: tecla Enter/Space se o elemento tem role=button ou é focável
+  if (element.getAttribute('role') === 'button' || element.getAttribute('tabindex') !== null) {
+    try {
+      element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true }))
+      element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true }))
+    } catch {}
+  }
 }
+
 
 function setNativeValue(element: HTMLElement, value: string): void {
   let target: HTMLElement = element
@@ -1580,6 +1615,36 @@ export function findBestNavigationButton(preferredId?: string): HTMLElement | nu
   ) as HTMLElement | null
   if (genericNext && isVisible(genericNext) && !isInsideEasyQuiz(genericNext) && !isUtilityOrGamificationControl(genericNext) && !isAntiAdvance(genericNext)) {
     return genericNext
+  }
+
+  // Prioridade D: input[type="submit"] visível não filtrado por texto (formulários que usam submit)
+  const submitInputs = Array.from(
+    document.querySelectorAll('input[type="submit"], button[type="submit"]')
+  ) as HTMLElement[]
+  for (const el of submitInputs) {
+    if (isVisible(el) && !isInsideEasyQuiz(el) && !isAntiAdvance(el) && !isUtilityOrGamificationControl(el)) {
+      return el
+    }
+  }
+
+  // Prioridade E (último recurso): qualquer botão visível na metade inferior da viewport
+  const allButtons = Array.from(document.querySelectorAll('button, [role="button"]')) as HTMLElement[]
+  const viewH = window.innerHeight
+  const bottomButtons = allButtons.filter(el => {
+    if (!isVisible(el) || isInsideEasyQuiz(el) || isAntiAdvance(el) || isUtilityOrGamificationControl(el)) return false
+    if (el.closest('header, nav, aside, .eq-sidebar')) return false
+    const rect = el.getBoundingClientRect()
+    return rect.top > viewH * 0.45 && rect.height >= 24 && rect.width >= 24
+  })
+  if (bottomButtons.length > 0) {
+    bottomButtons.sort((a, b) => {
+      const ra = a.getBoundingClientRect()
+      const rb = b.getBoundingClientRect()
+      const scoreA = ra.left + ra.top
+      const scoreB = rb.left + rb.top
+      return scoreB - scoreA
+    })
+    return bottomButtons[0]
   }
 
   return null
