@@ -276,15 +276,17 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
   }
 
   // 3ª passada (Fallback): widgets de classificação custom (Wayground, Quizizz classification)
-  // Ativado quando nenhum controle padrão foi encontrado mas o escopo parece ser um widget de classificação
+  // Ativado SOMENTE quando há seletores DOM explícitos de widget de classificação — NUNCA por texto
   if (selectedElements.length === 0) {
-    const isClassificationWidget =
-      scope.querySelector('[class*="classification" i], [data-cy*="quiz" i]') !== null ||
-      scope.matches?.('[class*="classification" i]') ||
-      (scope.textContent || '').includes('FATO') ||
-      (scope.textContent || '').includes('OPINI')
+    const hasClassificationDOM =
+      scope.querySelector('[class*="classification" i]') !== null ||
+      scope.querySelector('[data-cy*="quiz" i]') !== null ||
+      scope.querySelector('[class*="draggable-item" i]') !== null ||
+      scope.querySelector('[class*="drag-item" i]') !== null ||
+      scope.querySelector('[class*="sortable-card" i]') !== null ||
+      scope.matches?.('[class*="classification" i]')
 
-    if (isClassificationWidget) {
+    if (hasClassificationDOM) {
       // Coleta todos os nós folha clicáveis com texto não-vazio que não são navegação
       const leafCandidates = Array.from(
         scope.querySelectorAll('div[class], span[class], p, li, button')

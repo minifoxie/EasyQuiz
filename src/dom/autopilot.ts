@@ -278,22 +278,6 @@ export class Autopilot {
           this.errorCount = 0
         }
       } else {
-        // PÁGINA INFORMATIVA / ARTIGO / INÍCIO — análise de contexto
-        // Otimização: páginas de leitura extensa (>5000 chars, 0 controles de resposta) avançam direto
-        const isLongArticle = context.questionText.length > 5000 && answerControls.length === 0
-        if (isLongArticle) {
-          this.callbacks.onStatusChange('advancing', '> [SYS] 📖 Página de leitura extensa. Absorvendo e avançando...', 'text-blue')
-          const navBtn = findBestNavigationButton()
-          if (navBtn) {
-            await this.sleep(300)
-            if (!this.active) return
-            simulatePointerClick(navBtn)
-          }
-          this.resolvedSigs.add(contentSig)
-          this.errorCount = 0
-          return
-        }
-
         this.callbacks.onStatusChange('analyzing', '> [IA] Página informativa detectada. Consultando IA...', 'text-blue')
         if (!this.active) return
 

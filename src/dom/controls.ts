@@ -60,9 +60,10 @@ export const CONTROL_SELECTOR = [
 export const NAVIGATION_PATTERN =
   /(verificar|checar|check|conferir|validar|próxim[oa]|next|continuar|continue|avançar|prosseguir|enviar|submit|concluir|finalizar|terminar|começar|iniciar|start|vamos lá|próxima tarefa|next task|próxima pergunta|next question|marcar como concluíd[oa]|mostrar resumo|entendi|compreendi|ok|leitura concluída|seguir|ir para o exercício|fazer o teste|próximo artigo|ir para a aula)/i
 
-/** Padrão de retrocesso: nunca identificar estes como botões de avanço */
+/** Padrão de retrocesso: nunca identificar estes como botões de avanço.
+ * Só palavras INEQUIVOCAMENTE de retrocesso — sem falsos positivos em aria-labels ou texto composto. */
 export const ANTI_NAVIGATION_PATTERN =
-  /(\banterior\b|\bvoltar\b|\bback\b|\bprev\b|\bprevious\b|recomecar|recomecar|recomeçar|\brestart\b|\breplay\b|retornar|\binício\b|\bhome\b|\bmenu\b|\bexit\b|\bsair\b|\bpular\b|\bskip\b)/i
+  /(\banterior\b|\bvoltar\b|\bback\b|\bprev\b|\bprevious\b|recomeçar|\brestart\b|\breplay\b|\bretornar\b)/i
 
 let idSequence = 0
 
