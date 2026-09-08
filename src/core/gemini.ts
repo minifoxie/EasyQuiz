@@ -95,17 +95,17 @@ export function buildGenerationConfig(model: string): Record<string, unknown> {
   if (/lite/i.test(model)) {
     // Sem thinkingConfig
   }
-  // Gemini 3.5/3.6/3.7-flash: thinkingLevel 'none' → máxima velocidade
+  // Gemini 3.5/3.6/3.7-flash: 'low' thinking — raciocínio mínimo para evitar erros de classificacão
   else if (/gemini-3\.[567]-flash/i.test(model)) {
-    config.thinkingConfig = { thinkingLevel: 'none' }
+    config.thinkingConfig = { thinkingLevel: 'low' }
   }
   // Gemini 3.8-flash: 'low' mínimo — necessário pelo modelo
   else if (/gemini-3\.[89]|gemini-3\.[1-9][0-9]/i.test(model)) {
     config.thinkingConfig = { thinkingLevel: 'low' }
   }
-  // Gemini 2.5 Flash: thinkingBudget: 0 desativa o thinking — latência sub-segundo
+  // Gemini 2.5 Flash: budget 2048 — permite raciocínio sem explodir a latência
   else if (/gemini-2\.5-flash/i.test(model)) {
-    config.thinkingConfig = { thinkingBudget: 0 }
+    config.thinkingConfig = { thinkingBudget: 2048 }
   }
   // Gemini 2.5 Pro: exige mínimo de thinking — sem thinkingConfig
 
