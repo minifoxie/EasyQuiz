@@ -154,7 +154,42 @@ REGRAS ABSOLUTAS
 PLANO JSON (campos obrigatórios):
 { "pageType": "question|info|start|conclusion", "mode": "...", "confidence": 0.0-1.0, "rationale": "...", "actions": [...], "memoryToStore": "..." }
 memoryToStore: fato útil para questões futuras desta sessão (omitir se não houver nada relevante).
-`
+
+════════════════════════════════════════════════════════════
+L. SEM CONTROLES / INSPEÇÃO AUTÔNOMA DE PÁGINA
+════════════════════════════════════════════════════════════
+Se [RESPOSTAS] mostrar "Nenhuma" ou lista vazia, o sistema inclui:
+- [HTML]: HTML bruto da área ativa da página — inspecione para encontrar elementos interativos.
+- [DOM-INTERATIVO]: lista simplificada de elementos clicáveis/interativos detectados na página.
+
+Você tem autoridade total para agir sobre qualquer elemento que encontrar nesses blocos.
+Hierarquia de decisão autônoma (execute na ordem):
+
+  1º PRIORIDADE — Tente clk com texto exato ou ID do elemento:
+     Ex: {t:"clk", id:"x = 5"}  ou  {t:"clk", id:"btn-next"}
+     O sistema resolve o elemento por ID nativo, texto visiível ou aria-label.
+
+  2º PRIORIDADE — Tente clk com seletor CSS:
+     Ex: {t:"clk", id:"input[type='submit'][value='x = 5']"}
+         {t:"clk", id:"button.option-card:nth-child(2)"}
+         {t:"clk", id:"[data-answer='true']"}
+     O id pode ser qualquer seletor CSS válido — o sistema tenta document.querySelector(id).
+
+  3º PRIORIDADE — Use val com seletor CSS para preencher input/textarea que não apareceu em [RESPOSTAS]:
+     Ex: {t:"val", id:"#answer-input", v:"42"}
+         {t:"val", id:"textarea.response-field", v:"Texto da resposta"}
+
+  4º PRIORIDADE — Use js para injeção direta e completa quando nada mais funciona:
+     Ex: {t:"js", code:"document.querySelector('.option[data-idx=\"1\"]').click()"}
+         {t:"js", code:"$eq.val('#resp', '5'); $eq.clk('#btn-check')"}
+     API $eq disponível: $eq.clk(selector), $eq.val(selector, value), $eq.chk(selector, true)
+
+  5º — Só classifique como pageType:"info" e emita adv se tiver CERTEZA absoluta de que
+     não há NENHUM elemento interativo de resposta na página. Na dúvida, tente 1º ou 4º.
+
+REGRA CRÍTICA: Mesmo sem [RESPOSTAS], se o [TEXTO] contiver uma pergunta ou alternativas, a
+página É uma questão. Analise o [HTML] e [DOM-INTERATIVO] para encontrar como responder.
+` // fim SYSTEM_PROMPT
 
 
 function detectPlatformHint(url: string, html: string): string {
@@ -207,18 +242,48 @@ export function buildUserPrompt(
     (context.htmlSnippet.includes('classification') ||
       context.controls.filter((c) => c.role === 'answer').length === 0)
 
-  // HTML: só enviar quando estritamente necessário (sem controles extraídos, widget complexo ou fórmula não capturada)
-  // Se os controles de resposta já foram identificados no DOM, omitir HTML economiza tokens e previne tags HTML cortadas
+  // HTML: incluir quando estritamente necessário OU quando não há controles (inspeção autônoma)
+  const noAnswerControls = context.controls.filter(c => c.role !== 'navigation').length === 0
   const shouldIncludeHtml =
-    (context.controls.length === 0 && context.questionText.length < 150) ||
+    noAnswerControls ||
     isComplexWidget ||
     isGoogleForms ||
     isWaygroundClassification ||
     (hasMathOrFormulas && context.questionText.length < 60)
 
+  // Quando não há controles, enviar HTML mais longo para a IA inspecionar a página completa
+  const htmlLimit = noAnswerControls ? 4500 : 1800
   const htmlBlock = shouldIncludeHtml
-    ? `\n[HTML]:\n${context.htmlSnippet.slice(0, 1800).replace(/\s+/g, ' ')}`
+    ? `\n[HTML]:\n${context.htmlSnippet.slice(0, htmlLimit).replace(/\s+/g, ' ')}`
     : ''
+
+  // Bloco de inspeção DOM: lista simplificada de elementos interativos brutos (apenas quando sem controles)
+  let domInspectionBlock = ''
+  if (noAnswerControls && typeof document !== 'undefined') {
+    try {
+      const interactives = Array.from(
+        document.querySelectorAll('input:not([type=hidden]), textarea, select, button, [role="button"], [role="radio"], [role="checkbox"], [role="option"], [onclick], [data-action], a[href]:not([href="#"]), [tabindex]:not([tabindex="-1"])')
+      )
+        .filter((el) => {
+          const h = el as HTMLElement
+          const rect = h.getBoundingClientRect?.() || { width: 0, height: 0 }
+          return rect.width > 0 && rect.height > 0 && !h.closest('#easyquiz-shadow-root, .eq-sidebar')
+        })
+        .slice(0, 40)
+        .map((el) => {
+          const h = el as HTMLElement
+          const tag = h.tagName.toLowerCase()
+          const id = h.id ? `#${h.id}` : ''
+          const cls = h.className && typeof h.className === 'string' ? `.${h.className.trim().split(/\s+/).slice(0,2).join('.')}` : ''
+          const txt = (h.textContent || (h as HTMLInputElement).value || h.getAttribute('aria-label') || '').trim().slice(0, 60)
+          const type = h.getAttribute('type') || h.getAttribute('role') || ''
+          return `${tag}${id}${cls}[${type}] txt="${txt}"`
+        })
+      if (interactives.length > 0) {
+        domInspectionBlock = `\n[DOM-INTERATIVO]:\n${interactives.join('\n')}`
+      }
+    } catch {}
+  }
 
   const memories = getSessionMemories()
   const memoryBlock = memories.length > 0 ? `\n[MEMÓRIA]:\n${memories.join(' | ')}\n` : ''
@@ -235,7 +300,7 @@ export function buildUserPrompt(
 [PÁGINA]: ${context.pageTitle}${memoryBlock}${platformBlock}
 [DADOS]
 [TEXTO]:
-${context.questionText}${htmlBlock}
+${context.questionText}${htmlBlock}${domInspectionBlock}
 
 [RESPOSTAS]:
 ${
