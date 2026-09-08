@@ -4,6 +4,7 @@ import {
   ANTI_NAVIGATION_PATTERN,
   CONTROL_SELECTOR,
   describeControl,
+  isInsideEasyQuiz,
   isNavigationControl,
   isUtilityOrGamificationControl,
   isVisible,
@@ -352,6 +353,36 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
         )
         if (!hasComplexChildren) selectedElements.push(el)
         if (selectedElements.length >= 50) break
+      }
+    }
+  }
+
+  // 4ª passada: Wayground/Quizizz cursor-pointer option cards
+  // Ativa quando nenhum controle real foi encontrado OU quando só elementos 'other' (enunciado/labels) foram coletados
+  // Os cards de escolha do Wayground são <div class="cursor-pointer ... bg-ds-light-..."> com ID hexadecimal
+  // e NÃO têm role="button", input interno, nem class "option/choice" — por isso escapam das passadas anteriores
+  const onlyOtherType = selectedElements.length > 0 && selectedElements.every(el => {
+    const txt = (el.textContent || '').trim()
+    // 'other' sem ID real ou com texto muito curto = label/enunciado, não é opção de resposta
+    return !el.id || txt.length < 10 || /^\d+\s*\/\s*\d+$/.test(txt) || /^question text/i.test(txt)
+  })
+
+  if (selectedElements.length === 0 || onlyOtherType) {
+    if (onlyOtherType) selectedElements.length = 0 // descarta labels/enunciado
+    // Wayground choice: [class*=cursor-pointer][id] com texto de opção (10-500 chars)
+    const cursorPointerCards = Array.from(
+      document.body.querySelectorAll('[class*="cursor-pointer"][id]')
+    ) as HTMLElement[]
+    if (cursorPointerCards.length > 0) {
+      for (const card of cursorPointerCards) {
+        if (!isVisible(card) || isInsideEasyQuiz(card)) continue
+        if (isNavigationControl(card) || isUtilityOrGamificationControl(card)) continue
+        if (ANTI_NAVIGATION_PATTERN.test((card.textContent || '').trim())) continue
+        const txt = (card.textContent || '').trim()
+        if (txt.length < 10 || txt.length > 500) continue // muito curto = progress/label; muito longo = container
+        if (/^\d+\s*\/\s*\d+$/.test(txt)) continue // "4/10" é progresso, não opção
+        selectedElements.push(card)
+        if (selectedElements.length >= 20) break
       }
     }
   }
