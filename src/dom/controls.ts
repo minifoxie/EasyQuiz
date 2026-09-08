@@ -275,17 +275,19 @@ export function isNavigationControl(element: Element | null): boolean {
   // Nunca marcar como navegação se o texto indica retrocesso (voltar, anterior, back, etc.)
   if (ANTI_NAVIGATION_PATTERN.test(testableText) || ANTI_NAVIGATION_PATTERN.test(text)) return false
 
-  return (
-    NAVIGATION_PATTERN.test(testableText) ||
-    NAVIGATION_PATTERN.test(text) ||
-    type === 'submit' ||
-    testId.includes('next') ||
-    testId.includes('check') ||
-    testId.includes('continue') ||
-    testId.includes('proximo') ||
-    testId.includes('forward') ||
-    false
-  )
+  // Matches explícitos de texto/aria/id de navegação de avanço
+  if (NAVIGATION_PATTERN.test(testableText) || NAVIGATION_PATTERN.test(text)) return true
+  if (testId.includes('next') || testId.includes('check') || testId.includes('continue') || testId.includes('proximo') || testId.includes('forward')) return true
+
+  // Apenas número de página puro ("1", "2", "12") — não "x = 3" nem "x = 5"
+  // Um número só é nav se for exclusivamente dígitos (navegador entre páginas/questões)
+  if (/^\d{1,3}$/.test(text.trim())) return true
+
+  // type=submit NÃO qualifica sozinho — seria falso positivo para quizzes onde as
+  // alternativas são renderizadas como input[type=submit] ("x = 3", "x = 5", etc.)
+  // Apenas qualifica se já havia match por texto acima.
+  if (type === 'submit') return false
+  return false
 }
 
 export function labelForControl(element: HTMLElement): string {

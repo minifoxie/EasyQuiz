@@ -1,12 +1,14 @@
 import type { CapturedContext, ControlDescriptor } from '../core/types'
 import {
   cleanText,
+  ANTI_NAVIGATION_PATTERN,
   CONTROL_SELECTOR,
   describeControl,
   isNavigationControl,
   isUtilityOrGamificationControl,
   isVisible,
 } from './controls'
+
 
 const CANDIDATE_SELECTORS = [
   // Khan Academy & Perseus
@@ -237,6 +239,9 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
   // 1ª passada: inputs nativos e selects
   for (const el of allElements) {
     if (!isVisible(el) || isNavigationControl(el) || isUtilityOrGamificationControl(el)) continue
+    // Descarta botões de retrocesso ("Anterior", "Voltar", etc.) que não são barrados por isNavigationControl
+    const elText = ((el as HTMLInputElement).value || el.textContent || '').trim()
+    if (ANTI_NAVIGATION_PATTERN.test(elText)) continue
     const tag = el.tagName.toLowerCase()
 
     if (['input', 'textarea', 'select'].includes(tag)) {
@@ -248,6 +253,9 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
   // 2ª passada: cards, labels e botões que representam opções customizadas (sem input interno já coletado)
   for (const el of allElements) {
     if (!isVisible(el) || isNavigationControl(el) || isUtilityOrGamificationControl(el)) continue
+    // Descarta botões de retrocesso que escapam do isNavigationControl
+    const elText2 = ((el as HTMLInputElement).value || el.textContent || '').trim()
+    if (ANTI_NAVIGATION_PATTERN.test(elText2)) continue
     const tag = el.tagName.toLowerCase()
 
     if (['input', 'textarea', 'select'].includes(tag)) continue
