@@ -279,14 +279,21 @@ export function isNavigationControl(element: Element | null): boolean {
   if (NAVIGATION_PATTERN.test(testableText) || NAVIGATION_PATTERN.test(text)) return true
   if (testId.includes('next') || testId.includes('check') || testId.includes('continue') || testId.includes('proximo') || testId.includes('forward')) return true
 
-  // Apenas número de página puro ("1", "2", "12") — não "x = 3" nem "x = 5"
-  // Um número só é nav se for exclusivamente dígitos (navegador entre páginas/questões)
-  if (/^\d{1,3}$/.test(text.trim())) return true
+  // Número puro ("1", "2", "12") só é nav se estiver em contexto EXPLICITAMENTE de paginação:
+  // parent com classe/aria de pagination, step-indicator, breadcrumb, etc.
+  // SEM contexto, um número é potencialmente uma alternativa de quiz ("1", "2", "3", "4").
+  if (/^\d{1,3}$/.test(text.trim())) {
+    const paginationContext = element.closest?.(
+      '[class*="pagination" i], [class*="pager" i], [class*="page-nav" i], [class*="step-indicator" i], '
+      + '[class*="breadcrumb" i], [aria-label*="p\u00e1gina" i], [aria-label*="page" i], '
+      + '[role="navigation"], nav, [class*="steps" i]'
+    )
+    if (paginationContext) return true
+    // Sem contexto de paginação, número puro não é nav (pode ser alternativa de quiz)
+    return false
+  }
 
-  // type=submit NÃO qualifica sozinho — seria falso positivo para quizzes onde as
-  // alternativas são renderizadas como input[type=submit] ("x = 3", "x = 5", etc.)
-  // Apenas qualifica se já havia match por texto acima.
-  if (type === 'submit') return false
+  // type=submit NÃO qualifica sozinho
   return false
 }
 
