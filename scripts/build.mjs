@@ -87,6 +87,66 @@ const userscriptHeader = `// ==UserScript==
 const bundleContent = await readFile(path.join(dist, 'easyquiz.js'), 'utf-8')
 await writeFile(path.join(dist, 'easyquiz.user.js'), userscriptHeader + bundleContent, 'utf-8')
 
+// ============================================================
+// PAGINA INSTALADORA DO BOOKMARKLET
+// ============================================================
+// Cria dist/instalar_bookmarklet.html — pagina local que permite
+// arrastar o bookmarklet inline para a barra de favoritos do browser.
+// Resolve o problema de copiar 300KB de texto manualmente.
+// ============================================================
+const bmEscaped = bookmarkletCode
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+
+const installerHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>EasyQuiz — Instalar Bookmarklet</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px}
+    .card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:40px;max-width:640px;width:100%;text-align:center}
+    h1{font-size:28px;background:linear-gradient(90deg,#58a6ff,#bc8cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+    .badge{display:inline-block;background:#1f6feb;color:#fff;font-size:11px;padding:2px 8px;border-radius:20px;margin-bottom:24px}
+    p{color:#8b949e;line-height:1.6;margin-bottom:20px}
+    .step{display:flex;align-items:flex-start;gap:12px;text-align:left;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:14px;margin-bottom:10px}
+    .step-num{background:#1f6feb;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:2px}
+    .step-text{color:#c9d1d9;font-size:14px;line-height:1.5}
+    .step-text strong{color:#e6edf3}
+    .bm-link{display:inline-block;background:linear-gradient(135deg,#238636,#2ea043);color:#fff;padding:16px 32px;border-radius:8px;text-decoration:none;font-size:17px;font-weight:700;margin:24px 0;cursor:grab;border:2px dashed #3fb950;transition:all .2s}
+    .bm-link:hover{background:linear-gradient(135deg,#2ea043,#3fb950);transform:scale(1.03);box-shadow:0 0 20px rgba(63,185,80,.3)}
+    .works{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px 0}
+    .works span{background:#21262d;border:1px solid #30363d;border-radius:20px;padding:4px 12px;font-size:12px;color:#8b949e}
+    .works span::before{content:'\u2713 ';color:#3fb950}
+    .note{background:#161b22;border:1px solid #f0883e44;border-radius:8px;padding:12px 16px;color:#f0883e;font-size:13px;margin-top:16px;text-align:left}
+    .note strong{color:#ffa657}
+    code{background:#21262d;padding:2px 6px;border-radius:4px;font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>EasyQuiz Pro</h1>
+    <span class="badge">BOOKMARKLET INLINE — SEM EVAL, SEM FETCH — ANTI-CSP</span>
+    <p>Arraste o bot&#xE3;o abaixo para a <strong>barra de favoritos</strong>. Funciona em qualquer site, incluindo Google Forms e sites com CSP restrito.</p>
+    <div style="margin:24px 0">
+      <a class="bm-link" href="${bmEscaped}" title="Arraste para a barra de favoritos">&#x1F3AF; EasyQuiz &#x2014; Arrastar para Favoritos</a>
+    </div>
+    <div class="works">
+      <span>Google Forms</span><span>Wayground</span><span>Quizizz</span><span>Moodle</span><span>Khan Academy</span><span>Qualquer site</span>
+    </div>
+    <div class="step"><div class="step-num">1</div><div class="step-text">Ative a <strong>barra de favoritos</strong> (Ctrl+Shift+B no Chrome/Edge)</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text">Arraste o bot&#xE3;o verde acima para a barra de favoritos</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text">Acesse qualquer quiz/formul&#xE1;rio e clique no favorito instalado</div></div>
+    <div class="note"><strong>&#x26A0;&#xFE0F; Se n&#xE3;o conseguir arrastar:</strong><br>Bot&#xE3;o direito na barra de favoritos &#x2192; Adicionar p&#xE1;gina &#x2192; cole o conte&#xFA;do de <code>dist/bookmarklet.txt</code> no campo URL.</div>
+  </div>
+</body>
+</html>`
+
+await writeFile(path.join(dist, 'instalar_bookmarklet.html'), installerHtml, 'utf-8')
+
 // Informações de tamanho para diagnóstico
 const bookmarkletSize = Buffer.byteLength(bookmarkletCode, 'utf-8')
 const bundleSize = Buffer.byteLength(bundleContent, 'utf-8')
