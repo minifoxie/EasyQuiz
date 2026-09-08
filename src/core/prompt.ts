@@ -217,7 +217,12 @@ function detectPlatformHint(url: string, html: string): string {
   if (/wayground|quizizz/i.test(url) || html.includes('data-functional-selector')) {
     const isClassification = html.includes('classification') || html.toLowerCase().includes('fato') || html.toLowerCase().includes('opini')
     if (isClassification) {
-      return '[PLATAFORMA: Wayground/Quizizz CLASSIFICAÇÃO — items são cards com botões de categoria; use clk no id do item/categoria OU drag com from=texto_item, to=nome_categoria]'
+      return '[PLATAFORMA: Wayground/Quizizz CLASSIFICAÇÃO drag-and-drop]\n'
+        + '[RESPOSTAS] terá items com t="draggable" e id hexadecimal (ex: 695fa5b6...).\n'
+        + 'Use EXCLUSIVAMENTE: {t:"drag", from:"ID_hexadecimal_do_card", to:"NOME_DA_CATEGORIA"}\n'
+        + 'Exemplo: {t:"drag",from:"695fa5b69885555d8155a5ac",to:"FATO"}\n'
+        + 'Classifique TODOS os items (1 drag por item) antes de emitir adv.\n'
+        + 'mode: "arrastar_soltar"'
     }
     return '[PLATAFORMA: Wayground/Quizizz — alternativas são cards clicáveis, use clk]'
   }

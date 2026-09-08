@@ -1061,7 +1061,14 @@ function findDragTarget(query: string, kind: 'source' | 'destination'): HTMLElem
 
   // kind === 'destination'
   // 1. Atributo data-category / data-dropzone exato
-  const destSelectors = '[data-dropzone], [data-category], [data-role="dropzone"], [class*="dropzone" i]'
+  const destSelectors = [
+    '[data-dropzone]',
+    '[data-category]',
+    '[data-role="dropzone"]',
+    '[class*="dropzone" i]',
+    '[class*="list-group" i]',           // Wayground: colunas de categorias são list-group
+    '[class*="classification-group" i]', // alternativa Quizizz
+  ].join(',')
   const candidates = Array.from(document.querySelectorAll(destSelectors)) as HTMLElement[]
 
   const exactAttribute = candidates.find((candidate) =>
@@ -1071,14 +1078,15 @@ function findDragTarget(query: string, kind: 'source' | 'destination'): HTMLElem
   if (exactAttribute && isVisible(exactAttribute) && !isInsideEasyQuiz(exactAttribute)) return exactAttribute
 
   // 2. Busca por texto na zona (FATO, OPINIÃO, etc.)
+  //    Exclui: zona unclassified E zona cujo header é 'Opções' (pool de items não classificados)
   return candidates.find((candidate) => {
     if (!isVisible(candidate) || isInsideEasyQuiz(candidate)) return false
-    // Evita a zona unclassified como destino
     if (/unclassified/i.test(candidate.className)) return false
-    const haystack = cleanSearchTerm(
-      `${candidate.textContent || ''} ${candidate.getAttribute('data-category') || ''} ${candidate.getAttribute('data-dropzone') || ''}`,
-    ).toLowerCase()
-    return haystack === cleanQuery || haystack.includes(cleanQuery)
+    // Pega só o header da zona (primeiro child bold) para validar — evita falso positivo pelo conteúdo dos items
+    const headerEl = candidate.querySelector('.font-bold, h1, h2, h3, h4, [class*="header" i], [class*="title" i], [class*="label" i]')
+    const headerText = cleanSearchTerm(headerEl?.textContent || candidate.textContent || '').toLowerCase()
+    if (headerText.includes('op') && (headerText.includes('es') || headerText.includes('ões'))) return false // exclui 'Opções'
+    return headerText === cleanQuery || headerText.startsWith(cleanQuery) || headerText.includes(cleanQuery)
   }) || null
 }
 
