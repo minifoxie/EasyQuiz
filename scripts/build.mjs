@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
 
@@ -30,17 +30,44 @@ const buildOptions = {
 
 await build(buildOptions)
 
-// Bookmarklet Supremo (Anti-Cache)
-const githubRepo = 'minifoxie/EasyQuiz'
-const rawUrl = `https://raw.githubusercontent.com/${githubRepo}/main/dist/easyquiz.js`
+// ============================================================
+// BOOKMARKLET SUPREMO — INLINE / AUTO-CONTIDO (Anti-CSP)
+// ============================================================
+// Por que inline e não fetch+eval?
+//
+// Problema com fetch+eval:
+//   - eval() é bloqueado por Trusted Types (Google Forms, GitHub, etc.)
+//   - fetch() a raw.githubusercontent.com é bloqueado por connect-src CSP
+//   - script.src = url é bloqueado por TrustedScriptURL
+//
+// Solução: javascript: URL com bundle completo embutido inline
+//   - O browser trata javascript: de bookmark como gesture do usuário (não CSP da página)
+//   - Sem eval, sem fetch, sem innerHTML — tudo é DOM API segura
+//   - Funciona em Google Forms, Wayground, Quizizz, qualquer site
+//
+// Limitação: bookmarklet fica grande (~200KB minificado). Browsers modernos
+// suportam javascript: URLs de qualquer tamanho quando salvas como favorito.
+// ============================================================
 
-// Versão compacta com fetch + eval para driblar MIME text/plain e Cache do Github
-const bookmarkletCode = `javascript:fetch('${rawUrl}?t='+Date.now()).then(r=>r.text()).then(eval);`
+const bundleRaw = await readFile(path.join(dist, 'easyquiz.js'), 'utf-8')
+
+// Remove o banner de comentário do topo (/* ... */) para economizar bytes
+const bundleClean = bundleRaw.replace(/^\/\*[\s\S]*?\*\/\s*/, '')
+
+// Wrap: protege variáveis globais e garante que o bundle não polua o escopo
+// void 0 no final evita que o browser tente navegar para o valor de retorno
+const bookmarkletCode = `javascript:(function(){${bundleClean}})();void 0`
 
 await writeFile(path.join(dist, 'bookmarklet.txt'), `${bookmarkletCode}\n`, 'utf-8')
 
-// Userscript para Tampermonkey / Violentmonkey
-const pkg = JSON.parse(await import('node:fs').then((fs) => fs.readFileSync(path.join(root, 'package.json'), 'utf-8')))
+// Versão legacy fetch+eval (mantida como bookmarklet_legacy.txt para quem quiser)
+const githubRepo = 'minifoxie/EasyQuiz'
+const rawUrl = `https://raw.githubusercontent.com/${githubRepo}/main/dist/easyquiz.js`
+const legacyBookmarklet = `javascript:fetch('${rawUrl}?t='+Date.now()).then(r=>r.text()).then(eval);`
+await writeFile(path.join(dist, 'bookmarklet_legacy.txt'), `${legacyBookmarklet}\n`, 'utf-8')
+
+// Userscript para Tampermonkey / Violentmonkey (mais robusto que bookmarklet em sites restritos)
+const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf-8'))
 const version = pkg.version || '2.1.0'
 
 const userscriptHeader = `// ==UserScript==
@@ -57,10 +84,15 @@ const userscriptHeader = `// ==UserScript==
 // ==/UserScript==
 
 `
-const bundleContent = await import('node:fs').then((fs) => fs.readFileSync(path.join(dist, 'easyquiz.js'), 'utf-8'))
+const bundleContent = await readFile(path.join(dist, 'easyquiz.js'), 'utf-8')
 await writeFile(path.join(dist, 'easyquiz.user.js'), userscriptHeader + bundleContent, 'utf-8')
 
+// Informações de tamanho para diagnóstico
+const bookmarkletSize = Buffer.byteLength(bookmarkletCode, 'utf-8')
+const bundleSize = Buffer.byteLength(bundleContent, 'utf-8')
+
 console.log('[EasyQuiz] Build concluído com sucesso!')
-console.log(`- Artefato JS: dist/easyquiz.js`)
-console.log(`- Bookmarklet: dist/bookmarklet.txt`)
+console.log(`- Artefato JS: dist/easyquiz.js (${(bundleSize / 1024).toFixed(1)} KB)`)
+console.log(`- Bookmarklet: dist/bookmarklet.txt (${(bookmarkletSize / 1024).toFixed(1)} KB inline — sem eval, sem fetch)`)
+console.log(`- Bookmarklet legacy: dist/bookmarklet_legacy.txt (fetch+eval — pode falhar em sites com CSP)`)
 console.log(`- Userscript: dist/easyquiz.user.js`)

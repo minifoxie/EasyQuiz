@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "EasyQuiz",
+  "version": "2.3.6",
+  "description": "Assistente inteligente de auto-resposta para formulários e quizzes com IA",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "dist/easyquiz.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "icons": {
+    "16": "assets/icon-16.png",
+    "48": "assets/icon-48.png",
+    "128": "assets/icon-128.png"
+  }
+}

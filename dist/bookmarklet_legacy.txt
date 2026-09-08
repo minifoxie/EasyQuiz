@@ -1,0 +1,1 @@
+javascript:fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/easyquiz.js?t='+Date.now()).then(r=>r.text()).then(eval);

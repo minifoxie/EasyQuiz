@@ -7,6 +7,44 @@ import { FloatingAnswersHud } from './floatingHud'
 import { ICONS } from './icons'
 import { PANEL_STYLES } from './styles'
 
+// ====================================================================
+// TRUSTED TYPES SAFE INNERHTML
+// Sites com CSP strict (Google Forms, GitHub, etc.) bloqueiam innerHTML
+// com strings puras quando require-trusted-types-for 'script' está ativo.
+// Esta função cria uma política TrustedHTML para o EasyQuiz quando necessário.
+// Em sites sem Trusted Types, usa innerHTML direto (comportamento padrão).
+// ====================================================================
+const _eqTT = (() => {
+  try {
+    if (typeof (window as any).trustedTypes?.createPolicy === 'function') {
+      return (window as any).trustedTypes.createPolicy('easyquiz-ui#html', {
+        createHTML: (s: string) => s,
+      })
+    }
+  } catch {}
+  return null
+})()
+
+export function setHTMLSafe(el: Element | ShadowRoot, html: string): void {
+  try {
+    if (_eqTT) {
+      // Trusted Types ativo: cria TrustedHTML e usa para atribuir
+      el.innerHTML = _eqTT.createHTML(html)
+      return
+    }
+  } catch {}
+  // Fallback 1: setHTMLUnsafe (Chrome 124+ nativo, bypassa Trusted Types check para shadow root)
+  try {
+    if (typeof (el as any).setHTMLUnsafe === 'function') {
+      ;(el as any).setHTMLUnsafe(html)
+      return
+    }
+  } catch {}
+  // Fallback 2: innerHTML direto (sites sem Trusted Types)
+  el.innerHTML = html
+}
+
+
 export interface PanelCallbacks {
   onAnalyze: (attempt?: number, signal?: AbortSignal, isAutopilot?: boolean) => Promise<AnalysisPlan | void>
   onApply: (attempt?: number) => void
@@ -206,7 +244,7 @@ export class EasyQuizPanel {
 
     this.shadow = this.host.attachShadow({ mode: 'open' })
 
-    this.shadow.innerHTML = `
+    setHTMLSafe(this.shadow, `
       <style>${PANEL_STYLES}</style>
 
       <!-- Botão Flutuante Inferior Renovado (Cápsula com Status ao Vivo) -->
@@ -710,7 +748,7 @@ export class EasyQuizPanel {
             </div>
           </main>
         </aside>
-    `
+    `)
 
     // Bindings de Layout
     this.launcherBtn = this.shadow.querySelector('.eq-launcher') as HTMLButtonElement
