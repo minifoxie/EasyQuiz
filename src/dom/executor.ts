@@ -441,7 +441,8 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
   try { element.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 })) } catch {}
   try { element.click() } catch {}
 
-  // ---- FRAMEWORKS JS: React, Vue, Angular ----
+  // ---- FRAMEWORKS JS: React, Vue, Angular, Svelte, LitElement ----
+
   // React: tentar acionar o onClick via internal fiber/props
   try {
     const fiberKey = Object.keys(element).find(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'))
@@ -473,6 +474,39 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
     }
   } catch {}
 
+  // Svelte: $onclick / __svelte_meta
+  try {
+    if ((element as any).$onclick) {
+      (element as any).$onclick({ type: 'click', target: element, preventDefault: () => {}, stopPropagation: () => {} })
+    }
+  } catch {}
+
+  // Google Forms (Closure): event delegation via document — dispara novamente no document
+  // O Forms registra listeners em document/body com event delegation, então precisa re-propagar
+  try {
+    const isGForm = Boolean(
+      document.querySelector('meta[content*="google.com/forms"], form[action*="formResponse"]') ||
+      element.closest('[data-item-id], [jsmodel], [jsaction], .freebirdFormviewerComponentsQuestionBaseRoot')
+    )
+    if (isGForm) {
+      // Para radio/checkbox do Google Forms: clica no input nativo se disponível
+      const innerInput = element.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null
+      if (innerInput) {
+        innerInput.focus?.()
+        innerInput.click()
+        // Atualiza o checked via descriptor nativo
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
+        setter?.call(innerInput, true)
+        innerInput.dispatchEvent(new Event('change', { bubbles: true }))
+      }
+      // Re-dispara o click no elemento pai com jsaction (Closure event dispatcher)
+      const jsactionEl = element.closest('[jsaction]') as HTMLElement | null
+      if (jsactionEl && jsactionEl !== element) {
+        try { jsactionEl.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy })) } catch {}
+      }
+    }
+  } catch {}
+
   // Angular: __zone_symbol__ ou ng_* atributos (disparo de evento já cobre)
   // Último recurso: tecla Enter/Space se o elemento tem role=button ou é focável
   if (element.getAttribute('role') === 'button' || element.getAttribute('tabindex') !== null) {
@@ -482,6 +516,7 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
     } catch {}
   }
 }
+
 
 
 function setNativeValue(element: HTMLElement, value: string): void {

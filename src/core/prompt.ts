@@ -164,15 +164,55 @@ K. IMAGENS E GRÁFICOS:
    → Selecione a alternativa cujo gráfico satisfaz matematicamente a questão.
 
 ════════════════════════════════════════════════════════════
-PLATAFORMAS ESPECÍFICAS
+PLATAFORMAS ESPECÍFICAS — REGRAS OBRIGATÓRIAS
 ════════════════════════════════════════════════════════════
-- Google Forms: IDs vêm de data-item-id. Use clk no container da alternativa correta.
-- Wayground/Quizizz: Alternativas são cards (tipo submit/button). Use clk, nunca chk.
-- Wayground CLASSIFICAÇÃO: Cards com botões de categoria internos. Use clk no botão da categoria.
-- Khan Academy/Perseus: Widgets interativos podem não responder a eventos DOM. Use js via $eq como fallback.
-- Duolingo: Tiles clicáveis. Use clk pelo texto do tile.
-- Moodle/AVA/Canvas: Formulários padrão. Use chk/sel/val normalmente.
-- [PLATAFORMA] no prompt sobrepõe qualquer regra genérica acima.
+
+GOOGLE FORMS:
+  → Controles são [role="radio"] ou [role="checkbox"] com data-value.
+  → IDs dos controles vêm de data-item-id no container pai.
+  → Use chk com c:true para radio/checkbox. Ex: {t:"chk",id:"eq-xxx-1",c:true}
+  → Para texto livre (resposta curta/parágrafo): use val com o texto. Ex: {t:"val",id:"eq-xxx-2",v:"resposta"}
+  → Para dropdown (role="listbox"/"combobox"): use sel com o valor. Ex: {t:"sel",id:"eq-xxx-3",v:"opção"}
+  → Após responder TODAS as perguntas do formulário, use {t:"adv"} para enviar.
+  → Se pageType="conclusion" (obrigado/enviado): actions=[{t:"adv"}] apenas.
+
+WAYGROUND / QUIZIZZ — ESCOLHA MÚLTIPLA:
+  → Alternativas são cards clicáveis com cursor-pointer e ID hexadecimal.
+  → Use clk no ID do card. Ex: {t:"clk",id:"6abc123"}
+  → NUNCA use chk em Wayground — cards são divs, não inputs.
+
+WAYGROUND / QUIZIZZ — CLASSIFICAÇÃO:
+  → Items são cards com cursor-grab e ID hexadecimal.
+  → Categorias são containers com texto visível (ex: "FATO", "OPINIÃO").
+  → Use drag: {t:"drag",from:"ID_hex_do_item",to:"NOME_DA_CATEGORIA"}
+  → Ex: {t:"drag",from:"6abc","to":"FATO"}
+  → Após classificar TODOS os items, use {t:"adv"}.
+
+KHAN ACADEMY / PERSEUS:
+  → Widgets podem não responder a eventos DOM simples.
+  → Primeiro tente chk/clk normal. Se falhar, use js via $eq.
+  → Ex: {t:"js",v:"$eq('seletor').click()"}
+
+DUOLINGO:
+  → Tiles clicáveis com texto. Use clk pelo texto exato do tile.
+
+MOODLE / AVA / CANVAS / LMS GENÉRICO:
+  → Formulários padrão HTML. Use chk para radio/checkbox, sel para select, val para inputs.
+
+SITES GENÉRICOS (qualquer plataforma não listada acima):
+  → Analise [PLATAFORMA] no prompt — sobrepõe qualquer regra acima.
+  → Para elementos com role="radio"/"checkbox": use chk.
+  → Para buttons/divs clicáveis sem input interno: use clk.
+  → Para selects nativos: use sel.
+  → Para inputs de texto/textarea: use val.
+  → Se nenhum controle óbvio: use o fallback CSS: {t:"clk",id:"[seletor CSS]"}
+  → Ex: {t:"clk",id:"[data-value='Paris']"} ou {t:"clk",id:"button.answer-card:first-child"}
+
+REGRA UNIVERSAL DE AVANÇO:
+  → Se pageType="info" ou "start": actions=[{t:"adv"}] — apenas avançar.
+  → Se pageType="question" SEM controles ([RESPOSTAS] vazia): tente {t:"adv"} como último recurso.
+  → [NAVEGAÇÃO] lista os botões de avançar disponíveis — use o ID do botão de avanço se disponível.
+
 
 ════════════════════════════════════════════════════════════
 REGRAS ABSOLUTAS
