@@ -82,7 +82,7 @@ export let preferredFastModel: string | null = null
 export function buildGenerationConfig(model: string): Record<string, unknown> {
   const config: Record<string, unknown> = {
     temperature: 0.0,
-    maxOutputTokens: 1500, // Permite preenchimento de múltiplos campos (ex: matrizes 3x3 com 9+ campos) sem truncar JSON
+    maxOutputTokens: 1800, // Extra tokens para o campo 'thinking' sem truncar actions
     responseMimeType: 'application/json',
     responseSchema: GEMINI_JSON_SCHEMA,
     response_mime_type: 'application/json',
@@ -91,21 +91,21 @@ export function buildGenerationConfig(model: string): Record<string, unknown> {
 
   // Modelos 'lite' (ex: gemini-3.5-flash-lite):
   // NUNCA enviar thinkingConfig! Modelos lite não suportam thinking no endpoint do Google AI Studio;
-  // enviar causava erro HTTP 400 e forçava uma segunda chamada inteira, dobrando a latência.
   if (/lite/i.test(model)) {
     // Sem thinkingConfig
   }
-  // Gemini 3.5/3.6/3.7-flash: 'low' thinking — raciocínio mínimo para evitar erros de classificacão
+  // Gemini 3.5/3.6/3.7-flash: thinkingLevel 'low' — raciocínio leve antes de responder
+  // Evita respostas impulsivas sem penalidade severa de latência
   else if (/gemini-3\.[567]-flash/i.test(model)) {
     config.thinkingConfig = { thinkingLevel: 'low' }
   }
-  // Gemini 3.8-flash: 'low' mínimo — necessário pelo modelo
+  // Gemini 3.8-flash e acima: 'low' mínimo — necessário pelo modelo
   else if (/gemini-3\.[89]|gemini-3\.[1-9][0-9]/i.test(model)) {
     config.thinkingConfig = { thinkingLevel: 'low' }
   }
-  // Gemini 2.5 Flash: budget 2048 — permite raciocínio sem explodir a latência
+  // Gemini 2.5 Flash: thinkingBudget: 128 — pensamento leve habilitado
   else if (/gemini-2\.5-flash/i.test(model)) {
-    config.thinkingConfig = { thinkingBudget: 2048 }
+    config.thinkingConfig = { thinkingBudget: 128 }
   }
   // Gemini 2.5 Pro: exige mínimo de thinking — sem thinkingConfig
 
@@ -132,6 +132,7 @@ const GEMINI_JSON_SCHEMA = {
     },
     confidence: { type: 'NUMBER' },
     rationale: { type: 'STRING' },
+    thinking: { type: 'STRING' }, // Raciocínio interno leve (1-3 linhas) antes de decidir a resposta
     memoryToStore: { type: 'STRING' },
     actions: {
       type: 'ARRAY',
