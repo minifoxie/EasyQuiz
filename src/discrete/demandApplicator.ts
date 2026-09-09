@@ -202,14 +202,9 @@ export class DemandApplicator {
     const t = String(action.t ?? '')
     try {
       if (t === 'chk' || t === 'clk') {
-        const el = this.resolveEl(action)
-        if (!el) { this.toast.flash('Miss'); return false }
-        const cb = t === 'chk'
-          ? (el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio')
-              ? el : el.querySelector('input[type=checkbox],input[type=radio]') as HTMLInputElement | null)
-          : null
-        if (cb && !cb.checked) simulatePointerClick(cb)
-        else simulatePointerClick(el)
+        // O clique do usuário JÁ aconteceu (não usamos preventDefault).
+        // Não re-simulamos — isso causaria double-click (ex: desmarcaria checkbox).
+        // Apenas registramos a ação e avançamos.
         return true
       }
 

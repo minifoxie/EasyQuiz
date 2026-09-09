@@ -31,9 +31,10 @@ export class KeyMenu {
     s.textContent = `
       #__eqkm_overlay__ {
         position: fixed; inset: 0;
-        background: rgba(0,0,0,0.32);
+        background: rgba(0,0,0,0.22);
         z-index: 2147483643;
-        display: flex; align-items: center; justify-content: center;
+        display: flex; align-items: flex-start; justify-content: center;
+        padding-top: 24px;
         animation: __eqkm_ov__ 0.1s ease;
       }
       @keyframes __eqkm_ov__ { from{opacity:0} to{opacity:1} }

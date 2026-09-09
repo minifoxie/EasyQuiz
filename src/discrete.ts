@@ -80,10 +80,12 @@ async function initDiscrete(): Promise<void> {
 
   toast.flash('EQ Ativo')
 
-  // ── Análise ────────────────────────────────────────────────────────────
+  // ── Análise com retry persistente ────────────────────────────────────────
 
-  async function doAnalyze(proactive = false, isRetry = false): Promise<void> {
-    // Cancela retry agendado
+  let retryCount = 0
+  const RETRY_DELAYS = [1500, 3000, 5000, 8000]  // backoff até 8s
+
+  async function doAnalyze(proactive = false, retry = 0): Promise<void> {
     if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
 
     // Cancela análise anterior
@@ -98,29 +100,33 @@ async function initDiscrete(): Promise<void> {
     }
 
     analyzing = true
+    retryCount = retry
     currentAbort = new AbortController()
     const signal = currentAbort.signal
 
     coin.setState('loading')
-    if (!proactive || isRetry) toast.flash(isRetry ? 'Tentando...' : 'Analisando')
+    if (!proactive || retry > 0) toast.flash(retry > 0 ? `Tentativa ${retry + 1}` : 'Analisando')
+
+    function scheduleRetry(): void {
+      const delay = RETRY_DELAYS[Math.min(retry, RETRY_DELAYS.length - 1)]
+      retryTimer = window.setTimeout(() => {
+        if (!applicator.isActive()) void doAnalyze(false, retry + 1)
+      }, delay)
+    }
 
     try {
-      // Captura contexto — aguarda até 1.2s para o DOM estabilizar
-      await new Promise(r => setTimeout(r, proactive ? 800 : 0))
+      // Aguarda DOM estabilizar em scans proativos
+      if (proactive) await new Promise(r => setTimeout(r, 700))
       if (signal.aborted) return
 
       let ctx = captureCurrentContext(false)
       if (!ctx) ctx = captureFullPageText()
 
       if (!ctx || !ctx.questionText?.trim()) {
-        // Nenhum conteúdo detectável — agenda retry automático em 2.5s
         coin.setState('idle')
-        if (!proactive) toast.flash('Sem conteúdo')
-        if (!isRetry) {
-          retryTimer = window.setTimeout(() => {
-            if (!analyzing && !applicator.isActive()) void doAnalyze(true, true)
-          }, 2500)
-        }
+        if (retry === 0 && !proactive) toast.flash('Sem conteúdo')
+        // Sempre retenta — talvez a página ainda esteja carregando
+        scheduleRetry()
         return
       }
 
@@ -151,26 +157,21 @@ async function initDiscrete(): Promise<void> {
       )
 
       if (plan.pageType === 'info' || plan.pageType === 'start') {
-        coin.flashOk(1200)
+        coin.flashOk(1000)
         toast.flash('Avançar')
         if (flow.length > 0) applicator.start(flow)
         return
       }
 
       if (!flow.length) {
-        // Fluxo vazio — retry automático único após 1.5s
-        toast.flash('Reprocessando')
-        if (!isRetry) {
-          retryTimer = window.setTimeout(() => void doAnalyze(false, true), 1500)
-        } else {
-          toast.flash('Fluxo indisponível')
-          coin.flashError(1500)
-        }
+        // IA retornou mas sem fluxo — retenta
+        scheduleRetry()
         return
       }
 
-      // Sucesso — inicia fluxo
-      coin.flashOk(600)
+      // Sucesso
+      retryCount = 0
+      coin.flashOk(500)
       const first = flow[0]
       toast.flash(first.hint || 'Pronto')
       if (first.customMsg) setTimeout(() => toast.flash(first.customMsg!), 1400)
@@ -183,21 +184,19 @@ async function initDiscrete(): Promise<void> {
 
       if (m.includes('403') || m.includes('API key') || m.includes('inválida')) {
         toast.flash('Acesso negado')
-      } else if (m.includes('429') || m.includes('Quota') || m.includes('RESOURCE_EXHAUSTED')) {
-        toast.flash('Limite atingido')
-      } else if (m.includes('cancelad') || m.includes('AbortError')) {
-        // silencioso — foi cancelado intencionalmente
+        coin.flashError()
+        // Não retenta em erro de auth
         return
-      } else {
-        toast.flash('Falha — Shift+Q')
-        // Retry automático em falhas de rede após 3s
-        if (!isRetry) {
-          retryTimer = window.setTimeout(() => {
-            if (!analyzing && !applicator.isActive()) void doAnalyze(false, true)
-          }, 3000)
-        }
       }
-      coin.flashError()
+      if (m.includes('429') || m.includes('Quota') || m.includes('RESOURCE_EXHAUSTED')) {
+        toast.flash('Limite — aguarde')
+        coin.flashError()
+        scheduleRetry()
+        return
+      }
+      // Qualquer outro erro: retenta silenciosamente
+      coin.flashError(800)
+      scheduleRetry()
     } finally {
       if (currentAbort?.signal === signal) currentAbort = null
       analyzing = false
