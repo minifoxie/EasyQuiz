@@ -182,7 +182,7 @@ export class DemandApplicator {
     }
   }
 
-  // ── Teclado — GATILHO para injeção de texto ───────────────────────────────
+  // ── Teclado — GATILHO para injeção de texto (1 caractere por tecla) ────────
 
   private onKey(e: KeyboardEvent): void {
     if (IGNORE_KEYS.has(e.key) || isEqHotkey(e)) return
@@ -201,7 +201,8 @@ export class DemandApplicator {
     if (action.t !== 'val') return
 
     const fullText = String(action.v ?? '')
-    const chars    = step.chars ?? 3
+    // SEMPRE 1 caractere por tecla — fidelidade máxima ao input do usuário
+    const chars = 1
 
     // Texto vazio: qualquer tecla avança para o próximo step
     if (fullText.length === 0) {
@@ -212,7 +213,7 @@ export class DemandApplicator {
       return
     }
 
-    // Injeta chars no campo ALVO
+    // Injeta 1 caractere no campo ALVO por tecla pressionada
     const done = this.insertChars(this.stepIdx, action, fullText, chars)
 
     if (done) {
@@ -508,22 +509,25 @@ export class DemandApplicator {
       ? ['v', 'verdadeiro', 'true', '1', 't', 'sim', 'correto']
       : ['f', 'falso', 'false', '0', 'não', 'nao', 'incorreto', 'errado']
 
-    // 2. Se nameStr foi fornecido (ex: "vf_row_1"), busca diretamente o rádio desse grupo
+    // 2. Se nameStr foi fornecido (ex: "vf_row_1"), busca diretamente o rádio desse grupo por value JS (evita CSS i-flag não suportado)
     if (nameStr) {
+      const groupRadios = Array.from(
+        document.querySelectorAll(`input[name="${safeCssEscape(nameStr)}"]`)
+      ) as HTMLInputElement[]
+
       if (valStr) {
-        const byExact = document.querySelector(
-          `input[name="${safeCssEscape(nameStr)}"][value="${safeCssEscape(valStr)}" i]`
-        ) as HTMLElement | null
-        if (byExact) return byExact
+        // Busca por value exato (case-insensitive via JS)
+        const byVal = groupRadios.find(r => r.value?.toLowerCase() === valStr.toLowerCase())
+        if (byVal) return byVal
       }
 
       if (isVf) {
-        const groupRadios = Array.from(
-          document.querySelectorAll(`input[type="radio"][name="${safeCssEscape(nameStr)}"], input[name="${safeCssEscape(nameStr)}"]`)
-        ) as HTMLElement[]
-        const matched = groupRadios.find(r => this.isVfMatch(r, vfKeywords))
+        const matched = groupRadios.find(r => this.isVfMatch(r as HTMLElement, vfKeywords))
         if (matched) return matched
       }
+
+      // Fallback: retorna o primeiro rádio do grupo se apenas nameStr foi fornecido
+      if (groupRadios.length > 0) return groupRadios[0] as HTMLElement
     }
 
     // 3. Busca elemento por ID estrito ou label através do findElementExt
@@ -605,8 +609,10 @@ export class DemandApplicator {
     const aria = (element.getAttribute('aria-label') || '').trim().toLowerCase()
     const dataVal = (element.getAttribute('data-value') || '').trim().toLowerCase()
 
-    // Verifica valor e atributos do próprio elemento
-    if (keywords.includes(val) || keywords.includes(dataVal) || keywords.includes(aria)) return true
+    // Correspondência exata de value via JS (case-insensitive) — mais confiável que CSS `i` flag
+    if (val && keywords.includes(val)) return true
+    if (dataVal && keywords.includes(dataVal)) return true
+    if (aria && keywords.includes(aria)) return true
 
     // Verifica classes específicas de V/F (.vf-true, .vf-false)
     const labelOrCell = element.closest('label, td, [class*="option" i], [class*="choice" i]')
@@ -614,7 +620,7 @@ export class DemandApplicator {
     if (keywords.includes('v') && (combinedClass.includes('vf-true') || combinedClass.includes('true') || combinedClass.includes('verdadeiro'))) return true
     if (keywords.includes('f') && (combinedClass.includes('vf-false') || combinedClass.includes('false') || combinedClass.includes('falso'))) return true
 
-    // Verifica o label associado ou célula imediata (td, label)
+    // Verifica o label associado ou célula imediata (td, label) — texto contendo a palavra
     if (labelOrCell) {
       const txt = cleanSearchTerm(labelOrCell.textContent || '').trim().toLowerCase()
       for (const kw of keywords) {

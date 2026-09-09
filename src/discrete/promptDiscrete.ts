@@ -21,8 +21,8 @@ REGRAS DO interactionFlow:
 2. Triggers válidos:
    - "key"   → qualquer tecla (para val/texto)
    - "click" → qualquer clique (para chk/clk/sel/drag/adv)
-3. Para ação "val" (texto): use trigger="key" com chars = ceil(len(v) / 6) mín 2.
-   O sistema insere chars caracteres por keypress gradualmente.
+3. Para ação "val" (texto): use trigger="key" com chars=1 (o sistema insere EXATAMENTE 1 char por keypress).
+   Nunca use chars maior que 1 — 1 tecla = 1 caractere injetado.
 4. Para ação "chk","clk": trigger="click".
 5. Para ação "sel" (dropdown): 2 steps — step N = abrir (click), step N+1 = selecionar (click).
 6. Para ação "drag": trigger="click" por item (1 clique = 1 drag).
@@ -42,7 +42,34 @@ REGRAS DO interactionFlow:
 12. Questão simples (1 clique): 1-2 steps. Complexa (redação, categorização, multi-select): até 20 steps.
 13. Nunca revele a resposta nos hints/customMsg — são termos de sistema disfarçados.
 14. Se actions[] contiver múltiplos {t:"chk"}, certifique-se de incluir 1 step por chk em interactionFlow.
-15. Para questões de Verdadeiro/Falso em grade/tabela: N afirmações = N ações chk e N steps de trigger="click" (1 clique por linha/afirmação) + 1 step adv. NUNCA resuma múltiplas afirmações a um único step.
+
+═══════════════════════════════════════════════════════════
+REGRA ESPECIAL — QUESTÕES DE VERDADEIRO OU FALSO (Grade/Tabela de radio buttons)
+═══════════════════════════════════════════════════════════
+Quando a questão tiver uma TABELA de julgamento V/F (cada linha com radio buttons V e F):
+- Cada linha da tabela = 1 action do tipo {t:"chk"} + 1 step trigger="click".
+- NUNCA use o atributo "id" gerado pelo sistema (eq-...) para estes rádios.
+- SEMPRE use o campo "name" (ex: "vf_row_1") + "v" (valor exacto "V" ou "F") para identificar o radio correto.
+- O campo "v" na action DEVE ser exatamente "V" (Verdadeiro) ou "F" (Falso) — sempre maiúsculo.
+- Formato correto de action para V/F: { "t": "chk", "name": "vf_row_1", "v": "V", "c": true }
+- Formato ERRADO: { "t": "chk", "id": "eq-abc123", "c": true } ← NUNCA use só id sem name+v!
+- Se o controle exposto tiver "name" disponível no controls[], USE-O OBRIGATORIAMENTE.
+- N afirmações na tabela = N actions chk (uma por linha) + N steps de trigger="click" + 1 step adv.
+- NUNCA resuma múltiplas linhas a um único step.
+
+Exemplo de fluxo correto para tabela V/F com 3 linhas (linha1=V, linha2=F, linha3=V):
+actions: [
+  { "t": "chk", "name": "vf_row_1", "v": "V", "c": true },
+  { "t": "chk", "name": "vf_row_2", "v": "F", "c": true },
+  { "t": "chk", "name": "vf_row_3", "v": "V", "c": true },
+  { "t": "adv", "label": "Verificar resposta" }
+]
+interactionFlow: [
+  { "step": 1, "trigger": "click", "action": { "t": "chk", "name": "vf_row_1", "v": "V", "c": true }, "hint": "Mouse Interact" },
+  { "step": 2, "trigger": "click", "action": { "t": "chk", "name": "vf_row_2", "v": "F", "c": true }, "hint": "Mouse Interact" },
+  { "step": 3, "trigger": "click", "action": { "t": "chk", "name": "vf_row_3", "v": "V", "c": true }, "hint": "Mouse Interact" },
+  { "step": 4, "trigger": "click", "action": { "t": "adv", "label": "Verificar resposta" }, "hint": "Confirmar" }
+]
 
 SCHEMA JSON OBRIGATÓRIO (adicional ao plano normal):
 {
@@ -53,16 +80,16 @@ SCHEMA JSON OBRIGATÓRIO (adicional ao plano normal):
       "step": 1,
       "trigger": "key",
       "action": { "t": "val", "id": "eq-xxx", "v": "texto completo" },
-      "chars": 3,
+      "chars": 1,
       "hint": "Keyboard Interact",
       "customMsg": null
     },
     {
       "step": 2,
       "trigger": "click",
-      "action": { "t": "chk", "id": "eq-yyy", "c": true },
+      "action": { "t": "chk", "name": "vf_row_1", "v": "V", "c": true },
       "hint": "Mouse Interact",
-      "customMsg": "Confirm Option"
+      "customMsg": null
     }
   ]
 }
@@ -102,9 +129,8 @@ export function buildFallbackFlow(actions: Record<string, unknown>[]): Interacti
   for (const action of actions) {
     const t = action.t as string
     if (t === 'val') {
-      const v = String(action.v ?? '')
-      const chars = Math.max(2, Math.ceil(v.length / 6))
-      flow.push({ step: step++, trigger: 'key', action, chars, hint: 'Keyboard Interact', customMsg: null })
+      // chars=1: o sistema injeta 1 caractere por keypress
+      flow.push({ step: step++, trigger: 'key', action, chars: 1, hint: 'Keyboard Interact', customMsg: null })
     } else if (t === 'chk' || t === 'clk') {
       flow.push({ step: step++, trigger: 'click', action, hint: 'Mouse Interact', customMsg: null })
     } else if (t === 'sel') {
