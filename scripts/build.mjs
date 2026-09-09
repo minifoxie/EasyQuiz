@@ -80,12 +80,12 @@ const bookmarkletCode = `javascript:(function(){${bundleClean}})();void 0`
 
 await writeFile(path.join(dist, 'bookmarklet.txt'), `${bookmarkletCode}\n`, 'utf-8')
 
-// Versão legacy fetch+eval (mantida como bookmarklet_legacy.txt para quem quiser)
-// Usa jsDelivr (CDN global via CloudFlare) em vez de raw.githubusercontent.com
-// para evitar 503 Service Unavailable intermitentes do GitHub Raw.
+// Versão legacy fetch+eval
+// Usa raw.githubusercontent.com com cache:'no-store' para SEMPRE buscar o código mais novo.
+// O jsDelivr cacheia @main por até 7 dias e ignora query strings — por isso foi abandonado.
 const githubRepo = 'minifoxie/EasyQuiz'
-const rawUrl = `https://cdn.jsdelivr.net/gh/${githubRepo}@main/dist/easyquiz.js`
-const legacyBookmarklet = `javascript:fetch('${rawUrl}?t='+Date.now()).then(r=>r.text()).then(eval);`
+const rawBase = `https://raw.githubusercontent.com/${githubRepo}/main/dist`
+const legacyBookmarklet = `javascript:(function(){fetch('${rawBase}/easyquiz.js',{cache:'no-store'}).then(r=>r.text()).then(code=>{try{(0,eval)(code)}catch(e){alert('EasyQuiz erro: '+e)}})})();`
 await writeFile(path.join(dist, 'bookmarklet_legacy.txt'), `${legacyBookmarklet}\n`, 'utf-8')
 
 // ============================================================
@@ -96,9 +96,8 @@ const discreteClean = discreteRaw.replace(/^\/\*[\s\S]*?\*\/\s*/, '')
 const discreteBookmarkletCode = `javascript:(function(){${discreteClean}})();void 0`
 await writeFile(path.join(dist, 'bookmarklet_discrete.txt'), `${discreteBookmarkletCode}\n`, 'utf-8')
 
-// Versão curta legacy (fetch+eval) — jsDelivr (mais confiável que raw.githubusercontent.com)
-const discreteLegacyUrl = `https://cdn.jsdelivr.net/gh/${githubRepo}@main/dist/discrete.js`
-const discreteLegacy = `javascript:fetch('${discreteLegacyUrl}?t='+Date.now()).then(r=>r.text()).then(eval);`
+// Versão legacy do Discreto — também com cache:'no-store' e raw GitHub
+const discreteLegacy = `javascript:(function(){fetch('${rawBase}/discrete.js',{cache:'no-store'}).then(r=>r.text()).then(code=>{try{(0,eval)(code)}catch(e){alert('EasyQuiz Discreto erro: '+e)}})})();`
 await writeFile(path.join(dist, 'bookmarklet_discrete_legacy.txt'), `${discreteLegacy}\n`, 'utf-8')
 
 
