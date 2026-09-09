@@ -1,15 +1,20 @@
 /**
- * CoinCursor — Cursor Discreto e Fiel ao Windows 10
- * 
+ * CoinCursor — Cursor Discreto Modo Discreto
+ *
  * 1. Spinner Windows 10 fiel:
- *    - Fundo do círculo/trilha em branco sólido (#FFFFFF) sem transparência.
- *    - Arco giratório em azul Windows 10 (#0078D7).
- *    - Rotação perfeita em torno do centro (transform-origin: 50% 50%) — sem loop de subir/descer.
- * 2. Posicionamento colado ao mouse:
- *    - Exatamente à direita da ponta do cursor (mouseX + 14, mouseY - 2), sem deslocamento para baixo.
- * 3. Ícones limpos (Check e X):
- *    - Sem caixa/fundo, apenas o traçado vetorial nas cores verde (#107C10) e vermelho (#C42B1C)
- *    - Filtro drop-shadow sutil para nitidez em fundos claros e escuros.
+ *    - Trilha branca sólida (#FFFFFF) com furo no meio (fill="none").
+ *    - Arco giratório azul Windows 10 (#0078D7).
+ *    - Tamanho: 14×14px (25% menor que 18px).
+ *    - Traçado: 3.5px (15%+ mais grosso que 2.6px na escala do elemento menor).
+ *
+ * 2. Smooth follow com pequeno delay:
+ *    - O ícone segue o mouse com lerp LERP=0.22 (~55ms de delay suave @ 60fps).
+ *    - No primeiro movimento, a posição é snapada instantaneamente.
+ *    - Colado à direita do cursor (displayX+11, displayY-2).
+ *
+ * 3. Ícones Check/X:
+ *    - Traçado vetorial limpo, sem caixa/fundo.
+ *    - Drop-shadow sutil para contraste em qualquer fundo.
  */
 
 export type CoinState = 'idle' | 'loading' | 'ok' | 'error'
@@ -19,12 +24,22 @@ export class CoinCursor {
   private state: CoinState = 'idle'
   private mouseX = -300
   private mouseY = -300
+  private displayX = -300  // posição suavizada via lerp
+  private displayY = -300  // posição suavizada via lerp
   private rafId: number | null = null
   private flashTimer: number | null = null
   private boundMove: (e: MouseEvent) => void
 
   constructor() {
-    this.boundMove = (e: MouseEvent) => { this.mouseX = e.clientX; this.mouseY = e.clientY }
+    this.boundMove = (e: MouseEvent) => {
+      this.mouseX = e.clientX
+      this.mouseY = e.clientY
+      // Snap imediato na primeira detecção de mouse — sem atraso inicial
+      if (this.displayX === -300) {
+        this.displayX = e.clientX
+        this.displayY = e.clientY
+      }
+    }
     window.addEventListener('mousemove', this.boundMove, { passive: true })
     this.injectStyle()
     this.createEl()
@@ -42,8 +57,8 @@ export class CoinCursor {
       }
       #__eqdiscrete_coin__ {
         position: fixed;
-        width: 18px;
-        height: 18px;
+        width: 14px;
+        height: 14px;
         z-index: 2147483646;
         pointer-events: none;
         display: none;
@@ -55,8 +70,8 @@ export class CoinCursor {
         border: none !important;
       }
       .__eqdc_ring__ {
-        width: 18px;
-        height: 18px;
+        width: 14px;
+        height: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -81,11 +96,15 @@ export class CoinCursor {
   }
 
   private startRaf(): void {
+    // LERP = 0.22 → ~3-4 frames de lag @ 60fps = ~55ms de delay suave
+    // Sensação: "flutua" levemente atrás do cursor, mas extremamente responsivo
+    const LERP = 0.22
     const tick = () => {
       if (this.el && this.state !== 'idle') {
-        // Exatamente do lado direito do ponteiro do mouse, quase colado e nivelado com o cursor
-        const x = Math.min(this.mouseX + 14, window.innerWidth - 22)
-        const y = Math.min(Math.max(this.mouseY - 2, 2), window.innerHeight - 22)
+        this.displayX += (this.mouseX - this.displayX) * LERP
+        this.displayY += (this.mouseY - this.displayY) * LERP
+        const x = Math.min(this.displayX + 11, window.innerWidth - 18)
+        const y = Math.min(Math.max(this.displayY - 2, 2), window.innerHeight - 18)
         this.el.style.left = `${x}px`
         this.el.style.top  = `${y}px`
       }
@@ -107,29 +126,27 @@ export class CoinCursor {
     el.style.display = 'block'
 
     if (state === 'loading') {
-      // Anel giratório Windows 10 com furo no meio (contorno branco e azul)
+      // Anel giratório Windows 10: 14px, stroke 3.5, furo no meio (fill=none)
       el.innerHTML = `
         <div class="__eqdc_ring__">
-          <svg class="__eqdc_svg_icon__" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20">
-            <!-- Contorno branco sólido com furo no meio (fill="none") -->
-            <circle cx="10" cy="10" r="7.5" fill="none" stroke="#FFFFFF" stroke-width="2.6"/>
-            <!-- Arco rotativo azul Windows 10 (#0078D7) -->
-            <circle cx="10" cy="10" r="7.5" fill="none" stroke="#0078D7" stroke-width="2.6"
-              stroke-dasharray="26 22" stroke-linecap="round"/>
+          <svg class="__eqdc_svg_icon__" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20">
+            <!-- Trilha branca sólida — define o furo no centro -->
+            <circle cx="10" cy="10" r="7" fill="none" stroke="#FFFFFF" stroke-width="3.5"/>
+            <!-- Arco azul Windows 10 (#0078D7) giratório -->
+            <circle cx="10" cy="10" r="7" fill="none" stroke="#0078D7" stroke-width="3.5"
+              stroke-dasharray="22 22" stroke-linecap="round"/>
           </svg>
         </div>`
     } else if (state === 'ok') {
-      // Ícone verificado limpo, sem fundo, traço verde sólido
       el.innerHTML = `
-        <svg class="__eqdc_svg_icon__" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20">
+        <svg class="__eqdc_svg_icon__" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20">
           <polyline points="3,10 8,15.5 17,4.5"
             fill="none" stroke="#107C10" stroke-width="2.8"
             stroke-linecap="round" stroke-linejoin="round"/>
         </svg>`
     } else if (state === 'error') {
-      // Ícone X limpo, sem fundo, traço vermelho sólido
       el.innerHTML = `
-        <svg class="__eqdc_svg_icon__" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20">
+        <svg class="__eqdc_svg_icon__" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20">
           <line x1="4" y1="4" x2="16" y2="16" stroke="#C42B1C" stroke-width="2.8" stroke-linecap="round"/>
           <line x1="16" y1="4" x2="4" y2="16" stroke="#C42B1C" stroke-width="2.8" stroke-linecap="round"/>
         </svg>`

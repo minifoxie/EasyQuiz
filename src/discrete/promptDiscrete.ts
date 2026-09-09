@@ -157,11 +157,16 @@ export function normalizeFlow(raw: unknown, actions: unknown[]): InteractionStep
     if (!item || typeof item !== 'object') continue
     const s = item as Record<string, unknown>
     const trigger = s.trigger === 'key' ? 'key' : 'click'
+    const action = (s.action || {}) as Record<string, unknown>
+
+    // Auto-reparação: val steps SEMPRE chars=1
+    const chars = trigger === 'key' ? 1 : undefined
+
     result.push({
       step: typeof s.step === 'number' ? s.step : result.length + 1,
       trigger,
-      action: (s.action || {}) as Record<string, unknown>,
-      chars: typeof s.chars === 'number' ? Math.max(1, s.chars) : undefined,
+      action,
+      chars,
       hint: typeof s.hint === 'string' ? s.hint.slice(0, 30) : (trigger === 'key' ? 'Keyboard Interact' : 'Mouse Interact'),
       customMsg: typeof s.customMsg === 'string' ? s.customMsg.slice(0, 22) : null,
     })
@@ -172,7 +177,70 @@ export function normalizeFlow(raw: unknown, actions: unknown[]): InteractionStep
     return buildFallbackFlow(actions as Record<string, unknown>[])
   }
 
-  return result
+  // ── Auto-reparação de problemas comuns na saída da IA ────────────────────────
+  return repairFlow(result, actions as Record<string, unknown>[])
+}
+
+/**
+ * repairFlow — Camada de sanidade pós-normalização.
+ *
+ * Corrige 3 classes de problemas frequentes em outputs de IA:
+ *
+ * 1. Steps chk/clk sem action válida (action vazio ou com só `t`) — reconstrói a partir de actions[].
+ * 2. Steps chk com `name` ausente mas `id` do tipo "eq-..." — tenta recuperar `name` do DOM.
+ * 3. Elimina steps duplicados consecutivos idênticos (evita double-inject).
+ */
+function repairFlow(
+  flow: InteractionStep[],
+  actions: Record<string, unknown>[],
+): InteractionStep[] {
+  const repaired: InteractionStep[] = []
+
+  for (let i = 0; i < flow.length; i++) {
+    const step = flow[i]
+    const act = step.action as Record<string, unknown>
+
+    // ── Reparo 1: action vazia ou sem tipo — tenta pegar da actions[] correspondente ──
+    if (!act.t && actions[i]) {
+      step.action = actions[i]
+    }
+
+    // ── Reparo 2: chk sem name mas com id do tipo eq-xxx — tenta recuperar name do DOM ──
+    if (act.t === 'chk' && !act.name && act.id) {
+      const idStr = String(act.id)
+      if (idStr.startsWith('eq-') || idStr.match(/^[a-z0-9]+-[a-z0-9]+-[a-z0-9]+$/)) {
+        try {
+          const el = document.querySelector(`[data-easyquiz-id="${idStr}"], #${idStr}`) as HTMLInputElement | null
+          if (el?.name) {
+            ;(step.action as Record<string, unknown>).name = el.name
+            if (el.value && el.value !== 'on') {
+              ;(step.action as Record<string, unknown>).v = el.value
+            }
+          }
+        } catch {}
+      }
+    }
+
+    // ── Reparo 3: elimina step duplicado consecutivo exato ──
+    const prev = repaired[repaired.length - 1]
+    if (prev) {
+      const prevAct = prev.action as Record<string, unknown>
+      const isDup =
+        prev.trigger === step.trigger &&
+        prevAct.t === act.t &&
+        prevAct.name === act.name &&
+        prevAct.v === act.v &&
+        prevAct.id === act.id
+      if (isDup) {
+        // Mantém o step mais informativo
+        continue
+      }
+    }
+
+    repaired.push(step)
+  }
+
+  return repaired.length > 0 ? repaired : flow
 }
 
 /** Constrói o prompt de usuário para o modo discreto (reutiliza buildUserPrompt base) */
@@ -183,3 +251,4 @@ export function buildDiscreteUserPrompt(
 ): string {
   return buildUserPrompt(context, images, settings)
 }
+

@@ -52,6 +52,14 @@ export class DemandApplicator {
   private state: ApplicatorState = 'idle'
   private isExecuting = false
 
+  // ── Proteção contra input rápido ──────────────────────────────────────────
+  /** Impede double-advance quando o usuário digita mais rápido que o gotoStep delay */
+  private stepping = false
+  /** Fila de clique pendente: usuário clicou enquanto isExecuting=true */
+  private pendingClick = false
+  /** Timestamp do último click real aceito (anti-bounce) */
+  private lastClickTs = 0
+
   private coin: CoinCursor
   private toast: CornerToast
   private highlight: StealthHighlight
@@ -92,6 +100,8 @@ export class DemandApplicator {
     this.failedSteps.clear()
     this.state = 'idle'
     this.isExecuting = false
+    this.stepping = false
+    this.pendingClick = false
     this.debugOutput?.setFlow(flow)
     this.attach()
     this.gotoStep(0)
@@ -101,6 +111,8 @@ export class DemandApplicator {
     const wasActive = this.isActive()
     this.state = 'aborted'
     this.isExecuting = false
+    this.stepping = false
+    this.pendingClick = false
     this.detach()
     this.clearTimer()
     this.highlight.clearAll()
@@ -132,6 +144,8 @@ export class DemandApplicator {
 
   private gotoStep(idx: number): void {
     this.isExecuting = false
+    this.stepping = false
+    this.pendingClick = false
     this.clearTimer()
     this.highlight.clearAll()
 
@@ -166,7 +180,7 @@ export class DemandApplicator {
     if (step.customMsg) {
       setTimeout(() => {
         if (this.stepIdx === idx && this.isActive()) this.toast.flash(step.customMsg!)
-      }, 700)
+      }, 500)
     }
 
     // Timeout 90s — reexibe hint se usuário não agir
@@ -183,6 +197,8 @@ export class DemandApplicator {
   }
 
   // ── Teclado — GATILHO para injeção de texto (1 caractere por tecla) ────────
+  // Permissivo a input rápido: stepping guard previne double-advance,
+  // e não usa isExecuting para operações de texto (síncronas e atômicas).
 
   private onKey(e: KeyboardEvent): void {
     if (IGNORE_KEYS.has(e.key) || isEqHotkey(e)) return
@@ -191,9 +207,11 @@ export class DemandApplicator {
       this.toast.flash('Mouse Interact')
       return
     }
-    if (this.state !== 'waiting_key' || this.isExecuting) return
+    if (this.state !== 'waiting_key') return
+    // stepping=true: já agendamos o gotoStep, aguardando transição. Ignorar teclas extras.
+    if (this.stepping) return
 
-    this.debugOutput?.log('KEY', `Gatilho de teclado detectado: "${e.key}" (Passo ${this.stepIdx + 1})`)
+    this.debugOutput?.log('KEY', `Gatilho de teclado: "${e.key}" (Passo ${this.stepIdx + 1})`)
 
     const step   = this.flow[this.stepIdx]
     const action = step.action as Record<string, unknown>
@@ -201,27 +219,31 @@ export class DemandApplicator {
     if (action.t !== 'val') return
 
     const fullText = String(action.v ?? '')
-    // SEMPRE 1 caractere por tecla — fidelidade máxima ao input do usuário
+    // SEMPRE 1 caractere por tecla — digitação fiel ao usuário
     const chars = 1
 
-    // Texto vazio: qualquer tecla avança para o próximo step
+    // Texto vazio: qualquer tecla avança imediatamente
     if (fullText.length === 0) {
+      this.stepping = true
       this.clearTimer()
       this.highlight.clearAll()
       this.debugOutput?.markStepSuccess(this.stepIdx, 'Texto vazio — avanço automático')
-      setTimeout(() => this.gotoStep(this.stepIdx + 1), 80)
+      setTimeout(() => this.gotoStep(this.stepIdx + 1), 40)
       return
     }
 
-    // Injeta 1 caractere no campo ALVO por tecla pressionada
+    // Injeta 1 caractere no campo ALVO (operação síncrona — sem isExecuting)
     const done = this.insertChars(this.stepIdx, action, fullText, chars)
 
     if (done) {
+      // Marca stepping imediatamente para bloquear teclas rápidas extras
+      this.stepping = true
       this.clearTimer()
       this.highlight.clearAll()
-      this.coin.flashOk(1000)
-      this.debugOutput?.markStepSuccess(this.stepIdx, `Texto completo inserido: "${fullText}"`)
-      setTimeout(() => this.gotoStep(this.stepIdx + 1), 150)
+      this.coin.flashOk(800)
+      this.debugOutput?.markStepSuccess(this.stepIdx, `"${fullText}" inserido com sucesso`)
+      // Delay curto: 50ms é imperceptível para o usuário, mas previne race conditions
+      setTimeout(() => this.gotoStep(this.stepIdx + 1), 50)
     } else {
       const inserted = this.charsInserted.get(this.stepIdx) ?? 0
       const pct = Math.round((inserted / fullText.length) * 100)
@@ -230,6 +252,10 @@ export class DemandApplicator {
   }
 
   // ── Clique — GATILHO para ação no elemento alvo ───────────────────────────
+  // Robusto a cliques rápidos:
+  //   - Se isExecuting, registra pendingClick para avançar assim que a ação atual terminar.
+  //   - isExecuting é liberado IMEDIATAMENTE após execClickAction resolver (antes do timeout).
+  //   - Timeouts drasticamente reduzidos (60ms sucesso, 30ms erro).
 
   private onClick(e: MouseEvent): void {
     // Bloqueia eventos sintéticos internos
@@ -244,45 +270,67 @@ export class DemandApplicator {
       return
     }
     if (this.state !== 'waiting_click') return
-    if (this.isExecuting) return
 
-    this.debugOutput?.log('CLICK', `Gatilho de mouse interceptado em <${t.tagName.toLowerCase()}> (Passo ${this.stepIdx + 1})`)
+    const now = Date.now()
+
+    // Usuário clicou enquanto ação ainda está em execução — registra como pendente
+    if (this.isExecuting) {
+      if (now - this.lastClickTs > 80) {
+        this.pendingClick = true
+        this.debugOutput?.log('CLICK', `Clique rápido enfileirado (Passo ${this.stepIdx + 1})`)
+      }
+      return
+    }
+
+    this.lastClickTs = now
+    this.debugOutput?.log('CLICK', `Gatilho de mouse em <${t.tagName.toLowerCase()}> (Passo ${this.stepIdx + 1})`)
 
     const step   = this.flow[this.stepIdx]
     const action = step.action as Record<string, unknown>
     const aType  = String(action.t ?? '')
 
-    // Para "adv": o clique natural do usuário navega a página. Apenas avançamos o step.
+    // "adv": clique natural navega a página — apenas avança o step
     if (aType === 'adv') {
       this.clearTimer()
       this.highlight.clearAll()
       this.debugOutput?.markStepSuccess(this.stepIdx, 'Avanço natural do usuário')
-      setTimeout(() => this.gotoStep(this.stepIdx + 1), 200)
+      setTimeout(() => this.gotoStep(this.stepIdx + 1), 80)
       return
     }
 
-    // Para chk/clk/sel/drag: PREVINE o clique natural do usuário de interferir no DOM
-    // e causar toggles indesejados ou duplo clique.
+    // Para chk/clk/sel/drag: previne o clique natural de interferir no DOM
     e.preventDefault()
+    e.stopImmediatePropagation()
     this.isExecuting = true
+    this.pendingClick = false
 
     void this.execClickAction(action, step).then(ok => {
       this.clearTimer()
       this.highlight.clearAll()
+      // Libera isExecuting IMEDIATAMENTE — antes do timeout de avanço
+      // Assim, cliques rápidos no próximo step já são aceitos
+      this.isExecuting = false
+      const wasPending = this.pendingClick
+      this.pendingClick = false
+
       if (ok) {
-        this.coin.flashOk(1000)
+        this.coin.flashOk(700)
       } else {
         this.failedSteps.add(this.stepIdx)
-        this.coin.flashError(800)
+        this.coin.flashError(600)
       }
-      setTimeout(() => {
-        this.gotoStep(this.stepIdx + 1)
-      }, ok ? 180 : 80)
+
+      // Delay mínimo: 60ms sucesso, 30ms erro
+      // Se havia clique pendente, avança ainda mais rápido (20ms)
+      const delay = wasPending ? 20 : (ok ? 60 : 30)
+      setTimeout(() => this.gotoStep(this.stepIdx + 1), delay)
+
     }).catch((err) => {
       this.isExecuting = false
+      this.pendingClick = false
       this.failedSteps.add(this.stepIdx)
       this.debugOutput?.markStepFailed(this.stepIdx, `Exceção: ${err instanceof Error ? err.message : String(err)}`)
-      this.gotoStep(this.stepIdx + 1)
+      setTimeout(() => this.gotoStep(this.stepIdx + 1), 30)
     })
   }
 
@@ -318,58 +366,95 @@ export class DemandApplicator {
               (el.getAttribute('for') ? (el.ownerDocument.getElementById(el.getAttribute('for')!) as HTMLInputElement | null) : null)
 
           const targetToClick = input || el
-          const labelOrInteractive =
-            (targetToClick.closest('label, td') as HTMLElement | null) ||
-            (targetToClick.id ? document.querySelector(`label[for="${safeCssEscape(targetToClick.id)}"]`) : null) ||
-            targetToClick
+          const parentLabel = targetToClick.closest('label') as HTMLElement | null
+          const linkedLabel = (targetToClick.id
+            ? document.querySelector(`label[for="${safeCssEscape(targetToClick.id)}"]`)
+            : null) as HTMLElement | null
+          const labelOrInteractive = parentLabel || linkedLabel || (targetToClick.closest('td') as HTMLElement | null) || targetToClick
 
           const shouldCheck = action.c !== undefined ? Boolean(action.c) : true
 
-          // 1. Motor central de persistência no alvo exato
+          // ── ESTRATÉGIA 1: setCheckedState (motor robusto — funciona com React/Vue/Angular) ──
           setCheckedState(targetToClick, shouldCheck)
 
-          // 2. Verificação rigorosa e fallbacks caso o estado não tenha mudado
+          // ── ESTRATÉGIA 2: React valueTracker hack ──
+          if (input && input.checked !== shouldCheck) {
+            try {
+              const tracker = (input as any)._valueTracker
+              if (tracker) tracker.setValue(!shouldCheck)
+            } catch {}
+            // Força via setter nativo + disparo de eventos
+            try {
+              const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
+              setter?.call(input, shouldCheck)
+            } catch {}
+            input.dispatchEvent(new Event('input',  { bubbles: true, composed: true }))
+            input.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
+          }
+
+          // ── ESTRATÉGIA 3: clique no label (framework-agnostic, o mais natural) ──
+          if (input && input.checked !== shouldCheck && labelOrInteractive && labelOrInteractive !== input) {
+            simulatePointerClick(labelOrInteractive as HTMLElement)
+            await new Promise(r => setTimeout(r, 16))
+          }
+
+          // ── ESTRATÉGIA 4: disparo de PointerEvent sintético completo ──
+          if (input && input.checked !== shouldCheck) {
+            try {
+              const rect = targetToClick.getBoundingClientRect()
+              const cx = rect.left + rect.width / 2
+              const cy = rect.top + rect.height / 2
+              for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
+                targetToClick.dispatchEvent(new PointerEvent(type, {
+                  bubbles: true, cancelable: true, composed: true,
+                  clientX: cx, clientY: cy, pointerId: 1, isPrimary: true,
+                }))
+              }
+              await new Promise(r => setTimeout(r, 16))
+            } catch {}
+          }
+
+          // ── ESTRATÉGIA 5: forçar valor direto e click no input ──
+          if (input && input.checked !== shouldCheck) {
+            try { input.checked = shouldCheck } catch {}
+            try { input.click() } catch {}
+            await new Promise(r => setTimeout(r, 8))
+            input.dispatchEvent(new Event('change', { bubbles: true }))
+          }
+
           if (input) {
-            if (input.checked !== shouldCheck) {
-              try {
-                const tracker = (input as any)._valueTracker
-                if (tracker) tracker.setValue(!shouldCheck)
-              } catch {}
-              try {
-                const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
-                setter?.call(input, shouldCheck)
-              } catch {}
-              input.checked = shouldCheck
-              input.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
-              input.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
-            }
-
-            // Fallback: clique no label se ainda divergir
-            if (input.checked !== shouldCheck && labelOrInteractive && labelOrInteractive !== input) {
-              simulatePointerClick(labelOrInteractive as HTMLElement)
-            }
-
-            // Checagem final
-            if (input.checked !== shouldCheck) {
-              this.debugOutput?.markStepFailed(this.stepIdx, `Input [name="${input.name}"] resistiu à marcação checked=${shouldCheck}`)
+            const finalOk = input.checked === shouldCheck
+            if (finalOk) {
+              this.debugOutput?.markStepSuccess(this.stepIdx, `[name="${input.name}"] marcado checked=${shouldCheck}`)
+            } else {
+              // Aceita como sucesso se o radio fez parte de um grupo exclusivo
+              // (ex: rádio V/F onde marcar V desmarca F, mas o grupo como um todo está consistente)
+              const isRadioGroup = input.type === 'radio' && input.name
+              if (isRadioGroup) {
+                const groupSelected = document.querySelector(`input[name="${safeCssEscape(input.name)}"]:checked`)
+                if (groupSelected) {
+                  this.debugOutput?.markStepSuccess(this.stepIdx, `Grupo de rádio [name="${input.name}"] tem seleção`)
+                  return true
+                }
+              }
+              this.debugOutput?.markStepFailed(this.stepIdx, `[name="${input.name}"] resistiu após 5 estratégias`)
               return false
             }
-
-            this.debugOutput?.markStepSuccess(this.stepIdx, `Input [name="${input.name}"] marcado checked=${shouldCheck}`)
             return true
           }
 
-          // Se for elemento interativo sem input nativo (custom card)
+          // Elemento interativo sem input nativo (custom card, SPA)
           if (labelOrInteractive) simulatePointerClick(labelOrInteractive as HTMLElement)
-          this.debugOutput?.markStepSuccess(this.stepIdx, `Opção customizada clicada`)
+          this.debugOutput?.markStepSuccess(this.stepIdx, `Opção customizada ativada`)
           return true
         }
 
-        // Elemento interativo genérico (botão, link, etc.)
+        // Elemento interativo genérico (botão, link, qualquer clicável)
         simulatePointerClick(el)
-        this.debugOutput?.markStepSuccess(this.stepIdx, `Elemento <${el.tagName.toLowerCase()}> clicado`)
+        this.debugOutput?.markStepSuccess(this.stepIdx, `<${el.tagName.toLowerCase()}> ativado`)
         return true
       }
+
 
       if (t === 'sel') {
         const el = this.resolveEl(action)
