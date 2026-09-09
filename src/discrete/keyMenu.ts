@@ -1,6 +1,6 @@
 /**
- * KeyMenu — Mini-modal discreto de configuração de API keys.
- * Ativado por Shift+A. Estilo "prompt do sistema" — completamente discreto.
+ * KeyMenu — 1:1 cópia do diálogo de informação do Chrome (centro da tela).
+ * Ativado por Shift+A.
  */
 
 import { loadSettings, saveSettings } from '../core/storage'
@@ -12,17 +12,13 @@ export class KeyMenu {
   private el: HTMLDivElement | null = null
   private coin: CoinCursor
   private toast: CornerToast
-  private boundKey: (e: KeyboardEvent) => void
+  private boundEsc: (e: KeyboardEvent) => void
 
   constructor(coin: CoinCursor, toast: CornerToast) {
     this.coin = coin
     this.toast = toast
-    this.boundKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && this.isOpen()) {
-        e.stopPropagation()
-        e.preventDefault()
-        this.close()
-      }
+    this.boundEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && this.isOpen()) { e.stopPropagation(); e.preventDefault(); this.close() }
     }
     this.injectStyle()
   }
@@ -31,113 +27,98 @@ export class KeyMenu {
     if (document.getElementById('__eqkm_style__')) return
     const s = document.createElement('style')
     s.id = '__eqkm_style__'
+    // Chrome's info/edit dialog — pixel perfect
     s.textContent = `
       #__eqkm_overlay__ {
         position: fixed; inset: 0;
-        background: rgba(0,0,0,0.35);
-        z-index: 2147483644;
+        background: rgba(0,0,0,0.32);
+        z-index: 2147483643;
         display: flex; align-items: center; justify-content: center;
-        animation: __eqkm_fadein__ 0.15s ease;
+        animation: __eqkm_ov__ 0.1s ease;
       }
-      @keyframes __eqkm_fadein__ {
-        from { opacity:0; } to { opacity:1; }
-      }
-      #__eqkm_modal__ {
+      @keyframes __eqkm_ov__ { from{opacity:0} to{opacity:1} }
+      #__eqkm_dialog__ {
         background: #fff;
-        border: 1px solid #dadce0;
         border-radius: 8px;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.18);
-        padding: 20px 22px;
-        width: 340px;
-        font-family: system-ui,-apple-system,sans-serif;
-        font-size: 13px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.28), 0 2px 8px rgba(0,0,0,0.12);
+        width: 400px;
+        max-width: calc(100vw - 32px);
+        font-family: system-ui,-apple-system,"Segoe UI",sans-serif;
+        font-size: 14px;
         color: #202124;
-        animation: __eqkm_slide__ 0.15s ease;
+        overflow: hidden;
+        animation: __eqkm_dlg__ 0.14s cubic-bezier(0,0,0.2,1);
       }
-      @keyframes __eqkm_slide__ {
-        from { transform:translateY(-8px); opacity:0; }
-        to   { transform:translateY(0); opacity:1; }
+      @keyframes __eqkm_dlg__ { from{transform:scale(0.95);opacity:0} to{transform:scale(1);opacity:1} }
+      #__eqkm_dialog__ .__eqkm_title__ {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 20px 20px 0;
       }
-      #__eqkm_modal__ h3 {
-        margin: 0 0 4px;
-        font-size: 15px;
-        font-weight: 600;
-        color: #202124;
+      #__eqkm_dialog__ .__eqkm_title__ h2 {
+        font-size: 16px; font-weight: 500; color: #202124; margin: 0;
       }
-      #__eqkm_modal__ .__eqkm_sub__ {
-        font-size: 11px;
-        color: #80868b;
-        margin-bottom: 14px;
+      #__eqkm_dialog__ .__eqkm_title__ .__eqkm_x__ {
+        width: 32px; height: 32px; border-radius: 50%; border: none;
+        background: transparent; cursor: pointer; display: flex;
+        align-items: center; justify-content: center; color: #5f6368;
+        font-size: 18px; line-height: 1; transition: background 0.1s;
       }
-      #__eqkm_modal__ .__eqkm_label__ {
-        font-size: 11px;
-        font-weight: 500;
-        color: #5f6368;
-        margin-bottom: 4px;
+      #__eqkm_dialog__ .__eqkm_title__ .__eqkm_x__:hover { background: #f1f3f4; }
+      #__eqkm_dialog__ .__eqkm_body__ { padding: 16px 20px; }
+      #__eqkm_dialog__ .__eqkm_desc__ {
+        font-size: 13px; color: #5f6368; margin: 0 0 16px; line-height: 1.5;
       }
-      #__eqkm_modal__ textarea {
-        width: 100%;
-        height: 90px;
-        resize: vertical;
-        border: 1px solid #dadce0;
-        border-radius: 4px;
-        padding: 6px 8px;
-        font-family: 'SF Mono','Fira Code','Consolas',monospace;
-        font-size: 11px;
-        color: #202124;
-        outline: none;
-        box-sizing: border-box;
-        background: #f8f9fa;
-        transition: border 0.15s;
+      #__eqkm_dialog__ .__eqkm_field__ {
+        position: relative; margin-bottom: 12px;
       }
-      #__eqkm_modal__ textarea:focus {
+      #__eqkm_dialog__ .__eqkm_field__ label {
+        display: block; font-size: 11px; font-weight: 500;
+        color: #5f6368; margin-bottom: 4px; letter-spacing: 0.01em;
+      }
+      #__eqkm_dialog__ .__eqkm_field__ textarea {
+        width: 100%; height: 88px; resize: none;
+        border: 1px solid #dadce0; border-radius: 4px;
+        padding: 8px 10px; font-size: 12px;
+        font-family: "SF Mono","Consolas","Fira Code",monospace;
+        color: #202124; background: #fff; outline: none;
+        box-sizing: border-box; transition: border 0.15s, box-shadow 0.15s;
+        line-height: 1.5;
+      }
+      #__eqkm_dialog__ .__eqkm_field__ textarea:focus {
         border-color: #1a73e8;
-        background: #fff;
+        box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
       }
-      #__eqkm_modal__ .__eqkm_count__ {
-        font-size: 11px;
-        color: #80868b;
+      #__eqkm_dialog__ .__eqkm_count__ {
+        font-size: 11px; color: #70757a; margin-top: 4px;
+      }
+      #__eqkm_dialog__ .__eqkm_status__ {
+        font-size: 12px; min-height: 18px; margin-top: 2px;
+        padding: 0; color: #5f6368;
+      }
+      #__eqkm_dialog__ .__eqkm_actions__ {
+        display: flex; gap: 8px; justify-content: flex-end;
+        padding: 12px 20px 16px;
+        border-top: 1px solid #e8eaed;
         margin-top: 4px;
-        margin-bottom: 14px;
-        min-height: 16px;
       }
-      #__eqkm_modal__ .__eqkm_actions__ {
-        display: flex;
-        gap: 8px;
-        justify-content: flex-end;
+      #__eqkm_dialog__ button {
+        padding: 8px 20px; border-radius: 4px; font-size: 13px;
+        font-weight: 500; cursor: pointer; border: none;
+        font-family: system-ui,-apple-system,sans-serif;
+        transition: background 0.1s, box-shadow 0.1s;
       }
-      #__eqkm_modal__ button {
-        padding: 6px 14px;
-        border-radius: 4px;
-        border: 1px solid transparent;
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background 0.12s;
+      #__eqkm_dialog__ .__eqkm_ghost__ {
+        background: transparent; color: #1a73e8; border: none;
       }
-      #__eqkm_modal__ .__eqkm_btn_cancel__ {
-        background: transparent;
-        border-color: #dadce0;
-        color: #5f6368;
+      #__eqkm_dialog__ .__eqkm_ghost__:hover { background: #e8f0fe; }
+      #__eqkm_dialog__ .__eqkm_verify__ {
+        background: transparent; color: #1a73e8; border: 1px solid #dadce0;
       }
-      #__eqkm_modal__ .__eqkm_btn_cancel__:hover { background: #f1f3f4; }
-      #__eqkm_modal__ .__eqkm_btn_verify__ {
-        background: transparent;
-        border-color: #1a73e8;
-        color: #1a73e8;
+      #__eqkm_dialog__ .__eqkm_verify__:hover { background: #e8f0fe; border-color: #1a73e8; }
+      #__eqkm_dialog__ .__eqkm_primary__ {
+        background: #1a73e8; color: #fff;
       }
-      #__eqkm_modal__ .__eqkm_btn_verify__:hover { background: #e8f0fe; }
-      #__eqkm_modal__ .__eqkm_btn_save__ {
-        background: #1a73e8;
-        color: #fff;
-      }
-      #__eqkm_modal__ .__eqkm_btn_save__:hover { background: #1557b0; }
-      #__eqkm_modal__ .__eqkm_status__ {
-        font-size: 11px;
-        margin-top: 8px;
-        min-height: 15px;
-        padding: 0 2px;
-      }
+      #__eqkm_dialog__ .__eqkm_primary__:hover { background: #1557b0; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
     `
     document.documentElement.appendChild(s)
   }
@@ -148,121 +129,100 @@ export class KeyMenu {
     const settings = loadSettings()
     const existingKeys = settings.apiKeys.join('\n')
 
-    // Overlay
     const overlay = document.createElement('div')
     overlay.id = '__eqkm_overlay__'
 
-    const modal = document.createElement('div')
-    modal.id = '__eqkm_modal__'
+    const dialog = document.createElement('div')
+    dialog.id = '__eqkm_dialog__'
+    dialog.setAttribute('role', 'dialog')
+    dialog.setAttribute('aria-modal', 'true')
 
-    modal.innerHTML = `
-      <h3>Configuração de Página</h3>
-      <div class="__eqkm_sub__">Gerenciamento de chaves de acesso à API</div>
-      <div class="__eqkm_label__">Chaves de acesso (uma por linha):</div>
-      <textarea id="__eqkm_ta__" placeholder="Cole aqui as chaves de acesso..." spellcheck="false"></textarea>
-      <div class="__eqkm_count__" id="__eqkm_count__"></div>
-      <div class="__eqkm_actions__">
-        <button class="__eqkm_btn_cancel__" id="__eqkm_cancel__">Cancelar</button>
-        <button class="__eqkm_btn_verify__" id="__eqkm_verify__">Verificar</button>
-        <button class="__eqkm_btn_save__" id="__eqkm_save__">Salvar</button>
+    dialog.innerHTML = `
+      <div class="__eqkm_title__">
+        <h2>Chaves de acesso à API</h2>
+        <button class="__eqkm_x__" id="__eqkm_close__" aria-label="Fechar">✕</button>
       </div>
-      <div class="__eqkm_status__" id="__eqkm_status__"></div>
+      <div class="__eqkm_body__">
+        <p class="__eqkm_desc__">Cole abaixo as chaves de acesso (uma por linha). Elas são armazenadas localmente no navegador.</p>
+        <div class="__eqkm_field__">
+          <label for="__eqkm_ta__">Chaves de acesso</label>
+          <textarea id="__eqkm_ta__" placeholder="AIza..." spellcheck="false" autocomplete="off"></textarea>
+          <div class="__eqkm_count__" id="__eqkm_count__"></div>
+        </div>
+        <div class="__eqkm_status__" id="__eqkm_status__"></div>
+      </div>
+      <div class="__eqkm_actions__">
+        <button class="__eqkm_ghost__" id="__eqkm_cancel__">Cancelar</button>
+        <button class="__eqkm_verify__" id="__eqkm_verify__">Verificar</button>
+        <button class="__eqkm_primary__" id="__eqkm_save__">Salvar</button>
+      </div>
     `
 
-    overlay.appendChild(modal)
+    overlay.appendChild(dialog)
     document.documentElement.appendChild(overlay)
     this.el = overlay
 
-    const ta = modal.querySelector('#__eqkm_ta__') as HTMLTextAreaElement
-    const countEl = modal.querySelector('#__eqkm_count__') as HTMLElement
-    const statusEl = modal.querySelector('#__eqkm_status__') as HTMLElement
+    const ta     = dialog.querySelector('#__eqkm_ta__')     as HTMLTextAreaElement
+    const countEl= dialog.querySelector('#__eqkm_count__')  as HTMLElement
+    const statusEl=dialog.querySelector('#__eqkm_status__') as HTMLElement
 
     ta.value = existingKeys
-    this.updateCount(ta, countEl, settings.apiKeys.length)
+    this.updateCount(ta.value, countEl)
 
-    ta.addEventListener('input', () => {
-      const keys = this.parseKeys(ta.value)
-      this.updateCount(ta, countEl, keys.length)
-    })
+    ta.addEventListener('input', () => this.updateCount(ta.value, countEl))
 
-    // Buttons
-    modal.querySelector('#__eqkm_cancel__')!.addEventListener('click', () => this.close())
-    modal.querySelector('#__eqkm_save__')!.addEventListener('click', () => {
+    dialog.querySelector('#__eqkm_close__')!.addEventListener('click', () => this.close())
+    dialog.querySelector('#__eqkm_cancel__')!.addEventListener('click', () => this.close())
+
+    dialog.querySelector('#__eqkm_save__')!.addEventListener('click', () => {
       const keys = this.parseKeys(ta.value)
-      const primary = keys[0] || ''
-      saveSettings({ apiKey: primary, apiKeys: keys })
-      this.toast.flash('Configuração Salva')
-      this.coin.flashOk(1500)
+      saveSettings({ apiKey: keys[0] || '', apiKeys: keys })
+      this.toast.flash('Config Saved')
+      this.coin.flashOk(1200)
       this.close()
     })
 
-    modal.querySelector('#__eqkm_verify__')!.addEventListener('click', async () => {
+    dialog.querySelector('#__eqkm_verify__')!.addEventListener('click', async () => {
       const keys = this.parseKeys(ta.value)
-      if (keys.length === 0) {
-        statusEl.style.color = '#d32f2f'
-        statusEl.textContent = 'Insira ao menos uma chave.'
-        return
-      }
-      statusEl.style.color = '#80868b'
-      statusEl.textContent = 'Verificando...'
+      if (!keys.length) { statusEl.style.color = '#c5221f'; statusEl.textContent = 'Insira ao menos uma chave.'; return }
+      statusEl.style.color = '#70757a'
+      statusEl.textContent = 'Verificando…'
       this.coin.setState('loading')
       try {
-        const currentModel = loadSettings().model
-        const result = await validateModelFast(currentModel, keys)
-        if (result.ok) {
-          statusEl.style.color = '#2e7d32'
-          statusEl.textContent = `✓ Acesso validado (${result.model})`
-          this.coin.flashOk()
-          this.toast.flash('Acesso Verificado')
+        const model = loadSettings().model
+        const r = await validateModelFast(model, keys)
+        if (r.ok) {
+          statusEl.style.color = '#137333'
+          statusEl.textContent = `✓ Acesso válido — ${r.model}`
+          this.coin.flashOk(); this.toast.flash('Access OK')
         } else {
-          statusEl.style.color = '#d32f2f'
-          statusEl.textContent = `✗ ${result.message.slice(0, 60)}`
-          this.coin.flashError()
-          this.toast.flash('Acesso Negado')
+          statusEl.style.color = '#c5221f'
+          statusEl.textContent = `✗ ${r.message.slice(0, 55)}`
+          this.coin.flashError(); this.toast.flash('Access Denied')
         }
-      } catch (e) {
-        statusEl.style.color = '#d32f2f'
-        statusEl.textContent = `✗ Erro ao verificar.`
-        this.coin.flashError()
-      }
+      } catch { statusEl.style.color = '#c5221f'; statusEl.textContent = '✗ Erro ao verificar.'; this.coin.flashError() }
     })
 
-    // Fechar ao clicar no overlay (fora do modal)
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) this.close()
-    })
-
-    // Fechar com Escape
-    window.addEventListener('keydown', this.boundKey, { capture: true })
-
-    // Foco no textarea
+    // Fechar ao clicar no overlay
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) this.close() })
+    window.addEventListener('keydown', this.boundEsc, { capture: true })
     requestAnimationFrame(() => ta.focus())
   }
 
   private parseKeys(raw: string): string[] {
-    return raw
-      .split(/[\n\r,]+/)
-      .map(k => k.trim().replace(/^["']|["']$/g, ''))
-      .filter(k => k.length > 5)
+    return raw.split(/[\n\r,]+/).map(k => k.trim().replace(/^["']|["']$/g, '')).filter(k => k.length > 5)
   }
 
-  private updateCount(ta: HTMLTextAreaElement, el: HTMLElement, count: number): void {
-    const keys = this.parseKeys(ta.value)
-    const n = keys.length
-    if (n === 0) {
-      el.textContent = ''
-    } else {
-      el.textContent = `${n} chave${n !== 1 ? 's' : ''} cadastrada${n !== 1 ? 's' : ''}`
-    }
+  private updateCount(raw: string, el: HTMLElement): void {
+    const n = this.parseKeys(raw).length
+    el.textContent = n === 0 ? '' : `${n} chave${n !== 1 ? 's' : ''} cadastrada${n !== 1 ? 's' : ''}`
   }
 
   close(): void {
-    window.removeEventListener('keydown', this.boundKey, { capture: true })
-    this.el?.remove()
-    this.el = null
+    window.removeEventListener('keydown', this.boundEsc, { capture: true })
+    this.el?.remove(); this.el = null
   }
 
   isOpen(): boolean { return this.el !== null }
-
   destroy(): void { this.close() }
 }

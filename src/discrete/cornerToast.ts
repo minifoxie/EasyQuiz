@@ -1,19 +1,13 @@
 /**
- * CornerToast — Estilo tooltip nativo do navegador.
- * Pequeno, sem borda arredondada excessiva, com margem do canto, 20% menor.
+ * CornerToast — Colado no canto, substituição (não acumulação), 9.5px.
  */
-
-interface ToastItem {
-  el: HTMLDivElement
-  timerId: number
-  persistent: boolean
-  id: string
-}
 
 export class CornerToast {
   private container: HTMLDivElement | null = null
-  private toasts: ToastItem[] = []
-  private readonly MAX_STACK = 2
+  private currentEl: HTMLDivElement | null = null
+  private currentTimer: number | null = null
+  private currentPersistId: string | null = null
+  private lastText = ''
 
   constructor() {
     this.injectStyle()
@@ -25,21 +19,10 @@ export class CornerToast {
     const s = document.createElement('style')
     s.id = '__eqdt_style__'
     s.textContent = `
-      @keyframes __eqdt_in__ {
-        from { opacity:0; transform:translateY(4px) scale(0.97); }
-        to   { opacity:1; transform:translateY(0) scale(1); }
-      }
-      @keyframes __eqdt_out__ {
-        from { opacity:1; transform:translateY(0) scale(1); }
-        to   { opacity:0; transform:translateY(-3px) scale(0.97); }
-      }
-      .__eqdt_t__ {
-        animation: __eqdt_in__ 0.14s ease forwards;
-      }
-      .__eqdt_t_out__ {
-        animation: __eqdt_out__ 0.22s ease forwards;
-        pointer-events: none;
-      }
+      @keyframes __eqdt_in__  { from{opacity:0} to{opacity:1} }
+      @keyframes __eqdt_out__ { from{opacity:1} to{opacity:0} }
+      .__eqdt_in__  { animation: __eqdt_in__  0.1s ease forwards; }
+      .__eqdt_out__ { animation: __eqdt_out__ 0.18s ease forwards; }
     `
     document.documentElement.appendChild(s)
   }
@@ -49,120 +32,100 @@ export class CornerToast {
     this.container.id = '__eqdiscrete_toasts__'
     Object.assign(this.container.style, {
       position: 'fixed',
-      bottom: '20px',      // margem do canto
-      right: '20px',       // margem do canto
+      bottom: '0',      // colado no canto
+      right: '0',       // colado no canto
       zIndex: '2147483645',
-      display: 'flex',
-      flexDirection: 'column-reverse',
-      gap: '3px',
       pointerEvents: 'none',
-      alignItems: 'flex-end',
     })
     document.documentElement.appendChild(this.container)
   }
 
   private makeEl(text: string): HTMLDivElement {
-    // Detecta tema
-    const isDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ||
-      document.documentElement.classList.contains('dark') ||
-      document.body.classList.contains('dark') ||
-      document.documentElement.getAttribute('data-theme') === 'dark'
-
     const el = document.createElement('div')
-    el.className = '__eqdt_t__'
-
-    // Estilo idêntico ao tooltip nativo do Chrome/Edge:
-    // fundo escuro quase preto, texto branco, bordas mínimas, fonte pequena system-ui
+    el.className = '__eqdt_in__'
     Object.assign(el.style, {
-      background: isDark ? 'rgba(40,40,40,0.97)' : 'rgba(33,33,33,0.95)',
+      background: 'rgba(30,30,30,0.96)',
       color: '#ffffff',
-      borderRadius: '2px',
-      padding: '3px 7px',          // ~20% menor que antes
-      fontSize: '10.5px',           // ~20% menor
+      borderRadius: '0',          // colado — sem bordas arredondadas no canto
+      borderTopLeftRadius: '3px', // só leve no canto oposto
+      padding: '2px 6px',         // 10% menor
+      fontSize: '9.5px',          // 10% menor
       fontFamily: 'system-ui,-apple-system,"Segoe UI",sans-serif',
       fontWeight: '400',
       lineHeight: '1.4',
-      letterSpacing: '0.01em',
       whiteSpace: 'nowrap',
-      maxWidth: '180px',
+      maxWidth: '170px',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       userSelect: 'none',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
-      // SEM backdropFilter — tooltip nativo não tem
+      display: 'block',
+      boxShadow: 'none',
     })
     el.textContent = text
     return el
   }
 
-  show(text: string, lifetimeMs = 3000, persistent = false): string {
+  /** Exibe texto (substitui o atual). Retorna ID para dismiss() */
+  show(text: string, ms = 3000, persistent = false): string {
+    this.lastText = text
+    this.clearCurrent(true) // remove imediatamente sem animação
+
     if (!this.container) return ''
-
-    // Limita stack
-    while (this.toasts.length >= this.MAX_STACK) {
-      const oldest = this.toasts.shift()
-      if (oldest) {
-        clearTimeout(oldest.timerId)
-        this.removeEl(oldest.el, true)
-      }
-    }
-
-    const id = `t_${Date.now()}_${Math.random().toString(36).slice(2,6)}`
     const el = this.makeEl(text)
-    el.setAttribute('data-tid', id)
     this.container.appendChild(el)
+    this.currentEl = el
 
-    const item: ToastItem = { el, timerId: 0, persistent, id }
+    const id = `t_${Date.now()}`
+    el.setAttribute('data-tid', id)
 
     if (!persistent) {
-      item.timerId = window.setTimeout(() => this.removeByEl(el), lifetimeMs)
+      this.currentTimer = window.setTimeout(() => this.clearCurrent(false), ms)
+      this.currentPersistId = null
+    } else {
+      this.currentPersistId = id
     }
-
-    this.toasts.push(item)
     return id
-  }
-
-  dismiss(id: string): void {
-    const idx = this.toasts.findIndex(t => t.id === id)
-    if (idx === -1) return
-    const item = this.toasts[idx]
-    clearTimeout(item.timerId)
-    this.removeEl(item.el, false)
-    this.toasts.splice(idx, 1)
-  }
-
-  dismissAll(): void {
-    for (const t of [...this.toasts]) {
-      clearTimeout(t.timerId)
-      t.el.remove()
-    }
-    this.toasts = []
-  }
-
-  replace(id: string, newText: string): string {
-    this.dismiss(id)
-    return this.persist(newText)
   }
 
   flash(text: string, ms = 3000): void { this.show(text, ms) }
 
   persist(text: string): string { return this.show(text, 0, true) }
 
-  private removeByEl(el: HTMLDivElement): void {
-    const idx = this.toasts.findIndex(t => t.el === el)
-    if (idx !== -1) this.toasts.splice(idx, 1)
-    this.removeEl(el, false)
+  dismiss(id: string): void {
+    if (this.currentPersistId !== id) return
+    this.clearCurrent(false)
+    this.currentPersistId = null
   }
 
-  private removeEl(el: HTMLDivElement, immediate: boolean): void {
-    if (immediate) { el.remove(); return }
-    el.classList.remove('__eqdt_t__')
-    el.classList.add('__eqdt_t_out__')
-    setTimeout(() => el.remove(), 240)
+  dismissAll(): void { this.clearCurrent(true) }
+
+  replace(id: string, newText: string): string {
+    this.dismiss(id)
+    return this.persist(newText)
+  }
+
+  /** Re-exibe o último toast por 2s (Shift+I) */
+  reshow(): void {
+    if (this.lastText) this.show(this.lastText, 2000)
+  }
+
+  private clearCurrent(immediate: boolean): void {
+    if (this.currentTimer !== null) { clearTimeout(this.currentTimer); this.currentTimer = null }
+    const el = this.currentEl
+    if (!el) return
+    this.currentEl = null
+    this.currentPersistId = null
+
+    if (immediate) {
+      el.remove()
+    } else {
+      el.className = '__eqdt_out__'
+      setTimeout(() => el.remove(), 200)
+    }
   }
 
   destroy(): void {
-    this.dismissAll()
+    this.clearCurrent(true)
     this.container?.remove()
     this.container = null
     document.getElementById('__eqdt_style__')?.remove()

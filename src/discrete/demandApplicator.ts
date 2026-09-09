@@ -1,14 +1,7 @@
 /**
- * DemandApplicator — Motor robusto de aplicação gradual por input do usuário.
- * Executa interactionFlow[] passo a passo: cada tecla ou clique do usuário
- * dispara exatamente 1 etapa do plano da IA.
- *
- * Melhorias de robustez:
- * - Tentativas de fallback quando elemento não encontrado (ordinal, label, texto)
- * - insertChars lida com React controlled inputs, contenteditable, select, etc.
- * - Timeout de 45s por etapa (não trava para sempre)
- * - Toast de erro específico por tipo de falha
- * - Retoma automaticamente após erro parcial
+ * DemandApplicator — Motor de aplicação sequencial robusto.
+ * Correção crítica: progresso de texto rastreado por STEP INDEX (não por ID),
+ * garantindo que 9 inputs em grade sejam preenchidos na sequência correta.
  */
 
 import type { InteractionStep } from './promptDiscrete'
@@ -26,20 +19,12 @@ const IGNORE_KEYS = new Set([
   'ArrowLeft','ArrowRight','ArrowUp','ArrowDown','ContextMenu','NumLock',
 ])
 
-const EQ_HOTKEYS = [
-  (e: KeyboardEvent) => e.shiftKey && e.key === 'Q',
-  (e: KeyboardEvent) => e.shiftKey && e.key === 'A',
-  (e: KeyboardEvent) => e.shiftKey && e.key === 'M',
-  (e: KeyboardEvent) => e.shiftKey && e.key === 'Z',
-  (e: KeyboardEvent) => e.shiftKey && e.key === 'R',
-  (e: KeyboardEvent) => e.shiftKey && e.key === 'H',
-  (e: KeyboardEvent) => e.altKey,
-]
-const isEqHotkey = (e: KeyboardEvent) => EQ_HOTKEYS.some(f => f(e))
+const isEqHotkey = (e: KeyboardEvent) =>
+  e.altKey || (e.shiftKey && 'QAMZRHIC'.includes(e.key.toUpperCase()))
 
-// Setter nativo — bypassa React/Vue controlled inputs
-const nativeInputSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
-const nativeTextareaSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
+// Setters nativos para React/Vue controlled inputs
+const nativeInputSetter    = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,   'value')?.set
+const nativeTextareaSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')?.set
 
 export class DemandApplicator {
   private flow: InteractionStep[] = []
@@ -50,21 +35,19 @@ export class DemandApplicator {
   private toast: CornerToast
   private highlight: StealthHighlight
 
-  private statusId: string | null = null
+  private statusPersisted = false
   private stepTimer: number | null = null
 
-  // Progresso de texto por campo: id → chars já inseridos
-  private textProgress = new Map<string, number>()
-  // Execuções de select com 2 cliques: rastreamos fase (abrir=0 / selecionar=1)
-  private selPhase = new Map<string, number>()
+  // ── CHAVE: progresso por STEP INDEX (não por field ID) ──────────────────
+  // Isso garante que step 0 (field 0) e step 3 (field 3) são independentes
+  // mesmo que os IDs sejam parecidos ou idênticos
+  private charsInserted = new Map<number, number>()  // stepIdx → chars já inseridos
 
-  private boundKey: (e: KeyboardEvent) => void
-  private boundClick: (e: MouseEvent) => void
+  private boundKey:   (e: KeyboardEvent) => void
+  private boundClick: (e: MouseEvent)    => void
 
   constructor(coin: CoinCursor, toast: CornerToast, highlight: StealthHighlight) {
-    this.coin = coin
-    this.toast = toast
-    this.highlight = highlight
+    this.coin = coin; this.toast = toast; this.highlight = highlight
     this.boundKey   = this.onKey.bind(this)
     this.boundClick = this.onClick.bind(this)
   }
@@ -74,28 +57,27 @@ export class DemandApplicator {
     if (!flow?.length) return
     this.flow = flow
     this.stepIdx = 0
-    this.textProgress.clear()
-    this.selPhase.clear()
+    this.charsInserted.clear()
     this.state = 'idle'
     this.attach()
     this.gotoStep(0)
   }
 
   abort(): void {
-    if (this.state === 'idle' || this.state === 'done' || this.state === 'aborted') return
+    if (!this.isActive() && this.state !== 'idle') return
     this.detach()
-    this.clearStepTimer()
+    this.clearTimer()
     this.state = 'aborted'
     this.highlight.clearAll()
-    this.dismissStatus()
-    this.coin.flashError(1200)
-    this.toast.flash('Process Aborted')
+    this.clearStatus()
+    this.coin.flashError(1000)
+    this.toast.flash('Abortado')
   }
 
-  isActive   (): boolean { return this.state === 'waiting_key' || this.state === 'waiting_click' }
-  getState   (): ApplicatorState { return this.state }
-  getCurrentStep(): number { return this.stepIdx }
-  getTotalSteps (): number { return this.flow.length }
+  isActive    (): boolean        { return this.state === 'waiting_key' || this.state === 'waiting_click' }
+  getState    (): ApplicatorState{ return this.state }
+  getCurrentStep(): number       { return this.stepIdx }
+  getTotalSteps (): number       { return this.flow.length }
 
   // ─── Listeners ───────────────────────────────────────────────────────────
 
@@ -109,93 +91,93 @@ export class DemandApplicator {
     window.removeEventListener('click',   this.boundClick, { capture: true })
   }
 
-  // ─── Navegação de etapas ─────────────────────────────────────────────────
+  // ─── Navegação ───────────────────────────────────────────────────────────
 
   private gotoStep(idx: number): void {
-    this.clearStepTimer()
+    this.clearTimer()
+    this.highlight.clearAll()
 
     if (idx >= this.flow.length) { this.complete(); return }
 
     this.stepIdx = idx
-    const step = this.flow[idx]
-    this.state = step.trigger === 'key' ? 'waiting_key' : 'waiting_click'
+    const step   = this.flow[idx]
+    this.state   = step.trigger === 'key' ? 'waiting_key' : 'waiting_click'
 
-    // Highlight no elemento desta etapa
-    this.highlight.clearAll()
+    // Focus no campo desta etapa
     const action = step.action as Record<string, unknown>
     if (action.id) {
       const el = this.resolveEl(action)
-      if (el) this.highlight.highlightTarget([el])
+      if (el) {
+        this.highlight.highlightTarget([el])
+        // Foca o campo para o usuário digitar
+        if (step.trigger === 'key') {
+          const input = this.resolveInput(el)
+          try { (input as HTMLElement)?.focus() } catch {}
+        }
+      }
     }
 
-    // Toast de hint
-    this.dismissStatus()
-    const msg = step.hint || (step.trigger === 'key' ? 'Keyboard Interact' : 'Mouse Interact')
-    this.statusId = this.toast.persist(msg)
+    // Toast com hint (substituição)
+    const hint = step.hint || (step.trigger === 'key' ? 'Keyboard Interact' : 'Mouse Interact')
+    this.toast.flash(hint)
+    this.statusPersisted = false
 
-    // customMsg secundária
     if (step.customMsg) {
-      setTimeout(() => {
-        if (this.stepIdx === idx) this.toast.flash(step.customMsg!)
-      }, 500)
+      setTimeout(() => { if (this.stepIdx === idx) this.toast.flash(step.customMsg!) }, 600)
     }
 
-    // Timeout de segurança: se ficar 45s sem input, avisa e aguarda
+    // Segurança: 60s sem input → reexibe hint
     this.stepTimer = window.setTimeout(() => {
       if (this.stepIdx === idx && this.isActive()) {
-        const trigger = step.trigger === 'key' ? 'Keyboard Interact' : 'Mouse Interact'
-        if (this.statusId) this.statusId = this.toast.replace(this.statusId, trigger)
+        this.toast.flash(hint)
       }
-    }, 45_000)
+    }, 60_000)
   }
 
-  private clearStepTimer(): void {
+  private clearTimer(): void {
     if (this.stepTimer !== null) { clearTimeout(this.stepTimer); this.stepTimer = null }
   }
 
-  // ─── Handler de Teclado ──────────────────────────────────────────────────
+  // ─── Teclado ─────────────────────────────────────────────────────────────
 
   private onKey(e: KeyboardEvent): void {
     if (IGNORE_KEYS.has(e.key) || isEqHotkey(e)) return
 
     if (this.state === 'waiting_click') {
-      // Usuário errou o tipo de input — sugere sem consumir
       this.toast.flash('Mouse Interact')
       return
     }
     if (this.state !== 'waiting_key') return
 
-    const step = this.flow[this.stepIdx]
+    const step   = this.flow[this.stepIdx]
     const action = step.action as Record<string, unknown>
 
     if (action.t === 'val') {
-      const id   = String(action.id ?? '')
-      const full = String(action.v  ?? '')
-      const chars = step.chars ?? 3
-      const done  = this.insertChars(id, full, chars)
+      const fullText = String(action.v ?? '')
+      const chars    = step.chars ?? 3
+      const done     = this.insertChars(this.stepIdx, action, fullText, chars)
 
       if (done) {
-        this.dismissStatus()
+        this.clearTimer()
         this.highlight.clearAll()
-        this.coin.flashOk(700)
-        // Pequeno delay antes de avançar para parecer natural
-        setTimeout(() => this.gotoStep(this.stepIdx + 1), 180)
+        this.coin.flashOk(500)
+        // Pequeno delay natural antes do próximo step
+        setTimeout(() => this.gotoStep(this.stepIdx + 1), 120)
       } else {
-        // Atualiza progresso
-        const inserted = this.textProgress.get(id) ?? 0
-        const pct = full.length > 0 ? Math.round((inserted / full.length) * 100) : 0
-        if (this.statusId) this.statusId = this.toast.replace(this.statusId, `Buffer ${pct}%`)
+        // Progresso
+        const inserted = this.charsInserted.get(this.stepIdx) ?? 0
+        const pct = fullText.length > 0 ? Math.round((inserted / fullText.length) * 100) : 0
+        this.toast.flash(`${pct}%`)
       }
     }
   }
 
-  // ─── Handler de Clique ───────────────────────────────────────────────────
+  // ─── Clique ──────────────────────────────────────────────────────────────
 
   private onClick(e: MouseEvent): void {
-    const target = e.target as HTMLElement | null
-    if (!target) return
-    // Ignora cliques dentro de elementos EQ
-    if (target.closest('#__eqdm_menu__,#__eqkm_overlay__,#__eqdiscrete_coin__,#__eqdiscrete_toasts__')) return
+    const t = e.target as HTMLElement | null
+    if (!t) return
+    if (t.closest('#__eqdm_menu__,#__eqkm_overlay__,#__eqdiscrete_coin__,#__eqdiscrete_toasts__')) return
 
     if (this.state === 'waiting_key') {
       this.toast.flash('Keyboard Interact')
@@ -203,249 +185,192 @@ export class DemandApplicator {
     }
     if (this.state !== 'waiting_click') return
 
-    const step = this.flow[this.stepIdx]
+    const step   = this.flow[this.stepIdx]
     const action = step.action as Record<string, unknown>
 
-    void this.executeClickAction(action, step).then(ok => {
+    void this.execClick(action, step).then(ok => {
       this.highlight.clearAll()
-      this.dismissStatus()
-      if (ok) this.coin.flashOk(600)
-      // Avança sempre (melhor esforço)
-      setTimeout(() => this.gotoStep(this.stepIdx + 1), ok ? 200 : 100)
+      this.clearTimer()
+      if (ok) this.coin.flashOk(500)
+      setTimeout(() => this.gotoStep(this.stepIdx + 1), ok ? 160 : 80)
     })
   }
 
-  // ─── Executor de Ações ───────────────────────────────────────────────────
+  // ─── Execução de Ações ───────────────────────────────────────────────────
 
-  private async executeClickAction(
-    action: Record<string, unknown>,
-    step: InteractionStep,
-  ): Promise<boolean> {
+  private async execClick(action: Record<string, unknown>, _step: InteractionStep): Promise<boolean> {
     const t = String(action.t ?? '')
-
     try {
-      if (t === 'chk') {
+      if (t === 'chk' || t === 'clk') {
         const el = this.resolveEl(action)
-        if (!el) { this.toast.flash('Element Miss'); return false }
-        const inp = (el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio'))
-          ? el
-          : el.querySelector('input[type="checkbox"],input[type="radio"]') as HTMLInputElement | null
-        if (inp) {
-          if (!inp.checked) simulatePointerClick(inp)
-          else inp.checked = true
-        } else {
-          simulatePointerClick(el)
-        }
-        return true
-      }
-
-      if (t === 'clk') {
-        const el = this.resolveEl(action)
-        if (!el) { this.toast.flash('Element Miss'); return false }
-        simulatePointerClick(el)
+        if (!el) { this.toast.flash('Miss'); return false }
+        const cb = t === 'chk'
+          ? (el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio')
+              ? el : el.querySelector('input[type=checkbox],input[type=radio]') as HTMLInputElement | null)
+          : null
+        if (cb && !cb.checked) simulatePointerClick(cb)
+        else simulatePointerClick(el)
         return true
       }
 
       if (t === 'sel') {
-        const el = this.resolveEl(action)
-        if (!el) { this.toast.flash('Element Miss'); return false }
-        const sel = el instanceof HTMLSelectElement
-          ? el
+        const el  = this.resolveEl(action)
+        if (!el) { this.toast.flash('Miss'); return false }
+        const sel = el instanceof HTMLSelectElement ? el
           : el.querySelector('select') as HTMLSelectElement | null
-
         if (sel) {
-          const raw  = action.v
-          const vals = Array.isArray(raw) ? raw.map(String) : [String(raw ?? '')]
-          const target = vals[0]
+          const want = String(Array.isArray(action.v) ? action.v[0] : (action.v ?? ''))
           for (let i = 0; i < sel.options.length; i++) {
-            const o = sel.options[i]
-            if (o.value === target || o.text.trim() === target) {
+            if (sel.options[i].value === want || sel.options[i].text.trim() === want) {
               sel.selectedIndex = i
               sel.dispatchEvent(new Event('change', { bubbles: true }))
               return true
             }
           }
-          // fallback: selecionar pelo índice numérico se target for número
-          const idx = parseInt(target, 10)
-          if (!isNaN(idx) && idx >= 0 && idx < sel.options.length) {
-            sel.selectedIndex = idx
+          // fallback índice numérico
+          const ni = parseInt(want, 10)
+          if (!isNaN(ni) && ni >= 0 && ni < sel.options.length) {
+            sel.selectedIndex = ni
             sel.dispatchEvent(new Event('change', { bubbles: true }))
             return true
           }
         }
-        // Fallback: clique no elemento
         simulatePointerClick(el)
         return true
       }
 
       if (t === 'drag') {
-        const from = findElementExt(action.from as string)
-        const to   = findElementExt(action.to   as string)
-        if (from) simulatePointerClick(from)
+        const from = findElementExt(String(action.from ?? ''))
+        const to   = findElementExt(String(action.to   ?? ''))
         if (from && to) {
-          // Simula drag via pointerdown/pointerup
           from.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }))
           await new Promise(r => setTimeout(r, 80))
           to.dispatchEvent(new PointerEvent('pointerup',   { bubbles: true, cancelable: true }))
           to.dispatchEvent(new MouseEvent('drop',          { bubbles: true, cancelable: true }))
-        }
+        } else if (from) simulatePointerClick(from)
         return !!from
       }
 
-      if (t === 'adv') {
-        // Usuário clicou num botão de avanço — registra e avança fluxo
-        return true
-      }
+      if (t === 'adv') return true
 
-      if (t === 'js') {
-        // Segurança: não executa js arbitrário em modo discreto
-        return false
-      }
-
-    } catch {
-      this.toast.flash('Exec Error')
-      return false
-    }
-
+    } catch { this.toast.flash('Erro'); return false }
     return false
   }
 
-  // ─── Inserção de Texto (robusta) ─────────────────────────────────────────
+  // ─── Inserção de Texto ───────────────────────────────────────────────────
 
   /**
-   * Insere `chars` caracteres do `fullText` no campo identificado por `id`.
-   * Retorna true quando o texto inteiro foi inserido.
-   * Lida com: input, textarea, React controlled, contenteditable.
+   * Insere até `chars` caracteres do `fullText` no campo da ação.
+   * Rastreia progresso pelo stepIdx (não pelo ID do campo).
+   * Retorna true quando o texto completo foi inserido.
    */
-  private insertChars(id: string, fullText: string, chars: number): boolean {
-    const el = this.resolveElById(id)
+  private insertChars(
+    stepIdx: number,
+    action: Record<string, unknown>,
+    fullText: string,
+    chars: number,
+  ): boolean {
+    const already  = this.charsInserted.get(stepIdx) ?? 0
+    if (already >= fullText.length) return true
+
+    const el = this.resolveEl(action)
     if (!el) {
-      // Não achou o campo — avança para não travar
-      this.toast.flash('Field Not Found')
+      // Campo não encontrado — avança para não travar
+      this.toast.flash('Campo não achado')
+      this.charsInserted.set(stepIdx, fullText.length)
       return true
     }
 
-    const already = this.textProgress.get(id) ?? 0
-    if (already >= fullText.length) return true
+    const input = this.resolveInput(el)
+    if (!input) {
+      this.charsInserted.set(stepIdx, fullText.length)
+      return true
+    }
 
     const slice  = fullText.slice(already, already + chars)
     const newPos = already + slice.length
 
-    // Resolve o input real (pode ser input filho dentro de um container)
-    const input = this.resolveInput(el)
-    if (!input) return true
-
-    if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
-      const current = input.value
-      const newVal  = current + slice
-
-      // Usa setter nativo para passar pelos controlled inputs do React/Vue
-      const setter = input instanceof HTMLInputElement ? nativeInputSetter : nativeTextareaSetter
-      if (setter) {
-        setter.call(input, newVal)
-      } else {
-        input.value = newVal
-      }
-
-      // Dispara eventos na ordem correta para React/Vue/Angular detectar
-      input.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true }))
-      input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }))
-
-      // Posiciona o cursor no final
-      try {
-        const len = newVal.length
-        input.setSelectionRange(len, len)
-      } catch {}
-
-    } else if ((input as HTMLElement).contentEditable === 'true') {
-      // contenteditable
-      const ce = input as HTMLElement
-      const current = ce.textContent ?? ''
-      ce.textContent = current + slice
-      // Move cursor ao final
-      try {
-        const range = document.createRange()
-        const sel   = window.getSelection()
-        range.selectNodeContents(ce)
-        range.collapse(false)
-        sel?.removeAllRanges()
-        sel?.addRange(range)
-      } catch {}
-      ce.dispatchEvent(new Event('input',  { bubbles: true }))
-      ce.dispatchEvent(new Event('change', { bubbles: true }))
-    }
-
-    this.textProgress.set(id, newPos)
+    this.applyValue(input, slice, fullText, newPos)
+    this.charsInserted.set(stepIdx, newPos)
 
     if (newPos >= fullText.length) {
-      // Sinaliza fim do campo com blur suave
+      // Blur para salvar e focar próximo campo
       try { (input as HTMLInputElement).blur?.() } catch {}
-      setTimeout(() => { try { (input as HTMLInputElement).focus?.() } catch {} }, 50)
       return true
     }
-
     return false
   }
 
-  // ─── Resolução de Elementos ──────────────────────────────────────────────
+  /**
+   * Aplica valor ao input usando a técnica correta por tipo de campo.
+   */
+  private applyValue(input: HTMLElement, slice: string, _full: string, _newPos: number): void {
+    if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
+      const current = input.value
+      const newVal  = current + slice
+      const setter  = input instanceof HTMLInputElement ? nativeInputSetter : nativeTextareaSetter
+      if (setter) setter.call(input, newVal)
+      else        input.value = newVal
 
-  /** Resolve elemento para ações click/chk/sel/drag */
+      // Eventos na ordem exata que React/Angular esperam
+      input.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }))
+
+      // Cursor ao final
+      try { input.setSelectionRange(newVal.length, newVal.length) } catch {}
+
+    } else if ((input as HTMLElement).isContentEditable) {
+      // contenteditable (Google Docs, Notion, etc.)
+      const ce = input as HTMLElement
+      ce.textContent = (ce.textContent ?? '') + slice
+      ce.dispatchEvent(new Event('input', { bubbles: true }))
+      try {
+        const range = document.createRange()
+        range.selectNodeContents(ce)
+        range.collapse(false)
+        const sel = window.getSelection()
+        sel?.removeAllRanges()
+        sel?.addRange(range)
+      } catch {}
+    }
+  }
+
+  // ─── Resolução ───────────────────────────────────────────────────────────
+
   private resolveEl(action: Record<string, unknown>): HTMLElement | null {
-    const id = String(action.id ?? '')
-    if (id) {
-      const el = findElementExt(id, String(action.v ?? ''))
-      if (el) return el
-    }
-    // Fallback: busca por texto/label
-    const label = String(action.label ?? action.v ?? '')
-    if (label) {
-      const el = findElementExt(label)
-      if (el) return el
-    }
+    const id   = String(action.id    ?? '')
+    const val  = String(action.v     ?? '')
+    const from = String(action.from  ?? '')
+    const label = String(action.label ?? '')
+
+    if (id)    { const e = findElementExt(id, val, action.t === 'val');    if (e) return e }
+    if (label) { const e = findElementExt(label);                          if (e) return e }
+    if (from)  { const e = findElementExt(from);                           if (e) return e }
+    // Último recurso: busca por texto da resposta
+    if (val && val.length < 40) { const e = findElementExt(val);           if (e) return e }
     return null
   }
 
-  /** Resolve elemento para inserção de texto — prefere inputs */
-  private resolveElById(id: string): HTMLElement | null {
-    if (!id) return null
-    // findElementExt com preferInput=true
-    return findElementExt(id, '', true) ?? findElementExt(id)
-  }
-
-  /** Resolve o input real dentro de um container */
   private resolveInput(el: HTMLElement): HTMLElement | null {
-    if (
-      el instanceof HTMLInputElement ||
-      el instanceof HTMLTextAreaElement ||
-      el.contentEditable === 'true'
-    ) return el
-
-    const child = el.querySelector(
-      'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="radio"]):not([type="checkbox"]), textarea, [contenteditable="true"]'
-    ) as HTMLElement | null
-
-    return child ?? el
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el.isContentEditable) return el
+    return el.querySelector(
+      'input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=radio]):not([type=checkbox]),textarea,[contenteditable=true]'
+    ) as HTMLElement | null ?? el
   }
 
-  // ─── Conclusão ───────────────────────────────────────────────────────────
+  // ─── Fim ─────────────────────────────────────────────────────────────────
 
   private complete(): void {
     this.state = 'done'
     this.detach()
-    this.clearStepTimer()
+    this.clearTimer()
     this.highlight.clearAll()
-    this.dismissStatus()
+    this.clearStatus()
     this.coin.flashOk(2000)
-    this.toast.flash('Cache Atualizado')
+    this.toast.flash('Concluído')
   }
 
-  private dismissStatus(): void {
-    if (this.statusId) { this.toast.dismiss(this.statusId); this.statusId = null }
-  }
+  private clearStatus(): void { /* toast é auto-gerenciado pelo CornerToast */ }
 
-  destroy(): void {
-    this.abort()
-    this.detach()
-    this.clearStepTimer()
-  }
+  destroy(): void { this.abort(); this.detach(); this.clearTimer() }
 }
