@@ -185,8 +185,7 @@ export class DemandApplicator {
   // ── Clique — GATILHO para ação no elemento alvo ───────────────────────────
 
   private onClick(e: MouseEvent): void {
-    // CRÍTICO: ignora eventos sintéticos (gerados pelo próprio simulatePointerClick)
-    // Sem isso, o click simulado re-aciona este handler → crash recursivo
+    // Bloqueia eventos sintéticos (gerados por simulatePointerClick)
     if (!e.isTrusted) return
 
     const t = e.target as HTMLElement | null
@@ -201,12 +200,26 @@ export class DemandApplicator {
 
     const step   = this.flow[this.stepIdx]
     const action = step.action as Record<string, unknown>
+    const aType  = String(action.t ?? '')
+
+    // Para "adv": o clique natural do usuário navega a página. Apenas avançamos o step.
+    if (aType === 'adv') {
+      this.clearTimer()
+      this.highlight.clearAll()
+      setTimeout(() => this.gotoStep(this.stepIdx + 1), 200)
+      return
+    }
+
+    // Para chk/clk/sel/drag: PREVINE o clique natural do usuário de interferir no DOM.
+    // Caso contrário, se o usuário clicar diretamente no checkbox, ele togglea 2x (volta ao estado original).
+    // O sistema vai aplicar a ação correta via simulatePointerClick no elemento alvo.
+    e.preventDefault()
 
     void this.execClickAction(action, step).then(ok => {
       this.clearTimer()
       this.highlight.clearAll()
       if (ok) this.coin.flashOk(1200)
-      setTimeout(() => this.gotoStep(this.stepIdx + 1), ok ? 200 : 100)
+      setTimeout(() => this.gotoStep(this.stepIdx + 1), ok ? 220 : 100)
     })
   }
 

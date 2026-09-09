@@ -33,6 +33,15 @@ export class CoinCursor {
         from { transform: rotate(-90deg); }
         to   { transform: rotate(270deg); }
       }
+      /* Fundo sempre transparente — mesmo se página tiver CSS global */
+      #__eqdiscrete_coin__,
+      #__eqdiscrete_coin__ *,
+      .__eqdc_ring__ {
+        background: transparent !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+      }
       .__eqdc_ring__ {
         width: 20px; height: 20px;
         animation: __eqdc_spin__ 0.9s linear infinite;
