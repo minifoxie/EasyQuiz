@@ -86,33 +86,26 @@ export function buildGenerationConfig(model: string, schemaOverride?: unknown): 
     maxOutputTokens: 1800,
     responseMimeType: 'application/json',
     responseSchema: schema,
-    // NOTA: NÃO incluir response_mime_type / response_schema (snake_case)
-    // — a API Gemini trata camelCase e snake_case como aliases e retorna
-    // "Repeated map key" quando ambos estão presentes no mesmo payload.
+    // NÃO incluir snake_case (response_schema, response_mime_type) — causa "Repeated map key" HTTP 400
   }
 
-  // Modelos 'lite' — NÃO suportam thinkingConfig de forma alguma
+  // Estratégia de thinking: thinkingBudget=0 para TODOS os modelos que suportam.
+  // O campo 'thinking' no JSON schema já faz o raciocínio interno com zero latência extra.
+  // thinkingBudget=512 ("low") adiciona ~800ms-2s extra por requisição — inaceitável para quizzes.
+
+  // Modelos 'lite' — NÃO suportam thinkingConfig
   if (/lite/i.test(model)) {
     // sem thinkingConfig
   }
-  // gemini-3.5-flash e abaixo: thinkingBudget=0 desativa thinking sem causar HTTP 400
-  // NUNCA usar thinkingLevel='none' — esse valor não é suportado pela API atual
-  else if (/gemini-3\.5-flash/i.test(model) || /gemini-3\.[0-4]/i.test(model)) {
+  // gemini-3.x-flash (não lite): thinkingBudget=0 — desativa thinking nativo, máxima velocidade
+  else if (/gemini-3\.[0-9]+-?flash/i.test(model)) {
     config.thinkingConfig = { thinkingBudget: 0 }
   }
-  // gemini-3.6 / 3.7-flash: 'low' — thinking traz ganho proporcional
-  else if (/gemini-3\.[67]-flash/i.test(model)) {
-    config.thinkingConfig = { thinkingBudget: 512 }
-  }
-  // gemini-3.8+ : budget baixo mas ativo
-  else if (/gemini-3\.[89]|gemini-3\.[1-9][0-9]/i.test(model)) {
-    config.thinkingConfig = { thinkingBudget: 512 }
-  }
-  // gemini-2.5-flash: thinkingBudget=0 — sub-segundo
+  // gemini-2.5-flash: thinkingBudget=0 — já era assim
   else if (/gemini-2\.5-flash/i.test(model)) {
     config.thinkingConfig = { thinkingBudget: 0 }
   }
-  // gemini-2.5-pro: sem thinkingConfig (exige mínimo de thinking próprio)
+  // gemini-2.5-pro e qualquer Pro: sem thinkingConfig (o próprio modelo gerencia)
 
   return config
 }
@@ -883,15 +876,20 @@ export async function analyzeWithGemini(
   const waveSize = Math.min(Math.max(keysCount, 1), 6)
 
   // Timeout adaptativo por tipo de modelo e número de onda:
-  // Flash/Lite: Onda1=6s, Onda2=9s, Onda3+=12s (flash deve responder em <2s; 6s é margem sem travar UI)
-  // Pro: Onda1=12s, Onda2=16s, Onda3+=20s
+  // Gemini flash/lite responde em <1-3s em condições normais.
+  // Timeouts genéricos acima disso desperdiçam tempo se a chave/modelo está sobrecarregado.
+  //
+  // Flash:  Onda1=5s, Onda2=7s, Onda3+=9s
+  // Lite:   Onda1=4s, Onda2=6s, Onda3+=8s
+  // Pro:    Onda1=10s, Onda2=14s, Onda3+=18s
   const isPrimaryPro = /pro/i.test(effectiveChosenModel)
   const getTimeout = (waveNum: number, modelInWave?: string): number => {
-    const isPro = modelInWave ? /pro/i.test(modelInWave) : isPrimaryPro
+    const isPro  = modelInWave ? /pro/i.test(modelInWave)  : isPrimaryPro
     const isLite = modelInWave ? /lite/i.test(modelInWave) : /lite/i.test(effectiveChosenModel)
-    if (waveNum === 0) return isPro ? 12000 : isLite ? 5000 : 6000
-    if (waveNum === 1) return isPro ? 16000 : isLite ? 8000 : 9000
-    return isPro ? 20000 : 12000
+    if (isPro)  return waveNum === 0 ? 10000 : waveNum === 1 ? 14000 : 18000
+    if (isLite) return waveNum === 0 ?  4000 : waveNum === 1 ?  6000 :  8000
+    // Flash
+    return          waveNum === 0 ?  5000 : waveNum === 1 ?  7000 :  9000
   }
 
   const MAX_WAVES = 6  // teto de segurança
