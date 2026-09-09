@@ -399,7 +399,8 @@ export function describeControl(element: HTMLElement, role: 'answer' | 'navigati
   let currentValue = ''
   if (input.type === 'checkbox' || input.type === 'radio' || customRole === 'radio' || customRole === 'checkbox') {
     const isChecked = input.checked || element.getAttribute('aria-checked') === 'true'
-    currentValue = isChecked ? 'checked' : 'unchecked'
+    const rawVal = input.value && input.value !== 'on' ? input.value : element.getAttribute('data-value') || ''
+    currentValue = isChecked ? (rawVal ? `checked:${rawVal}` : 'checked') : (rawVal || 'unchecked')
   } else if (tag === 'button' || tagName === 'a' || role === 'navigation' || isNavigationControl(element)) {
     // Botões e links de navegação NÃO possuem valor de preenchimento de formulário!
     currentValue = ''

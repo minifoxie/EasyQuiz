@@ -20,6 +20,7 @@ import type { InteractionStep } from './promptDiscrete'
 import type { CoinCursor } from './coinCursor'
 import type { CornerToast } from './cornerToast'
 import type { StealthHighlight } from './stealthHighlight'
+import type { DebugOutput } from './debugOutput'
 import {
   findElementExt,
   simulatePointerClick,
@@ -54,20 +55,32 @@ export class DemandApplicator {
   private coin: CoinCursor
   private toast: CornerToast
   private highlight: StealthHighlight
+  private debugOutput?: DebugOutput
 
   private stepTimer: number | null = null
   // Progresso por STEP INDEX — garante ordem correta em multi-input
   private charsInserted = new Map<number, number>()
+  private failedSteps = new Set<number>()
 
   private boundKey:   (e: KeyboardEvent) => void
   private boundClick: (e: MouseEvent)    => void
 
-  constructor(coin: CoinCursor, toast: CornerToast, highlight: StealthHighlight) {
+  constructor(
+    coin: CoinCursor,
+    toast: CornerToast,
+    highlight: StealthHighlight,
+    debugOutput?: DebugOutput,
+  ) {
     this.coin = coin
     this.toast = toast
     this.highlight = highlight
+    this.debugOutput = debugOutput
     this.boundKey   = this.onKey.bind(this)
     this.boundClick = this.onClick.bind(this)
+  }
+
+  setDebugOutput(debugOutput: DebugOutput): void {
+    this.debugOutput = debugOutput
   }
 
   start(flow: InteractionStep[]): void {
@@ -76,8 +89,10 @@ export class DemandApplicator {
     this.flow = flow
     this.stepIdx = 0
     this.charsInserted.clear()
+    this.failedSteps.clear()
     this.state = 'idle'
     this.isExecuting = false
+    this.debugOutput?.setFlow(flow)
     this.attach()
     this.gotoStep(0)
   }
@@ -92,6 +107,7 @@ export class DemandApplicator {
     if (wasActive) {
       this.coin.flashError(800)
       this.toast.flash('Abortado')
+      this.debugOutput?.log('FLOW', 'Fluxo abortado pelo usuário')
     }
   }
 
@@ -127,10 +143,11 @@ export class DemandApplicator {
     this.stepIdx = idx
     const step   = this.flow[idx]
     this.state   = step.trigger === 'key' ? 'waiting_key' : 'waiting_click'
+    this.debugOutput?.setStepIndex(idx)
 
     // Highlight e foco no campo alvo
     const action = step.action as Record<string, unknown>
-    if (action.id || action.label || action.from || action.v) {
+    if (action.id || action.label || action.from || action.v || (action as any).name || (action as any).n) {
       const el = this.resolveEl(action)
       if (el) {
         this.highlight.highlightTarget([el])
@@ -176,6 +193,8 @@ export class DemandApplicator {
     }
     if (this.state !== 'waiting_key' || this.isExecuting) return
 
+    this.debugOutput?.log('KEY', `Gatilho de teclado detectado: "${e.key}" (Passo ${this.stepIdx + 1})`)
+
     const step   = this.flow[this.stepIdx]
     const action = step.action as Record<string, unknown>
 
@@ -188,6 +207,7 @@ export class DemandApplicator {
     if (fullText.length === 0) {
       this.clearTimer()
       this.highlight.clearAll()
+      this.debugOutput?.markStepSuccess(this.stepIdx, 'Texto vazio — avanço automático')
       setTimeout(() => this.gotoStep(this.stepIdx + 1), 80)
       return
     }
@@ -199,6 +219,7 @@ export class DemandApplicator {
       this.clearTimer()
       this.highlight.clearAll()
       this.coin.flashOk(1000)
+      this.debugOutput?.markStepSuccess(this.stepIdx, `Texto completo inserido: "${fullText}"`)
       setTimeout(() => this.gotoStep(this.stepIdx + 1), 150)
     } else {
       const inserted = this.charsInserted.get(this.stepIdx) ?? 0
@@ -215,7 +236,7 @@ export class DemandApplicator {
 
     const t = e.target as HTMLElement | null
     if (!t) return
-    if (t.closest('#__eqdm_menu__,#__eqkm_overlay__,#__eqcm_menu__,#__eqdiscrete_coin__,#__eqdiscrete_toasts__')) return
+    if (t.closest('#__eqdm_menu__,#__eqkm_overlay__,#__eqcm_menu__,#__eqdiscrete_coin__,#__eqdiscrete_toasts__,#__eq_dbg_window__,#__eq_dbg_pill__')) return
 
     if (this.state === 'waiting_key') {
       this.toast.flash('Keyboard Interact')
@@ -223,6 +244,8 @@ export class DemandApplicator {
     }
     if (this.state !== 'waiting_click') return
     if (this.isExecuting) return
+
+    this.debugOutput?.log('CLICK', `Gatilho de mouse interceptado em <${t.tagName.toLowerCase()}> (Passo ${this.stepIdx + 1})`)
 
     const step   = this.flow[this.stepIdx]
     const action = step.action as Record<string, unknown>
@@ -232,6 +255,7 @@ export class DemandApplicator {
     if (aType === 'adv') {
       this.clearTimer()
       this.highlight.clearAll()
+      this.debugOutput?.markStepSuccess(this.stepIdx, 'Avanço natural do usuário')
       setTimeout(() => this.gotoStep(this.stepIdx + 1), 200)
       return
     }
@@ -244,12 +268,19 @@ export class DemandApplicator {
     void this.execClickAction(action, step).then(ok => {
       this.clearTimer()
       this.highlight.clearAll()
-      if (ok) this.coin.flashOk(1000)
+      if (ok) {
+        this.coin.flashOk(1000)
+      } else {
+        this.failedSteps.add(this.stepIdx)
+        this.coin.flashError(800)
+      }
       setTimeout(() => {
         this.gotoStep(this.stepIdx + 1)
       }, ok ? 180 : 80)
-    }).catch(() => {
+    }).catch((err) => {
       this.isExecuting = false
+      this.failedSteps.add(this.stepIdx)
+      this.debugOutput?.markStepFailed(this.stepIdx, `Exceção: ${err instanceof Error ? err.message : String(err)}`)
       this.gotoStep(this.stepIdx + 1)
     })
   }
@@ -267,6 +298,7 @@ export class DemandApplicator {
         const el = this.resolveEl(action)
         if (!el) {
           this.toast.flash('Alvo não achado')
+          this.debugOutput?.markStepFailed(this.stepIdx, `Alvo não encontrado: ${JSON.stringify(action)}`)
           return false
         }
 
@@ -275,7 +307,7 @@ export class DemandApplicator {
           isInput ||
           el.getAttribute('role') === 'radio' ||
           el.getAttribute('role') === 'checkbox' ||
-          el.closest('.option-card, [role="radio"], [role="checkbox"], [role="option"]') !== null ||
+          el.closest('.option-card, [role="radio"], [role="checkbox"], [role="option"], .vf-radio-group, .vf-label') !== null ||
           t === 'chk'
 
         if (isOption) {
@@ -292,21 +324,11 @@ export class DemandApplicator {
 
           const shouldCheck = action.c !== undefined ? Boolean(action.c) : true
 
-          // 1. Motor central de persistência no alvo exato (nunca no tr inteiro)
+          // 1. Motor central de persistência no alvo exato
           setCheckedState(targetToClick, shouldCheck)
 
-          // 2. Dispara clique direto no elemento interativo visível (label, td ou card)
-          if (labelOrInteractive && labelOrInteractive !== targetToClick) {
-            simulatePointerClick(labelOrInteractive as HTMLElement)
-          }
-
-          // 3. Força clique nativo se houver input de rádio/checkbox
+          // 2. Verificação rigorosa e fallbacks caso o estado não tenha mudado
           if (input) {
-            try {
-              input.focus?.()
-              input.click()
-            } catch {}
-
             if (input.checked !== shouldCheck) {
               try {
                 const tracker = (input as any)._valueTracker
@@ -320,19 +342,41 @@ export class DemandApplicator {
               input.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
               input.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
             }
+
+            // Fallback: clique no label se ainda divergir
+            if (input.checked !== shouldCheck && labelOrInteractive && labelOrInteractive !== input) {
+              simulatePointerClick(labelOrInteractive as HTMLElement)
+            }
+
+            // Checagem final
+            if (input.checked !== shouldCheck) {
+              this.debugOutput?.markStepFailed(this.stepIdx, `Input [name="${input.name}"] resistiu à marcação checked=${shouldCheck}`)
+              return false
+            }
+
+            this.debugOutput?.markStepSuccess(this.stepIdx, `Input [name="${input.name}"] marcado checked=${shouldCheck}`)
+            return true
           }
 
+          // Se for elemento interativo sem input nativo (custom card)
+          if (labelOrInteractive) simulatePointerClick(labelOrInteractive as HTMLElement)
+          this.debugOutput?.markStepSuccess(this.stepIdx, `Opção customizada clicada`)
           return true
         }
 
         // Elemento interativo genérico (botão, link, etc.)
         simulatePointerClick(el)
+        this.debugOutput?.markStepSuccess(this.stepIdx, `Elemento <${el.tagName.toLowerCase()}> clicado`)
         return true
       }
 
       if (t === 'sel') {
         const el = this.resolveEl(action)
-        if (!el) { this.toast.flash('Alvo não achado'); return false }
+        if (!el) {
+          this.toast.flash('Alvo não achado')
+          this.debugOutput?.markStepFailed(this.stepIdx, `Select não encontrado: ${JSON.stringify(action)}`)
+          return false
+        }
         const sel = el instanceof HTMLSelectElement ? el
           : el.querySelector('select') as HTMLSelectElement | null
         if (sel) {
@@ -341,6 +385,7 @@ export class DemandApplicator {
             if (sel.options[i].value === want || sel.options[i].text.trim() === want) {
               sel.selectedIndex = i
               sel.dispatchEvent(new Event('change', { bubbles: true }))
+              this.debugOutput?.markStepSuccess(this.stepIdx, `Select atualizado para "${want}"`)
               return true
             }
           }
@@ -348,6 +393,7 @@ export class DemandApplicator {
           if (!isNaN(ni) && ni >= 0 && ni < sel.options.length) {
             sel.selectedIndex = ni
             sel.dispatchEvent(new Event('change', { bubbles: true }))
+            this.debugOutput?.markStepSuccess(this.stepIdx, `Select atualizado por índice ${ni}`)
             return true
           }
         }
@@ -362,18 +408,22 @@ export class DemandApplicator {
         const toEl   = findDragTarget(toStr, 'destination') || findElementExt(toStr)
         if (fromEl && toEl) {
           await simulateDragAndCategorize(fromEl, toEl)
+          this.debugOutput?.markStepSuccess(this.stepIdx, `Arrasto concluído de "${fromStr}" para "${toStr}"`)
           return true
         }
         this.toast.flash('Alvo não achado')
+        this.debugOutput?.markStepFailed(this.stepIdx, `Alvo de arrasto não achado: from="${fromStr}", to="${toStr}"`)
         return false
       }
 
       if (t === 'adv') {
+        this.debugOutput?.markStepSuccess(this.stepIdx, 'Avanço de etapa')
         return true
       }
 
-    } catch {
+    } catch (err) {
       this.toast.flash('Erro exec')
+      this.debugOutput?.markStepFailed(this.stepIdx, `Erro de execução: ${err instanceof Error ? err.message : String(err)}`)
       return false
     }
 
@@ -394,6 +444,7 @@ export class DemandApplicator {
     const el = this.resolveEl(action)
     if (!el) {
       this.toast.flash('Campo não achado')
+      this.debugOutput?.markStepFailed(stepIdx, `Campo de texto não encontrado: ${JSON.stringify(action)}`)
       this.charsInserted.set(stepIdx, fullText.length)
       return true
     }
@@ -444,6 +495,7 @@ export class DemandApplicator {
     const valStr   = String(action.v     ?? '').trim()
     const labelStr = String(action.label ?? '').trim()
     const fromStr  = String(action.from  ?? '').trim()
+    const nameStr  = String(action.name  ?? (action as any).n ?? '').trim()
 
     // 1. Identifica se a ação é uma marcação de Verdadeiro / Falso (V/F)
     const vfHint = valStr || (labelStr.match(/:\s*(verdadeiro|falso|v|f)\b/i)?.[1] ?? '') || (idStr.match(/_(v|f|verdadeiro|falso)$/i)?.[1] ?? '')
@@ -452,18 +504,36 @@ export class DemandApplicator {
     const isFalseQuery = /^(f|falso|false|0|nao|não|no|incorreto|errado)$/i.test(normVf) || normVf.includes('fals')
     const isVf = isTrueQuery || isFalseQuery
 
-    // 2. Busca elemento inicial por findElementExt
+    const vfKeywords = isTrueQuery
+      ? ['v', 'verdadeiro', 'true', '1', 't', 'sim', 'correto']
+      : ['f', 'falso', 'false', '0', 'não', 'nao', 'incorreto', 'errado']
+
+    // 2. Se nameStr foi fornecido (ex: "vf_row_1"), busca diretamente o rádio desse grupo
+    if (nameStr) {
+      if (valStr) {
+        const byExact = document.querySelector(
+          `input[name="${safeCssEscape(nameStr)}"][value="${safeCssEscape(valStr)}" i]`
+        ) as HTMLElement | null
+        if (byExact) return byExact
+      }
+
+      if (isVf) {
+        const groupRadios = Array.from(
+          document.querySelectorAll(`input[type="radio"][name="${safeCssEscape(nameStr)}"], input[name="${safeCssEscape(nameStr)}"]`)
+        ) as HTMLElement[]
+        const matched = groupRadios.find(r => this.isVfMatch(r, vfKeywords))
+        if (matched) return matched
+      }
+    }
+
+    // 3. Busca elemento por ID estrito ou label através do findElementExt
     let el: HTMLElement | null = null
     if (idStr)    el = findElementExt(idStr, valStr, action.t === 'val')
     if (!el && labelStr) el = findElementExt(labelStr, valStr, action.t === 'val')
     if (!el && fromStr)  el = findElementExt(fromStr, valStr, action.t === 'val')
 
-    // 3. Resolução especializada para Verdadeiro / Falso (V/F)
+    // 4. Resolução especializada para Verdadeiro / Falso (V/F)
     if (isVf) {
-      const vfKeywords = isTrueQuery
-        ? ['v', 'verdadeiro', 'true', '1', 't', 'sim', 'correto']
-        : ['f', 'falso', 'false', '0', 'não', 'nao', 'incorreto', 'errado']
-
       // Se el foi encontrado, verifica se é o rádio correto ou o container da linha
       if (el) {
         // Se el é um input radio em um grupo (tem name):
@@ -482,11 +552,14 @@ export class DemandApplicator {
           container.querySelectorAll('input[type="radio"], input[type="checkbox"], [role="radio"], label, td, [class*="choice" i], [class*="option" i]')
         ) as HTMLElement[]
         const matched = innerRadios.find(r => this.isVfMatch(r, vfKeywords))
-        if (matched) return matched
+        if (matched) {
+          const innerInput = matched instanceof HTMLInputElement ? matched : (matched.querySelector('input[type="radio"]') as HTMLElement | null)
+          return innerInput || matched
+        }
       }
 
       // Se el ainda não foi encontrado ou não bateu, busca na linha correspondente da tabela/grid
-      const queryRow = (labelStr || idStr).toLowerCase()
+      const queryRow = (labelStr || idStr).replace(/:\s*(verdadeiro|falso|v|f)\b/i, '').toLowerCase()
       if (queryRow) {
         const rows = Array.from(
           document.querySelectorAll('tr, [role="row"], [role="radiogroup"], .vf-row, [class*="row" i], li')
@@ -501,12 +574,15 @@ export class DemandApplicator {
             matchingRow.querySelectorAll('input[type="radio"], [role="radio"], label, td')
           ) as HTMLElement[]
           const matched = radios.find(r => this.isVfMatch(r, vfKeywords))
-          if (matched) return matched
+          if (matched) {
+            const innerInput = matched instanceof HTMLInputElement ? matched : (matched.querySelector('input[type="radio"]') as HTMLElement | null)
+            return innerInput || matched
+          }
         }
       }
     }
 
-    // 4. Fallback inteligente para alternativas com prefixos (A), B), 1., etc.)
+    // 5. Fallback inteligente para alternativas com prefixos (A), B), 1., etc.)
     const query = (idStr || labelStr || valStr).trim().toLowerCase()
     if (query) {
       const candidates = Array.from(
@@ -532,8 +608,13 @@ export class DemandApplicator {
     // Verifica valor e atributos do próprio elemento
     if (keywords.includes(val) || keywords.includes(dataVal) || keywords.includes(aria)) return true
 
-    // Verifica o label associado ou célula imediata (td, label)
+    // Verifica classes específicas de V/F (.vf-true, .vf-false)
     const labelOrCell = element.closest('label, td, [class*="option" i], [class*="choice" i]')
+    const combinedClass = ((element.className || '') + ' ' + (labelOrCell?.className || '')).toLowerCase()
+    if (keywords.includes('v') && (combinedClass.includes('vf-true') || combinedClass.includes('true') || combinedClass.includes('verdadeiro'))) return true
+    if (keywords.includes('f') && (combinedClass.includes('vf-false') || combinedClass.includes('false') || combinedClass.includes('falso'))) return true
+
+    // Verifica o label associado ou célula imediata (td, label)
     if (labelOrCell) {
       const txt = cleanSearchTerm(labelOrCell.textContent || '').trim().toLowerCase()
       for (const kw of keywords) {
@@ -572,6 +653,41 @@ export class DemandApplicator {
     ) as HTMLElement | null ?? el
   }
 
+  // ── Métodos Públicos de Execução Forçada (Via Debug Output) ───────────────
+
+  async forceStep(idx: number): Promise<boolean> {
+    if (idx < 0 || idx >= this.flow.length) return false
+    const step = this.flow[idx]
+    const action = step.action as Record<string, unknown>
+    const t = String(action.t ?? '')
+
+    if (t === 'val') {
+      const fullText = String(action.v ?? '')
+      const el = this.resolveEl(action)
+      if (!el) return false
+      const input = this.resolveInput(el)
+      if (!input) return false
+      this.applyValueSlice(input, fullText)
+      this.charsInserted.set(idx, fullText.length)
+      this.debugOutput?.markStepSuccess(idx, `Texto "${fullText}" injetado`)
+      return true
+    }
+
+    return await this.execClickAction(action, step)
+  }
+
+  async forceAll(): Promise<void> {
+    this.toast.flash('Injetando respostas...')
+    for (let i = 0; i < this.flow.length; i++) {
+      const step = this.flow[i]
+      const action = step.action as Record<string, unknown>
+      if (action.t === 'adv') continue
+      await this.forceStep(i)
+      await new Promise((r) => setTimeout(r, 60))
+    }
+    this.complete()
+  }
+
   // ── Conclusão ─────────────────────────────────────────────────────────────
 
   private complete(): void {
@@ -580,8 +696,16 @@ export class DemandApplicator {
     this.detach()
     this.clearTimer()
     this.highlight.clearAll()
-    this.coin.flashOk(1800)
-    this.toast.flash('Concluído')
+
+    if (this.failedSteps.size > 0) {
+      this.coin.flashError(2200)
+      this.toast.flash('Concluído c/ erros')
+      this.debugOutput?.log('WARN', `Fluxo finalizado com ${this.failedSteps.size} passos que falharam!`)
+    } else {
+      this.coin.flashOk(1800)
+      this.toast.flash('Concluído')
+      this.debugOutput?.log('FLOW', 'Fluxo finalizado com 100% de sucesso!')
+    }
   }
 
   destroy(): void {

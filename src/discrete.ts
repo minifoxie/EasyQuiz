@@ -18,6 +18,7 @@ import { StealthHighlight } from './discrete/stealthHighlight'
 import { PageWatcher } from './discrete/pageWatcher'
 import { DemandApplicator } from './discrete/demandApplicator'
 import { CommandMenu } from './discrete/commandMenu'
+import { DebugOutput } from './discrete/debugOutput'
 import { DISCRETE_SYSTEM_SUFFIX, normalizeFlow } from './discrete/promptDiscrete'
 import type { AnalysisPlan } from './core/types'
 
@@ -51,13 +52,18 @@ async function initDiscrete(): Promise<void> {
   injectPreconnect()
   resetActivityMetrics()
 
-  const coin       = new CoinCursor()
-  const toast      = new CornerToast()
-  const highlight  = new StealthHighlight()
-  const applicator = new DemandApplicator(coin, toast, highlight)
-  const modelMenu  = new ModelMenu({ onModelChange: () => toast.flash('Modelo OK') })
-  const keyMenu    = new KeyMenu(coin, toast)
-  const cmdMenu    = new CommandMenu()
+  const coin        = new CoinCursor()
+  const toast       = new CornerToast()
+  const highlight   = new StealthHighlight()
+  const applicator  = new DemandApplicator(coin, toast, highlight)
+  const debugOutput = new DebugOutput({
+    onForceStep: (idx: number): Promise<boolean> => applicator.forceStep(idx),
+    onForceAllSteps: (): Promise<void> => applicator.forceAll(),
+  })
+  applicator.setDebugOutput(debugOutput)
+  const modelMenu   = new ModelMenu({ onModelChange: () => toast.flash('Modelo OK') })
+  const keyMenu     = new KeyMenu(coin, toast)
+  const cmdMenu     = new CommandMenu()
 
   // Estado de análise
   let currentAbort: AbortController | null = null
@@ -109,9 +115,11 @@ async function initDiscrete(): Promise<void> {
 
     coin.setState('loading')
     if (!proactive || retry > 0) toast.flash(retry > 0 ? `Tentativa ${retry + 1}` : 'Analisando')
+    debugOutput.log('SYS', `Iniciando análise (proativo: ${proactive}, retry: ${retry})`)
 
     function scheduleRetry(): void {
       const delay = RETRY_DELAYS[Math.min(retry, RETRY_DELAYS.length - 1)]
+      debugOutput.log('WARN', `Agendando retry em ${delay}ms`)
       retryTimer = window.setTimeout(() => {
         if (!applicator.isActive()) void doAnalyze(false, retry + 1)
       }, delay)
@@ -128,29 +136,36 @@ async function initDiscrete(): Promise<void> {
       if (!ctx || !ctx.questionText?.trim()) {
         coin.setState('idle')
         if (retry === 0 && !proactive) toast.flash('Sem conteúdo')
+        debugOutput.log('WARN', 'Nenhum conteúdo ou questão detectada na página')
         // Sempre retenta — talvez a página ainda esteja carregando
         scheduleRetry()
         return
       }
 
+      debugOutput.log('DOM', `Contexto detectado: ${ctx.controls.length} controles, ${ctx.questionText.length} chars`, ctx.questionText)
+
       const images = await captureImages(ctx.scope, settings.useVision)
       if (signal.aborted) return
 
+      const tStart = performance.now()
       const result = await analyzeWithGemini(
         ctx, images, settings,
         undefined, signal,
         { systemPromptOverride: DISCRETE_FULL_SYSTEM }
       )
+      const latency = Math.round(performance.now() - tStart)
 
       if (signal.aborted) return
 
       coin.setState('idle')
       const plan = result.plan as AnalysisPlan & { interactionFlow?: unknown }
+      debugOutput.setPlan(plan, ctx.questionText, latency, settings.model)
 
       if (plan.memoryToStore) addSessionMemory(plan.memoryToStore)
 
       if (plan.pageType === 'conclusion') {
         toast.flash('Sessão encerrada')
+        debugOutput.log('SYS', 'Página de conclusão detectada')
         return
       }
 
@@ -162,12 +177,14 @@ async function initDiscrete(): Promise<void> {
       if (plan.pageType === 'info' || plan.pageType === 'start') {
         coin.flashOk(1000)
         toast.flash('Avançar')
+        debugOutput.log('SYS', `Página do tipo ${plan.pageType} — avançando`)
         if (flow.length > 0) applicator.start(flow)
         return
       }
 
       if (!flow.length) {
         // IA retornou mas sem fluxo — retenta
+        debugOutput.log('WARN', 'Plano da IA retornou sem ações ou fluxo de interação')
         scheduleRetry()
         return
       }
@@ -184,6 +201,7 @@ async function initDiscrete(): Promise<void> {
       if (signal.aborted) return
       coin.setState('idle')
       const m = e instanceof Error ? e.message : ''
+      debugOutput.log('ERROR', `Erro na análise: ${m}`)
 
       if (m.includes('403') || m.includes('API key') || m.includes('inválida')) {
         toast.flash('Acesso negado')
@@ -228,9 +246,10 @@ async function initDiscrete(): Promise<void> {
   }
 
   function closeAll(): void {
-    if (modelMenu.isOpen()) modelMenu.close()
-    if (keyMenu.isOpen())   keyMenu.close()
-    if (cmdMenu.isOpen())   cmdMenu.close()
+    if (modelMenu.isOpen())   modelMenu.close()
+    if (keyMenu.isOpen())     keyMenu.close()
+    if (cmdMenu.isOpen())     cmdMenu.close()
+    if (debugOutput.isOpen()) debugOutput.close()
   }
 
   const COMMANDS = [
@@ -239,7 +258,7 @@ async function initDiscrete(): Promise<void> {
     { keys: 'Shift+A', label: 'Config API keys',   action: () => keyMenu.isOpen() ? keyMenu.close() : keyMenu.open() },
     { keys: 'Shift+Z', label: 'Abortar fluxo',     action: () => applicator.isActive() ? applicator.abort() : toast.flash('Nada ativo') },
     { keys: 'Shift+R', label: 'Re-analisar',       action: () => void doAnalyze() },
-    { keys: 'Shift+H', label: 'Ver status',        action: showStatus },
+    { keys: 'Shift+H', label: 'Debug Output',      action: () => debugOutput.toggle() },
     { keys: 'Shift+I', label: 'Último aviso',      action: () => toast.reshow() },
     { keys: 'Shift+C', label: 'Comandos',          action: () => cmdMenu.isOpen() ? cmdMenu.close() : cmdMenu.open() },
     { keys: 'Escape',  label: 'Fechar menus',      action: closeAll },
@@ -270,7 +289,7 @@ async function initDiscrete(): Promise<void> {
       e.preventDefault(); e.stopPropagation(); void doAnalyze(); return
     }
     if (e.shiftKey && k === 'H') {
-      e.preventDefault(); e.stopPropagation(); showStatus(); return
+      e.preventDefault(); e.stopPropagation(); debugOutput.toggle(); return
     }
     if (e.shiftKey && k === 'I') {
       e.preventDefault(); e.stopPropagation(); toast.reshow(); return
@@ -279,7 +298,7 @@ async function initDiscrete(): Promise<void> {
       e.preventDefault(); e.stopPropagation()
       cmdMenu.isOpen() ? cmdMenu.close() : cmdMenu.open(); return
     }
-    if (k === 'Escape' && (modelMenu.isOpen() || keyMenu.isOpen() || cmdMenu.isOpen())) {
+    if (k === 'Escape' && (modelMenu.isOpen() || keyMenu.isOpen() || cmdMenu.isOpen() || debugOutput.isOpen())) {
       e.stopPropagation(); e.preventDefault(); closeAll()
     }
   }
@@ -292,6 +311,7 @@ async function initDiscrete(): Promise<void> {
       window.removeEventListener('keydown', onKey, { capture: true })
       if (retryTimer) clearTimeout(retryTimer)
       applicator.destroy()
+      debugOutput.destroy()
       modelMenu.destroy()
       keyMenu.destroy()
       cmdMenu.destroy()

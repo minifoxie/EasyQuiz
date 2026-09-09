@@ -42,6 +42,7 @@ REGRAS DO interactionFlow:
 12. Questão simples (1 clique): 1-2 steps. Complexa (redação, categorização, multi-select): até 20 steps.
 13. Nunca revele a resposta nos hints/customMsg — são termos de sistema disfarçados.
 14. Se actions[] contiver múltiplos {t:"chk"}, certifique-se de incluir 1 step por chk em interactionFlow.
+15. Para questões de Verdadeiro/Falso em grade/tabela: N afirmações = N ações chk e N steps de trigger="click" (1 clique por linha/afirmação) + 1 step adv. NUNCA resuma múltiplas afirmações a um único step.
 
 SCHEMA JSON OBRIGATÓRIO (adicional ao plano normal):
 {

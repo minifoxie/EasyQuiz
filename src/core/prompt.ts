@@ -144,8 +144,10 @@ G. CATEGORIZAÇÃO / CLASSIFICAÇÃO (FATO/OPINIÃO, SIM/NÃO, grupos):
    → mode: "categorizacao" (categorias fixas) ou "arrastar_soltar" (arraste).
 
 H. VERDADEIRO/FALSO EM GRADE:
-   → Avalie CADA linha individualmente.
-   → Use chk ou clk para V/F de cada afirmação.
+   → Avalie CADA afirmação individualmente.
+   → Para N afirmações/linhas, emita EXATAMENTE N ações chk separadas (uma para cada linha/afirmação) + adv.
+   → NUNCA marque apenas uma afirmação e deixe as outras em branco.
+   → Use o id do controle em [RESPOSTAS] ou {t:"chk", name:"nome_do_grupo", v:"V"|"F"}.
    → mode: "verdadeiro_falso".
 
 I. REDAÇÃO / DISSERTAÇÃO:
@@ -394,8 +396,11 @@ ${
     const hasMultiKeywords = /selecione as|assinale as|quais das|todas as|marque as|escolha as|quais dessas|quais dos/i.test(context.questionText)
     const isMultiSelect = standaloneCheckboxes.length >= 2 || hasMultiKeywords
 
-    // Detecta rádio único (apenas 1 opção pode ser marcada)
-    const isRadioOnly = answerControls.every((c) => c.type === 'radio' || c.type === 'chk') && radioNames.size >= 1 && !isMultiSelect
+    // Detecta Verdadeiro / Falso ou Matriz de Rádios (múltiplas linhas de rádio, ex: vf_row_1, vf_row_2, ...)
+    const isVfOrMatrix = radioNames.size > 1 || (/verdadeir|fals[oa]|\bv\s*\/\s*f\b|julgue|itens/i.test(context.questionText) && radioNames.size >= 1)
+
+    // Detecta rádio único (apenas 1 opção pode ser marcada em toda a questão)
+    const isRadioOnly = answerControls.every((c) => c.type === 'radio' || c.type === 'chk') && radioNames.size === 1 && !isMultiSelect && !isVfOrMatrix
 
     // Detecta múltiplos campos de input (matrizes, tabelas numéricas, etc.)
     const inputControls = answerControls.filter(
@@ -403,13 +408,15 @@ ${
     )
     const isMultiInput = inputControls.length >= 2
 
-    const header = isMultiSelect
-      ? '[MULTI-SELEÇÃO: marque TODOS os corretos, pode ser 2 ou mais]\n'
-      : isRadioOnly
-        ? '[ESCOLHA-Única: marque APENAS 1 opção]\n'
-        : isMultiInput
-          ? `[MÚLTIPLOS CAMPOS DE PREENCHIMENTO (${inputControls.length} campos): emita uma ação val para CADA um dos ${inputControls.length} campos abaixo com seu id exato]\n`
-          : ''
+    const header = isVfOrMatrix
+      ? `[GRADE VERDADEIRO/FALSO (${radioNames.size || 'múltiplas'} afirmações): você DEVE julgar e marcar exatamente 1 opção (V ou F) para CADA uma das ${radioNames.size} afirmações — emita ${radioNames.size} ações chk separadas + adv]\n`
+      : isMultiSelect
+        ? '[MULTI-SELEÇÃO: marque TODOS os corretos, pode ser 2 ou mais]\n'
+        : isRadioOnly
+          ? '[ESCOLHA-Única: marque APENAS 1 opção]\n'
+          : isMultiInput
+            ? `[MÚLTIPLOS CAMPOS DE PREENCHIMENTO (${inputControls.length} campos): emita uma ação val para CADA um dos ${inputControls.length} campos abaixo com seu id exato]\n`
+            : ''
 
     return header + JSON.stringify(
       answerControls.map((c) => ({
