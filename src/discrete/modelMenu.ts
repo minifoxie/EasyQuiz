@@ -1,6 +1,6 @@
 /**
- * ModelMenu — Context menu Chrome-like para seleção de modelo Gemini.
- * Ativado por Shift+M. Aparece onde o cursor está. Visual idêntico ao Chrome.
+ * ModelMenu — Context menu pixel-perfect idêntico ao Chrome/Edge nativo.
+ * Ativado por Shift+M. Aparece onde o cursor está.
  */
 
 import { AVAILABLE_MODELS, discoveredModelsCache } from '../core/gemini'
@@ -10,20 +10,17 @@ export class ModelMenu {
   private el: HTMLDivElement | null = null
   private lastMouseX = 0
   private lastMouseY = 0
-  private boundMouseMove: (e: MouseEvent) => void
-  private boundClose: (e: MouseEvent | KeyboardEvent) => void
   private onModelChange?: (modelId: string) => void
-  private autoCloseTimer: number | null = null
+  private boundMouseMove: (e: MouseEvent) => void
+  private boundOutside: (e: MouseEvent | KeyboardEvent) => void
+  private autoTimer: number | null = null
 
   constructor(opts: { onModelChange?: (modelId: string) => void }) {
     this.onModelChange = opts.onModelChange
-    this.boundMouseMove = (e: MouseEvent) => {
-      this.lastMouseX = e.clientX
-      this.lastMouseY = e.clientY
-    }
-    this.boundClose = (e: MouseEvent | KeyboardEvent) => {
+    this.boundMouseMove = (e) => { this.lastMouseX = e.clientX; this.lastMouseY = e.clientY }
+    this.boundOutside = (e) => {
       if (e instanceof KeyboardEvent && e.key !== 'Escape') return
-      if (e instanceof MouseEvent && this.el && this.el.contains(e.target as Node)) return
+      if (e instanceof MouseEvent && this.el?.contains(e.target as Node)) return
       this.close()
     }
     window.addEventListener('mousemove', this.boundMouseMove, { passive: true })
@@ -34,119 +31,152 @@ export class ModelMenu {
     if (document.getElementById('__eqdm_style__')) return
     const s = document.createElement('style')
     s.id = '__eqdm_style__'
+    // Pixel-perfect Chrome 120+ context menu
     s.textContent = `
       #__eqdm_menu__ {
         position: fixed;
-        width: 228px;
+        min-width: 200px;
+        max-width: 280px;
         background: #fff;
         border: 1px solid rgba(0,0,0,0.12);
         border-radius: 4px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.04);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.10);
         z-index: 2147483647;
         padding: 4px 0;
-        font-family: system-ui,-apple-system,'Segoe UI',sans-serif;
+        font-family: system-ui,-apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif;
         font-size: 13px;
         color: #202124;
         user-select: none;
-        animation: __eqdm_in__ 0.12s ease;
+        outline: none;
+        animation: __eqdm_in__ 0.08s ease;
         overflow: hidden;
       }
       @keyframes __eqdm_in__ {
-        from { opacity:0; transform:scale(0.96); }
-        to   { opacity:1; transform:scale(1); }
+        from { opacity:0; transform:scale(0.97) translateY(-3px); }
+        to   { opacity:1; transform:scale(1) translateY(0); }
       }
-      #__eqdm_menu__ .__eqdm_header__ {
-        padding: 6px 12px 4px;
+      .__eqdm_section__ {
+        padding: 6px 12px 3px;
         font-size: 11px;
-        color: #80868b;
-        font-weight: 500;
-        letter-spacing: 0.02em;
+        color: #70757a;
+        font-weight: 400;
+        letter-spacing: 0;
+        pointer-events: none;
+        line-height: 1.4;
       }
-      #__eqdm_menu__ .__eqdm_sep__ {
-        height: 1px;
-        background: #e8eaed;
+      .__eqdm_sep__ {
+        height: 0;
+        border: none;
+        border-top: 1px solid #e8eaed;
         margin: 4px 0;
       }
-      #__eqdm_menu__ .__eqdm_item__ {
-        display: flex;
+      .__eqdm_item__ {
+        display: grid;
+        grid-template-columns: 20px 1fr auto;
         align-items: center;
+        padding: 0 12px 0 8px;
+        height: 28px;
         gap: 6px;
-        padding: 5px 12px;
         cursor: default;
         white-space: nowrap;
         overflow: hidden;
-        text-overflow: ellipsis;
-        transition: background 0.08s;
+        color: #202124;
+        position: relative;
+        outline: none;
       }
-      #__eqdm_menu__ .__eqdm_item__:hover {
-        background: #f1f3f4;
+      .__eqdm_item__:hover,
+      .__eqdm_item__:focus {
+        background: #1a73e8;
+        color: #fff;
       }
-      #__eqdm_menu__ .__eqdm_item__.__eqdm_active__ {
-        font-weight: 600;
-        color: #1a73e8;
+      .__eqdm_item__:hover .__eqdm_badge__,
+      .__eqdm_item__:focus .__eqdm_badge__ {
+        background: rgba(255,255,255,0.25);
+        color: rgba(255,255,255,0.9);
       }
-      #__eqdm_menu__ .__eqdm_arrow__ {
-        font-size: 10px;
-        width: 12px;
+      .__eqdm_check__ {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        width: 16px;
         flex-shrink: 0;
         color: #1a73e8;
       }
-      #__eqdm_menu__ .__eqdm_name__ {
-        flex: 1;
+      .__eqdm_item__:hover .__eqdm_check__,
+      .__eqdm_item__:focus .__eqdm_check__ {
+        color: #fff;
+      }
+      .__eqdm_name__ {
         overflow: hidden;
         text-overflow: ellipsis;
+        line-height: 28px;
+        font-size: 13px;
       }
-      #__eqdm_menu__ .__eqdm_badge__ {
+      .__eqdm_badge__ {
         font-size: 10px;
-        color: #80868b;
+        color: #70757a;
         background: #f1f3f4;
-        border-radius: 8px;
-        padding: 1px 5px;
+        border-radius: 10px;
+        padding: 1px 6px;
         flex-shrink: 0;
+        transition: background 0.08s, color 0.08s;
+        letter-spacing: 0;
       }
     `
     document.documentElement.appendChild(s)
   }
 
   open(): void {
-    this.close() // fecha se já aberto
+    this.close()
 
     const settings = loadSettings()
-    const currentModel = settings.model
-
-    // Monta lista de modelos: built-in + descobertos da conta (sem duplicar)
+    const current = settings.model
     const builtIn = [...AVAILABLE_MODELS]
-    const discovered = discoveredModelsCache || []
-    const extra = discovered.filter(m => !builtIn.some(b => b.id === m.id))
+    const extra = (discoveredModelsCache || []).filter(m => !builtIn.some(b => b.id === m.id))
 
     const menu = document.createElement('div')
     menu.id = '__eqdm_menu__'
+    menu.setAttribute('role', 'menu')
+    menu.tabIndex = -1
 
-    // Header
+    // Cabeçalho — igual ao Chrome: texto cinza sem separador imediato
     const header = document.createElement('div')
-    header.className = '__eqdm_header__'
-    header.textContent = 'Selecionar modelo'
+    header.className = '__eqdm_section__'
+    header.textContent = 'Modelo Gemini'
     menu.appendChild(header)
 
     const sep0 = document.createElement('div')
     sep0.className = '__eqdm_sep__'
     menu.appendChild(sep0)
 
-    const addItem = (id: string, displayName: string, badge?: string) => {
-      const isActive = id === currentModel
+    const addItem = (id: string, label: string, badge?: string) => {
+      const isActive = id === current
       const row = document.createElement('div')
-      row.className = `__eqdm_item__${isActive ? ' __eqdm_active__' : ''}`
+      row.className = '__eqdm_item__'
+      row.setAttribute('role', 'menuitemradio')
+      row.setAttribute('aria-checked', isActive ? 'true' : 'false')
+      row.tabIndex = 0
 
-      const arrow = document.createElement('span')
-      arrow.className = '__eqdm_arrow__'
-      arrow.textContent = isActive ? '▶' : ''
-      row.appendChild(arrow)
+      // Coluna 1: checkmark (só se selecionado)
+      const check = document.createElement('span')
+      check.className = '__eqdm_check__'
+      if (isActive) {
+        // SVG checkmark idêntico ao Chrome — não emoji
+        check.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+          <path d="M1.5 6.5L4.5 9.5L10.5 2.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`
+      }
+      row.appendChild(check)
 
+      // Coluna 2: nome
       const name = document.createElement('span')
       name.className = '__eqdm_name__'
-      name.textContent = displayName
+      name.textContent = label
+      if (isActive) name.style.fontWeight = '500'
       row.appendChild(name)
 
+      // Coluna 3: badge opcional
       if (badge) {
         const b = document.createElement('span')
         b.className = '__eqdm_badge__'
@@ -160,69 +190,77 @@ export class ModelMenu {
         this.close()
       })
 
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          saveSettings({ model: id })
+          this.onModelChange?.(id)
+          this.close()
+        }
+      })
+
       menu.appendChild(row)
     }
 
-    // Modelos built-in
+    // Modelos built-in com badges
     for (const m of builtIn) {
-      // Badge amigável
       let badge: string | undefined
-      if (m.id.includes('flash-lite')) badge = 'Eco'
-      else if (m.id.includes('3.8')) badge = 'Novo'
-      addItem(m.id, m.name.replace(/ \(.*\)/, '').trim(), badge)
+      if (m.id.includes('3.8') || m.id.includes('3.7')) badge = 'Novo'
+      else if (m.id.includes('flash-lite')) badge = 'Eco'
+      else if (m.id.includes('pro')) badge = 'Pro'
+      // Nome limpo sem parênteses
+      const label = m.name.replace(/\s*\(.*?\)\s*/g, '').trim()
+      addItem(m.id, label, badge)
     }
 
-    // Modelos extras descobertos da conta
+    // Extras da conta
     if (extra.length > 0) {
       const sep = document.createElement('div')
       sep.className = '__eqdm_sep__'
       menu.appendChild(sep)
 
       const h2 = document.createElement('div')
-      h2.className = '__eqdm_header__'
+      h2.className = '__eqdm_section__'
       h2.textContent = 'Modelos da conta'
       menu.appendChild(h2)
 
       for (const m of extra) {
-        addItem(m.id, m.name.replace(/ \(.*\)/, '').trim())
+        addItem(m.id, m.name.replace(/\s*\(.*?\)\s*/g, '').trim())
       }
     }
 
-    // Posiciona onde o cursor está, ajustando para não sair da viewport
     document.documentElement.appendChild(menu)
     this.el = menu
 
-    const menuW = 228
-    const menuH = menu.offsetHeight || 300
+    // Posiciona na posição do cursor, ajustando viewport
+    const { offsetWidth: w, offsetHeight: h } = menu
     let x = this.lastMouseX
     let y = this.lastMouseY
-
-    if (x + menuW > window.innerWidth - 8) x = window.innerWidth - menuW - 8
-    if (y + menuH > window.innerHeight - 8) y = window.innerHeight - menuH - 8
-    if (y < 8) y = 8
-    if (x < 8) x = 8
-
+    const vw = window.innerWidth, vh = window.innerHeight
+    if (x + w + 8 > vw) x = vw - w - 8
+    if (y + h + 8 > vh) y = vh - h - 8
+    if (x < 4) x = 4
+    if (y < 4) y = 4
     menu.style.left = `${x}px`
-    menu.style.top = `${y}px`
+    menu.style.top  = `${y}px`
+    menu.focus()
 
     // Fechar ao clicar fora ou Escape
     setTimeout(() => {
-      window.addEventListener('click', this.boundClose as EventListener, { capture: true, once: false })
-      window.addEventListener('keydown', this.boundClose as EventListener, { capture: true, once: false })
+      window.addEventListener('click', this.boundOutside as EventListener, { capture: true })
+      window.addEventListener('keydown', this.boundOutside as EventListener, { capture: true })
     }, 50)
 
-    // Auto-fechar em 8s
-    this.autoCloseTimer = window.setTimeout(() => this.close(), 8000)
+    // Auto-fechar em 8s sem interação
+    this.autoTimer = window.setTimeout(() => this.close(), 8000)
   }
 
   close(): void {
-    if (this.autoCloseTimer) { clearTimeout(this.autoCloseTimer); this.autoCloseTimer = null }
-    window.removeEventListener('click', this.boundClose as EventListener, { capture: true })
-    window.removeEventListener('keydown', this.boundClose as EventListener, { capture: true })
-    if (this.el) {
-      this.el.remove()
-      this.el = null
-    }
+    if (this.autoTimer) { clearTimeout(this.autoTimer); this.autoTimer = null }
+    window.removeEventListener('click', this.boundOutside as EventListener, { capture: true })
+    window.removeEventListener('keydown', this.boundOutside as EventListener, { capture: true })
+    this.el?.remove()
+    this.el = null
   }
 
   isOpen(): boolean { return this.el !== null }
@@ -230,5 +268,6 @@ export class ModelMenu {
   destroy(): void {
     this.close()
     window.removeEventListener('mousemove', this.boundMouseMove)
+    document.getElementById('__eqdm_style__')?.remove()
   }
 }
