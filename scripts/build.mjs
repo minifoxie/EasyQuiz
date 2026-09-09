@@ -94,6 +94,12 @@ const discreteClean = discreteRaw.replace(/^\/\*[\s\S]*?\*\/\s*/, '')
 const discreteBookmarkletCode = `javascript:(function(){${discreteClean}})();void 0`
 await writeFile(path.join(dist, 'bookmarklet_discrete.txt'), `${discreteBookmarkletCode}\n`, 'utf-8')
 
+// Versão curta legacy (fetch+eval) — funciona em sites sem CSP restritivo
+const discreteLegacyUrl = `https://raw.githubusercontent.com/${githubRepo}/main/dist/discrete.js`
+const discreteLegacy = `javascript:fetch('${discreteLegacyUrl}?t='+Date.now()).then(r=>r.text()).then(eval);`
+await writeFile(path.join(dist, 'bookmarklet_discrete_legacy.txt'), `${discreteLegacy}\n`, 'utf-8')
+
+
 const discreteBmEscaped = discreteBookmarkletCode
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')
