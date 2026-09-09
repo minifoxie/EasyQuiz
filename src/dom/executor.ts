@@ -663,10 +663,12 @@ function setNativeValue(element: HTMLElement, value: string): void {
   } catch {}
 
   // 2. Tenta digitação nativa via execCommand (simula evento de teclado físico direto no browser)
+  // Campos number NUNCA usam execCommand: o browser rejeita valores como "-" ou "1." silenciosamente,
+  // causando truncamento (ex: "-1" vira "1"). Para number, usamos apenas o setter nativo abaixo.
   let execSuccess = false
   try {
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-      if (target.type !== 'number') {
+      if (target.type !== 'number' && target.type !== 'range') {
         try { target.select?.() } catch {}
         execSuccess = document.execCommand?.('insertText', false, valToSet) || false
       }
@@ -1393,7 +1395,41 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
           ? (action as any).val
           : (action as any).text
   const valHint = rawVal !== undefined && rawVal !== null ? String(rawVal).trim() : ''
-  let element = findElementExt(elId, valHint, action.t === 'val' || action.t === 'sel')
+
+  // ── Resolução especial para chk com name+v (V/F e matrizes de rádio) ──────
+  // Quando a IA emite { t:'chk', name:'vf_row_1', v:'V', c:true }, action.id
+  // está vazio, mas precisamos do input[name="vf_row_1"][value="V"].
+  let element: HTMLElement | null = null
+  const nameHint = String((action as any).name ?? (action as any).n ?? '').trim()
+  if (action.t === 'chk' && nameHint) {
+    // Busca direta e eficiente por [name][value] — mais confiável que findElementExt para V/F
+    const groupRadios = Array.from(
+      document.querySelectorAll(`input[name="${safeCssEscape(nameHint)}"]`)
+    ) as HTMLInputElement[]
+    if (valHint) {
+      element = groupRadios.find(r => r.value?.toLowerCase() === valHint.toLowerCase()) ?? null
+    }
+    // Fallback V/F por texto do label associado
+    if (!element && valHint) {
+      const isVkw = /^(v|verdadeiro|true|1|t|sim|correto)$/i.test(valHint)
+      const isFkw = /^(f|falso|false|0|nao|não|incorreto|errado)$/i.test(valHint)
+      if (isVkw || isFkw) {
+        const kws = isVkw
+          ? ['v','verdadeiro','true','1','t','sim','correto']
+          : ['f','falso','false','0','nao','não','incorreto','errado']
+        element = groupRadios.find(r => {
+          const val = r.value?.toLowerCase() ?? ''
+          if (kws.includes(val)) return true
+          const lbl = r.closest('label, td, [class*="option" i]')
+          const txt = (lbl?.textContent ?? '').trim().toLowerCase()
+          return kws.some(kw => txt === kw || txt.startsWith(kw+' ') || txt.startsWith('('+kw+')'))
+        }) ?? null
+      }
+    }
+    if (!element && groupRadios.length > 0) element = groupRadios[0]
+  }
+
+  if (!element) element = findElementExt(elId, valHint, action.t === 'val' || action.t === 'sel')
   if (!element && elId) {
     element = findElementExt(cleanSearchTerm(elId), valHint, action.t === 'val' || action.t === 'sel')
   }

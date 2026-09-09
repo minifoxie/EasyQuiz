@@ -544,7 +544,12 @@ export class DemandApplicator {
     const slice  = fullText.slice(already, already + chars)
     const newPos = already + slice.length
 
-    this.applyValueSlice(input, slice)
+    // Para inputs de número: o browser rejeita valores incompletos (ex: "-" isolado).
+    // Injetamos o valor acumulado completo até newPos, não apenas o slice.
+    const isNumberInput = input instanceof HTMLInputElement && input.type === 'number'
+    const sliceOrAccum = isNumberInput ? fullText.slice(0, newPos) : slice
+
+    this.applyValueSlice(input, sliceOrAccum, isNumberInput)
     this.charsInserted.set(stepIdx, newPos)
 
     if (newPos >= fullText.length) {
@@ -554,9 +559,10 @@ export class DemandApplicator {
     return false
   }
 
-  private applyValueSlice(input: HTMLElement, slice: string): void {
+  private applyValueSlice(input: HTMLElement, slice: string, replaceAll = false): void {
     if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
-      const newVal = input.value + slice
+      // replaceAll=true: para inputs de número, substitui o valor inteiro (não acumula)
+      const newVal = replaceAll ? slice : (input.value + slice)
       const setter = input instanceof HTMLInputElement ? nativeInputSetter : nativeTextareaSetter
       if (setter) setter.call(input, newVal)
       else        input.value = newVal
