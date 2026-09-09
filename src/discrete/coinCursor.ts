@@ -107,14 +107,13 @@ export class CoinCursor {
     el.style.display = 'block'
 
     if (state === 'loading') {
-      // Windows 10 Spinner:
-      // Fundo branco sólido sem transparência + arco em azul Windows 10 (#0078D7)
+      // Anel giratório Windows 10 com furo no meio (contorno branco e azul)
       el.innerHTML = `
         <div class="__eqdc_ring__">
           <svg class="__eqdc_svg_icon__" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20">
-            <!-- Fundo branco sólido sem transparência -->
-            <circle cx="10" cy="10" r="7.5" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="2.6"/>
-            <!-- Arco de progresso rotativo azul Windows 10 -->
+            <!-- Contorno branco sólido com furo no meio (fill="none") -->
+            <circle cx="10" cy="10" r="7.5" fill="none" stroke="#FFFFFF" stroke-width="2.6"/>
+            <!-- Arco rotativo azul Windows 10 (#0078D7) -->
             <circle cx="10" cy="10" r="7.5" fill="none" stroke="#0078D7" stroke-width="2.6"
               stroke-dasharray="26 22" stroke-linecap="round"/>
           </svg>

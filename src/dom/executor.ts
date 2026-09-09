@@ -53,7 +53,7 @@ export function resolveTargetControlOrCard(element: HTMLElement): HTMLElement {
 
   // 3. Procura container de alternativa/questão verdadeiro (evita match prematuro em .option-text, .option-badge e NUNCA sobe para article/section/main)
   const trueCard = element.closest(
-    'label, .option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, tr, li, .dnd-card, [class*="option-card" i], [class*="choice-card" i], .dropdown-row, [class*="dropdown" i], [class*="select-row" i]',
+    'label, .option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, td, li, .dnd-card, [class*="option-card" i], [class*="choice-card" i], .dropdown-row, [class*="dropdown" i], [class*="select-row" i]',
   ) as HTMLElement | null
 
   if (trueCard && !['article', 'section', 'main', 'form', 'body'].includes(trueCard.tagName.toLowerCase())) {
@@ -798,7 +798,7 @@ export function setCheckedState(element: HTMLElement, checked: boolean): void {
   if (!element) return
 
   const cardParent = (element.closest(
-    '.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], li, tr',
+    'label, td, .option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], li',
   ) || element) as HTMLElement
 
   let inputEl =
@@ -811,7 +811,10 @@ export function setCheckedState(element: HTMLElement, checked: boolean): void {
   }
 
   // Identifica o alvo interativo que deve receber os eventos de ponteiro/clique (o elemento visível na tela)
-  const interactiveTarget = (cardParent && isVisible(cardParent)) ? cardParent : element
+  const interactiveTarget =
+    element instanceof HTMLInputElement
+      ? (element.closest('label') || (element.id ? cardParent.ownerDocument.getElementById(cardParent.getAttribute('for')!) : null) || element)
+      : ((cardParent && isVisible(cardParent)) ? cardParent : element)
 
   if (inputEl) {
     const isRadio = inputEl.type === 'radio'
@@ -2498,4 +2501,6 @@ export function setupSmartOptionInterceptors(): void {
   // Mantido como no-op para preservar a propagação natural de eventos nos frameworks modernos
   // (React, Vue, Angular, Svelte) e permitir a marcação e multi-seleção livre de checkboxes.
 }
+
+export { safeCssEscape }
 

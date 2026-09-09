@@ -9,6 +9,8 @@
  * Integração robusta com o motor original do EasyQuiz:
  * - setCheckedState: marcação confiável de checkboxes e rádios em SPAs modernos (React, Vue, Angular),
  *   evitando desmarcações acidentais e falsos positivos em multi-seleção.
+ * - Resolução inteligente de Verdadeiro / Falso (V/F): mapeamento preciso da afirmativa
+ *   para a respectiva bolinha (radio) da coluna V ou F, sem falsos cliques no <tr>.
  * - simulateDragAndCategorize + findDragTarget: arrasto multi-estratégia para categorização
  *   sem falhas de pointerevent.
  * - Prevenção de concorrência com flag isExecuting para evitar pulos de steps em cliques rápidos.
@@ -24,6 +26,8 @@ import {
   setCheckedState,
   findDragTarget,
   simulateDragAndCategorize,
+  safeCssEscape,
+  cleanSearchTerm,
 } from '../dom/executor'
 
 export type ApplicatorState = 'idle' | 'waiting_key' | 'waiting_click' | 'done' | 'aborted'
@@ -126,7 +130,7 @@ export class DemandApplicator {
 
     // Highlight e foco no campo alvo
     const action = step.action as Record<string, unknown>
-    if (action.id || action.label || action.from) {
+    if (action.id || action.label || action.from || action.v) {
       const el = this.resolveEl(action)
       if (el) {
         this.highlight.highlightTarget([el])
@@ -259,61 +263,70 @@ export class DemandApplicator {
     const t = String(action.t ?? '')
 
     try {
-      if (t === 'chk') {
+      if (t === 'chk' || t === 'clk') {
         const el = this.resolveEl(action)
         if (!el) {
           this.toast.flash('Alvo não achado')
           return false
         }
 
-        const card = (el.closest(
-          '.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], li, tr'
-        ) || el) as HTMLElement
+        const isInput = el instanceof HTMLInputElement && ['radio', 'checkbox'].includes(el.type)
+        const isOption =
+          isInput ||
+          el.getAttribute('role') === 'radio' ||
+          el.getAttribute('role') === 'checkbox' ||
+          el.closest('.option-card, [role="radio"], [role="checkbox"], [role="option"]') !== null ||
+          t === 'chk'
 
-        const input = el instanceof HTMLInputElement && ['radio', 'checkbox'].includes(el.type)
-          ? el
-          : (card.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null) ||
-            (card.getAttribute('for') ? (card.ownerDocument.getElementById(card.getAttribute('for')!) as HTMLInputElement | null) : null)
-
-        const shouldCheck = action.c !== undefined ? Boolean(action.c) : true
-
-        // Motor central de estado e clique de checkbox/radio
-        setCheckedState(input || card, shouldCheck)
-
-        // Se após o setCheckedState ainda divergir (ex: React controlado), força via descriptor e tracker
-        if (input && input.checked !== shouldCheck) {
-          try {
-            const tracker = (input as any)._valueTracker
-            if (tracker) tracker.setValue(!shouldCheck)
-          } catch {}
-          try {
-            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
-            setter?.call(input, shouldCheck)
-          } catch {}
-          input.checked = shouldCheck
-          input.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
-          input.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
-        }
-        return true
-      }
-
-      if (t === 'clk') {
-        const el = this.resolveEl(action)
-        if (!el) {
-          this.toast.flash('Alvo não achado')
-          return false
-        }
-
-        const isOption = Boolean(
-          el.closest('.option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i]') ||
-          el.querySelector('input[type="radio"], input[type="checkbox"]') ||
-          (el instanceof HTMLInputElement && ['checkbox', 'radio'].includes(el.type))
-        )
         if (isOption) {
-          setCheckedState(el, true)
-        } else {
-          simulatePointerClick(el)
+          const input = isInput
+            ? (el as HTMLInputElement)
+            : (el.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null) ||
+              (el.getAttribute('for') ? (el.ownerDocument.getElementById(el.getAttribute('for')!) as HTMLInputElement | null) : null)
+
+          const targetToClick = input || el
+          const labelOrInteractive =
+            (targetToClick.closest('label, td') as HTMLElement | null) ||
+            (targetToClick.id ? document.querySelector(`label[for="${safeCssEscape(targetToClick.id)}"]`) : null) ||
+            targetToClick
+
+          const shouldCheck = action.c !== undefined ? Boolean(action.c) : true
+
+          // 1. Motor central de persistência no alvo exato (nunca no tr inteiro)
+          setCheckedState(targetToClick, shouldCheck)
+
+          // 2. Dispara clique direto no elemento interativo visível (label, td ou card)
+          if (labelOrInteractive && labelOrInteractive !== targetToClick) {
+            simulatePointerClick(labelOrInteractive as HTMLElement)
+          }
+
+          // 3. Força clique nativo se houver input de rádio/checkbox
+          if (input) {
+            try {
+              input.focus?.()
+              input.click()
+            } catch {}
+
+            if (input.checked !== shouldCheck) {
+              try {
+                const tracker = (input as any)._valueTracker
+                if (tracker) tracker.setValue(!shouldCheck)
+              } catch {}
+              try {
+                const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
+                setter?.call(input, shouldCheck)
+              } catch {}
+              input.checked = shouldCheck
+              input.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
+              input.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
+            }
+          }
+
+          return true
         }
+
+        // Elemento interativo genérico (botão, link, etc.)
+        simulatePointerClick(el)
         return true
       }
 
@@ -424,20 +437,77 @@ export class DemandApplicator {
     }
   }
 
-  // ── Resolução Resiliente de Elementos ─────────────────────────────────────
+  // ── Resolução Resiliente de Elementos (incluindo Verdadeiro / Falso) ─────────
 
   private resolveEl(action: Record<string, unknown>): HTMLElement | null {
-    const id    = String(action.id    ?? '')
-    const val   = String(action.v     ?? '')
-    const label = String(action.label ?? '')
-    const from  = String(action.from  ?? '')
+    const idStr    = String(action.id    ?? '').trim()
+    const valStr   = String(action.v     ?? '').trim()
+    const labelStr = String(action.label ?? '').trim()
+    const fromStr  = String(action.from  ?? '').trim()
 
-    if (id)    { const e = findElementExt(id, val, action.t === 'val');  if (e) return e }
-    if (label) { const e = findElementExt(label);                        if (e) return e }
-    if (from)  { const e = findElementExt(from);                         if (e) return e }
+    // 1. Identifica se a ação é uma marcação de Verdadeiro / Falso (V/F)
+    const vfHint = valStr || (labelStr.match(/:\s*(verdadeiro|falso|v|f)\b/i)?.[1] ?? '') || (idStr.match(/_(v|f|verdadeiro|falso)$/i)?.[1] ?? '')
+    const normVf = vfHint.toLowerCase().trim()
+    const isTrueQuery  = /^(v|verdadeiro|true|t|1|sim|yes|correto)$/i.test(normVf) || normVf.includes('verdadeir')
+    const isFalseQuery = /^(f|falso|false|0|nao|não|no|incorreto|errado)$/i.test(normVf) || normVf.includes('fals')
+    const isVf = isTrueQuery || isFalseQuery
 
-    // Fallback inteligente para alternativas com prefixos (A), B), 1., etc.)
-    const query = (id || label || val).trim().toLowerCase()
+    // 2. Busca elemento inicial por findElementExt
+    let el: HTMLElement | null = null
+    if (idStr)    el = findElementExt(idStr, valStr, action.t === 'val')
+    if (!el && labelStr) el = findElementExt(labelStr, valStr, action.t === 'val')
+    if (!el && fromStr)  el = findElementExt(fromStr, valStr, action.t === 'val')
+
+    // 3. Resolução especializada para Verdadeiro / Falso (V/F)
+    if (isVf) {
+      const vfKeywords = isTrueQuery
+        ? ['v', 'verdadeiro', 'true', '1', 't', 'sim', 'correto']
+        : ['f', 'falso', 'false', '0', 'não', 'nao', 'incorreto', 'errado']
+
+      // Se el foi encontrado, verifica se é o rádio correto ou o container da linha
+      if (el) {
+        // Se el é um input radio em um grupo (tem name):
+        if (el instanceof HTMLInputElement && el.type === 'radio' && el.name) {
+          if (this.isVfMatch(el, vfKeywords)) return el
+          const siblings = Array.from(
+            document.querySelectorAll(`input[type="radio"][name="${safeCssEscape(el.name)}"]`)
+          ) as HTMLInputElement[]
+          const matched = siblings.find(r => this.isVfMatch(r, vfKeywords))
+          if (matched) return matched
+        }
+
+        // Se el é um container de linha/tabela (tr, td, div, fieldset, li, radiogroup):
+        const container = (el.closest('tr, [role="row"], [role="radiogroup"], .vf-row, [class*="row" i], fieldset, td, div') || el) as HTMLElement
+        const innerRadios = Array.from(
+          container.querySelectorAll('input[type="radio"], input[type="checkbox"], [role="radio"], label, td, [class*="choice" i], [class*="option" i]')
+        ) as HTMLElement[]
+        const matched = innerRadios.find(r => this.isVfMatch(r, vfKeywords))
+        if (matched) return matched
+      }
+
+      // Se el ainda não foi encontrado ou não bateu, busca na linha correspondente da tabela/grid
+      const queryRow = (labelStr || idStr).toLowerCase()
+      if (queryRow) {
+        const rows = Array.from(
+          document.querySelectorAll('tr, [role="row"], [role="radiogroup"], .vf-row, [class*="row" i], li')
+        ) as HTMLElement[]
+        const cleanQ = cleanSearchTerm(queryRow).toLowerCase()
+        const matchingRow = rows.find(r => {
+          const rowTxt = cleanSearchTerm(r.textContent || '').toLowerCase()
+          return (cleanQ.length >= 3 && rowTxt.includes(cleanQ)) || (idStr && r.id === idStr)
+        })
+        if (matchingRow) {
+          const radios = Array.from(
+            matchingRow.querySelectorAll('input[type="radio"], [role="radio"], label, td')
+          ) as HTMLElement[]
+          const matched = radios.find(r => this.isVfMatch(r, vfKeywords))
+          if (matched) return matched
+        }
+      }
+    }
+
+    // 4. Fallback inteligente para alternativas com prefixos (A), B), 1., etc.)
+    const query = (idStr || labelStr || valStr).trim().toLowerCase()
     if (query) {
       const candidates = Array.from(
         document.querySelectorAll('input, label, button, [role="radio"], [role="checkbox"], .option-card, [class*="option" i], [class*="choice" i]')
@@ -450,7 +520,49 @@ export class DemandApplicator {
       if (matched) return matched
     }
 
-    return null
+    return el
+  }
+
+  private isVfMatch(element: HTMLElement, keywords: string[]): boolean {
+    if (!element) return false
+    const val = (element as any).value ? String((element as any).value).trim().toLowerCase() : ''
+    const aria = (element.getAttribute('aria-label') || '').trim().toLowerCase()
+    const dataVal = (element.getAttribute('data-value') || '').trim().toLowerCase()
+
+    // Verifica valor e atributos do próprio elemento
+    if (keywords.includes(val) || keywords.includes(dataVal) || keywords.includes(aria)) return true
+
+    // Verifica o label associado ou célula imediata (td, label)
+    const labelOrCell = element.closest('label, td, [class*="option" i], [class*="choice" i]')
+    if (labelOrCell) {
+      const txt = cleanSearchTerm(labelOrCell.textContent || '').trim().toLowerCase()
+      for (const kw of keywords) {
+        if (txt === kw || txt.startsWith(kw + ' ') || txt.endsWith(' ' + kw) || txt.startsWith('(' + kw + ')') || txt.startsWith(kw + ')')) {
+          return true
+        }
+        if (kw.length >= 4 && txt.includes(kw)) {
+          return true
+        }
+      }
+    }
+
+    // Checa label for="id"
+    if (element.id) {
+      const forLabel = document.querySelector(`label[for="${safeCssEscape(element.id)}"]`)
+      if (forLabel) {
+        const txt = cleanSearchTerm(forLabel.textContent || '').trim().toLowerCase()
+        for (const kw of keywords) {
+          if (txt === kw || txt.startsWith(kw + ' ') || txt.endsWith(' ' + kw) || txt.startsWith('(' + kw + ')') || txt.startsWith(kw + ')')) {
+            return true
+          }
+          if (kw.length >= 4 && txt.includes(kw)) {
+            return true
+          }
+        }
+      }
+    }
+
+    return false
   }
 
   private resolveInput(el: HTMLElement): HTMLElement | null {
