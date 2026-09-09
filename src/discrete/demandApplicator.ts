@@ -1,7 +1,8 @@
 /**
- * DemandApplicator — Motor de aplicação sequencial robusto.
- * Correção crítica: progresso de texto rastreado por STEP INDEX (não por ID),
- * garantindo que 9 inputs em grade sejam preenchidos na sequência correta.
+ * DemandApplicator — Motor corrigido.
+ * Fix crítico: insertChars com fullText vazio retornava true imediatamente → "Concluído" falso.
+ * Fix: chk/clk não re-simulam (clique natural já aplicou).
+ * Fix: flashOk duração adequada.
  */
 
 import type { InteractionStep } from './promptDiscrete'
@@ -22,7 +23,6 @@ const IGNORE_KEYS = new Set([
 const isEqHotkey = (e: KeyboardEvent) =>
   e.altKey || (e.shiftKey && 'QAMZRHIC'.includes(e.key.toUpperCase()))
 
-// Setters nativos para React/Vue controlled inputs
 const nativeInputSetter    = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,   'value')?.set
 const nativeTextareaSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')?.set
 
@@ -35,13 +35,10 @@ export class DemandApplicator {
   private toast: CornerToast
   private highlight: StealthHighlight
 
-  private statusPersisted = false
   private stepTimer: number | null = null
 
-  // ── CHAVE: progresso por STEP INDEX (não por field ID) ──────────────────
-  // Isso garante que step 0 (field 0) e step 3 (field 3) são independentes
-  // mesmo que os IDs sejam parecidos ou idênticos
-  private charsInserted = new Map<number, number>()  // stepIdx → chars já inseridos
+  // Progresso de texto por STEP INDEX (não por ID)
+  private charsInserted = new Map<number, number>()
 
   private boundKey:   (e: KeyboardEvent) => void
   private boundClick: (e: MouseEvent)    => void
@@ -64,14 +61,15 @@ export class DemandApplicator {
   }
 
   abort(): void {
-    if (!this.isActive() && this.state !== 'idle') return
     this.detach()
     this.clearTimer()
+    const wasActive = this.isActive()
     this.state = 'aborted'
     this.highlight.clearAll()
-    this.clearStatus()
-    this.coin.flashError(1000)
-    this.toast.flash('Abortado')
+    if (wasActive) {
+      this.coin.flashError(800)
+      this.toast.flash('Abortado')
+    }
   }
 
   isActive    (): boolean        { return this.state === 'waiting_key' || this.state === 'waiting_click' }
@@ -79,7 +77,7 @@ export class DemandApplicator {
   getCurrentStep(): number       { return this.stepIdx }
   getTotalSteps (): number       { return this.flow.length }
 
-  // ─── Listeners ───────────────────────────────────────────────────────────
+  // ── Listeners ────────────────────────────────────────────────────────────
 
   private attach(): void {
     window.addEventListener('keydown', this.boundKey,   { capture: true })
@@ -91,7 +89,7 @@ export class DemandApplicator {
     window.removeEventListener('click',   this.boundClick, { capture: true })
   }
 
-  // ─── Navegação ───────────────────────────────────────────────────────────
+  // ── Navegação ─────────────────────────────────────────────────────────────
 
   private gotoStep(idx: number): void {
     this.clearTimer()
@@ -101,44 +99,44 @@ export class DemandApplicator {
 
     this.stepIdx = idx
     const step   = this.flow[idx]
-    this.state   = step.trigger === 'key' ? 'waiting_key' : 'waiting_click'
+    const trigger = step.trigger === 'key' ? 'waiting_key' : 'waiting_click'
+    this.state   = trigger as ApplicatorState
 
-    // Focus no campo desta etapa
+    // Highlight e foco no campo alvo
     const action = step.action as Record<string, unknown>
-    if (action.id) {
+    if (action.id || action.label) {
       const el = this.resolveEl(action)
       if (el) {
         this.highlight.highlightTarget([el])
-        // Foca o campo para o usuário digitar
         if (step.trigger === 'key') {
           const input = this.resolveInput(el)
-          try { (input as HTMLElement)?.focus() } catch {}
+          try { (input as HTMLInputElement)?.focus?.() } catch {}
         }
       }
     }
 
-    // Toast com hint (substituição)
+    // Toast principal — hint da etapa
     const hint = step.hint || (step.trigger === 'key' ? 'Keyboard Interact' : 'Mouse Interact')
     this.toast.flash(hint)
-    this.statusPersisted = false
 
+    // customMsg secundário após 700ms
     if (step.customMsg) {
-      setTimeout(() => { if (this.stepIdx === idx) this.toast.flash(step.customMsg!) }, 600)
+      setTimeout(() => {
+        if (this.stepIdx === idx && this.isActive()) this.toast.flash(step.customMsg!)
+      }, 700)
     }
 
-    // Segurança: 60s sem input → reexibe hint
+    // Timeout de segurança: 90s sem input → reexibe hint
     this.stepTimer = window.setTimeout(() => {
-      if (this.stepIdx === idx && this.isActive()) {
-        this.toast.flash(hint)
-      }
-    }, 60_000)
+      if (this.stepIdx === idx && this.isActive()) this.toast.flash(hint)
+    }, 90_000)
   }
 
   private clearTimer(): void {
     if (this.stepTimer !== null) { clearTimeout(this.stepTimer); this.stepTimer = null }
   }
 
-  // ─── Teclado ─────────────────────────────────────────────────────────────
+  // ── Teclado ──────────────────────────────────────────────────────────────
 
   private onKey(e: KeyboardEvent): void {
     if (IGNORE_KEYS.has(e.key) || isEqHotkey(e)) return
@@ -155,29 +153,38 @@ export class DemandApplicator {
     if (action.t === 'val') {
       const fullText = String(action.v ?? '')
       const chars    = step.chars ?? 3
-      const done     = this.insertChars(this.stepIdx, action, fullText, chars)
+
+      // FIX CRÍTICO: texto vazio não avança automaticamente —
+      // pede ao usuário que pressione qualquer tecla para confirmar
+      if (fullText.length === 0) {
+        this.clearTimer()
+        this.highlight.clearAll()
+        setTimeout(() => this.gotoStep(this.stepIdx + 1), 100)
+        return
+      }
+
+      const done = this.insertChars(this.stepIdx, action, fullText, chars)
 
       if (done) {
         this.clearTimer()
         this.highlight.clearAll()
-        this.coin.flashOk(500)
-        // Pequeno delay natural antes do próximo step
-        setTimeout(() => this.gotoStep(this.stepIdx + 1), 120)
+        this.coin.flashOk(1200)
+        setTimeout(() => this.gotoStep(this.stepIdx + 1), 150)
       } else {
-        // Progresso
         const inserted = this.charsInserted.get(this.stepIdx) ?? 0
-        const pct = fullText.length > 0 ? Math.round((inserted / fullText.length) * 100) : 0
+        const pct = Math.round((inserted / fullText.length) * 100)
         this.toast.flash(`${pct}%`)
       }
     }
   }
 
-  // ─── Clique ──────────────────────────────────────────────────────────────
+  // ── Clique ───────────────────────────────────────────────────────────────
 
   private onClick(e: MouseEvent): void {
     const t = e.target as HTMLElement | null
     if (!t) return
-    if (t.closest('#__eqdm_menu__,#__eqkm_overlay__,#__eqdiscrete_coin__,#__eqdiscrete_toasts__')) return
+    // Ignora cliques nos elementos EQ
+    if (t.closest('#__eqdm_menu__,#__eqkm_overlay__,#__eqcm_menu__,#__eqdiscrete_coin__,#__eqdiscrete_toasts__')) return
 
     if (this.state === 'waiting_key') {
       this.toast.flash('Keyboard Interact')
@@ -187,30 +194,35 @@ export class DemandApplicator {
 
     const step   = this.flow[this.stepIdx]
     const action = step.action as Record<string, unknown>
+    const aType  = String(action.t ?? '')
 
-    void this.execClick(action, step).then(ok => {
-      this.highlight.clearAll()
+    // Para chk/clk: o clique do usuário JÁ aplicou a ação.
+    // Apenas avançamos — NÃO re-simulamos (evita double-click em checkbox).
+    if (aType === 'chk' || aType === 'clk' || aType === 'adv') {
       this.clearTimer()
-      if (ok) this.coin.flashOk(500)
-      setTimeout(() => this.gotoStep(this.stepIdx + 1), ok ? 160 : 80)
+      this.highlight.clearAll()
+      this.coin.flashOk(1000)
+      setTimeout(() => this.gotoStep(this.stepIdx + 1), 150)
+      return
+    }
+
+    // Para sel/drag: precisamos de ação programática
+    void this.execProgrammatic(action, step).then(ok => {
+      this.clearTimer()
+      this.highlight.clearAll()
+      if (ok) this.coin.flashOk(1000)
+      setTimeout(() => this.gotoStep(this.stepIdx + 1), 180)
     })
   }
 
-  // ─── Execução de Ações ───────────────────────────────────────────────────
+  // ── Ações programáticas (sel, drag) ──────────────────────────────────────
 
-  private async execClick(action: Record<string, unknown>, _step: InteractionStep): Promise<boolean> {
+  private async execProgrammatic(action: Record<string, unknown>, _step: InteractionStep): Promise<boolean> {
     const t = String(action.t ?? '')
     try {
-      if (t === 'chk' || t === 'clk') {
-        // O clique do usuário JÁ aconteceu (não usamos preventDefault).
-        // Não re-simulamos — isso causaria double-click (ex: desmarcaria checkbox).
-        // Apenas registramos a ação e avançamos.
-        return true
-      }
-
       if (t === 'sel') {
         const el  = this.resolveEl(action)
-        if (!el) { this.toast.flash('Miss'); return false }
+        if (!el) return false
         const sel = el instanceof HTMLSelectElement ? el
           : el.querySelector('select') as HTMLSelectElement | null
         if (sel) {
@@ -222,7 +234,6 @@ export class DemandApplicator {
               return true
             }
           }
-          // fallback índice numérico
           const ni = parseInt(want, 10)
           if (!isNaN(ni) && ni >= 0 && ni < sel.options.length) {
             sel.selectedIndex = ni
@@ -230,8 +241,9 @@ export class DemandApplicator {
             return true
           }
         }
-        simulatePointerClick(el)
-        return true
+        // fallback: simula clique
+        if (el) simulatePointerClick(el)
+        return !!el
       }
 
       if (t === 'drag') {
@@ -242,36 +254,33 @@ export class DemandApplicator {
           await new Promise(r => setTimeout(r, 80))
           to.dispatchEvent(new PointerEvent('pointerup',   { bubbles: true, cancelable: true }))
           to.dispatchEvent(new MouseEvent('drop',          { bubbles: true, cancelable: true }))
-        } else if (from) simulatePointerClick(from)
-        return !!from
+          return true
+        }
+        return false
       }
 
-      if (t === 'adv') return true
-
-    } catch { this.toast.flash('Erro'); return false }
-    return false
+    } catch { return false }
+    return true
   }
 
-  // ─── Inserção de Texto ───────────────────────────────────────────────────
+  // ── Inserção de Texto ─────────────────────────────────────────────────────
 
-  /**
-   * Insere até `chars` caracteres do `fullText` no campo da ação.
-   * Rastreia progresso pelo stepIdx (não pelo ID do campo).
-   * Retorna true quando o texto completo foi inserido.
-   */
   private insertChars(
     stepIdx: number,
     action: Record<string, unknown>,
     fullText: string,
     chars: number,
   ): boolean {
-    const already  = this.charsInserted.get(stepIdx) ?? 0
+    // FIX: nunca divide por zero / nunca retorna true para texto vazio aqui
+    if (fullText.length === 0) return false
+
+    const already = this.charsInserted.get(stepIdx) ?? 0
     if (already >= fullText.length) return true
 
     const el = this.resolveEl(action)
     if (!el) {
-      // Campo não encontrado — avança para não travar
       this.toast.flash('Campo não achado')
+      // Avança step (não trava)
       this.charsInserted.set(stepIdx, fullText.length)
       return true
     }
@@ -285,64 +294,49 @@ export class DemandApplicator {
     const slice  = fullText.slice(already, already + chars)
     const newPos = already + slice.length
 
-    this.applyValue(input, slice, fullText, newPos)
+    this.applyValue(input, slice)
     this.charsInserted.set(stepIdx, newPos)
 
     if (newPos >= fullText.length) {
-      // Blur para salvar e focar próximo campo
       try { (input as HTMLInputElement).blur?.() } catch {}
       return true
     }
     return false
   }
 
-  /**
-   * Aplica valor ao input usando a técnica correta por tipo de campo.
-   */
-  private applyValue(input: HTMLElement, slice: string, _full: string, _newPos: number): void {
+  private applyValue(input: HTMLElement, slice: string): void {
     if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
-      const current = input.value
-      const newVal  = current + slice
+      const newVal  = input.value + slice
       const setter  = input instanceof HTMLInputElement ? nativeInputSetter : nativeTextareaSetter
       if (setter) setter.call(input, newVal)
       else        input.value = newVal
-
-      // Eventos na ordem exata que React/Angular esperam
       input.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true }))
       input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }))
-
-      // Cursor ao final
       try { input.setSelectionRange(newVal.length, newVal.length) } catch {}
-
     } else if ((input as HTMLElement).isContentEditable) {
-      // contenteditable (Google Docs, Notion, etc.)
       const ce = input as HTMLElement
       ce.textContent = (ce.textContent ?? '') + slice
       ce.dispatchEvent(new Event('input', { bubbles: true }))
       try {
         const range = document.createRange()
-        range.selectNodeContents(ce)
-        range.collapse(false)
+        range.selectNodeContents(ce); range.collapse(false)
         const sel = window.getSelection()
-        sel?.removeAllRanges()
-        sel?.addRange(range)
+        sel?.removeAllRanges(); sel?.addRange(range)
       } catch {}
     }
   }
 
-  // ─── Resolução ───────────────────────────────────────────────────────────
+  // ── Resolução de Elementos ────────────────────────────────────────────────
 
   private resolveEl(action: Record<string, unknown>): HTMLElement | null {
-    const id   = String(action.id    ?? '')
-    const val  = String(action.v     ?? '')
-    const from = String(action.from  ?? '')
+    const id    = String(action.id    ?? '')
+    const val   = String(action.v     ?? '')
     const label = String(action.label ?? '')
+    const from  = String(action.from  ?? '')
 
-    if (id)    { const e = findElementExt(id, val, action.t === 'val');    if (e) return e }
-    if (label) { const e = findElementExt(label);                          if (e) return e }
-    if (from)  { const e = findElementExt(from);                           if (e) return e }
-    // Último recurso: busca por texto da resposta
-    if (val && val.length < 40) { const e = findElementExt(val);           if (e) return e }
+    if (id)    { const e = findElementExt(id, val, action.t === 'val');  if (e) return e }
+    if (label) { const e = findElementExt(label);                        if (e) return e }
+    if (from)  { const e = findElementExt(from);                         if (e) return e }
     return null
   }
 
@@ -353,19 +347,16 @@ export class DemandApplicator {
     ) as HTMLElement | null ?? el
   }
 
-  // ─── Fim ─────────────────────────────────────────────────────────────────
+  // ── Conclusão ─────────────────────────────────────────────────────────────
 
   private complete(): void {
     this.state = 'done'
     this.detach()
     this.clearTimer()
     this.highlight.clearAll()
-    this.clearStatus()
-    this.coin.flashOk(2000)
+    this.coin.flashOk(2500)
     this.toast.flash('Concluído')
   }
-
-  private clearStatus(): void { /* toast é auto-gerenciado pelo CornerToast */ }
 
   destroy(): void { this.abort(); this.detach(); this.clearTimer() }
 }

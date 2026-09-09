@@ -1,7 +1,6 @@
 /**
- * PageWatcher — Detecção de mudança de página via hash polling simples.
- * Remove MutationObserver (causava falsos negativos e bloqueios).
- * Polling a cada 800ms: URL + hash do conteúdo visível.
+ * PageWatcher — Hash polling simples com cooldown após disparo.
+ * Evita re-disparar imediatamente após conclusão de fluxo.
  */
 
 interface PageWatcherOpts {
@@ -14,8 +13,10 @@ export class PageWatcher {
   private lastHash = ''
   private pollTimer: number | null = null
   private debounceTimer: number | null = null
-  private readonly POLL_MS = 800
-  private readonly DEBOUNCE_MS = 500
+  private cooldownUntil = 0          // timestamp — não dispara antes deste momento
+  private readonly POLL_MS      = 900
+  private readonly DEBOUNCE_MS  = 600
+  private readonly COOLDOWN_MS  = 4000  // 4s após disparar, não reavalia
 
   constructor(opts: PageWatcherOpts) { this.opts = opts }
 
@@ -34,14 +35,21 @@ export class PageWatcher {
     if (this.debounceTimer){ clearTimeout(this.debounceTimer); this.debounceTimer = null }
   }
 
-  // ── pushState / replaceState patch ────────────────────────────────────
+  /** Reseta hash após a análise iniciar — evita re-disparar na mesma página */
+  resetHash(): void {
+    this.lastHash = this.contentHash()
+    this.lastUrl  = location.href
+    this.cooldownUntil = Date.now() + this.COOLDOWN_MS
+  }
+
+  // ── pushState / replaceState patch ──────────────────────────────────────
 
   private origPush    = history.pushState.bind(history)
   private origReplace = history.replaceState.bind(history)
 
   private patchHistory(): void {
     const self = this
-    history.pushState = function (...a) { self.origPush(...a);    self.onUrlChange() }
+    history.pushState    = function (...a) { self.origPush(...a);    self.onUrlChange() }
     history.replaceState = function (...a) { self.origReplace(...a); self.onUrlChange() }
   }
 
@@ -52,17 +60,20 @@ export class PageWatcher {
 
   private onUrlChange = (): void => {
     const cur = location.href
-    if (cur !== this.lastUrl) { this.lastUrl = cur; this.debounce() }
+    if (cur !== this.lastUrl) {
+      this.lastUrl = cur
+      this.debounce()
+    }
   }
 
-  // ── Polling de conteúdo ────────────────────────────────────────────────
+  // ── Polling ──────────────────────────────────────────────────────────────
 
   private poll = (): void => {
     const url  = location.href
     const hash = this.contentHash()
 
-    const urlChanged  = url  !== this.lastUrl
-    const hashChanged = hash !== this.lastHash && hash !== ''
+    const urlChanged  = url !== this.lastUrl
+    const hashChanged = hash !== '' && hash !== this.lastHash
 
     if (urlChanged || hashChanged) {
       this.lastUrl  = url
@@ -71,27 +82,29 @@ export class PageWatcher {
     }
   }
 
-  // ── Hash do conteúdo visível ───────────────────────────────────────────
+  // ── Hash do conteúdo visível ─────────────────────────────────────────────
 
   private contentHash(): string {
     try {
       const scope = document.querySelector(
-        '[role="main"], main, form, article, .question, #content, body'
+        '[role="main"],main,form,article,.question,#content,body'
       ) ?? document.body
       const text = (scope as HTMLElement).innerText?.slice(0, 600) ?? ''
-      if (text.length < 30) return ''       // ignora páginas vazias
+      if (text.length < 30) return ''
       let h = 0
       for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0
       return `${h}_${text.length}`
     } catch { return '' }
   }
 
-  // ── Debounce ──────────────────────────────────────────────────────────
+  // ── Debounce com cooldown ────────────────────────────────────────────────
 
   private debounce(): void {
     if (this.debounceTimer) clearTimeout(this.debounceTimer)
     this.debounceTimer = window.setTimeout(() => {
+      if (Date.now() < this.cooldownUntil) return  // ainda em cooldown
       this.lastHash = this.contentHash()
+      this.cooldownUntil = Date.now() + this.COOLDOWN_MS
       this.opts.onPageAdvance()
     }, this.DEBOUNCE_MS)
   }

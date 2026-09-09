@@ -104,6 +104,9 @@ async function initDiscrete(): Promise<void> {
     currentAbort = new AbortController()
     const signal = currentAbort.signal
 
+    // Reset hash para não re-disparar na mesma página
+    pageWatcher.resetHash()
+
     coin.setState('loading')
     if (!proactive || retry > 0) toast.flash(retry > 0 ? `Tentativa ${retry + 1}` : 'Analisando')
 

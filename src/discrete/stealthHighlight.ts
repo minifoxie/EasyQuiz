@@ -1,5 +1,6 @@
 /**
- * StealthHighlight — 30% mais transparente que antes. Quase imperceptível.
+ * StealthHighlight — Discreto mas VISÍVEL (0.28 base, 0.42 pulse).
+ * Transparente o suficiente para não chamar atenção, mas funcional.
  */
 
 export class StealthHighlight {
@@ -13,13 +14,13 @@ export class StealthHighlight {
     s.id = '__eqsh_style__'
     s.textContent = `
       @keyframes __eqsh_p__ {
-        0%,100% { outline-color: rgba(0,120,212,0.05); }
-        50%     { outline-color: rgba(0,120,212,0.09); }
+        0%,100% { outline-color: rgba(0,120,212,0.22); }
+        50%     { outline-color: rgba(0,120,212,0.38); }
       }
       .__eqsh__ {
-        outline: 1px solid rgba(0,120,212,0.06) !important;
-        outline-offset: 1px !important;
-        animation: __eqsh_p__ 3.5s ease-in-out infinite !important;
+        outline: 1px solid rgba(0,120,212,0.25) !important;
+        outline-offset: 2px !important;
+        animation: __eqsh_p__ 2.5s ease-in-out infinite !important;
       }
     `
     document.documentElement.appendChild(s)
