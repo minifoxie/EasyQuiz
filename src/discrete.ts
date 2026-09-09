@@ -228,10 +228,21 @@ async function initDiscrete(): Promise<void> {
         // Não retenta em erro de auth
         return
       }
-      if (m.includes('429') || m.includes('Quota') || m.includes('RESOURCE_EXHAUSTED')) {
-        toast.flash('Limite — aguarde')
-        coin.flashError()
-        scheduleRetry()
+      if (m.includes('429') || m.includes('Quota') || m.includes('RESOURCE_EXHAUSTED') || m.includes('Todas as tentativas')) {
+        // 429 = só ESTA chave atingiu cota. Outras chaves podem estar livres.
+        // Tenta IMEDIATAMENTE com retry+1 (analise usara outras chaves via round-robin).
+        // Backoff só quando todas as chaves já falharam (erro de esgotamento total).
+        const isExhausted = m.includes('Todas as tentativas') || retry >= 4
+        if (isExhausted) {
+          toast.flash('Limite — aguarde')
+          coin.flashError()
+          scheduleRetry()
+        } else {
+          // Tenta agora com outra chave
+          toast.flash('Chave rotacionando')
+          coin.flashError(300)
+          void doAnalyze(false, retry + 1)
+        }
         return
       }
       // Qualquer outro erro: retenta silenciosamente
@@ -302,7 +313,17 @@ async function initDiscrete(): Promise<void> {
     }
     if (e.shiftKey && k === 'Z') {
       e.preventDefault(); e.stopPropagation()
-      applicator.isActive() ? applicator.abort() : toast.flash('Nada ativo'); return
+      // CANCEL BRUTAL: aborta tudo imediatamente
+      // 1. Cancela fetch da IA em andamento
+      if (currentAbort) { try { currentAbort.abort() } catch {} currentAbort = null }
+      // 2. Para o timer de retry
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
+      // 3. Para o fluxo de interação ativo
+      if (applicator.isActive()) applicator.abort()
+      else toast.flash('Abortado')
+      analyzing = false
+      coin.setState('idle')
+      return
     }
     if (e.shiftKey && k === 'R') {
       e.preventDefault(); e.stopPropagation(); void doAnalyze(); return
