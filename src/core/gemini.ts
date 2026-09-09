@@ -79,44 +79,44 @@ function migrateDeprecated(model: string): string {
 
 export let preferredFastModel: string | null = null
 
-export function buildGenerationConfig(model: string): Record<string, unknown> {
+export function buildGenerationConfig(model: string, schemaOverride?: unknown): Record<string, unknown> {
+  const schema = schemaOverride ?? GEMINI_JSON_SCHEMA
   const config: Record<string, unknown> = {
     temperature: 0.0,
-    maxOutputTokens: 1800, // Extra tokens para o campo 'thinking' sem truncar actions
+    maxOutputTokens: 1800,
     responseMimeType: 'application/json',
-    responseSchema: GEMINI_JSON_SCHEMA,
-    response_mime_type: 'application/json',
-    response_schema: GEMINI_JSON_SCHEMA,
+    responseSchema: schema,
+    // NOTA: NÃO incluir response_mime_type / response_schema (snake_case)
+    // — a API Gemini trata camelCase e snake_case como aliases e retorna
+    // "Repeated map key" quando ambos estão presentes no mesmo payload.
   }
 
-  // Modelos 'lite' (ex: gemini-3.5-flash-lite):
-  // NUNCA enviar thinkingConfig! Modelos lite não suportam thinking no endpoint do Google AI Studio;
-  // enviar causava erro HTTP 400 e forçava uma segunda chamada inteira, dobrando a latência.
+  // Modelos 'lite' — NÃO suportam thinkingConfig de forma alguma
   if (/lite/i.test(model)) {
-    // Sem thinkingConfig
+    // sem thinkingConfig
   }
-  // Gemini 3.5-flash: thinkingLevel 'none' → máxima velocidade
-  // O raciocínio estruturado é garantido pelo SYSTEM_PROMPT (6 passos + campo thinking)
-  // sem custo de latência de thinking tokens nativos
-  else if (/gemini-3\.5-flash/i.test(model)) {
-    config.thinkingConfig = { thinkingLevel: 'none' }
+  // gemini-3.5-flash e abaixo: thinkingBudget=0 desativa thinking sem causar HTTP 400
+  // NUNCA usar thinkingLevel='none' — esse valor não é suportado pela API atual
+  else if (/gemini-3\.5-flash/i.test(model) || /gemini-3\.[0-4]/i.test(model)) {
+    config.thinkingConfig = { thinkingBudget: 0 }
   }
-  // Gemini 3.6/3.7-flash: 'low' — modelos intermediários onde thinking traz ganho proporcional
+  // gemini-3.6 / 3.7-flash: 'low' — thinking traz ganho proporcional
   else if (/gemini-3\.[67]-flash/i.test(model)) {
-    config.thinkingConfig = { thinkingLevel: 'low' }
+    config.thinkingConfig = { thinkingBudget: 512 }
   }
-  // Gemini 3.8-flash e acima: 'low' mínimo — necessário pelo modelo
+  // gemini-3.8+ : budget baixo mas ativo
   else if (/gemini-3\.[89]|gemini-3\.[1-9][0-9]/i.test(model)) {
-    config.thinkingConfig = { thinkingLevel: 'low' }
+    config.thinkingConfig = { thinkingBudget: 512 }
   }
-  // Gemini 2.5 Flash: thinkingBudget: 0 — latência sub-segundo
+  // gemini-2.5-flash: thinkingBudget=0 — sub-segundo
   else if (/gemini-2\.5-flash/i.test(model)) {
     config.thinkingConfig = { thinkingBudget: 0 }
   }
-  // Gemini 2.5 Pro: exige mínimo de thinking — sem thinkingConfig
+  // gemini-2.5-pro: sem thinkingConfig (exige mínimo de thinking próprio)
 
   return config
 }
+
 
 const GEMINI_JSON_SCHEMA = {
   type: 'OBJECT',
@@ -145,13 +145,15 @@ const GEMINI_JSON_SCHEMA = {
       items: {
         type: 'OBJECT',
         properties: {
-          t: { type: 'STRING', enum: ['val', 'chk', 'sel', 'clk', 'adv', 'js', 'drag'] },
-          id: { type: 'STRING' },
-          v: {}, // Pode ser string (valor ou código JS) ou array ou omitido
-          c: { type: 'BOOLEAN' },
-          co: { type: 'ARRAY', items: { type: 'NUMBER' } }, // coordinates
-          from: { type: 'STRING' }, // Seletor ou texto de origem (drag)
-          to: { type: 'STRING' }, // Seletor ou texto de destino (drag)
+          t:    { type: 'STRING', enum: ['val', 'chk', 'sel', 'clk', 'adv', 'js', 'drag'] },
+          id:   { type: 'STRING' },
+          name: { type: 'STRING' },   // name do input radio/checkbox (essencial para V/F)
+          label:{ type: 'STRING' },   // label do elemento alvo
+          v:    { type: 'STRING' },   // valor a inserir ou code JS
+          c:    { type: 'BOOLEAN' },  // checked state
+          co:   { type: 'ARRAY', items: { type: 'NUMBER' } }, // coordinates
+          from: { type: 'STRING' },   // seletor ou texto de origem (drag)
+          to:   { type: 'STRING' },   // seletor ou texto de destino (drag)
         },
         required: ['t'],
       },
@@ -486,11 +488,12 @@ async function callSingleModel(
   payloadBase: { system_instruction: { parts: Array<{ text: string }> }; contents: Array<{ role: string; parts: Array<Record<string, unknown>> }> },
   keepalive: boolean,
   signal: AbortSignal,
+  schemaOverride?: unknown,
 ): Promise<{ rawText: string; data: any; usedModel: string; usedKey: string }> {
   const versionsToTry = ['v1beta', 'v1']
   let lastErr = new Error(`Falha ao consultar modelo ${model}`)
 
-  const genConfig = buildGenerationConfig(model)
+  const genConfig = buildGenerationConfig(model, schemaOverride)
   let currentGenConfig = { ...genConfig }
 
   for (const apiVer of versionsToTry) {
@@ -517,29 +520,48 @@ async function callSingleModel(
       if (!response.ok) {
         const errorText = await response.text()
 
-        // Se o modelo rejeitar thinkingConfig com HTTP 400, retenta sem thinkingConfig imediatamente
-        if (response.status === 400 && currentGenConfig.thinkingConfig && /thinking/i.test(errorText)) {
-          delete currentGenConfig.thinkingConfig
-          const retryRes = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': key,
-            },
-            body: JSON.stringify({
-              ...payloadBase,
-              generationConfig: currentGenConfig,
-            }),
-            signal,
-            keepalive,
-          })
-          if (retryRes.ok) {
-            const data = await retryRes.json()
-            const candidate = data.candidates?.[0]
-            if (candidate?.content?.parts?.[0]?.text) {
-              keyManager.markSuccess(key, Date.now() - reqStart)
-              return { rawText: candidate.content.parts[0].text, data, usedModel: model, usedKey: key }
+        // Detecta erros de thinkingConfig OU de schema inválido via HTTP 400
+        // e retenta sem a config problemática
+        if (response.status === 400) {
+          const isThinkingErr = /thinking/i.test(errorText)
+          const isSchemaErr   = /response_schema|responseSchema|Repeated map key|PROTO payload/i.test(errorText)
+
+          if ((isThinkingErr || isSchemaErr) && (currentGenConfig.thinkingConfig || currentGenConfig.responseSchema)) {
+            // Remove thinkingConfig e/ou schema problemáticos e retenta imediatamente
+            const retryConfig: Record<string, unknown> = { ...currentGenConfig }
+            if (isThinkingErr) delete retryConfig.thinkingConfig
+            if (isSchemaErr)   {
+              delete retryConfig.responseSchema
+              delete retryConfig.responseMimeType
+              // Sem structured output — resultado parseado via robustParsePlan
             }
+            currentGenConfig = retryConfig
+
+            const retryRes = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': key,
+              },
+              body: JSON.stringify({
+                ...payloadBase,
+                generationConfig: currentGenConfig,
+              }),
+              signal,
+              keepalive,
+            })
+            if (retryRes.ok) {
+              const data = await retryRes.json()
+              const candidate = data.candidates?.[0]
+              if (candidate?.content?.parts?.[0]?.text) {
+                keyManager.markSuccess(key, Date.now() - reqStart)
+                return { rawText: candidate.content.parts[0].text, data, usedModel: model, usedKey: key }
+              }
+            }
+            // Se ainda falhar, cai no tratamento de erro abaixo
+            const retryErrText = await retryRes?.text?.().catch(() => '') ?? errorText
+            const parsedRetryErr = parseGeminiError(retryErrText, response.status)
+            throw new Error(`[${model}|${KeyManager.maskKey(key)}] ${parsedRetryErr}`)
           }
         }
 
@@ -791,7 +813,7 @@ export async function analyzeWithGemini(
         }, slot.timeout)
 
         try {
-          const res = await callSingleModel(slot.model, slot.key, payloadBase, keepalive, ctrl.signal)
+          const res = await callSingleModel(slot.model, slot.key, payloadBase, keepalive, ctrl.signal, opts?.generationSchemaOverride)
           clearTimeout(timeoutId)
           const parsedPlan = validateAnalysisPlan(robustParsePlan(res.rawText))
           parsedPlan.usedModel = res.usedModel
