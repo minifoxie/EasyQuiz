@@ -21,8 +21,11 @@ REGRAS DO interactionFlow:
 2. Triggers válidos:
    - "key"   → qualquer tecla (para val/texto)
    - "click" → qualquer clique (para chk/clk/sel/drag/adv)
-3. Para ação "val" (texto): use trigger="key" com chars=1 (o sistema insere EXATAMENTE 1 char por keypress).
-   Nunca use chars maior que 1 — 1 tecla = 1 caractere injetado.
+3. Para ação "val" (texto/número): use trigger="key" com chars=1.
+   REGRA CRITICAL: 1 step por CARACTERE do valor. Valor "-1" = 2 steps. Valor "3.14" = 4 steps.
+   O sistema injeta 1 char por keypress acumulando o valor. Para inputs numéricos, o
+   sistema re-injeta o valor acumulado a cada tecla para suportar "-", "." e números completos.
+   Nunca use apenas 1 step para valores com mais de 1 caractere.
 4. Para ação "chk","clk": trigger="click".
 5. Para ação "sel" (dropdown): 2 steps — step N = abrir (click), step N+1 = selecionar (click).
 6. Para ação "drag": trigger="click" por item (1 clique = 1 drag).
@@ -120,7 +123,7 @@ export interface DiscretePlan {
 
 /**
  * Gera um interactionFlow padrão a partir das actions[] caso a IA não tenha retornado.
- * Regras: val→key, chk/clk→click, sel→2×click, drag→click, adv→click
+ * Regras: val→key (1 step por CHAR do valor), chk/clk→click, sel→2×click, drag→click, adv→click
  */
 export function buildFallbackFlow(actions: Record<string, unknown>[]): InteractionStep[] {
   const flow: InteractionStep[] = []
@@ -129,8 +132,21 @@ export function buildFallbackFlow(actions: Record<string, unknown>[]): Interacti
   for (const action of actions) {
     const t = action.t as string
     if (t === 'val') {
-      // chars=1: o sistema injeta 1 caractere por keypress
-      flow.push({ step: step++, trigger: 'key', action, chars: 1, hint: 'Keyboard Interact', customMsg: null })
+      const fullText = String(action.v ?? '')
+      const numChars = Math.max(1, fullText.length)  // 1 step por caractere
+      for (let ci = 0; ci < numChars; ci++) {
+        const isFirst = ci === 0
+        const isLast  = ci === numChars - 1
+        const progress = numChars > 1 ? `${ci + 1}/${numChars}` : null
+        flow.push({
+          step: step++,
+          trigger: 'key',
+          action,
+          chars: 1,
+          hint: isFirst ? 'Keyboard Interact' : (isLast ? 'Buffer Flush' : 'Key Capture'),
+          customMsg: progress,
+        })
+      }
     } else if (t === 'chk' || t === 'clk') {
       flow.push({ step: step++, trigger: 'click', action, hint: 'Mouse Interact', customMsg: null })
     } else if (t === 'sel') {
@@ -177,8 +193,35 @@ export function normalizeFlow(raw: unknown, actions: unknown[]): InteractionStep
     return buildFallbackFlow(actions as Record<string, unknown>[])
   }
 
+  // ── Auto-expansão de steps `val` com valor multi-char (corrige IA que gera 1 step por campo) ──
+  // Quando a IA gera apenas 1 step "key" para um valor de N chars (ex: "-1" com N=2),
+  // expandimos automaticamente para N steps, cada um injetando 1 char.
+  const expanded: InteractionStep[] = []
+  let stepCounter = 1
+  for (const s of result) {
+    if (s.trigger === 'key' && s.action.t === 'val') {
+      const fullText = String(s.action.v ?? '')
+      if (fullText.length > 1) {
+        // Expande em N steps, 1 por char
+        for (let ci = 0; ci < fullText.length; ci++) {
+          const isLast = ci === fullText.length - 1
+          expanded.push({
+            step: stepCounter++,
+            trigger: 'key',
+            action: s.action,
+            chars: 1,
+            hint: isLast ? 'Buffer Flush' : 'Key Capture',
+            customMsg: fullText.length > 2 ? `${ci + 1}/${fullText.length}` : null,
+          })
+        }
+        continue
+      }
+    }
+    expanded.push({ ...s, step: stepCounter++ })
+  }
+
   // ── Auto-reparação de problemas comuns na saída da IA ────────────────────────
-  return repairFlow(result, actions as Record<string, unknown>[])
+  return repairFlow(expanded, actions as Record<string, unknown>[])
 }
 
 /**
