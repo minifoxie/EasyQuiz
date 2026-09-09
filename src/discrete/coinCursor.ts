@@ -1,6 +1,6 @@
 /**
- * CoinCursor — Ícones com animação correta via wrapper div.
- * Windows 10 ring spinner. 8px offset.
+ * CoinCursor — Animações simples sem wrapper div.
+ * Spinner Windows 10 semi-transparente. Ícones estáticos sem animação de posição.
  */
 
 export type CoinState = 'idle' | 'loading' | 'ok' | 'error'
@@ -27,19 +27,7 @@ export class CoinCursor {
     const s = document.createElement('style')
     s.id = '__eqdc_style__'
     s.textContent = `
-      @keyframes __eqdc_spin__  { to { transform: rotate(360deg); } }
-      @keyframes __eqdc_pop__   {
-        0%   { opacity: 0; transform: scale(0.3); }
-        60%  { opacity: 1; transform: scale(1.18); }
-        100% { opacity: 1; transform: scale(1); }
-      }
-      @keyframes __eqdc_shake__ {
-        0%,100% { transform: translateX(0); }
-        25%     { transform: translateX(-3px); }
-        75%     { transform: translateX(3px); }
-      }
-      .__eqdc_pop__   { animation: __eqdc_pop__   0.25s cubic-bezier(.34,1.56,.64,1) both; }
-      .__eqdc_shake__ { animation: __eqdc_shake__ 0.3s ease both; }
+      @keyframes __eqdc_spin__ { to { transform: rotate(360deg); } }
     `
     document.documentElement.appendChild(s)
   }
@@ -49,7 +37,8 @@ export class CoinCursor {
     this.el.id = '__eqdiscrete_coin__'
     Object.assign(this.el.style, {
       position: 'fixed',
-      width: '20px', height: '20px',
+      width: '20px',
+      height: '20px',
       zIndex: '2147483646',
       pointerEvents: 'none',
       display: 'none',
@@ -80,35 +69,29 @@ export class CoinCursor {
     el.style.display = 'block'
 
     if (state === 'loading') {
-      el.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
-          <circle cx="10" cy="10" r="7.5" fill="none" stroke="rgba(0,120,212,0.18)" stroke-width="2.5"/>
-          <circle cx="10" cy="10" r="7.5" fill="none" stroke="#0078D4" stroke-width="2.5"
-            stroke-dasharray="35 12" stroke-linecap="round" transform="rotate(-90 10 10)"
-            style="animation:__eqdc_spin__ 0.85s linear infinite;transform-origin:10px 10px"/>
-        </svg>`
+      // Anel semi-transparente — não totalmente opaco
+      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+        <circle cx="10" cy="10" r="7.5" fill="none"
+          stroke="rgba(0,120,212,0.12)" stroke-width="2.5"/>
+        <circle cx="10" cy="10" r="7.5" fill="none"
+          stroke="rgba(0,120,212,0.60)" stroke-width="2.5"
+          stroke-dasharray="35 12" stroke-linecap="round"
+          transform="rotate(-90 10 10)"
+          style="animation:__eqdc_spin__ 0.85s linear infinite;transform-origin:10px 10px"/>
+      </svg>`
     } else if (state === 'ok') {
-      // Wrapper div com animação CSS — evita problemas de transform-origin no SVG
-      const w = document.createElement('div')
-      w.className = '__eqdc_pop__'
-      w.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
-          <polyline points="3,10.5 8,15.5 17,5"
-            fill="none" stroke="#107C10" stroke-width="2.8"
-            stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>`
-      el.innerHTML = ''
-      el.appendChild(w)
+      // Checkmark verde puro — sem background, sem animação complexa
+      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+        <polyline points="3,10 8,15.5 17,4.5"
+          fill="none" stroke="#107C10" stroke-width="2.8"
+          stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`
     } else if (state === 'error') {
-      const w = document.createElement('div')
-      w.className = '__eqdc_shake__'
-      w.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
-          <line x1="4" y1="4" x2="16" y2="16" stroke="#C42B1C" stroke-width="2.8" stroke-linecap="round"/>
-          <line x1="16" y1="4" x2="4" y2="16" stroke="#C42B1C" stroke-width="2.8" stroke-linecap="round"/>
-        </svg>`
-      el.innerHTML = ''
-      el.appendChild(w)
+      // X vermelho puro — sem background
+      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+        <line x1="4" y1="4" x2="16" y2="16" stroke="#C42B1C" stroke-width="2.8" stroke-linecap="round"/>
+        <line x1="16" y1="4" x2="4" y2="16" stroke="#C42B1C" stroke-width="2.8" stroke-linecap="round"/>
+      </svg>`
     }
   }
 
