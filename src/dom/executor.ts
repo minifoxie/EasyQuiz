@@ -794,7 +794,7 @@ export function getHumanReadableLabel(idOrQuery: unknown, fallback = ''): string
   return isTechId ? fallback : clean || fallback
 }
 
-function setCheckedState(element: HTMLElement, checked: boolean): void {
+export function setCheckedState(element: HTMLElement, checked: boolean): void {
   if (!element) return
 
   const cardParent = (element.closest(
@@ -1064,7 +1064,7 @@ function dispatchSingleClick(element: HTMLElement): void {
   }
 }
 
-function findDragTarget(query: string, kind: 'source' | 'destination'): HTMLElement | null {
+export function findDragTarget(query: string, kind: 'source' | 'destination'): HTMLElement | null {
   const cleanQuery = cleanSearchTerm(query).toLowerCase()
   if (!cleanQuery) return null
 

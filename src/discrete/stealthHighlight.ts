@@ -14,11 +14,11 @@ export class StealthHighlight {
     s.id = '__eqsh_style__'
     s.textContent = `
       @keyframes __eqsh_p__ {
-        0%,100% { outline-color: rgba(0,120,212,0.22); }
-        50%     { outline-color: rgba(0,120,212,0.38); }
+        0%,100% { outline-color: rgba(0,120,212,0.15); }
+        50%     { outline-color: rgba(0,120,212,0.26); }
       }
       .__eqsh__ {
-        outline: 1px solid rgba(0,120,212,0.25) !important;
+        outline: 1px solid rgba(0,120,212,0.17) !important;
         outline-offset: 2px !important;
         animation: __eqsh_p__ 2.5s ease-in-out infinite !important;
       }

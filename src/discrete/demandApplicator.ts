@@ -1,21 +1,30 @@
 /**
- * DemandApplicator — Motor correto.
+ * DemandApplicator — Motor de Aplicação Discreta Sob Demanda
  *
  * REGRA FUNDAMENTAL do modo discreto:
- * - Input do usuário (tecla/clique) = SINAL/GATILHO apenas
- * - O sistema aplica a ação no elemento ALVO programaticamente
- * - O clique do usuário pode ser em qualquer lugar da página
+ * - Input do usuário (tecla/clique) = SINAL/GATILHO apenas.
+ * - O sistema aplica a ação no elemento ALVO programaticamente.
+ * - O clique do usuário pode ser em qualquer lugar da página.
  *
- * Fix crítico restaurado: simulatePointerClick(targetEl) para chk/clk.
- * Fix: insertChars com fullText vazio não retorna true imediatamente.
- * Fix: progresso por stepIdx (não por ID) para multi-input correto.
+ * Integração robusta com o motor original do EasyQuiz:
+ * - setCheckedState: marcação confiável de checkboxes e rádios em SPAs modernos (React, Vue, Angular),
+ *   evitando desmarcações acidentais e falsos positivos em multi-seleção.
+ * - simulateDragAndCategorize + findDragTarget: arrasto multi-estratégia para categorização
+ *   sem falhas de pointerevent.
+ * - Prevenção de concorrência com flag isExecuting para evitar pulos de steps em cliques rápidos.
  */
 
 import type { InteractionStep } from './promptDiscrete'
 import type { CoinCursor } from './coinCursor'
 import type { CornerToast } from './cornerToast'
 import type { StealthHighlight } from './stealthHighlight'
-import { findElementExt, simulatePointerClick } from '../dom/executor'
+import {
+  findElementExt,
+  simulatePointerClick,
+  setCheckedState,
+  findDragTarget,
+  simulateDragAndCategorize,
+} from '../dom/executor'
 
 export type ApplicatorState = 'idle' | 'waiting_key' | 'waiting_click' | 'done' | 'aborted'
 
@@ -36,6 +45,7 @@ export class DemandApplicator {
   private flow: InteractionStep[] = []
   private stepIdx = 0
   private state: ApplicatorState = 'idle'
+  private isExecuting = false
 
   private coin: CoinCursor
   private toast: CornerToast
@@ -49,7 +59,9 @@ export class DemandApplicator {
   private boundClick: (e: MouseEvent)    => void
 
   constructor(coin: CoinCursor, toast: CornerToast, highlight: StealthHighlight) {
-    this.coin = coin; this.toast = toast; this.highlight = highlight
+    this.coin = coin
+    this.toast = toast
+    this.highlight = highlight
     this.boundKey   = this.onKey.bind(this)
     this.boundClick = this.onClick.bind(this)
   }
@@ -61,6 +73,7 @@ export class DemandApplicator {
     this.stepIdx = 0
     this.charsInserted.clear()
     this.state = 'idle'
+    this.isExecuting = false
     this.attach()
     this.gotoStep(0)
   }
@@ -68,6 +81,7 @@ export class DemandApplicator {
   abort(): void {
     const wasActive = this.isActive()
     this.state = 'aborted'
+    this.isExecuting = false
     this.detach()
     this.clearTimer()
     this.highlight.clearAll()
@@ -77,10 +91,10 @@ export class DemandApplicator {
     }
   }
 
-  isActive    (): boolean        { return this.state === 'waiting_key' || this.state === 'waiting_click' }
-  getState    (): ApplicatorState{ return this.state }
-  getCurrentStep(): number       { return this.stepIdx }
-  getTotalSteps (): number       { return this.flow.length }
+  isActive(): boolean         { return this.state === 'waiting_key' || this.state === 'waiting_click' }
+  getState(): ApplicatorState { return this.state }
+  getCurrentStep(): number    { return this.stepIdx }
+  getTotalSteps(): number     { return this.flow.length }
 
   // ── Listeners ─────────────────────────────────────────────────────────────
 
@@ -94,13 +108,17 @@ export class DemandApplicator {
     window.removeEventListener('click',   this.boundClick, { capture: true })
   }
 
-  // ── Navegação ─────────────────────────────────────────────────────────────
+  // ── Navegação de Passos ───────────────────────────────────────────────────
 
   private gotoStep(idx: number): void {
+    this.isExecuting = false
     this.clearTimer()
     this.highlight.clearAll()
 
-    if (idx >= this.flow.length) { this.complete(); return }
+    if (idx >= this.flow.length) {
+      this.complete()
+      return
+    }
 
     this.stepIdx = idx
     const step   = this.flow[idx]
@@ -108,11 +126,11 @@ export class DemandApplicator {
 
     // Highlight e foco no campo alvo
     const action = step.action as Record<string, unknown>
-    if (action.id || action.label) {
+    if (action.id || action.label || action.from) {
       const el = this.resolveEl(action)
       if (el) {
         this.highlight.highlightTarget([el])
-        // Foca o campo para keystrokes chegarem no lugar certo (visualmente)
+        // Foca o campo para feedback visual natural
         if (step.trigger === 'key') {
           const input = this.resolveInput(el)
           try { (input as HTMLInputElement)?.focus?.() } catch {}
@@ -137,7 +155,10 @@ export class DemandApplicator {
   }
 
   private clearTimer(): void {
-    if (this.stepTimer !== null) { clearTimeout(this.stepTimer); this.stepTimer = null }
+    if (this.stepTimer !== null) {
+      clearTimeout(this.stepTimer)
+      this.stepTimer = null
+    }
   }
 
   // ── Teclado — GATILHO para injeção de texto ───────────────────────────────
@@ -149,7 +170,7 @@ export class DemandApplicator {
       this.toast.flash('Mouse Interact')
       return
     }
-    if (this.state !== 'waiting_key') return
+    if (this.state !== 'waiting_key' || this.isExecuting) return
 
     const step   = this.flow[this.stepIdx]
     const action = step.action as Record<string, unknown>
@@ -167,13 +188,13 @@ export class DemandApplicator {
       return
     }
 
-    // Injeta chars no campo ALVO (independente de onde o usuário digitou)
+    // Injeta chars no campo ALVO
     const done = this.insertChars(this.stepIdx, action, fullText, chars)
 
     if (done) {
       this.clearTimer()
       this.highlight.clearAll()
-      this.coin.flashOk(1200)
+      this.coin.flashOk(1000)
       setTimeout(() => this.gotoStep(this.stepIdx + 1), 150)
     } else {
       const inserted = this.charsInserted.get(this.stepIdx) ?? 0
@@ -185,7 +206,7 @@ export class DemandApplicator {
   // ── Clique — GATILHO para ação no elemento alvo ───────────────────────────
 
   private onClick(e: MouseEvent): void {
-    // Bloqueia eventos sintéticos (gerados por simulatePointerClick)
+    // Bloqueia eventos sintéticos internos
     if (!e.isTrusted) return
 
     const t = e.target as HTMLElement | null
@@ -197,6 +218,7 @@ export class DemandApplicator {
       return
     }
     if (this.state !== 'waiting_click') return
+    if (this.isExecuting) return
 
     const step   = this.flow[this.stepIdx]
     const action = step.action as Record<string, unknown>
@@ -210,16 +232,21 @@ export class DemandApplicator {
       return
     }
 
-    // Para chk/clk/sel/drag: PREVINE o clique natural do usuário de interferir no DOM.
-    // Caso contrário, se o usuário clicar diretamente no checkbox, ele togglea 2x (volta ao estado original).
-    // O sistema vai aplicar a ação correta via simulatePointerClick no elemento alvo.
+    // Para chk/clk/sel/drag: PREVINE o clique natural do usuário de interferir no DOM
+    // e causar toggles indesejados ou duplo clique.
     e.preventDefault()
+    this.isExecuting = true
 
     void this.execClickAction(action, step).then(ok => {
       this.clearTimer()
       this.highlight.clearAll()
-      if (ok) this.coin.flashOk(1200)
-      setTimeout(() => this.gotoStep(this.stepIdx + 1), ok ? 220 : 100)
+      if (ok) this.coin.flashOk(1000)
+      setTimeout(() => {
+        this.gotoStep(this.stepIdx + 1)
+      }, ok ? 180 : 80)
+    }).catch(() => {
+      this.isExecuting = false
+      this.gotoStep(this.stepIdx + 1)
     })
   }
 
@@ -232,17 +259,66 @@ export class DemandApplicator {
     const t = String(action.t ?? '')
 
     try {
-      if (t === 'chk' || t === 'clk') {
-        // O clique do usuário foi apenas o SINAL.
-        // Aqui clicamos no elemento ALVO identificado pela IA.
+      if (t === 'chk') {
         const el = this.resolveEl(action)
-        if (!el) { this.toast.flash('Alvo não achado'); return false }
-        simulatePointerClick(el)
+        if (!el) {
+          this.toast.flash('Alvo não achado')
+          return false
+        }
+
+        const card = (el.closest(
+          '.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], li, tr'
+        ) || el) as HTMLElement
+
+        const input = el instanceof HTMLInputElement && ['radio', 'checkbox'].includes(el.type)
+          ? el
+          : (card.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null) ||
+            (card.getAttribute('for') ? (card.ownerDocument.getElementById(card.getAttribute('for')!) as HTMLInputElement | null) : null)
+
+        const shouldCheck = action.c !== undefined ? Boolean(action.c) : true
+
+        // Motor central de estado e clique de checkbox/radio
+        setCheckedState(input || card, shouldCheck)
+
+        // Se após o setCheckedState ainda divergir (ex: React controlado), força via descriptor e tracker
+        if (input && input.checked !== shouldCheck) {
+          try {
+            const tracker = (input as any)._valueTracker
+            if (tracker) tracker.setValue(!shouldCheck)
+          } catch {}
+          try {
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set
+            setter?.call(input, shouldCheck)
+          } catch {}
+          input.checked = shouldCheck
+          input.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
+          input.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
+        }
+        return true
+      }
+
+      if (t === 'clk') {
+        const el = this.resolveEl(action)
+        if (!el) {
+          this.toast.flash('Alvo não achado')
+          return false
+        }
+
+        const isOption = Boolean(
+          el.closest('.option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i]') ||
+          el.querySelector('input[type="radio"], input[type="checkbox"]') ||
+          (el instanceof HTMLInputElement && ['checkbox', 'radio'].includes(el.type))
+        )
+        if (isOption) {
+          setCheckedState(el, true)
+        } else {
+          simulatePointerClick(el)
+        }
         return true
       }
 
       if (t === 'sel') {
-        const el  = this.resolveEl(action)
+        const el = this.resolveEl(action)
         if (!el) { this.toast.flash('Alvo não achado'); return false }
         const sel = el instanceof HTMLSelectElement ? el
           : el.querySelector('select') as HTMLSelectElement | null
@@ -267,35 +343,32 @@ export class DemandApplicator {
       }
 
       if (t === 'drag') {
-        const from = findElementExt(String(action.from ?? ''))
-        const to   = findElementExt(String(action.to   ?? ''))
-        if (from && to) {
-          from.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }))
-          await new Promise(r => setTimeout(r, 80))
-          to.dispatchEvent(new PointerEvent('pointerup',   { bubbles: true, cancelable: true }))
-          to.dispatchEvent(new MouseEvent('drop',          { bubbles: true, cancelable: true }))
+        const fromStr = String(action.from ?? action.id ?? '')
+        const toStr   = String(action.to ?? action.label ?? '')
+        const fromEl = findDragTarget(fromStr, 'source') || findElementExt(fromStr)
+        const toEl   = findDragTarget(toStr, 'destination') || findElementExt(toStr)
+        if (fromEl && toEl) {
+          await simulateDragAndCategorize(fromEl, toEl)
           return true
         }
+        this.toast.flash('Alvo não achado')
         return false
       }
 
       if (t === 'adv') {
-        // Avanço de página — o clique do usuário já navegou. Apenas avança o step.
         return true
       }
 
-    } catch { this.toast.flash('Erro exec'); return false }
+    } catch {
+      this.toast.flash('Erro exec')
+      return false
+    }
 
     return true
   }
 
   // ── Inserção de Texto no campo ALVO ──────────────────────────────────────
 
-  /**
-   * Injeta até `chars` caracteres de `fullText` no elemento identificado pela ação.
-   * Rastreado por STEP INDEX para garantir ordem correta em grids 3x3, etc.
-   * Retorna true quando fullText completo foi inserido.
-   */
   private insertChars(
     stepIdx: number,
     action: Record<string, unknown>,
@@ -307,7 +380,6 @@ export class DemandApplicator {
 
     const el = this.resolveEl(action)
     if (!el) {
-      // Campo não encontrado — avança sem travar
       this.toast.flash('Campo não achado')
       this.charsInserted.set(stepIdx, fullText.length)
       return true
@@ -326,7 +398,6 @@ export class DemandApplicator {
     this.charsInserted.set(stepIdx, newPos)
 
     if (newPos >= fullText.length) {
-      // Blur para salvar — foca o campo brevemente
       try { (input as HTMLInputElement).blur?.() } catch {}
       return true
     }
@@ -353,7 +424,7 @@ export class DemandApplicator {
     }
   }
 
-  // ── Resolução de Elementos ────────────────────────────────────────────────
+  // ── Resolução Resiliente de Elementos ─────────────────────────────────────
 
   private resolveEl(action: Record<string, unknown>): HTMLElement | null {
     const id    = String(action.id    ?? '')
@@ -364,6 +435,21 @@ export class DemandApplicator {
     if (id)    { const e = findElementExt(id, val, action.t === 'val');  if (e) return e }
     if (label) { const e = findElementExt(label);                        if (e) return e }
     if (from)  { const e = findElementExt(from);                         if (e) return e }
+
+    // Fallback inteligente para alternativas com prefixos (A), B), 1., etc.)
+    const query = (id || label || val).trim().toLowerCase()
+    if (query) {
+      const candidates = Array.from(
+        document.querySelectorAll('input, label, button, [role="radio"], [role="checkbox"], .option-card, [class*="option" i], [class*="choice" i]')
+      ) as HTMLElement[]
+      const matched = candidates.find(c => {
+        const txt = (c.textContent || '').trim().toLowerCase()
+        const v = (c as any).value ? String((c as any).value).trim().toLowerCase() : ''
+        return v === query || txt === query || txt.startsWith(query + ')') || txt.startsWith('(' + query + ')') || (query.length >= 3 && txt.includes(query))
+      })
+      if (matched) return matched
+    }
+
     return null
   }
 
@@ -378,10 +464,11 @@ export class DemandApplicator {
 
   private complete(): void {
     this.state = 'done'
+    this.isExecuting = false
     this.detach()
     this.clearTimer()
     this.highlight.clearAll()
-    this.coin.flashOk(2500)
+    this.coin.flashOk(1800)
     this.toast.flash('Concluído')
   }
 

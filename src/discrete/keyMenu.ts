@@ -34,7 +34,7 @@ export class KeyMenu {
         background: rgba(0,0,0,0.22);
         z-index: 2147483643;
         display: flex; align-items: flex-start; justify-content: center;
-        padding-top: 24px;
+        padding-top: 16px;
         animation: __eqkm_ov__ 0.1s ease;
       }
       @keyframes __eqkm_ov__ { from{opacity:0} to{opacity:1} }
@@ -48,9 +48,9 @@ export class KeyMenu {
         font-size: 14px;
         color: #202124;
         overflow: hidden;
-        animation: __eqkm_dlg__ 0.14s cubic-bezier(0,0,0.2,1);
+        animation: __eqkm_dlg__ 0.16s cubic-bezier(0,0,0.2,1);
       }
-      @keyframes __eqkm_dlg__ { from{transform:scale(0.95);opacity:0} to{transform:scale(1);opacity:1} }
+      @keyframes __eqkm_dlg__ { from{transform:translateY(-12px);opacity:0} to{transform:translateY(0);opacity:1} }
       #__eqkm_dialog__ .__eqkm_title__ {
         display: flex; align-items: center; justify-content: space-between;
         padding: 20px 20px 0;

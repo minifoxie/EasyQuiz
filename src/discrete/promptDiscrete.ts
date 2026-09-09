@@ -29,9 +29,9 @@ REGRAS DO interactionFlow:
 7. Para ação "adv": trigger="click" — o usuário clica no botão de avançar manualmente.
 8. "hint" deve ser SEMPRE um termo técnico de sistema — NUNCA a resposta ou ação real:
    - Teclado: "Keyboard Interact", "Input Detected", "Key Event", "Buffer Flush", "Key Capture"
-   - Clique: "Mouse Interact", "Pointer Event", "Click Registered", "Focus Change", "UI Event"
-   - Progresso: "Step N/M", "Sync N%", "Loading Cache", "Field Update", "Buffer N/M"
-   - Concluído: "Cache Atualizado", "Session Sync OK", "State Flushed", "Done", "Commit OK"
+   - Clique: "Mouse Interact", "Click", "Selecionar", "Mover Item", "Confirmar"
+   - Progresso: "Step N/M", "Sync N%", "Field Update", "Buffer N/M"
+   - Concluído: "Concluído", "Done", "Pronto"
 9. "customMsg" (opcional, máx 22 chars): mensagem criada por você para guiar o usuário.
    Use para: mudanças de modalidade ("Now: Mouse"), progresso de campo ("Field 2/3"),
    confirmações ("Confirm?"), avisos ("Next: Click"). Omita se não necessário.
@@ -110,7 +110,7 @@ export function buildFallbackFlow(actions: Record<string, unknown>[]): Interacti
       flow.push({ step: step++, trigger: 'click', action, hint: 'Mouse Interact', customMsg: 'Opening...' })
       flow.push({ step: step++, trigger: 'click', action, hint: 'Option Selected', customMsg: null })
     } else if (t === 'drag') {
-      flow.push({ step: step++, trigger: 'click', action, hint: 'Pointer Event', customMsg: null })
+      flow.push({ step: step++, trigger: 'click', action, hint: 'Mover Item', customMsg: null })
     } else if (t === 'adv') {
       flow.push({ step: step++, trigger: 'click', action, hint: 'Next Page Loading', customMsg: null })
     }
