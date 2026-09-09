@@ -150,7 +150,8 @@ async function initDiscrete(): Promise<void> {
       const tStart = performance.now()
       const result = await analyzeWithGemini(
         ctx, images, settings,
-        undefined, signal,
+        (msg, type) => debugOutput.log(type === 'error' ? 'ERROR' : type === 'warning' ? 'WARN' : 'SYS', `[IA] ${msg}`),
+        signal,
         { systemPromptOverride: DISCRETE_FULL_SYSTEM }
       )
       const latency = Math.round(performance.now() - tStart)
@@ -159,6 +160,8 @@ async function initDiscrete(): Promise<void> {
 
       coin.setState('idle')
       const plan = result.plan as AnalysisPlan & { interactionFlow?: unknown }
+
+      debugOutput.log('SYS', `Análise concluída em ${latency}ms via ${result.usedModel ?? settings.model} — pageType: ${plan.pageType} | mode: ${plan.mode} | ${plan.actions?.length ?? 0} ação(ões)`)
       debugOutput.setPlan(plan, ctx.questionText, latency, settings.model)
 
       if (plan.memoryToStore) addSessionMemory(plan.memoryToStore)
@@ -174,11 +177,27 @@ async function initDiscrete(): Promise<void> {
         (plan.actions || []) as Record<string, unknown>[]
       )
 
+      debugOutput.log('SYS', `Fluxo gerado: ${flow.length} step(s) — ${flow.map(s => `${s.trigger}[${(s.action as any)?.t}]`).join(', ')}`)
+
       if (plan.pageType === 'info' || plan.pageType === 'start') {
         coin.flashOk(1000)
-        toast.flash('Avançar')
-        debugOutput.log('SYS', `Página do tipo ${plan.pageType} — avançando`)
-        if (flow.length > 0) applicator.start(flow)
+        toast.flash('Avançar →')
+        debugOutput.log('SYS', `Página informativa (${plan.pageType}) — aguardando clique do usuário para avançar`)
+
+        if (flow.length > 0) {
+          applicator.start(flow)
+        } else {
+          // Sem fluxo: constrói 1 step adv automático para que o usuário clique e avance
+          const advFlow = [{
+            step: 1,
+            trigger: 'click' as const,
+            action: { t: 'adv', label: 'continuar' },
+            hint: 'Clique para avançar',
+            customMsg: null,
+          }]
+          debugOutput.log('SYS', 'Fluxo adv gerado automaticamente para página informativa')
+          applicator.start(advFlow)
+        }
         return
       }
 
@@ -200,7 +219,7 @@ async function initDiscrete(): Promise<void> {
     } catch (e) {
       if (signal.aborted) return
       coin.setState('idle')
-      const m = e instanceof Error ? e.message : ''
+      const m = e instanceof Error ? e.message : String(e)
       debugOutput.log('ERROR', `Erro na análise: ${m}`)
 
       if (m.includes('403') || m.includes('API key') || m.includes('inválida')) {
