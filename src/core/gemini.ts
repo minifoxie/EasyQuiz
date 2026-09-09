@@ -683,23 +683,14 @@ export async function analyzeWithGemini(
     contents: [{ role: 'user', parts }],
   }
 
-  // Pool de modelos: modelo escolhido pelo usuário primeiro, depois fallbacks ordenados
+  // ===== POOL DE MODELOS COM PREFERÊNCIA ABSOLUTA AO MODELO DO USUÁRIO =====
+  // O modelo escolhido pelo usuário nas configurações (no modo legacy ou discreto)
+  // tem prioridade MÁXIMA e ABSOLUTA. Ele é sempre executado enquanto houver chaves
+  // disponíveis para ele. Os modelos em TURBO_MODELS são única e exclusivamente
+  // contingência de ÚLTIMA OPÇÃO para evitar que uma questão falhe se todas as chaves
+  // baterem cota no modelo escolhido.
   const effectiveChosenModel = migrateDeprecated(chosenModel)
-  const effectivePreferred = preferredFastModel ? migrateDeprecated(preferredFastModel) : null
-  const fallbackModels: string[] = []
-  if (effectivePreferred && isValidQuizModel(effectivePreferred) && effectivePreferred !== effectiveChosenModel) {
-    fallbackModels.push(effectivePreferred)
-  }
-  for (const m of TURBO_MODELS) {
-    if (m !== effectiveChosenModel && !fallbackModels.includes(m)) fallbackModels.push(m)
-  }
-
-  const modelPool: string[] = []
-  if (isValidQuizModel(effectiveChosenModel)) modelPool.push(effectiveChosenModel)
-  for (const m of fallbackModels) {
-    if (isValidQuizModel(m) && !modelPool.includes(m)) modelPool.push(m)
-  }
-  if (modelPool.length < 2) modelPool.push(...TURBO_MODELS.filter(m => !modelPool.includes(m)))
+  const fallbackModels = TURBO_MODELS.filter(m => m !== effectiveChosenModel)
 
   const allConfiguredKeys = keyManager.getAllKeys()
   const totalKeysCount = allConfiguredKeys.length
@@ -770,9 +761,6 @@ export async function analyzeWithGemini(
       const winner = await Promise.any(promises)
       signal?.removeEventListener('abort', onParentAbort)
       keyManager.markWinner(winner.usedKey)
-      if (winner.usedModel !== effectiveChosenModel) {
-        preferredFastModel = winner.usedModel
-      }
       return winner
     } catch (waveErr) {
       signal?.removeEventListener('abort', onParentAbort)
@@ -786,47 +774,51 @@ export async function analyzeWithGemini(
     }
   }
 
-  // EXECUÇÃO EM ONDAS PROGRESSIVAS
+  // EXECUÇÃO EM ONDAS: PRIORIDADE TOTAL AO MODELO ESCOLHIDO PELO USUÁRIO
   const MAX_WAVES = 6
   let waveNum = 0
   let lastError = ''
-  let fallbackModelIndex = 0
+  let fallbackIndex = 0
 
   while (waveNum < MAX_WAVES) {
     if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
 
-    // Determina o modelo da onda:
-    let currentModel: string
-    if (waveNum === 0) {
-      currentModel = effectiveChosenModel
-    } else if (waveNum === 1 && totalKeysCount >= 4) {
-      // Se há 4+ chaves, tenta uma segunda rodada com chaves frescas no modelo escolhido
-      currentModel = effectiveChosenModel
-    } else {
-      // Modelo esgotado (429 ou lento): avança para o próximo modelo de fallback (cotas independentes)
-      const fallbackList = modelPool.filter(m => m !== effectiveChosenModel)
-      currentModel = fallbackList[fallbackModelIndex % fallbackList.length] || modelPool[0]
-      fallbackModelIndex++
-    }
-
-    // Seleciona chaves via Round-Robin inteligente (menos recentemente usadas primeiro)
     const candidateKeys = keyManager.getRoundRobinKeys(totalKeysCount)
-    const availableForModel = candidateKeys.filter(
-      k => !usedPairs.has(`${k.key}::${currentModel}`) && !isKeyModelBlacklisted(k.key, currentModel)
+
+    // 1. Verifica se ainda existem chaves disponíveis para o modelo escolhido pelo usuário
+    const chosenModelKeys = candidateKeys.filter(
+      k => !usedPairs.has(`${k.key}::${effectiveChosenModel}`) && !isKeyModelBlacklisted(k.key, effectiveChosenModel)
     )
 
-    const poolToUse = availableForModel.length > 0
-      ? availableForModel
-      : candidateKeys.filter(k => !usedPairs.has(`${k.key}::${currentModel}`))
+    let currentModel: string
+    let poolToUse: typeof candidateKeys
 
-    if (poolToUse.length === 0) {
-      // Se todas as chaves já foram tentadas com este modelo, avança modelo
-      const fallbackList = modelPool.filter(m => m !== effectiveChosenModel)
-      currentModel = fallbackList[fallbackModelIndex % fallbackList.length] || modelPool[0]
-      fallbackModelIndex++
+    if (chosenModelKeys.length > 0) {
+      // PREFERÊNCIA MÁXIMA E ABSOLUTA: Usa o modelo do usuário enquanto houver chaves para ele
+      currentModel = effectiveChosenModel
+      poolToUse = chosenModelKeys
+    } else {
+      // ÚLTIMA OPÇÃO DE TODAS: Todas as chaves falharam no modelo do usuário.
+      // Entra em contingência temporária apenas para não deixar esta questão sem resposta.
+      const fallbackList = fallbackModels
+      currentModel = fallbackList[fallbackIndex % fallbackList.length] || effectiveChosenModel
+      fallbackIndex++
+
+      // Pega chaves que ainda não foram tentadas neste modelo de fallback
+      const fallbackKeys = candidateKeys.filter(
+        k => !usedPairs.has(`${k.key}::${currentModel}`) && !isKeyModelBlacklisted(k.key, currentModel)
+      )
+      poolToUse = fallbackKeys.length > 0 ? fallbackKeys : candidateKeys.filter(k => !usedPairs.has(`${k.key}::${currentModel}`))
     }
 
-    const selectedKeys = (poolToUse.length > 0 ? poolToUse : candidateKeys).slice(0, waveConcurrency)
+    if (poolToUse.length === 0) {
+      if (fallbackIndex < fallbackModels.length) {
+        continue
+      }
+      break
+    }
+
+    const selectedKeys = poolToUse.slice(0, waveConcurrency)
     if (selectedKeys.length === 0) break
 
     const timeout = getTimeout(currentModel, waveNum)
