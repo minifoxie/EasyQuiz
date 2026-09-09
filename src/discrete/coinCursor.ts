@@ -1,6 +1,8 @@
 /**
- * CoinCursor — Animações simples sem wrapper div.
- * Spinner Windows 10 semi-transparente. Ícones estáticos sem animação de posição.
+ * CoinCursor — Fixes:
+ * 1. Spinner em wrapper div (sem conflito SVG transform + CSS animation)
+ * 2. Posição: direita do mouse, verticalmente centrado (mouseX+18, mouseY-10)
+ * 3. Sem animações de posição — ícones estáticos
  */
 
 export type CoinState = 'idle' | 'loading' | 'ok' | 'error'
@@ -27,7 +29,16 @@ export class CoinCursor {
     const s = document.createElement('style')
     s.id = '__eqdc_style__'
     s.textContent = `
-      @keyframes __eqdc_spin__ { to { transform: rotate(360deg); } }
+      @keyframes __eqdc_spin__ {
+        from { transform: rotate(-90deg); }
+        to   { transform: rotate(270deg); }
+      }
+      .__eqdc_ring__ {
+        width: 20px; height: 20px;
+        animation: __eqdc_spin__ 0.9s linear infinite;
+        display: block;
+        line-height: 0;
+      }
     `
     document.documentElement.appendChild(s)
   }
@@ -51,8 +62,11 @@ export class CoinCursor {
   private startRaf(): void {
     const tick = () => {
       if (this.el && this.state !== 'idle') {
-        this.el.style.left = `${Math.min(this.mouseX + 8, window.innerWidth - 24)}px`
-        this.el.style.top  = `${Math.max(this.mouseY + 8, 2)}px`
+        // Direita do mouse, verticalmente centrado na ponta do cursor
+        const x = Math.min(this.mouseX + 18, window.innerWidth - 24)
+        const y = Math.max(this.mouseY - 10, 2)
+        this.el.style.left = `${x}px`
+        this.el.style.top  = `${y}px`
       }
       this.rafId = requestAnimationFrame(tick)
     }
@@ -69,25 +83,25 @@ export class CoinCursor {
     el.style.display = 'block'
 
     if (state === 'loading') {
-      // Anel semi-transparente — não totalmente opaco
-      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
-        <circle cx="10" cy="10" r="7.5" fill="none"
-          stroke="rgba(0,120,212,0.12)" stroke-width="2.5"/>
-        <circle cx="10" cy="10" r="7.5" fill="none"
-          stroke="rgba(0,120,212,0.60)" stroke-width="2.5"
-          stroke-dasharray="35 12" stroke-linecap="round"
-          transform="rotate(-90 10 10)"
-          style="animation:__eqdc_spin__ 0.85s linear infinite;transform-origin:10px 10px"/>
-      </svg>`
+      // Spinner: div wrapper com CSS animation — sem conflito com SVG transform attr
+      el.innerHTML = `<div class="__eqdc_ring__">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+          <circle cx="10" cy="10" r="7.5" fill="none"
+            stroke="rgba(0,120,212,0.14)" stroke-width="2.5"/>
+          <circle cx="10" cy="10" r="7.5" fill="none"
+            stroke="rgba(0,120,212,0.60)" stroke-width="2.5"
+            stroke-dasharray="35 12" stroke-linecap="round"/>
+        </svg>
+      </div>`
+
     } else if (state === 'ok') {
-      // Checkmark verde puro — sem background, sem animação complexa
       el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
         <polyline points="3,10 8,15.5 17,4.5"
           fill="none" stroke="#107C10" stroke-width="2.8"
           stroke-linecap="round" stroke-linejoin="round"/>
       </svg>`
+
     } else if (state === 'error') {
-      // X vermelho puro — sem background
       el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
         <line x1="4" y1="4" x2="16" y2="16" stroke="#C42B1C" stroke-width="2.8" stroke-linecap="round"/>
         <line x1="16" y1="4" x2="4" y2="16" stroke="#C42B1C" stroke-width="2.8" stroke-linecap="round"/>

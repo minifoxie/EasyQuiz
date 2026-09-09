@@ -185,6 +185,10 @@ export class DemandApplicator {
   // ── Clique — GATILHO para ação no elemento alvo ───────────────────────────
 
   private onClick(e: MouseEvent): void {
+    // CRÍTICO: ignora eventos sintéticos (gerados pelo próprio simulatePointerClick)
+    // Sem isso, o click simulado re-aciona este handler → crash recursivo
+    if (!e.isTrusted) return
+
     const t = e.target as HTMLElement | null
     if (!t) return
     if (t.closest('#__eqdm_menu__,#__eqkm_overlay__,#__eqcm_menu__,#__eqdiscrete_coin__,#__eqdiscrete_toasts__')) return

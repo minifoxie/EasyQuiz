@@ -36,9 +36,12 @@ REGRAS DO interactionFlow:
    Use para: mudanças de modalidade ("Now: Mouse"), progresso de campo ("Field 2/3"),
    confirmações ("Confirm?"), avisos ("Next: Click"). Omita se não necessário.
 10. Para multi-campo: 1 step de "key" por campo. Use customMsg para sinalizar transição.
+    Para multi-checkbox (ex: 3 caixas a marcar): 1 step "click" POR checkbox separado.
+    Nunca agrupe múltiplos checkboxes em 1 único step — cada checkbox = 1 step de click.
 11. Fluxo híbrido (texto+seleção): use customMsg="Now: Mouse Interact" ao mudar de modalidade.
-12. Questão simples (1 clique): 1-2 steps. Complexa (redação, categorização): até 15 steps.
+12. Questão simples (1 clique): 1-2 steps. Complexa (redação, categorização, multi-select): até 20 steps.
 13. Nunca revele a resposta nos hints/customMsg — são termos de sistema disfarçados.
+14. Se actions[] contiver múltiplos {t:"chk"}, certifique-se de incluir 1 step por chk em interactionFlow.
 
 SCHEMA JSON OBRIGATÓRIO (adicional ao plano normal):
 {
