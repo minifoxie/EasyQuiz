@@ -1,122 +1,158 @@
 /**
- * PageWatcher — Detecta avanço de página (SPA ou multi-page) e dispara callback.
- * Usa MutationObserver + hashchange + popstate + botões de navegação.
+ * PageWatcher — Detecção robusta de avanço de página.
+ * Usa: URL hash/pathname change, MutationObserver no body,
+ * e fallback por polling de conteúdo relevante.
  */
 
-export interface PageWatcherCallbacks {
+interface PageWatcherOpts {
   onPageAdvance: () => void
 }
 
-const ADVANCE_BTN_PATTERN = /pr[oó]xim|avan[cç]|continu|verific|enviar|submit|confirm|checar|validar|next|check|ir para/i
-
 export class PageWatcher {
-  private observer: MutationObserver | null = null
-  private mutationTimer: number | null = null
-  private callbacks: PageWatcherCallbacks
-  private lastUrl = location.href
+  private opts: PageWatcherOpts
+  private lastUrl = ''
   private lastContentHash = ''
-  private active = false
+  private mutationObserver: MutationObserver | null = null
+  private pollTimer: number | null = null
+  private debounceTimer: number | null = null
+  private readonly DEBOUNCE_MS = 600
+  private readonly POLL_MS = 1800
 
-  constructor(callbacks: PageWatcherCallbacks) {
-    this.callbacks = callbacks
+  constructor(opts: PageWatcherOpts) {
+    this.opts = opts
   }
 
   start(): void {
-    if (this.active) return
-    this.active = true
-    this.lastUrl = location.href
-    this.lastContentHash = this.contentHash()
+    this.lastUrl         = location.href
+    this.lastContentHash = this.hashContent()
 
-    // Detecta botões de navegação clicados pelo usuário
-    document.addEventListener('click', this.onDocClick, { capture: true, passive: true })
+    // 1. Popstate (back/forward, SPA router)
+    window.addEventListener('popstate', this.onUrlChange, { capture: true })
 
-    // Detecta navegação SPA por URL
-    window.addEventListener('popstate', this.onUrlChange)
-    window.addEventListener('hashchange', this.onUrlChange)
+    // 2. Intercepta pushState / replaceState
+    this.patchHistory()
 
-    // MutationObserver para detectar troca de conteúdo significativa
-    this.observer = new MutationObserver(() => {
-      if (!this.active) return
-      if (this.mutationTimer) clearTimeout(this.mutationTimer)
-      this.mutationTimer = window.setTimeout(() => {
-        this.mutationTimer = null
-        this.checkContentChange()
-      }, 300)
-    })
-
-    this.observer.observe(document.body, {
+    // 3. MutationObserver no body — detecta troca de questão via DOM
+    this.mutationObserver = new MutationObserver(this.onMutation)
+    this.mutationObserver.observe(document.body ?? document.documentElement, {
       childList: true,
       subtree: true,
-      characterData: false,
       attributes: false,
+      characterData: false,
     })
+
+    // 4. Polling de fallback — captura casos que o observer perde
+    this.pollTimer = window.setInterval(this.onPoll, this.POLL_MS)
   }
 
   stop(): void {
-    this.active = false
-    document.removeEventListener('click', this.onDocClick, { capture: true })
-    window.removeEventListener('popstate', this.onUrlChange)
-    window.removeEventListener('hashchange', this.onUrlChange)
-    if (this.mutationTimer) clearTimeout(this.mutationTimer)
-    this.observer?.disconnect()
-    this.observer = null
+    window.removeEventListener('popstate', this.onUrlChange, { capture: true })
+    this.mutationObserver?.disconnect()
+    this.mutationObserver = null
+    if (this.pollTimer)    { clearInterval(this.pollTimer);   this.pollTimer    = null }
+    if (this.debounceTimer){ clearTimeout(this.debounceTimer); this.debounceTimer = null }
+    this.unpatchHistory()
   }
 
-  private onDocClick = (e: MouseEvent) => {
-    if (!this.active) return
-    const target = e.target as HTMLElement | null
-    if (!target) return
+  // ─── URL change ──────────────────────────────────────────────────────────
 
-    const btn = target.closest('button, [role="button"], a, input[type="submit"], input[type="button"]') as HTMLElement | null
-    if (!btn) return
-
-    const text = (btn.textContent || (btn as HTMLInputElement).value || btn.getAttribute('aria-label') || '').trim()
-    if (ADVANCE_BTN_PATTERN.test(text)) {
-      // Pequeno delay para a página começar a mudar antes do callback
-      setTimeout(() => {
-        if (this.active) this.callbacks.onPageAdvance()
-      }, 150)
+  private onUrlChange = (): void => {
+    const cur = location.href
+    if (cur !== this.lastUrl) {
+      this.lastUrl = cur
+      this.debounce()
     }
   }
 
-  private onUrlChange = () => {
-    if (!this.active) return
-    if (location.href !== this.lastUrl) {
-      this.lastUrl = location.href
-      setTimeout(() => {
-        if (this.active) this.callbacks.onPageAdvance()
-      }, 200)
+  // ─── pushState/replaceState patch ────────────────────────────────────────
+
+  private origPush    = history.pushState.bind(history)
+  private origReplace = history.replaceState.bind(history)
+
+  private patchHistory(): void {
+    const self = this
+    history.pushState = function (...args) {
+      self.origPush(...args)
+      self.onUrlChange()
+    }
+    history.replaceState = function (...args) {
+      self.origReplace(...args)
+      self.onUrlChange()
     }
   }
 
-  private checkContentChange(): void {
-    if (!this.active) return
+  private unpatchHistory(): void {
+    history.pushState    = this.origPush
+    history.replaceState = this.origReplace
+  }
 
-    // Só dispara se a URL mudou ou se houve mudança substancial no DOM de questão
-    const newHash = this.contentHash()
-    if (newHash !== this.lastContentHash) {
-      this.lastContentHash = newHash
-      // Verifica se a mudança sugere nova questão (controls ou texto diferentes)
-      const hasControls = document.querySelectorAll(
-        'input[type="radio"], input[type="checkbox"], select, [role="radio"], [role="checkbox"]'
-      ).length
-      if (hasControls > 0) {
-        // Pode ser nova questão carregada via SPA sem mudança de URL
-        // Não dispara aqui — o DemandApplicator lida com isso via polling
+  // ─── MutationObserver ────────────────────────────────────────────────────
+
+  private mutationCount = 0
+  private onMutation = (records: MutationRecord[]): void => {
+    // Filtra mutações triviais (tooltips, animações, etc.)
+    let significant = 0
+    for (const r of records) {
+      if (r.addedNodes.length === 0 && r.removedNodes.length === 0) continue
+      for (const n of [...r.addedNodes, ...r.removedNodes]) {
+        if (n instanceof HTMLElement) {
+          // Ignora containers EQ e elementos muito pequenos
+          if (n.id?.startsWith('__eq') || n.className?.includes?.('__eq')) continue
+          significant++
+          if (significant >= 3) break
+        }
       }
+      if (significant >= 3) break
+    }
+
+    if (significant < 3) return
+
+    this.mutationCount++
+    // Só dispara se acumular mudanças suficientes no debounce
+    this.debounce()
+  }
+
+  // ─── Polling ─────────────────────────────────────────────────────────────
+
+  private onPoll = (): void => {
+    const cur = location.href
+    if (cur !== this.lastUrl) {
+      this.lastUrl = cur
+      this.debounce()
+      return
+    }
+
+    // Detecta mudança de conteúdo relevante (texto da questão)
+    const hash = this.hashContent()
+    if (hash && hash !== this.lastContentHash && hash.length > 20) {
+      this.lastContentHash = hash
+      this.debounce()
     }
   }
 
-  private contentHash(): string {
-    // Hash simplificado: número de controles + comprimento do texto visível principal
+  // ─── Hash de conteúdo ────────────────────────────────────────────────────
+
+  private hashContent(): string {
     try {
-      const controls = document.querySelectorAll(
-        'input[type="radio"],input[type="checkbox"],[role="radio"],[role="checkbox"],select'
-      ).length
-      const text = (document.body.textContent || '').trim().slice(0, 300)
-      return `${controls}:${text.length}:${text.slice(0, 60)}`
-    } catch {
-      return ''
-    }
+      // Pega os primeiros 500 chars de texto visível relevante
+      const scope = document.querySelector(
+        'main, [role="main"], form, article, .question, .quiz, #content, body'
+      )
+      const text = (scope ?? document.body)?.innerText?.slice(0, 500) ?? ''
+      // Hash simples: soma dos char codes
+      let h = 0
+      for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0
+      return `${h}_${text.length}`
+    } catch { return '' }
+  }
+
+  // ─── Debounce ────────────────────────────────────────────────────────────
+
+  private debounce(): void {
+    if (this.debounceTimer) { clearTimeout(this.debounceTimer) }
+    this.debounceTimer = window.setTimeout(() => {
+      this.lastContentHash = this.hashContent()
+      this.opts.onPageAdvance()
+    }, this.DEBOUNCE_MS)
   }
 }

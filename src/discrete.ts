@@ -1,16 +1,6 @@
 /**
- * EasyQuiz Modo Discreto — Entry Point v2
- *
- * Atalhos:
- *  Alt+Q / Shift+Q → Analisar
- *  Shift+M          → Seletor de modelo
- *  Shift+A          → Configurar chaves API
- *  Shift+Z          → Abortar fluxo
- *  Shift+R          → Re-analisar
- *  Shift+H          → Status rápido
- *  Shift+I          → Re-exibir último toast
- *  Shift+C          → Paleta de comandos
- *  Escape           → Fechar menus
+ * EasyQuiz Modo Discreto — Entry Point v3
+ * Auto-retry em falhas, detecção robusta de mudança de página.
  */
 
 import { analyzeWithGemini, fetchAvailableModels } from './core/gemini'
@@ -47,8 +37,7 @@ function injectPreconnect(): void {
   try {
     if (document.querySelector('link[data-eqdiscrete-preconnect]')) return
     const l = document.createElement('link')
-    l.rel = 'preconnect'
-    l.href = 'https://generativelanguage.googleapis.com'
+    l.rel = 'preconnect'; l.href = 'https://generativelanguage.googleapis.com'
     l.crossOrigin = 'anonymous'
     l.setAttribute('data-eqdiscrete-preconnect', 'true')
     document.head?.appendChild(l)
@@ -62,24 +51,30 @@ async function initDiscrete(): Promise<void> {
   injectPreconnect()
   resetActivityMetrics()
 
-  const coin      = new CoinCursor()
-  const toast     = new CornerToast()
-  const highlight = new StealthHighlight()
+  const coin       = new CoinCursor()
+  const toast      = new CornerToast()
+  const highlight  = new StealthHighlight()
   const applicator = new DemandApplicator(coin, toast, highlight)
-  const modelMenu  = new ModelMenu({ onModelChange: () => { toast.flash('Modelo OK') } })
+  const modelMenu  = new ModelMenu({ onModelChange: () => toast.flash('Modelo OK') })
   const keyMenu    = new KeyMenu(coin, toast)
   const cmdMenu    = new CommandMenu()
 
+  // Estado de análise
+  let currentAbort: AbortController | null = null
+  let analyzing = false
+  let retryTimer: number | null = null
+
   const pageWatcher = new PageWatcher({
     onPageAdvance: () => {
-      if (!applicator.isActive()) void doAnalyze(true)
+      // Não interrompe fluxo ativo já em andamento
+      if (applicator.isActive()) return
+      // Não dispara se já está analisando
+      if (analyzing) return
+      void doAnalyze(true)
     },
   })
   pageWatcher.start()
 
-  let currentAbort: AbortController | null = null
-
-  // Descobre modelos em background
   const s0 = loadSettings()
   if (s0.apiKey) fetchAvailableModels(s0.apiKey).catch(() => {})
 
@@ -87,7 +82,11 @@ async function initDiscrete(): Promise<void> {
 
   // ── Análise ────────────────────────────────────────────────────────────
 
-  async function doAnalyze(proactive = false): Promise<void> {
+  async function doAnalyze(proactive = false, isRetry = false): Promise<void> {
+    // Cancela retry agendado
+    if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
+
+    // Cancela análise anterior
     if (currentAbort) { try { currentAbort.abort() } catch {} currentAbort = null }
     if (applicator.isActive()) applicator.abort()
 
@@ -98,21 +97,35 @@ async function initDiscrete(): Promise<void> {
       return
     }
 
+    analyzing = true
     currentAbort = new AbortController()
     const signal = currentAbort.signal
 
     coin.setState('loading')
-    toast.flash(proactive ? 'Pré-análise' : 'Analisando')
+    if (!proactive || isRetry) toast.flash(isRetry ? 'Tentando...' : 'Analisando')
 
     try {
+      // Captura contexto — aguarda até 1.2s para o DOM estabilizar
+      await new Promise(r => setTimeout(r, proactive ? 800 : 0))
+      if (signal.aborted) return
+
       let ctx = captureCurrentContext(false)
       if (!ctx) ctx = captureFullPageText()
-      if (!ctx) {
-        coin.setState('idle'); toast.flash('Sem conteúdo')
+
+      if (!ctx || !ctx.questionText?.trim()) {
+        // Nenhum conteúdo detectável — agenda retry automático em 2.5s
+        coin.setState('idle')
+        if (!proactive) toast.flash('Sem conteúdo')
+        if (!isRetry) {
+          retryTimer = window.setTimeout(() => {
+            if (!analyzing && !applicator.isActive()) void doAnalyze(true, true)
+          }, 2500)
+        }
         return
       }
 
       const images = await captureImages(ctx.scope, settings.useVision)
+      if (signal.aborted) return
 
       const result = await analyzeWithGemini(
         ctx, images, settings,
@@ -127,7 +140,10 @@ async function initDiscrete(): Promise<void> {
 
       if (plan.memoryToStore) addSessionMemory(plan.memoryToStore)
 
-      if (plan.pageType === 'conclusion') { toast.flash('Sessão encerrada'); return }
+      if (plan.pageType === 'conclusion') {
+        toast.flash('Sessão encerrada')
+        return
+      }
 
       const flow = normalizeFlow(
         plan.interactionFlow,
@@ -135,73 +151,100 @@ async function initDiscrete(): Promise<void> {
       )
 
       if (plan.pageType === 'info' || plan.pageType === 'start') {
-        coin.flashOk(1500)
+        coin.flashOk(1200)
         toast.flash('Avançar')
         if (flow.length > 0) applicator.start(flow)
         return
       }
 
       if (!flow.length) {
-        toast.flash('Sem fluxo')
-        coin.flashError(1500)
+        // Fluxo vazio — retry automático único após 1.5s
+        toast.flash('Reprocessando')
+        if (!isRetry) {
+          retryTimer = window.setTimeout(() => void doAnalyze(false, true), 1500)
+        } else {
+          toast.flash('Fluxo indisponível')
+          coin.flashError(1500)
+        }
         return
       }
 
+      // Sucesso — inicia fluxo
+      coin.flashOk(600)
       const first = flow[0]
       toast.flash(first.hint || 'Pronto')
-      if (first.customMsg) setTimeout(() => toast.flash(first.customMsg!), 1500)
+      if (first.customMsg) setTimeout(() => toast.flash(first.customMsg!), 1400)
       applicator.start(flow)
 
     } catch (e) {
       if (signal.aborted) return
       coin.setState('idle')
       const m = e instanceof Error ? e.message : ''
-      if (m.includes('403') || m.includes('API key') || m.includes('inválida')) toast.flash('Acesso negado')
-      else if (m.includes('429') || m.includes('Quota')) toast.flash('Limite atingido')
-      else toast.flash('Erro conexão')
+
+      if (m.includes('403') || m.includes('API key') || m.includes('inválida')) {
+        toast.flash('Acesso negado')
+      } else if (m.includes('429') || m.includes('Quota') || m.includes('RESOURCE_EXHAUSTED')) {
+        toast.flash('Limite atingido')
+      } else if (m.includes('cancelad') || m.includes('AbortError')) {
+        // silencioso — foi cancelado intencionalmente
+        return
+      } else {
+        toast.flash('Falha — Shift+Q')
+        // Retry automático em falhas de rede após 3s
+        if (!isRetry) {
+          retryTimer = window.setTimeout(() => {
+            if (!analyzing && !applicator.isActive()) void doAnalyze(false, true)
+          }, 3000)
+        }
+      }
       coin.flashError()
     } finally {
       if (currentAbort?.signal === signal) currentAbort = null
+      analyzing = false
     }
   }
 
-  // ── Paleta de Comandos ──────────────────────────────────────────────────
-
-  const COMMANDS = [
-    { keys: 'Alt+Q',   label: 'Analisar página',    action: () => void doAnalyze()         },
-    { keys: 'Shift+Q', label: 'Analisar página',    action: () => void doAnalyze()         },
-    { keys: 'Shift+M', label: 'Trocar modelo',      action: () => modelMenu.isOpen() ? modelMenu.close() : modelMenu.open() },
-    { keys: 'Shift+A', label: 'Config API keys',    action: () => keyMenu.isOpen()   ? keyMenu.close()   : keyMenu.open()   },
-    { keys: 'Shift+Z', label: 'Abortar fluxo',      action: () => applicator.isActive() ? applicator.abort() : toast.flash('Nada ativo') },
-    { keys: 'Shift+R', label: 'Re-analisar',        action: () => void doAnalyze()         },
-    { keys: 'Shift+H', label: 'Ver status',         action: showStatus                     },
-    { keys: 'Shift+I', label: 'Último aviso',       action: () => toast.reshow()           },
-    { keys: 'Shift+C', label: 'Comandos',           action: () => cmdMenu.isOpen() ? cmdMenu.close() : cmdMenu.open() },
-    { keys: 'Escape',  label: 'Fechar menus',       action: closeAllMenus                  },
-  ]
-
-  cmdMenu.setCommands(COMMANDS)
+  // ── Status & paleta ─────────────────────────────────────────────────────
 
   function showStatus(): void {
+    if (analyzing) {
+      toast.flash('Analisando...')
+      return
+    }
     if (applicator.isActive()) {
       const cur  = applicator.getCurrentStep() + 1
       const tot  = applicator.getTotalSteps()
       const mode = applicator.getState() === 'waiting_key' ? 'Tecla' : 'Mouse'
-      toast.flash(`${cur}/${tot} — ${mode}`)
+      toast.flash(`${cur}/${tot} ${mode}`)
     } else {
       const s = loadSettings()
-      const short = s.model.replace('gemini-','').replace('-flash','F').replace('-lite','L').replace('-preview','P')
-      toast.flash(`Pronto — ${short}`)
+      const short = s.model
+        .replace('gemini-', '').replace('-flash', 'F')
+        .replace('-lite', 'L').replace('-preview', 'P')
+      toast.flash(`OK — ${short}`)
     }
   }
 
-  function closeAllMenus(): void {
+  function closeAll(): void {
     if (modelMenu.isOpen()) modelMenu.close()
     if (keyMenu.isOpen())   keyMenu.close()
     if (cmdMenu.isOpen())   cmdMenu.close()
   }
 
-  // ── Listener Global ─────────────────────────────────────────────────────
+  const COMMANDS = [
+    { keys: 'Shift+Q', label: 'Analisar página',   action: () => void doAnalyze() },
+    { keys: 'Shift+M', label: 'Trocar modelo',     action: () => modelMenu.isOpen() ? modelMenu.close() : modelMenu.open() },
+    { keys: 'Shift+A', label: 'Config API keys',   action: () => keyMenu.isOpen() ? keyMenu.close() : keyMenu.open() },
+    { keys: 'Shift+Z', label: 'Abortar fluxo',     action: () => applicator.isActive() ? applicator.abort() : toast.flash('Nada ativo') },
+    { keys: 'Shift+R', label: 'Re-analisar',       action: () => void doAnalyze() },
+    { keys: 'Shift+H', label: 'Ver status',        action: showStatus },
+    { keys: 'Shift+I', label: 'Último aviso',      action: () => toast.reshow() },
+    { keys: 'Shift+C', label: 'Comandos',          action: () => cmdMenu.isOpen() ? cmdMenu.close() : cmdMenu.open() },
+    { keys: 'Escape',  label: 'Fechar menus',      action: closeAll },
+  ]
+  cmdMenu.setCommands(COMMANDS)
+
+  // ── Listener global ─────────────────────────────────────────────────────
 
   function onKey(e: KeyboardEvent): void {
     const k = e.key
@@ -222,26 +265,20 @@ async function initDiscrete(): Promise<void> {
       applicator.isActive() ? applicator.abort() : toast.flash('Nada ativo'); return
     }
     if (e.shiftKey && k === 'R') {
-      e.preventDefault(); e.stopPropagation()
-      void doAnalyze(); return
+      e.preventDefault(); e.stopPropagation(); void doAnalyze(); return
     }
     if (e.shiftKey && k === 'H') {
-      e.preventDefault(); e.stopPropagation()
-      showStatus(); return
+      e.preventDefault(); e.stopPropagation(); showStatus(); return
     }
     if (e.shiftKey && k === 'I') {
-      e.preventDefault(); e.stopPropagation()
-      toast.reshow(); return
+      e.preventDefault(); e.stopPropagation(); toast.reshow(); return
     }
     if (e.shiftKey && k === 'C') {
       e.preventDefault(); e.stopPropagation()
       cmdMenu.isOpen() ? cmdMenu.close() : cmdMenu.open(); return
     }
-    if (k === 'Escape') {
-      if (modelMenu.isOpen() || keyMenu.isOpen() || cmdMenu.isOpen()) {
-        e.stopPropagation(); e.preventDefault()
-        closeAllMenus()
-      }
+    if (k === 'Escape' && (modelMenu.isOpen() || keyMenu.isOpen() || cmdMenu.isOpen())) {
+      e.stopPropagation(); e.preventDefault(); closeAll()
     }
   }
 
@@ -251,6 +288,7 @@ async function initDiscrete(): Promise<void> {
     analyze: () => doAnalyze(),
     destroy: () => {
       window.removeEventListener('keydown', onKey, { capture: true })
+      if (retryTimer) clearTimeout(retryTimer)
       applicator.destroy()
       modelMenu.destroy()
       keyMenu.destroy()
