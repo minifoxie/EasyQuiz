@@ -21,11 +21,10 @@ REGRAS DO interactionFlow:
 2. Triggers válidos:
    - "key"   → qualquer tecla (para val/texto)
    - "click" → qualquer clique (para chk/clk/sel/drag/adv)
-3. Para ação "val" (texto/número): use trigger="key" com chars=1.
-   REGRA CRITICAL: 1 step por CARACTERE do valor. Valor "-1" = 2 steps. Valor "3.14" = 4 steps.
-   O sistema injeta 1 char por keypress acumulando o valor. Para inputs numéricos, o
-   sistema re-injeta o valor acumulado a cada tecla para suportar "-", "." e números completos.
-   Nunca use apenas 1 step para valores com mais de 1 caractere.
+3. Para ação "val" (texto/número): use trigger="key" com chars=1. Sempre 1 step por campo val.
+   - Inputs de texto: o sistema injeta 1 char por tecla até o valor completo.
+   - Inputs numéricos (type=number): o sistema injeta o valor completo na 1ª tecla (número negativo, decimal, etc.).
+   - Nunca duplique steps para o mesmo campo val.
 4. Para ação "chk","clk": trigger="click".
 5. Para ação "sel" (dropdown): 2 steps — step N = abrir (click), step N+1 = selecionar (click).
 6. Para ação "drag": trigger="click" por item (1 clique = 1 drag).
@@ -193,35 +192,8 @@ export function normalizeFlow(raw: unknown, actions: unknown[]): InteractionStep
     return buildFallbackFlow(actions as Record<string, unknown>[])
   }
 
-  // ── Auto-expansão de steps `val` com valor multi-char (corrige IA que gera 1 step por campo) ──
-  // Quando a IA gera apenas 1 step "key" para um valor de N chars (ex: "-1" com N=2),
-  // expandimos automaticamente para N steps, cada um injetando 1 char.
-  const expanded: InteractionStep[] = []
-  let stepCounter = 1
-  for (const s of result) {
-    if (s.trigger === 'key' && s.action.t === 'val') {
-      const fullText = String(s.action.v ?? '')
-      if (fullText.length > 1) {
-        // Expande em N steps, 1 por char
-        for (let ci = 0; ci < fullText.length; ci++) {
-          const isLast = ci === fullText.length - 1
-          expanded.push({
-            step: stepCounter++,
-            trigger: 'key',
-            action: s.action,
-            chars: 1,
-            hint: isLast ? 'Buffer Flush' : 'Key Capture',
-            customMsg: fullText.length > 2 ? `${ci + 1}/${fullText.length}` : null,
-          })
-        }
-        continue
-      }
-    }
-    expanded.push({ ...s, step: stepCounter++ })
-  }
-
   // ── Auto-reparação de problemas comuns na saída da IA ────────────────────────
-  return repairFlow(expanded, actions as Record<string, unknown>[])
+  return repairFlow(result, actions as Record<string, unknown>[])
 }
 
 /**

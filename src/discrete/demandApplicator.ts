@@ -541,15 +541,23 @@ export class DemandApplicator {
       return true
     }
 
+    // ── Inputs numéricos: injeção completa na 1ª tecla ─────────────────────────
+    // O browser rejeita values parciais (ex: "-", "3.") para type=number, quebrando
+    // a acumulação char-a-char. Solução: na primeira tecla, injeta o valor completo.
+    // O passo avança imediatamente — 1 tecla = 1 campo numérico preenchido.
+    const isNumberInput = input instanceof HTMLInputElement &&
+      (input.type === 'number' || input.type === 'range')
+    if (isNumberInput) {
+      this.applyValueSlice(input, fullText, /* replaceAll */ true)
+      this.charsInserted.set(stepIdx, fullText.length)
+      try { (input as HTMLInputElement).blur?.() } catch {}
+      return true   // completo em 1 tecla, independente do tamanho
+    }
+
+    // ── Inputs de texto: acumulação char-a-char (1 char por tecla) ─────────────
     const slice  = fullText.slice(already, already + chars)
     const newPos = already + slice.length
-
-    // Para inputs de número: o browser rejeita valores incompletos (ex: "-" isolado).
-    // Injetamos o valor acumulado completo até newPos, não apenas o slice.
-    const isNumberInput = input instanceof HTMLInputElement && input.type === 'number'
-    const sliceOrAccum = isNumberInput ? fullText.slice(0, newPos) : slice
-
-    this.applyValueSlice(input, sliceOrAccum, isNumberInput)
+    this.applyValueSlice(input, slice, false)
     this.charsInserted.set(stepIdx, newPos)
 
     if (newPos >= fullText.length) {
