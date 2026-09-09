@@ -83,13 +83,11 @@ function migrateDeprecated(model: string): string {
   return DEPRECATED_MODEL_MAP[model] ?? model
 }
 
-export let preferredFastModel: string | null = null
-
 export function buildGenerationConfig(model: string, schemaOverride?: unknown): Record<string, unknown> {
   const schema = schemaOverride ?? GEMINI_JSON_SCHEMA
   const config: Record<string, unknown> = {
     temperature: 0.0,
-    maxOutputTokens: 1800,
+    maxOutputTokens: 1350,   // ~25% mais econômico vs 1800, suficiente para qualquer questão
     responseMimeType: 'application/json',
     responseSchema: schema,
   }
@@ -159,10 +157,16 @@ const GEMINI_JSON_SCHEMA = {
 
 function normalizeModel(model: string): string {
   const clean = model.trim().replace(/^google\//, '').replace(/^models\//, '')
-  if (!clean || !isValidQuizModel(clean)) {
+  // Usa o modelo exatamente como configurado.
+  // Só substitui por padrão se a string estiver vazia — nunca silencia a escolha do usuário.
+  if (!clean) return 'gemini-3.5-flash-lite'
+  // Migrate deprecated models to current equivalents
+  const migrated = migrateDeprecated(clean)
+  if (!isValidQuizModel(migrated)) {
+    console.warn(`[EasyQuiz] Modelo desconhecido ou inválido: "${clean}". Verifique se o modelo está disponível no Google AI Studio.`)
     return 'gemini-3.5-flash-lite'
   }
-  return clean
+  return migrated
 }
 
 function parseGeminiError(errorText: string, status: number): string {
@@ -695,9 +699,14 @@ export async function analyzeWithGemini(
   const allConfiguredKeys = keyManager.getAllKeys()
   const totalKeysCount = allConfiguredKeys.length
 
-  // waveConcurrency: no máximo 2 slots por onda!
-  // Evita estourar o limite de RPM e conexões simultâneas do navegador
-  const waveConcurrency = totalKeysCount <= 1 ? 1 : 2
+  // ── Concorrência adaptativa ──
+  // Onda 0 (1ª tentativa): sempre 1 slot — se funcionar, gastamos apenas 1 chamada de API.
+  // Ondas 1+: 2 slots — maior velocidade de recuperação quando a primeira chave falha.
+  // Isso economiza ~50% dos tokens em questões respondidas na primeira tentativa.
+  const getWaveConcurrency = (waveIdx: number): number => {
+    if (totalKeysCount <= 1) return 1
+    return waveIdx === 0 ? 1 : 2  // 1 slot na primeira onda, 2 nas demais
+  }
 
   const usedPairs = new Set<string>() // "key::model"
 
@@ -775,7 +784,14 @@ export async function analyzeWithGemini(
   }
 
   // EXECUÇÃO EM ONDAS: PRIORIDADE TOTAL AO MODELO ESCOLHIDO PELO USUÁRIO
-  const MAX_WAVES = 6
+  // MAX_WAVES dinâmico: garante que TODAS as chaves do usuário sejam tentadas
+  // no modelo escolhido antes de qualquer fallback acontecer.
+  // Exemplo: 25 chaves → onda 0 usa 1, ondas 1+ usam 2 → precisa de 1 + ceil(24/2) = 13 ondas
+  // para o modelo escolhido, mais 4 ondas de fallback de segurança.
+  const chosenModelWaves = totalKeysCount <= 1
+    ? 1
+    : 1 + Math.ceil((totalKeysCount - 1) / 2)
+  const MAX_WAVES = chosenModelWaves + 4  // +4 ondas de fallback de contingência
   let waveNum = 0
   let lastError = ''
   let fallbackIndex = 0
@@ -818,7 +834,7 @@ export async function analyzeWithGemini(
       break
     }
 
-    const selectedKeys = poolToUse.slice(0, waveConcurrency)
+    const selectedKeys = poolToUse.slice(0, getWaveConcurrency(waveNum))
     if (selectedKeys.length === 0) break
 
     const timeout = getTimeout(currentModel, waveNum)
