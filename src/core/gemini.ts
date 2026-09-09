@@ -634,6 +634,10 @@ export async function analyzeWithGemini(
   settings: EasyQuizSettings,
   onProgress?: (message: string, type?: 'info' | 'warning' | 'error') => void,
   signal?: AbortSignal,
+  opts?: {
+    systemPromptOverride?: string          // substitui SYSTEM_PROMPT integralmente
+    generationSchemaOverride?: unknown      // substitui o responseSchema do generationConfig
+  },
 ): Promise<{ plan: AnalysisPlan; rawUsage?: unknown; usedModel?: string; usedKey?: string }> {
   if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
 
@@ -669,7 +673,7 @@ export async function analyzeWithGemini(
   }
 
   const payloadBase = {
-    system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    system_instruction: { parts: [{ text: opts?.systemPromptOverride ?? SYSTEM_PROMPT }] },
     contents: [{ role: 'user', parts }],
   }
   const keepalive = true
