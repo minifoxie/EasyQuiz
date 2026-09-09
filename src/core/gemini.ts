@@ -36,40 +36,46 @@ export const AVAILABLE_MODELS: ModelOption[] = [
   },
   {
     id: 'gemini-3.5-flash-lite',
-    name: 'Gemini 3.5 Flash-Lite (Econômico)',
-    description: 'Modelo econômico de alta velocidade para volume elevado.',
+    name: 'Gemini 3.5 Flash-Lite (Cota Alta 30 RPM)',
+    description: 'Modelo econômico de ultra-alta velocidade e maior limite de RPM.',
+    stable: true,
+  },
+  {
+    id: 'gemini-3.1-pro',
+    name: 'Gemini 3.1 Pro (Raciocínio Profundo)',
+    description: 'Modelo topo de linha para raciocínio complexo, exatas e matemática.',
     stable: true,
   },
   {
     id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash (Legacy Rápido)',
-    description: 'Modelo legacy com zero-thinking suportado. Ultra-baixa latência.',
+    name: 'Gemini 2.5 Flash (Ultra Rápido)',
+    description: 'Modelo comprovado de baixíssima latência e alta disponibilidade.',
     stable: true,
   },
   {
     id: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro (Legacy Avançado)',
-    description: 'Modelo legacy avançado para questões de alta complexidade.',
+    name: 'Gemini 2.5 Pro (Avançado)',
+    description: 'Modelo avançado para questões de alta complexidade.',
     stable: true,
   },
 ]
 
-// Modelos top em ordem de prioridade para o Turbo Blitz Race
+// Modelos de fallback em ordem de prioridade para corrida e contingência
 const TURBO_MODELS = [
   'gemini-3.5-flash-lite',
   'gemini-3.5-flash',
   'gemini-3.6-flash',
   'gemini-3.8-flash',
+  'gemini-2.5-flash',
 ]
 
-// Modelos descontinuados — mapeados automaticamente para substitutos
-// Evita 404s silenciosos quando o usuário tem um modelo antigo salvo nas configurações
+// Modelos descontinuados — mapeados automaticamente para substitutos modernos
 const DEPRECATED_MODEL_MAP: Record<string, string> = {
-  'gemini-2.5-flash': 'gemini-3.6-flash',
   'gemini-2.0-flash': 'gemini-3.5-flash',
   'gemini-2.0-flash-lite': 'gemini-3.5-flash-lite',
   'gemini-1.5-flash': 'gemini-3.5-flash',
   'gemini-1.5-pro': 'gemini-3.6-flash',
+  'gemini-1.0-pro': 'gemini-2.5-flash',
 }
 
 /** Migra modelo deprecado para substituto estável automaticamente */
@@ -86,26 +92,22 @@ export function buildGenerationConfig(model: string, schemaOverride?: unknown): 
     maxOutputTokens: 1800,
     responseMimeType: 'application/json',
     responseSchema: schema,
-    // NÃO incluir snake_case (response_schema, response_mime_type) — causa "Repeated map key" HTTP 400
   }
 
-  // Estratégia de thinking: thinkingBudget=0 para TODOS os modelos que suportam.
-  // O campo 'thinking' no JSON schema já faz o raciocínio interno com zero latência extra.
-  // thinkingBudget=512 ("low") adiciona ~800ms-2s extra por requisição — inaceitável para quizzes.
-
+  // Desativa thinking nativo para máxima velocidade quando suportado:
   // Modelos 'lite' — NÃO suportam thinkingConfig
   if (/lite/i.test(model)) {
     // sem thinkingConfig
   }
-  // gemini-3.x-flash (não lite): thinkingBudget=0 — desativa thinking nativo, máxima velocidade
+  // gemini-3.x-flash (não lite): thinkingBudget=0
   else if (/gemini-3\.[0-9]+-?flash/i.test(model)) {
     config.thinkingConfig = { thinkingBudget: 0 }
   }
-  // gemini-2.5-flash: thinkingBudget=0 — já era assim
+  // gemini-2.5-flash: thinkingBudget=0
   else if (/gemini-2\.5-flash/i.test(model)) {
     config.thinkingConfig = { thinkingBudget: 0 }
   }
-  // gemini-2.5-pro e qualquer Pro: sem thinkingConfig (o próprio modelo gerencia)
+  // Modelos Pro: sem thinkingConfig explícito (modelo gerencia nativamente)
 
   return config
 }
@@ -479,7 +481,6 @@ async function callSingleModel(
   model: string,
   key: string,
   payloadBase: { system_instruction: { parts: Array<{ text: string }> }; contents: Array<{ role: string; parts: Array<Record<string, unknown>> }> },
-  keepalive: boolean,
   signal: AbortSignal,
   schemaOverride?: unknown,
 ): Promise<{ rawText: string; data: any; usedModel: string; usedKey: string }> {
@@ -507,7 +508,6 @@ async function callSingleModel(
           generationConfig: currentGenConfig,
         }),
         signal,
-        keepalive,
       })
 
       if (!response.ok) {
@@ -520,13 +520,11 @@ async function callSingleModel(
           const isSchemaErr   = /response_schema|responseSchema|Repeated map key|PROTO payload/i.test(errorText)
 
           if ((isThinkingErr || isSchemaErr) && (currentGenConfig.thinkingConfig || currentGenConfig.responseSchema)) {
-            // Remove thinkingConfig e/ou schema problemáticos e retenta imediatamente
             const retryConfig: Record<string, unknown> = { ...currentGenConfig }
             if (isThinkingErr) delete retryConfig.thinkingConfig
             if (isSchemaErr)   {
               delete retryConfig.responseSchema
               delete retryConfig.responseMimeType
-              // Sem structured output — resultado parseado via robustParsePlan
             }
             currentGenConfig = retryConfig
 
@@ -541,7 +539,6 @@ async function callSingleModel(
                 generationConfig: currentGenConfig,
               }),
               signal,
-              keepalive,
             })
             if (retryRes.ok) {
               const data = await retryRes.json()
@@ -551,7 +548,6 @@ async function callSingleModel(
                 return { rawText: candidate.content.parts[0].text, data, usedModel: model, usedKey: key }
               }
             }
-            // Se ainda falhar, cai no tratamento de erro abaixo
             const retryErrText = await retryRes?.text?.().catch(() => '') ?? errorText
             const parsedRetryErr = parseGeminiError(retryErrText, response.status)
             throw new Error(`[${model}|${KeyManager.maskKey(key)}] ${parsedRetryErr}`)
@@ -565,7 +561,9 @@ async function callSingleModel(
 
         // Rastreamento Multi-Key: Quota (429), Sobrecarga (503) e Autorização (403)
         if (response.status === 429) {
-          keyManager.markQuotaHit(key, 5000)
+          keyManager.markQuotaHit(key, 8000)
+          blacklistKeyModel(key, model, 10000)
+          throw new Error(`[${model}|${KeyManager.maskKey(key)}] ${parsedErrorMsg}`)
         } else if (response.status === 503 || /no capacity|overloaded|unavailable/i.test(errorText)) {
           keyManager.markOverloaded(key, 5000)
           blacklistedModels.add(model)
@@ -584,7 +582,6 @@ async function callSingleModel(
         throw new Error(`[${model}|${KeyManager.maskKey(key)}] A IA não retornou uma resposta estruturada válida.`)
       }
 
-      // Registra sucesso e latência comprovada desta chave
       keyManager.markSuccess(key, Date.now() - reqStart)
 
       return {
@@ -597,45 +594,41 @@ async function callSingleModel(
       if (signal.aborted) throw err
       lastErr = err as Error
       const errMsg = lastErr.message || ''
-      // 503 overloaded: modelo sobrecarregado mas pode funcionar na versão de API alternativa — NÃO fazer break
-      // 404: modelo não existe para este usuário — blacklist e break imediatamente
       if (errMsg.includes('404') || /no longer available/i.test(errMsg)) {
         blacklistedModels.add(model)
-        break  // sem sentido tentar v1 se o modelo não existe
+        break
       }
-      // Para outros erros (429, 503, timeout), tentar próxima versão de API
+      if (errMsg.includes('429') || errMsg.includes('Quota')) {
+        break // v1beta deu 429, v1 também dará
+      }
     }
   }
 
   throw lastErr
 }
 
-// ===== SMART WAVE RACE: CORRIDA POR ONDAS COM BLACKLIST DE SESSÃO =====
+// ===== SMART WAVE RACE COM ROUND-ROBIN INTELIGENTE =====
 //
-// Arquitetura:
-//   Onda 1: 2 slots mais rápidos (menor latência) — modelo campeão + próximo
-//   Onda 2: 2 slots com chaves DIFERENTES das usadas na Onda 1
-//   Fallback: 1 slot com chave não usada em nenhuma onda anterior
-//
-// Benefícios vs Blitz 8x:
-//   - Máx 2 conexões simultâneas por onda → sem "Failed to fetch"
-//   - Blacklist de sessão para chaves 429 → nunca reutiliza chave que falhou
-//   - Onda 2 usa chaves frescas → distribui a cota entre mais contas
-//   - Total de chaves usadas: até 5 por questão (2+2+1), escalável
+// Princípios de proteção de cota e estabilidade máxima:
+// 1. Concorrência controlada: máximo 2 slots paralelos por onda (elimina Failed to fetch e saturação de socket).
+// 2. Round-Robin real entre questões: a cada nova questão, as chaves descansam, dividindo a taxa de RPM.
+// 3. Hedging com aborto imediato: assim que a chave mais rápida responde, a concorrente é cancelada.
+// 4. Contingência multi-modelo: se um modelo bater 429 em 2 ondas, muda IMEDIATAMENTE de modelo
+//    (cada família de modelo no Google AI Studio possui um bucket de cota independente).
+// 5. Cooldown por par chave+modelo (10s): um 429 no Flash não bloqueia a mesma chave no Flash-Lite ou Pro.
 
-// Blacklist TIME-BASED: chaves que bateram 429 ficam bloqueadas por 60s
-// Após 60s, a chave é liberada automaticamente (essencial para usuários com 1 única chave)
-const sessionQuotaBlacklist = new Map<string, number>()  // Map<key, expiresAt>
+const sessionQuotaBlacklist = new Map<string, number>() // Map<"key::model", expiresAt>
 
-function isKeyBlacklisted(key: string): boolean {
-  const exp = sessionQuotaBlacklist.get(key)
+function isKeyModelBlacklisted(key: string, model: string): boolean {
+  const pair = `${key}::${model}`
+  const exp = sessionQuotaBlacklist.get(pair)
   if (exp === undefined) return false
-  if (Date.now() > exp) { sessionQuotaBlacklist.delete(key); return false }
+  if (Date.now() > exp) { sessionQuotaBlacklist.delete(pair); return false }
   return true
 }
 
-function blacklistKey(key: string, ms = 60000): void {
-  sessionQuotaBlacklist.set(key, Date.now() + ms)
+function blacklistKeyModel(key: string, model: string, ms = 10000): void {
+  sessionQuotaBlacklist.set(`${key}::${model}`, Date.now() + ms)
 }
 
 /** Limpar blacklist de sessão — chamar quando Autopilot for reiniciado */
@@ -662,13 +655,12 @@ export async function analyzeWithGemini(
     : (settings.apiKey ? [settings.apiKey] : [])
   keyManager.init(rawKeyList)
 
-  const primaryKey = settings.apiKey.trim().replace(/^[\"']|[\"']$/g, '')
+  const primaryKey = settings.apiKey.trim().replace(/^["']|["']$/g, '')
   const activeKey = keyManager.getBestKey() || primaryKey
   if (!activeKey) throw new Error('Nenhuma chave de API do Gemini configurada ou disponível.')
 
   const chosenModel = normalizeModel(settings.model)
 
-  // Dispara descoberta assíncrona em segundo plano se ainda não feita, SEM bloquear a primeira questão
   if (!discoveredModelsCache && activeKey) {
     fetchAvailableModels(activeKey).catch(() => {})
   }
@@ -678,7 +670,6 @@ export async function analyzeWithGemini(
   const startTime = Date.now()
   const userText = buildUserPrompt(context, images, settings)
 
-  // Intercala rótulos semânticos e dados base64
   const parts: Array<Record<string, unknown>> = [{ text: userText }]
   for (let idx = 0; idx < images.length; idx++) {
     const img = images[idx]
@@ -691,24 +682,9 @@ export async function analyzeWithGemini(
     system_instruction: { parts: [{ text: opts?.systemPromptOverride ?? SYSTEM_PROMPT }] },
     contents: [{ role: 'user', parts }],
   }
-  const keepalive = true
 
-  // ===== POOL DE MODELOS: USER-FIRST, KEYS-AS-ACCELERATOR =====
-  //
-  // Princípio: o modelo configurado pelo usuário é SEMPRE o slot 0 (Wave 1).
-  // Chaves extras fazem o MESMO modelo em paralelo — quem responder primeiro vence,
-  // as outras requisições são abortadas automaticamente. Isso distribui RPM entre
-  // contas sem forçar o usuário a usar um modelo diferente do escolhido.
-  //
-  // Os outros modelos (TURBO_MODELS / preferredFastModel) só entram em ondas de
-  // FALLBACK — quando o modelo do usuário falhou em TODAS as chaves disponíveis.
-  // Pool de modelos: modelo do usuário primeiro, fallbacks em ordem de velocidade
-  // blacklistedModels NÃO é resetado por chamada — persiste durante a sessão
-  // Modelos com 404/503 anteriores não são retestados desnecessariamente
+  // Pool de modelos: modelo escolhido pelo usuário primeiro, depois fallbacks ordenados
   const effectiveChosenModel = migrateDeprecated(chosenModel)
-
-  // Modelos de fallback: preferredFastModel (último vencedor de fallback) → TURBO_MODELS
-  // preferredFastModel NÃO substitui o modelo do usuário — só é usado se ele falhar
   const effectivePreferred = preferredFastModel ? migrateDeprecated(preferredFastModel) : null
   const fallbackModels: string[] = []
   if (effectivePreferred && isValidQuizModel(effectivePreferred) && effectivePreferred !== effectiveChosenModel) {
@@ -718,73 +694,30 @@ export async function analyzeWithGemini(
     if (m !== effectiveChosenModel && !fallbackModels.includes(m)) fallbackModels.push(m)
   }
 
-  // Pool final: [modelo do usuário] → [fallbacks por velocidade]
-  // O modelo do usuário vai PRIMEIRO. Fallbacks entram apenas se o modelo do usuário falhar.
   const modelPool: string[] = []
   if (isValidQuizModel(effectiveChosenModel)) modelPool.push(effectiveChosenModel)
   for (const m of fallbackModels) {
     if (isValidQuizModel(m) && !modelPool.includes(m)) modelPool.push(m)
   }
-  // Garantia mínima: pelo menos 2 modelos no pool
   if (modelPool.length < 2) modelPool.push(...TURBO_MODELS.filter(m => !modelPool.includes(m)))
 
-  // ===== POOL DE CHAVES (excluir blacklistadas por 429) =====
-  const allHealthy = keyManager.getHealthyKeys()
-    .filter(k => !isKeyBlacklisted(k.key))
-    .sort((a, b) => (a.lastLatencyMs ?? 99999) - (b.lastLatencyMs ?? 99999))
+  const allConfiguredKeys = keyManager.getAllKeys()
+  const totalKeysCount = allConfiguredKeys.length
 
-  const allAvailableKeys = keyManager.getAllKeys()
-    .filter(k => !isKeyBlacklisted(k.key))
+  // waveConcurrency: no máximo 2 slots por onda!
+  // Evita estourar o limite de RPM e conexões simultâneas do navegador
+  const waveConcurrency = totalKeysCount <= 1 ? 1 : 2
 
-  const keysPool = allHealthy.length > 0
-    ? allHealthy
-    : allAvailableKeys.map(k => ({ key: k.key, lastLatencyMs: k.lastLatencyMs, label: k.label }))
+  const usedPairs = new Set<string>() // "key::model"
 
-  // ===== PARES KEY+MODEL =====
-  // Estratégia USER-FIRST:
-  //   Onda 1 — N chaves × mesmo modelo (o do usuário)
-  //     → Quem responder primeiro vence, resto é abortado
-  //     → Distribui RPM entre contas sem trocar o modelo
-  //   Ondas 2+ — Modelo do usuário esgotado? Usa fallback com chaves restantes
-  //
-  // Com 1 chave + modelo Pro:
-  //   Onda 1: [key1 + pro]       ← 1 slot
-  //   Onda 2: [key1 + 3.8-flash] ← fallback rápido
-  //
-  // Com 3 chaves + modelo Pro:
-  //   Onda 1: [key1+pro, key2+pro, key3+pro]  ← 3 correndo, mesmo modelo
-  //   Onda 2: [key1+3.8, key2+3.8, key3+3.8]  ← fallback
-  //
-  // Com 1 chave + modelo Flash (já no TURBO):
-  //   Onda 1: [key1 + 3.8-flash]   ← 1 slot
-  //   Onda 2: [key1 + 3.6-flash]   ← fallback
-  const usedPairs = new Set<string>()  // "key::model"
-
-  function buildSlots(
-    keys: Array<{ key: string; label?: string }>,
-    models: string[],
-    maxSlots: number,
-    timeoutMs: number,
-  ): Array<{ model: string; key: string; label: string; timeout: number }> {
-    const slots: Array<{ model: string; key: string; label: string; timeout: number }> = []
-
-    // USER-FIRST: para cada modelo, esgotar todas as chaves antes de passar ao próximo
-    // Isso garante que o modelo do usuário (primeiro do pool) receba todas as chaves
-    // disponíveis antes de qualquer modelo de fallback ser tentado
-    for (const model of models) {
-      for (const kObj of keys) {
-        const pair = `${kObj.key}::${model}`
-        if (!usedPairs.has(pair) && slots.length < maxSlots) {
-          slots.push({ model, key: kObj.key, label: (kObj as any).label || 'Chave', timeout: timeoutMs })
-          usedPairs.add(pair)
-        }
-      }
-      if (slots.length >= maxSlots) break
-    }
-    return slots
+  const getTimeout = (modelName: string, waveIdx: number): number => {
+    const isPro = /pro/i.test(modelName)
+    const isLite = /lite/i.test(modelName)
+    if (isPro)  return waveIdx === 0 ?  9000 : waveIdx === 1 ? 12000 : 16000
+    if (isLite) return waveIdx === 0 ?  3500 : waveIdx === 1 ?  5000 :  6500
+    return             waveIdx === 0 ?  4500 : waveIdx === 1 ?  6500 :  8000
   }
 
-  // ===== FUNÇÃO AUXILIAR: disparar slots e retornar o primeiro vencedor =====
   const runWave = async (
     waveName: string,
     slots: Array<{ model: string; key: string; label: string; timeout: number }>,
@@ -806,7 +739,7 @@ export async function analyzeWithGemini(
         }, slot.timeout)
 
         try {
-          const res = await callSingleModel(slot.model, slot.key, payloadBase, keepalive, ctrl.signal, opts?.generationSchemaOverride)
+          const res = await callSingleModel(slot.model, slot.key, payloadBase, ctrl.signal, opts?.generationSchemaOverride)
           clearTimeout(timeoutId)
           const parsedPlan = validateAnalysisPlan(robustParsePlan(res.rawText))
           parsedPlan.usedModel = res.usedModel
@@ -817,7 +750,7 @@ export async function analyzeWithGemini(
           parsedPlan.candidatesTokens = res.data.usageMetadata?.candidatesTokenCount
           parsedPlan.rawResponse = res.rawText
 
-          // Vencedor: cancelar todos os outros slots desta onda imediatamente
+          // Vencedor: cancela o outro slot imediatamente para poupar cota
           waveControllers.forEach((c, j) => {
             if (j !== idx) { try { c.abort(new Error('Cancelado: vencedor respondeu.')) } catch { c.abort() } }
           })
@@ -825,10 +758,10 @@ export async function analyzeWithGemini(
           return { plan: parsedPlan, rawUsage: res.data.usageMetadata, usedModel: res.usedModel, usedKey: res.usedKey, slotLabel: slot.label }
         } catch (err) {
           clearTimeout(timeoutId)
-          // 429: blacklist da chave por 60s — libera automaticamente depois
           const errMsg = err instanceof Error ? err.message : String(err)
           if (errMsg.includes('429') || errMsg.includes('Quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
-            blacklistKey(slot.key, 60000)
+            blacklistKeyModel(slot.key, slot.model, 10000)
+            keyManager.markQuotaHit(slot.key, 8000)
           }
           throw err
         }
@@ -837,8 +770,6 @@ export async function analyzeWithGemini(
       const winner = await Promise.any(promises)
       signal?.removeEventListener('abort', onParentAbort)
       keyManager.markWinner(winner.usedKey)
-      // preferredFastModel registra o vencedor apenas quando for um modelo de FALLBACK
-      // (i.e., não o modelo principal do usuário) — para ordenar fallbacks futuros
       if (winner.usedModel !== effectiveChosenModel) {
         preferredFastModel = winner.usedModel
       }
@@ -855,56 +786,59 @@ export async function analyzeWithGemini(
     }
   }
 
-  // ===== EXECUÇÃO EM ONDAS: USER-FIRST =====
-  //
-  // Onda 1: Todas as chaves disponíveis × modelo do usuário
-  //   Com 1 chave:  [key1 + userModel]                      ← 1 slot
-  //   Com 2 chaves: [key1+userModel, key2+userModel]        ← 2 slots
-  //   Com 4 chaves: [k1+user, k2+user, k3+user]            ← 3 slots (cap)
-  //
-  // Onda 2+: Se o modelo do usuário falhou em todas as chaves,
-  //   usa o próximo modelo do pool (fallback) com chaves ainda disponíveis
-  //
-  // Timeout adaptativo por tipo de modelo:
-  //   Flash / Lite: 8s / 10s / 14s (tempo seguro para cálculos matemáticos e múltiplos campos)
-  //   Pro: 15s / 18s / 20s
-
-  const keysCount = keysPool.length
-  // waveSize: número real de chaves disponíveis (sem inflar artificialmente)
-  // Com 1 chave: 1 slot por onda (não duplica pair key+model inúeis)
-  // Com 2-6 chaves: todas as chaves em paralelo por onda
-  const waveSize = Math.min(Math.max(keysCount, 1), 6)
-
-  // Timeout adaptativo por tipo de modelo e número de onda:
-  // Gemini flash/lite responde em <1-3s em condições normais.
-  // Timeouts genéricos acima disso desperdiçam tempo se a chave/modelo está sobrecarregado.
-  //
-  // Flash:  Onda1=5s, Onda2=7s, Onda3+=9s
-  // Lite:   Onda1=4s, Onda2=6s, Onda3+=8s
-  // Pro:    Onda1=10s, Onda2=14s, Onda3+=18s
-  const isPrimaryPro = /pro/i.test(effectiveChosenModel)
-  const getTimeout = (waveNum: number, modelInWave?: string): number => {
-    const isPro  = modelInWave ? /pro/i.test(modelInWave)  : isPrimaryPro
-    const isLite = modelInWave ? /lite/i.test(modelInWave) : /lite/i.test(effectiveChosenModel)
-    if (isPro)  return waveNum === 0 ? 10000 : waveNum === 1 ? 14000 : 18000
-    if (isLite) return waveNum === 0 ?  4000 : waveNum === 1 ?  6000 :  8000
-    // Flash
-    return          waveNum === 0 ?  5000 : waveNum === 1 ?  7000 :  9000
-  }
-
-  const MAX_WAVES = 6  // teto de segurança
+  // EXECUÇÃO EM ONDAS PROGRESSIVAS
+  const MAX_WAVES = 6
   let waveNum = 0
   let lastError = ''
+  let fallbackModelIndex = 0
 
   while (waveNum < MAX_WAVES) {
     if (signal?.aborted) throw new Error('Operação cancelada pelo usuário.')
 
-    // Determina qual modelo dominará esta onda (para calcular timeout)
-    const nextModel = modelPool.find(m => !Array.from(usedPairs).some(p => p.startsWith(`${keysPool[0]?.key}::${m}`))) ?? modelPool[0]
-    const timeout = getTimeout(waveNum, nextModel)
-    const slots = buildSlots(keysPool, modelPool, waveSize, timeout)
+    // Determina o modelo da onda:
+    let currentModel: string
+    if (waveNum === 0) {
+      currentModel = effectiveChosenModel
+    } else if (waveNum === 1 && totalKeysCount >= 4) {
+      // Se há 4+ chaves, tenta uma segunda rodada com chaves frescas no modelo escolhido
+      currentModel = effectiveChosenModel
+    } else {
+      // Modelo esgotado (429 ou lento): avança para o próximo modelo de fallback (cotas independentes)
+      const fallbackList = modelPool.filter(m => m !== effectiveChosenModel)
+      currentModel = fallbackList[fallbackModelIndex % fallbackList.length] || modelPool[0]
+      fallbackModelIndex++
+    }
 
-    if (slots.length === 0) break  // todos os pares key+model foram esgotados
+    // Seleciona chaves via Round-Robin inteligente (menos recentemente usadas primeiro)
+    const candidateKeys = keyManager.getRoundRobinKeys(totalKeysCount)
+    const availableForModel = candidateKeys.filter(
+      k => !usedPairs.has(`${k.key}::${currentModel}`) && !isKeyModelBlacklisted(k.key, currentModel)
+    )
+
+    const poolToUse = availableForModel.length > 0
+      ? availableForModel
+      : candidateKeys.filter(k => !usedPairs.has(`${k.key}::${currentModel}`))
+
+    if (poolToUse.length === 0) {
+      // Se todas as chaves já foram tentadas com este modelo, avança modelo
+      const fallbackList = modelPool.filter(m => m !== effectiveChosenModel)
+      currentModel = fallbackList[fallbackModelIndex % fallbackList.length] || modelPool[0]
+      fallbackModelIndex++
+    }
+
+    const selectedKeys = (poolToUse.length > 0 ? poolToUse : candidateKeys).slice(0, waveConcurrency)
+    if (selectedKeys.length === 0) break
+
+    const timeout = getTimeout(currentModel, waveNum)
+    const slots = selectedKeys.map(k => {
+      usedPairs.add(`${k.key}::${currentModel}`)
+      return {
+        model: currentModel,
+        key: k.key,
+        label: k.label || 'Chave',
+        timeout,
+      }
+    })
 
     const waveName = waveNum === 0 ? 'Onda 1' : `Onda ${waveNum + 1}`
     const result = await runWave(waveName, slots)
@@ -919,9 +853,9 @@ export async function analyzeWithGemini(
     waveNum++
   }
 
-  // Todos os pares esgotados ou MAX_WAVES atingido
-  throw new Error(lastError || 'Todas as ondas falharam. Verifique sua cota e conexão com a internet.')
+  throw new Error(lastError || 'Todas as tentativas falharam. Verifique suas chaves de API e cotas.')
 }
+
 
 
 

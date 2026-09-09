@@ -88,12 +88,12 @@ export class KeyManager {
   }
 
   /**
-   * Retorna apenas as chaves saudáveis que não estão em cooldown nem com falha crítica.
+   * Retorna apenas as chaves saudáveis que não estão em cooldown nem com falha crítica de autenticação.
    */
   public getHealthyKeys(): ManagedApiKey[] {
     const now = Date.now()
     return Array.from(this.keys.values()).filter((k) => {
-      return (k.cooldownUntil || 0) <= now && (k.errorCount || 0) < 5
+      return (k.cooldownUntil || 0) <= now && (k.errorCount || 0) < 50
     })
   }
 
@@ -102,26 +102,33 @@ export class KeyManager {
    * Prioriza chaves saudáveis com menor latência comprovada.
    * Se todas estiverem em cooldown, escolhe a que sairá do cooldown mais rápido.
    */
+  public getRoundRobinKeys(count = 2): ManagedApiKey[] {
+    const now = Date.now()
+    const valid = Array.from(this.keys.values()).filter((k) => (k.errorCount || 0) < 50)
+    if (valid.length === 0) {
+      return Array.from(this.keys.values()).slice(0, count)
+    }
+
+    // Chaves prontas (fora de cooldown)
+    const ready = valid.filter((k) => (k.cooldownUntil || 0) <= now)
+
+    if (ready.length > 0) {
+      // Ordena por lastUsedAt ascendente (a que foi usada há mais tempo ou nunca usada vai primeiro)
+      ready.sort((a, b) => (a.lastUsedAt || 0) - (b.lastUsedAt || 0))
+      return ready.slice(0, count)
+    }
+
+    // Se todas estiverem em cooldown temporário, seleciona as que sairão do cooldown primeiro
+    valid.sort((a, b) => (a.cooldownUntil || 0) - (b.cooldownUntil || 0))
+    return valid.slice(0, count)
+  }
+
+  /**
+   * Seleciona a melhor chave para o disparo usando Round-Robin inteligente.
+   */
   public getBestKey(): string {
-    const healthy = this.getHealthyKeys()
-    if (healthy.length > 0) {
-      // Ordena: primeiro as que têm histórico de latência menor, seguidas pelas nunca testadas
-      healthy.sort((a, b) => {
-        const latA = a.lastLatencyMs ?? 99999
-        const latB = b.lastLatencyMs ?? 99999
-        return latA - latB
-      })
-      return healthy[0].key
-    }
-
-    // Se todas as chaves estiverem em cooldown, usa a que expira primeiro
-    const all = Array.from(this.keys.values())
-    if (all.length > 0) {
-      all.sort((a, b) => (a.cooldownUntil || 0) - (b.cooldownUntil || 0))
-      return all[0].key
-    }
-
-    return ''
+    const keys = this.getRoundRobinKeys(1)
+    return keys[0]?.key || ''
   }
 
   /**
@@ -129,52 +136,31 @@ export class KeyManager {
    * Isso divide a cota de RPM entre contas/chaves diferentes!
    */
   public getDiverseKeys(count: number): string[] {
-    const healthy = this.getHealthyKeys()
-    if (healthy.length === 0) {
-      const best = this.getBestKey()
-      return best ? [best] : []
-    }
-
-    // Ordena por menor latência
-    healthy.sort((a, b) => {
-      const latA = a.lastLatencyMs ?? 99999
-      const latB = b.lastLatencyMs ?? 99999
-      return latA - latB
-    })
-
-    const result: string[] = []
-    for (let i = 0; i < count; i++) {
-      // Se houver mais slots do que chaves saudáveis, faz round-robin
-      const keyObj = healthy[i % healthy.length]
-      result.push(keyObj.key)
-    }
-
-    return result
+    return this.getRoundRobinKeys(count).map((k) => k.key)
   }
 
   /**
    * Registra estouro de cota (HTTP 429 / Resource Exhausted).
-   * Coloca a chave em cooldown de segurança (padrão 5 segundos) e incrementa contador.
+   * Coloca a chave em cooldown temporário (padrão 8 segundos).
+   * NÃO incrementa errorCount para 429 (429 é apenas saturação de taxa temporária, não erro definitivo).
    */
-  public markQuotaHit(key: string, cooldownMs = 5000): void {
+  public markQuotaHit(key: string, cooldownMs = 8000): void {
     const target = this.findKeyObj(key)
     if (target) {
       target.cooldownUntil = Date.now() + cooldownMs
-      target.errorCount = (target.errorCount || 0) + 1
-      target.lastError = `Cota temporária atingida (HTTP 429). Cooldown de ${cooldownMs / 1000}s ativado.`
+      target.lastError = `Cota temporária atingida (HTTP 429). Cooldown de ${Math.round(cooldownMs / 1000)}s ativado.`
     }
   }
 
   /**
    * Registra sobrecarga do servidor (HTTP 503 / Unavailable / No Capacity).
-   * Aplica cooldown de 5s para evitar martelar o cluster saturado.
+   * Aplica cooldown temporário para evitar martelar o cluster saturado.
    */
   public markOverloaded(key: string, cooldownMs = 5000): void {
     const target = this.findKeyObj(key)
     if (target) {
       target.cooldownUntil = Date.now() + cooldownMs
-      target.errorCount = (target.errorCount || 0) + 1
-      target.lastError = `Servidores sobrecarregados (HTTP 503). Cooldown de ${cooldownMs / 1000}s ativado.`
+      target.lastError = `Servidores sobrecarregados (HTTP 503). Cooldown de ${Math.round(cooldownMs / 1000)}s ativado.`
     }
   }
 
