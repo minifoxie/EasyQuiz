@@ -2073,32 +2073,32 @@ export class EasyQuizPanel {
       this.contextTreeContainer.appendChild(planNode)
     }
 
-    // Pasta 5: Imagens Detectadas
+    // Pasta 5: Imagens Detectadas (Sempre exibida para dar feedback)
     const imgs = this.latestImages
     const descs = this.latestImageDescriptions
-    if (imgs.length > 0) {
-      const imgItems = imgs.map((img, idx) => {
-        const desc = descs.find(d => d.index === idx)
-        const statusIcon = img.captureStatus === 'captured' ? '✅' : img.captureStatus === 'text_only' ? '📝' : '❌'
-        const statusLabel = img.captureStatus === 'captured' ? 'Visual' : img.captureStatus === 'text_only' ? 'Texto' : 'Falhou'
-        const relevance = desc ? (desc.relevant ? '🎯 Relevante' : '⚠️ Ignorada') : '—'
-        const aiSummary = desc ? desc.description.slice(0, 80) : (img.textContext ? img.textContext.slice(0, 80) : 'Aguardando análise IA...')
-        return {
-          label: `${statusIcon} Img ${idx + 1} [${statusLabel}]`,
-          value: `${aiSummary} | ${img.associatedLabel || img.alt || 'sem label'}`,
-          badge: relevance,
-        }
-      })
-      const imgNode = this.createTreeFolder(
-        `🖼️ IMAGENS DETECTADAS (${imgs.length})`,
-        true,
-        imgItems,
-      )
-      this.contextTreeContainer.appendChild(imgNode)
-    }
+    const imgItems = imgs.map((img, idx) => {
+      const desc = descs.find(d => d.index === idx)
+      const statusIcon = img.captureStatus === 'captured' ? '✅' : img.captureStatus === 'text_only' ? '📝' : '❌'
+      const statusLabel = img.captureStatus === 'captured' ? 'Visual' : img.captureStatus === 'text_only' ? 'Texto' : 'Falhou'
+      const relevance = desc ? (desc.relevant ? '🎯 Relevante' : '⚠️ Ignorada') : '—'
+      const aiSummary = desc ? desc.description : (img.textContext ? img.textContext : 'Aguardando análise IA...')
+      return {
+        label: `${statusIcon} Img ${idx + 1} [${statusLabel}]`,
+        value: `${aiSummary}`,
+        badge: relevance,
+        imgSrc: img.data, // Adiciona o base64 para renderização
+      }
+    })
+    
+    const imgNode = this.createTreeFolder(
+      `🖼️ IMAGENS DETECTADAS (${imgs.length})`,
+      true, // Sempre começa expandida se tiver imagens
+      imgItems,
+    )
+    this.contextTreeContainer.appendChild(imgNode)
   }
 
-  private createTreeFolder(title: string, startExpanded: boolean, items: Array<{ label: string; value: string; badge?: string }>): HTMLElement {
+  private createTreeFolder(title: string, startExpanded: boolean, items: Array<{ label: string; value: string; badge?: string; imgSrc?: string }>): HTMLElement {
     const node = document.createElement('div')
     node.className = 'eq-tree-node'
 
@@ -2116,10 +2116,21 @@ export class EasyQuizPanel {
       for (const it of items) {
         const leaf = document.createElement('div')
         leaf.className = 'eq-tree-leaf'
+        
+        let imgHtml = ''
+        if (it.imgSrc && it.imgSrc.startsWith('data:image')) {
+          imgHtml = `<div style="margin-top: 8px; margin-bottom: 4px;"><img src="${it.imgSrc}" style="max-width: 100%; max-height: 120px; border-radius: 4px; border: 1px solid #3c4043; background: #1e1f22;" alt="Captura"></div>`
+        }
+
         leaf.innerHTML = `
-          <strong style="color:#ffffff; min-width: 80px;">${it.label}:</strong>
-          <span style="flex:1; word-break: break-word; color:#aaaaaa;">${it.value}</span>
-          ${it.badge ? `<span class="eq-tree-badge">${it.badge}</span>` : ''}
+          <div style="display: flex; align-items: flex-start; gap: 8px; width: 100%;">
+            <strong style="color:#ffffff; min-width: 80px;">${it.label}:</strong>
+            <div style="flex:1; display: flex; flex-direction: column;">
+              <span style="word-break: break-word; color:#aaaaaa;">${it.value}</span>
+              ${imgHtml}
+            </div>
+            ${it.badge ? `<span class="eq-tree-badge" style="white-space: nowrap;">${it.badge}</span>` : ''}
+          </div>
         `
         content.appendChild(leaf)
       }

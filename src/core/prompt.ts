@@ -150,6 +150,19 @@ H. VERDADEIRO/FALSO EM GRADE:
    → Use o id do controle em [RESPOSTAS] ou {t:"chk", name:"nome_do_grupo", v:"V"|"F"}.
    → mode: "verdadeiro_falso".
 
+IF. ORDENAÇÃO DE ITENS (DRAG & DROP):
+   → O contexto mostrará [RESPOSTAS] com type="sortable".
+   → Use drag sequencialmente: do item (from) para a posição desejada (to).
+   → Ex: {t:"drag",from:"Passo B",to:"Posição 1"}
+   → mode: "ordenacao".
+
+G. MATRIZ / VERDADEIRO OU FALSO (Tabelas com V/F por linha):
+   → O contexto mostrará várias linhas, cada uma com opções (V, F, etc.).
+   → Mande a IA clicar especificando a linha no id e o valor da coluna no v (Valor do radio).
+   → Use clk com ID da linha e V como o valor do rádio: {t:"clk",id:"1. O sol é quente",v:"V"} ou {t:"clk",id:"2. A lua é de queijo",v:"F"}.
+   → NUNCA use chk ou val para Matriz/V-F. Use clk com a dica de valor v.
+   → mode: "matriz_vf".
+
 I. REDAÇÃO / DISSERTAÇÃO:
    → Detectado por: textarea grande OU enunciado com "escreva", "disserte", "redija", "elabore", "redação".
    → Use: 1 ação val com texto completo: título (se pedido) + introdução + desenvolvimento + conclusão.
