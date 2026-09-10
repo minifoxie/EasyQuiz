@@ -46,6 +46,20 @@ export interface CapturedImage {
   associatedLabel?: string
   targetControlId?: string
   element?: Element
+  /** Status da captura: captured=imagem base64 ok, text_only=só contexto textual, failed=sem nada */
+  captureStatus?: 'captured' | 'text_only' | 'failed'
+  /** Contexto textual extraído quando captura visual falhou (alt, figcaption, aria-label, texto vizinho) */
+  textContext?: string
+}
+
+export interface ImageDescriptionEntry {
+  index: number
+  /** Breve descrição do que a IA viu na imagem */
+  description: string
+  /** true se a imagem é relevante para responder a questão */
+  relevant: boolean
+  /** Contexto/label associado à imagem */
+  associatedLabel?: string
 }
 
 // Comandos declarativos minificados para economizar tokens:
@@ -80,6 +94,8 @@ export interface AnalysisPlan {
   candidatesTokens?: number
   rawResponse?: string
   needsMoreContext?: boolean
+  /** Descrições das imagens geradas pela IA (mesmo agente, campo extra no JSON) */
+  imageDescriptions?: ImageDescriptionEntry[]
 }
 
 export interface ActionExecutionReport {
@@ -92,6 +108,16 @@ export interface ActionExecutionReport {
   strategy: string
   evidence: string
   error?: string
+  /** Para ações drag: resultado da verificação pós-execução */
+  verificationResult?: { success: boolean; evidence: string; strategiesAttempted: string[] }
+}
+
+export interface FailedActionDetail {
+  actionIndex: number
+  action: DeclarativeAction
+  strategiesAttempted: string[]
+  evidence: string
+  domSnapshot?: string
 }
 
 export interface ModelOption {

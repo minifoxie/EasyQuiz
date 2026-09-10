@@ -1069,6 +1069,59 @@ function dispatchSingleClick(element: HTMLElement): void {
   }
 }
 
+// ---- VERIFICAÇÃO PÓS-DRAG — detecta se o item foi realmente movido ----
+export function verifyDragSuccess(
+  origin: HTMLElement,
+  dest: HTMLElement,
+): { success: boolean; evidence: string } {
+  try {
+    // 1. O destino contém o elemento de origem (movição DOM real)
+    if (dest.contains(origin)) {
+      return { success: true, evidence: 'origin is child of dest (DOM move confirmed)' }
+    }
+
+    // 2. O elemento de origem desapareceu do pool original (foi removido)
+    const originParent = origin.parentElement
+    const destParent = dest.parentElement
+    if (originParent && destParent && originParent !== destParent && !document.body.contains(origin)) {
+      return { success: true, evidence: 'origin removed from DOM (consumed by framework)' }
+    }
+
+    // 3. Atributos de estado que indicam categorização
+    const placedSignals = [
+      origin.getAttribute('data-placed') === 'true',
+      origin.getAttribute('data-assigned') === 'true',
+      origin.getAttribute('data-matched') === 'true',
+      origin.getAttribute('aria-grabbed') === 'false',
+      /placed|dropped|assigned|matched|done|sorted|categorized/i.test(origin.className || ''),
+    ]
+    if (placedSignals.some(Boolean)) {
+      return { success: true, evidence: `origin has placement indicator: class/attr` }
+    }
+
+    // 4. Texto do origin já aparece como filho do destino
+    const originText = (origin.textContent || '').trim().toLowerCase()
+    if (originText.length > 2) {
+      const destChildren = Array.from(dest.querySelectorAll('*'))
+      const found = destChildren.some(c => c !== dest && (c.textContent || '').trim().toLowerCase() === originText)
+      if (found) {
+        return { success: true, evidence: `origin text found inside dest children` }
+      }
+    }
+
+    // 5. Verifica aria-label/data-category do destino se foi atualizado
+    const destLabel = dest.getAttribute('aria-label') || dest.getAttribute('data-category') || ''
+    const originLabel = origin.getAttribute('aria-label') || origin.getAttribute('data-category') || ''
+    if (destLabel && originLabel && dest.getAttribute('data-count')) {
+      return { success: true, evidence: `dest data-count changed, categorization likely succeeded` }
+    }
+
+    return { success: false, evidence: 'no DOM evidence of successful drag/categorization' }
+  } catch {
+    return { success: false, evidence: 'verification threw exception' }
+  }
+}
+
 export function findDragTarget(query: string, kind: 'source' | 'destination'): HTMLElement | null {
   const cleanQuery = cleanSearchTerm(query).toLowerCase()
   if (!cleanQuery) return null
@@ -1291,7 +1344,106 @@ export async function simulateDragAndCategorize(
       dest.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }))
     } catch {}
   }
+
+  // ---- ESTRATÉGIA G: REACT DND INTERNALS (dnd-kit, react-beautiful-dnd) ----
+  // Tenta acionar handlers React internos quando eventos DOM falham completamente
+  if (!dest.contains(origin)) {
+    try {
+      // G1: Extrai memoizedProps do React fiber para acessar handlers
+      const getReactProps = (el: HTMLElement): any => {
+        const fiberKey = Object.keys(el).find(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'))
+        if (!fiberKey) return null
+        let fiber = (el as any)[fiberKey]
+        for (let i = 0; i < 10 && fiber; i++) {
+          if (fiber.memoizedProps) return fiber.memoizedProps
+          fiber = fiber.return
+        }
+        return null
+      }
+
+      const originProps = getReactProps(origin)
+      const destProps = getReactProps(dest)
+
+      if (originProps) {
+        // Aciona onMouseDown/onPointerDown do fiber para iniciar drag
+        const startHandler = originProps.onMouseDown || originProps.onPointerDown || originProps.onDragStart
+        if (typeof startHandler === 'function') {
+          try {
+            startHandler({
+              type: 'mousedown', button: 0, buttons: 1,
+              clientX: startX, clientY: startY, bubbles: true,
+              preventDefault: () => {}, stopPropagation: () => {},
+              currentTarget: origin, target: origin,
+            })
+            await new Promise(r => setTimeout(r, 100))
+          } catch {}
+        }
+      }
+
+      if (destProps) {
+        const endHandler = destProps.onMouseUp || destProps.onPointerUp || destProps.onDrop
+        if (typeof endHandler === 'function') {
+          try {
+            endHandler({
+              type: 'mouseup', button: 0, buttons: 0,
+              clientX: endX, clientY: endY, bubbles: true,
+              preventDefault: () => {}, stopPropagation: () => {},
+              currentTarget: dest, target: dest,
+            })
+          } catch {}
+        }
+      }
+
+      // G2: react-beautiful-dnd — usa keyboard sensor (mais compatível que mouse)
+      try {
+        origin.focus?.()
+        origin.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', keyCode: 32, bubbles: true, cancelable: true }))
+        await new Promise(r => setTimeout(r, 200))
+        // Simula movimentação via teclas de seta + Enter para soltar
+        const arrowKey = endY > startY ? 'ArrowDown' : 'ArrowUp'
+        for (let step = 0; step < 3; step++) {
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: arrowKey, bubbles: true, cancelable: true }))
+          await new Promise(r => setTimeout(r, 60))
+        }
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', keyCode: 32, bubbles: true, cancelable: true }))
+        await new Promise(r => setTimeout(r, 80))
+      } catch {}
+
+      // G3: dnd-kit — dispara CustomEvent de sortable
+      try {
+        const hasDndKit = !!document.querySelector('[data-rbd-draggable-id], [data-rbd-droppable-id], [data-dnd-kit-sortable]')
+        if (hasDndKit) {
+          origin.dispatchEvent(new CustomEvent('dndkitdragstart', { bubbles: true, cancelable: true, detail: { id: origin.id || origin.getAttribute('data-id') } }))
+          await new Promise(r => setTimeout(r, 100))
+          dest.dispatchEvent(new CustomEvent('dndkitdrop', { bubbles: true, cancelable: true, detail: { overId: dest.id || dest.getAttribute('data-id') } }))
+        }
+      } catch {}
+
+    } catch (reactErr) {
+      console.warn('[EasyQuiz] Estratégia G (React DnD internals) falhou:', reactErr)
+    }
+  }
 }
+
+// ---- GERA FALLBACK JS PARA DRAG QUANDO TODAS AS ESTRATÉGIAS FALHAM ----
+export function buildDragFallbackJs(fromText: string, toText: string, fromId: string, toId: string): string {
+  const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').slice(0, 100)
+  const fT = esc(fromText.toLowerCase()), tT = esc(toText.toLowerCase())
+  const fI = esc(fromId), tI = esc(toId)
+  return (
+    `var src=$eq.find('${fI}')||Array.from(document.querySelectorAll('[draggable],[class*="cursor-grab"],[class*="dnd-card"]'))` +
+    `.find(function(e){return (e.textContent||'').toLowerCase().includes('${fT}');});` +
+    `var dst=Array.from(document.querySelectorAll('[class*="list-group"],[class*="dropzone"],[data-category],[data-rbd-droppable-id]'))` +
+    `.find(function(e){var h=e.querySelector('.font-bold,h1,h2,h3,h4,[class*="header"]');` +
+    `var t=(h||e);return (t.textContent||'').toLowerCase().includes('${tT}');});` +
+    `if(src&&dst){dst.appendChild(src);` +
+    `[src,dst].forEach(function(el){` +
+    `try{el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}` +
+    `try{el.dispatchEvent(new CustomEvent('dndkitdrop',{bubbles:true,detail:{}}));}catch(e){}` +
+    `});}else{console.warn('[EQ-drag-fallback] nao localizado: ${fT} -> ${tT}');}`
+  )
+}
+
 
 // ---- API GLOBAL $eq ----
 export const EqAPI = {
@@ -1817,6 +1969,8 @@ export interface ExecutionResult {
   reports: ActionExecutionReport[]
   navigationVerified: boolean
   navigationEvidence: string
+  /** Ações que falharam mesmo após todas as passagens — usadas pelo autopilot para re-planejamento */
+  failedActions: import('../core/types').FailedActionDetail[]
 }
 
 function getNavigationSignature(): string {
@@ -2250,14 +2404,11 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
     }
 
     if (action.t === 'drag') {
-      const fromEl = findElementExt(action.from) || findElementExt(cleanSearchTerm(action.from))
-      const toEl = findElementExt(action.to) || findElementExt(cleanSearchTerm(action.to))
+      const fromEl = findDragTarget(action.from, 'source') || findElementExt(action.from) || findElementExt(cleanSearchTerm(action.from))
+      const toEl = findDragTarget(action.to, 'destination') || findElementExt(action.to) || findElementExt(cleanSearchTerm(action.to))
       if (!fromEl || !toEl) return false
-      if (toEl.contains(fromEl)) return true
-      const placed =
-        /placed|dropped|assigned|matched|done|selected/i.test(fromEl.className || '') ||
-        fromEl.getAttribute('data-placed') === 'true'
-      return placed
+      const verification = verifyDragSuccess(fromEl, toEl)
+      return verification.success
     }
   } catch {}
   return false
@@ -2275,6 +2426,9 @@ export async function executePlan(
   let appliedCount = 0
   const failed: string[] = []
   const actionErrors = new Map<DeclarativeAction, string>()
+  /** Rastreia estratégias tentadas por ação para relatório de falha rico */
+  const actionStrategies = new Map<DeclarativeAction, string[]>()
+  const actionDomSnapshot = new Map<DeclarativeAction, string>()
 
   const isQuestion = plan.pageType === 'question'
 
@@ -2282,7 +2436,21 @@ export async function executePlan(
 
   // 1. PRIMEIRA PASSAGEM: Execução declarativa principal
   for (const action of regularActions) {
+    const strategies: string[] = []
+    actionStrategies.set(action, strategies)
     try {
+      if (action.t === 'drag') {
+        strategies.push('declarative-A-F')
+        // Captura snapshot do DOM antes da tentativa para diagnóstico
+        try {
+          const fromEl = findDragTarget(action.from, 'source') || findElementExt(action.from)
+          if (fromEl) {
+            actionDomSnapshot.set(action, fromEl.parentElement?.outerHTML?.slice(0, 500) || '')
+          }
+        } catch {}
+      } else {
+        strategies.push('declarative-primary')
+      }
       await executeDeclarativeAction(action, attempt, policy)
       appliedCount++
     } catch (err) {
@@ -2374,6 +2542,7 @@ export async function executePlan(
     )
     try {
       assertActionAllowed(action, policy)
+      actionStrategies.get(action)?.push('alternative-path')
       await executeAlternativeActionPath(action)
     } catch (err) {
       actionErrors.set(action, err instanceof Error ? err.message : String(err))
@@ -2422,9 +2591,27 @@ export async function executePlan(
   }
 
   // Em questões, cada ação precisa ter evidência no DOM antes de qualquer avanço.
-  for (const action of regularActions) {
+  const failedActions: import('../core/types').FailedActionDetail[] = []
+  for (const [idx, action] of regularActions.entries()) {
     if (!verifyActionApplied(action)) {
-      failed.push(action.t === 'drag' ? `${action.from} -> ${action.to}` : 'id' in action ? action.id : action.t)
+      const label = action.t === 'drag' ? `${action.from} -> ${action.to}` : 'id' in action ? action.id : action.t
+      failed.push(label)
+      failedActions.push({
+        actionIndex: idx,
+        action,
+        strategiesAttempted: actionStrategies.get(action) || [],
+        evidence: actionErrors.get(action) || 'sem evidência de aplicação no DOM',
+        domSnapshot: actionDomSnapshot.get(action),
+      })
+
+      // Log detalhado para diagnóstico de drag failures
+      if (action.t === 'drag') {
+        console.warn(
+          `[EasyQuiz Drag] FALHA CONFIRMADA: "${action.from}" -> "${action.to}"`,
+          `\n  Estratégias: ${(actionStrategies.get(action) || []).join(', ')}`,
+          `\n  Snapshot DOM: ${actionDomSnapshot.get(action)?.slice(0, 200) || 'n/a'}`,
+        )
+      }
     }
   }
 
@@ -2529,6 +2716,7 @@ export async function executePlan(
     reports,
     navigationVerified,
     navigationEvidence,
+    failedActions,
   }
 }
 

@@ -30,7 +30,7 @@ Ao receber [DADOS], analise:
 1. [TEXTO] — Conteúdo textual principal: enunciado, contexto, alternativas, instruções.
 2. [RESPOSTAS] — Controles interativos classificados como resposta: inputs, radios, checkboxes, selects, cards, botões de opção. CADA um tem id, tipo (t), texto (txt), nome (n), valor atual (v) e opções (opt). Use EXCLUSIVAMENTE os IDs listados aqui.
 3. [NAVEGAÇÃO] — Botões/links de avanço (Próxima, Check, Submit, Enviar, números de página). Use quando precisar avançar.
-4. [IMAGENS E GRÁFICOS] — Visuais anexados com label indicando a qual alternativa pertencem.
+4. [IMAGENS E GRÁFICOS] — Visuais inline (inline_data) OU contexto textual [CONTEXTO_IMAGEM_N]. Veja instrução K abaixo.
 5. [MEMÓRIA] — Fatos aprendidos de questões anteriores desta sessão (use para contexto).
 6. [PLATAFORMA] — Hint do sistema sobre como interagir com essa plataforma específica.
 
@@ -160,10 +160,17 @@ J. PÁGINA INFORMATIVA / ARTIGO:
    → [RESPOSTAS] vazia, apenas texto para ler.
    → Use: actions=[{t:"adv"}] para avançar. Não invente respostas.
 
-K. IMAGENS E GRÁFICOS:
-   → Analise: curvas, eixos, vértices, coordenadas, geometria, proporções.
-   → Compare alternativas visuais contra a condição do enunciado.
-   → Selecione a alternativa cujo gráfico satisfaz matematicamente a questão.
+K. IMAGENS E GRÁFICOS — REGRAS OBRIGATÓRIAS:
+   → Imagens inline (inline_data): analise visualmente curvas, eixos, vértices, coordenadas, geometria, proporções.
+   → Contexto textual [CONTEXTO_IMAGEM_N]: use o texto descritivo como se fosse a imagem. Extraia informações numéricas, relações e elementos relevantes.
+   → FILTRO DE RELEVÂNCIA: Se [CONTEXTO_IMAGEM_N] descreve um ícone, logo, avatar ou elemento decorativo → IGNORE.
+     Se descreve gráfico, tabela, fórmula, mapa, diagrama ou figura do enunciado → USE ATIVAMENTE para resolver.
+   → CAMPO imageDescriptions (OBRIGATÓRIO quando há imagens):
+     Para CADA imagem/contexto visual recebido, emita uma entrada em imageDescriptions[]:
+     { "index": N, "description": "O que vejo/entendo (max 60 palavras)", "relevant": true/false, "associatedLabel": "label da imagem" }
+     - Se relevant=false: descrição breve ("ícone decorativo" / "logo do site")
+     - Se relevant=true: descrição do conteúdo útil para a questão
+   → Selecione a alternativa cujo gráfico/dados satisfaz matematicamente a questão.
 
 ════════════════════════════════════════════════════════════
 PLATAFORMAS ESPECÍFICAS — REGRAS OBRIGATÓRIAS
@@ -228,7 +235,8 @@ REGRAS ABSOLUTAS
 7. Se [RESPOSTAS] tiver controles mas você não souber a resposta, ainda assim emita a ação com melhor estimativa — nunca retorne actions:[].
 
 PLANO JSON (campos obrigatórios):
-{ "pageType": "question|info|start|conclusion", "mode": "...", "confidence": 0.0-1.0, "rationale": "...", "actions": [...], "memoryToStore": "..." }
+{ "pageType": "question|info|start|conclusion", "mode": "...", "confidence": 0.0-1.0, "rationale": "...", "actions": [...], "memoryToStore": "...", "imageDescriptions": [] }
+imageDescript ions: obrigatório quando há imagens/contexto visual. Array vazio [] quando não há imagens.
 memoryToStore: fato útil para questões futuras desta sessão (omitir se não houver nada relevante).
 
 ════════════════════════════════════════════════════════════
@@ -440,14 +448,20 @@ ${
 
 [IMAGENS E GRÁFICOS ANEXADOS (${images.length})]:
 ${
-  images.length > 0
-    ? images
-        .map(
-          (img, idx) =>
-            `  - Imagem ${idx + 1}: ${img.associatedLabel || 'Gráfico da Questão'}${img.alt ? ` (Texto alt: "${img.alt}")` : ''}`,
-        )
-        .join('\n')
-    : 'Nenhum anexo visual.'
+  (() => {
+    if (images.length === 0) return 'Nenhum anexo visual.'
+    return images.map((img, idx) => {
+      const label = img.associatedLabel || 'Gráfico da Questão'
+      const altInfo = img.alt ? ` | alt: "${img.alt}"` : ''
+      if (img.captureStatus === 'text_only') {
+        return `  - Imagem ${idx + 1} [CONTEXTO_TEXTUAL]: ${label}${altInfo} | ${img.textContext || 'sem contexto adicional'}`
+      }
+      if (img.captureStatus === 'captured' || img.base64) {
+        return `  - Imagem ${idx + 1} [VISUAL_INLINE]: ${label}${altInfo}`
+      }
+      return `  - Imagem ${idx + 1} [FALHOU]: ${label}${altInfo}`
+    }).join('\n')
+  })()
 }
 [/DADOS]
 Saída em JSON válido.`

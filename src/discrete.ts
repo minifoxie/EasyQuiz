@@ -7,7 +7,7 @@ import { analyzeWithGemini, fetchAvailableModels } from './core/gemini'
 import { loadSettings, addSessionMemory, resetActivityMetrics } from './core/storage'
 import { captureCurrentContext, captureFullPageText } from './dom/detector'
 import { captureImages } from './media/capture'
-import { setupSmartOptionInterceptors } from './dom/executor'
+import { setupSmartOptionInterceptors, buildDragFallbackJs } from './dom/executor'
 import { SYSTEM_PROMPT } from './core/prompt'
 
 import { CoinCursor } from './discrete/coinCursor'
@@ -166,6 +166,18 @@ async function initDiscrete(): Promise<void> {
 
       if (plan.memoryToStore) addSessionMemory(plan.memoryToStore)
 
+      // Log imageDescriptions — o que a IA entendeu de cada imagem
+      if (plan.imageDescriptions && plan.imageDescriptions.length > 0) {
+        debugOutput.log('AI', `🖼️ ${plan.imageDescriptions.length} imagem(ns) analisadas:`)
+        for (const imgDesc of plan.imageDescriptions) {
+          const icon = imgDesc.relevant ? '✅' : '⚠️'
+          debugOutput.log(
+            imgDesc.relevant ? 'AI' : 'WARN',
+            `  ${icon} Imagem ${imgDesc.index + 1} [${imgDesc.relevant ? 'RELEVANTE' : 'IGNORADA'}]: ${imgDesc.description}`,
+          )
+        }
+      }
+
       if (plan.pageType === 'conclusion') {
         toast.flash('Sessão encerrada')
         debugOutput.log('SYS', 'Página de conclusão detectada')
@@ -214,6 +226,17 @@ async function initDiscrete(): Promise<void> {
       const first = flow[0]
       toast.flash(first.hint || 'Pronto')
       if (first.customMsg) setTimeout(() => toast.flash(first.customMsg!), 1400)
+
+      // Log de ações de drag no debug output para visibilidade
+      const dragSteps = flow.filter(s => (s.action as any)?.t === 'drag')
+      if (dragSteps.length > 0) {
+        debugOutput.log('FLOW', `🔄 ${dragSteps.length} step(s) de drag/categorização no fluxo. Estratégias A-G serão tentadas.`)
+        for (const ds of dragSteps) {
+          const a = ds.action as any
+          debugOutput.log('FLOW', `  Drag: "${a.from}" → "${a.to}"`, JSON.stringify(a))
+        }
+      }
+
       applicator.start(flow)
 
     } catch (e) {

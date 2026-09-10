@@ -1,13 +1,19 @@
 import type { AnalysisPlan } from '../core/types'
 import { loadDomainCache } from '../core/storage'
 import { captureCurrentContext, captureFullPageText, createContextSignature, createContentSignature } from './detector'
-import { findElementExt, simulatePointerClick, findBestNavigationButton } from './executor'
+import { findElementExt, simulatePointerClick, findBestNavigationButton, buildDragFallbackJs } from './executor'
 
 export type AutopilotStatus = 'idle' | 'waiting' | 'analyzing' | 'advancing' | 'error'
 
 export interface AutopilotCallbacks {
   onStatusChange: (status: AutopilotStatus, message: string, colorClass?: string) => void
   onRequestAnalysis: (attempt?: number, signal?: AbortSignal) => Promise<AnalysisPlan | null>
+  /**
+   * Callback para re-planejamento quando ações drag falham.
+   * Recebe as ações que falharam + contexto HTML do widget.
+   * Deve retornar um novo plano com {t:"js"} para tentar executar via fallback.
+   */
+  onRequestReplan?: (failedInfo: string, signal?: AbortSignal) => Promise<AnalysisPlan | null>
   isManualModeActive?: () => boolean
   onPageAdvance?: () => void
 }
@@ -92,6 +98,8 @@ export class Autopilot {
   private lastContentSig = ''               // última sig de conteúdo vista
   private lastAttemptSig = ''               // última sig tentada (independente de sucesso)
   private lastAttemptTime = 0              // timestamp da última tentativa
+  /** Contador de re-planejamentos por questão (max 2 por contentSig) */
+  private replanCount = new Map<string, number>()
 
   constructor(callbacks: AutopilotCallbacks) {
     this.callbacks = callbacks
@@ -139,6 +147,7 @@ export class Autopilot {
     this.observer = null
     this.isProcessing = false
     this.resolvedSigs.clear()
+    this.replanCount.clear()
     this.callbacks.onStatusChange('idle', '> [SYS] Autopilot DESATIVADO pelo usuário.', 'text-yellow')
   }
 

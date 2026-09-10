@@ -2,9 +2,9 @@ import { analyzeWithGemini } from './core/gemini'
 import { buildUserPrompt } from './core/prompt'
 import { addSessionMemory, loadSettings, saveSettings, recordQuestionTiming, loadActivityMetrics, resetActivityMetrics } from './core/storage'
 import { createExecutionPolicy } from './core/policy'
-import type { AnalysisPlan, EasyQuizSettings } from './core/types'
+import type { AnalysisPlan, EasyQuizSettings, FailedActionDetail } from './core/types'
 import { captureCurrentContext, captureFullPageText } from './dom/detector'
-import { executePlan, setupSmartOptionInterceptors } from './dom/executor'
+import { executePlan, setupSmartOptionInterceptors, buildDragFallbackJs } from './dom/executor'
 import { clearHighlights, highlightAttachedImages, highlightScope, highlightTargetActions } from './dom/highlighter'
 import { captureImages } from './media/capture'
 import { EasyQuizPanel } from './ui/panel'
@@ -243,6 +243,18 @@ async function initEasyQuiz(): Promise<void> {
         panel.logToConsole(`> [RAG] 🧠 Nova memória teórica salva na sessão: "${plan.memoryToStore}"`, 'text-yellow')
       }
 
+      // Log de imageDescriptions — o que a IA entendeu de cada imagem
+      if (plan.imageDescriptions && plan.imageDescriptions.length > 0) {
+        panel.logToConsole(`> [VISION] 🖼️ Análise de ${plan.imageDescriptions.length} imagem(ns) pela IA:`, 'text-blue')
+        for (const imgDesc of plan.imageDescriptions) {
+          const icon = imgDesc.relevant ? '✅' : '⚠️'
+          panel.logToConsole(
+            `>   ${icon} Imagem ${imgDesc.index + 1} [${imgDesc.relevant ? 'RELEVANTE' : 'IGNORADA'}]: ${imgDesc.description}`,
+            imgDesc.relevant ? 'text-blue' : 'text-yellow',
+          )
+        }
+      }
+
       latestPlan = plan
       panel.updateContext(context, plan)
       highlightTargetActions(plan.actions, plan.confidence)
@@ -334,6 +346,23 @@ async function initEasyQuiz(): Promise<void> {
       const result = await executePlan(latestPlan, canAdvance, attemptCount, createExecutionPolicy(settings))
       if (signal?.aborted) return
       panel.setExecutionReport(result)
+
+      // Log de falhas de drag com diagnóstico detalhado
+      if (result.failedActions && result.failedActions.length > 0) {
+        const dragFails = result.failedActions.filter(f => f.action.t === 'drag')
+        if (dragFails.length > 0) {
+          panel.logToConsole(
+            `> [DRAG] ⚠️ ${dragFails.length} ação(ões) de categorização falharam após todas as estratégias.`,
+            'text-yellow',
+          )
+          for (const fail of dragFails) {
+            const a = fail.action as any
+            panel.logToConsole(`>   ✗ "${a.from}" → "${a.to}" | ${fail.evidence}`, 'text-yellow')
+          }
+          // Tenta executar fallback JS imediatamente
+          await runDragFallback(dragFails, signal)
+        }
+      }
       const elapsedMs = currentQuestionStartTime > 0 ? Date.now() - currentQuestionStartTime : 1200
       const regularActionsCount = latestPlan.actions.filter((a) => a.t !== 'adv' && a.t !== 'js').length
       const isQuestion = latestPlan.pageType === 'question' || regularActionsCount > 0
@@ -395,6 +424,35 @@ async function initEasyQuiz(): Promise<void> {
       // NUNCA exibe gabarito intrusivo de surpresa
     } finally {
       panel.setBusy(false)
+    }
+  }
+
+  async function runDragFallback(fails: FailedActionDetail[], signal?: AbortSignal): Promise<void> {
+    if (!latestPlan) return
+    panel.logToConsole('> [REPLAN] 🔄 Gerando fallback JS para drag/categorização...', 'text-blue')
+    try {
+      for (const fail of fails) {
+        if (signal?.aborted) return
+        const a = fail.action as any
+        const fromStr = String(a.from || '')
+        const toStr = String(a.to || '')
+        const js = buildDragFallbackJs(fromStr, toStr, fromStr, toStr)
+        panel.logToConsole(`> [REPLAN] JS fallback para: "${fromStr}" → "${toStr}"`, 'text-blue')
+
+        const fallbackPlan: AnalysisPlan = {
+          ...latestPlan,
+          actions: [{ t: 'js', v: js }],
+          pageType: 'question',
+        }
+        const fallbackResult = await executePlan(fallbackPlan, false, 1, createExecutionPolicy(settings))
+        if (fallbackResult.applied > 0) {
+          panel.logToConsole('> [REPLAN] ✅ Fallback JS aplicado!', 'text-green')
+        } else {
+          panel.logToConsole('> [REPLAN] ✗ Fallback JS sem efeito visível.', 'text-yellow')
+        }
+      }
+    } catch (e) {
+      panel.logToConsole(`> [REPLAN] Erro: ${e instanceof Error ? e.message : String(e)}`, 'text-yellow')
     }
   }
 

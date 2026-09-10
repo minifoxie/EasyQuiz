@@ -133,6 +133,19 @@ const GEMINI_JSON_SCHEMA = {
     rationale: { type: 'STRING' },
     thinking: { type: 'STRING' }, // Raciocínio interno leve (1-3 linhas) antes de decidir a resposta
     memoryToStore: { type: 'STRING' },
+    imageDescriptions: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          index:          { type: 'NUMBER' },
+          description:    { type: 'STRING' },
+          relevant:       { type: 'BOOLEAN' },
+          associatedLabel:{ type: 'STRING' },
+        },
+        required: ['index', 'description', 'relevant'],
+      },
+    },
     actions: {
       type: 'ARRAY',
       items: {
@@ -678,8 +691,16 @@ export async function analyzeWithGemini(
   for (let idx = 0; idx < images.length; idx++) {
     const img = images[idx]
     const label = img.associatedLabel || (img.alt ? `Imagem: ${img.alt}` : `Imagem ${idx + 1}`)
-    parts.push({ text: `[ANEXO VISUAL ${idx + 1} - VÍNCULO: ${label}]:` })
-    parts.push({ inline_data: { mime_type: img.mediaType, data: img.base64 } })
+
+    if (img.captureStatus === 'text_only' || !img.base64) {
+      // Imagem não capturada visualmente: injeta contexto textual no prompt
+      const textCtx = img.textContext || img.alt || ''
+      parts.push({ text: `[CONTEXTO_IMAGEM_${idx + 1} - VÍNCULO: ${label}]: ${textCtx}` })
+    } else {
+      // Imagem capturada com sucesso: envia como inline_data
+      parts.push({ text: `[ANEXO VISUAL ${idx + 1} - VÍNCULO: ${label}]:` })
+      parts.push({ inline_data: { mime_type: img.mediaType, data: img.base64 } })
+    }
   }
 
   const payloadBase = {
