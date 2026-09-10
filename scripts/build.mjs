@@ -95,80 +95,55 @@ for (const oldTxt of ['bookmarklet_legacy.txt', 'bookmarklet_discrete.txt', 'boo
   } catch {}
 }
 
-// Arquivo Único Mestre de Bookmarklets com Documentação Completa
+// Arquivo Único Mestre de Bookmarklets com Documentação Completa (Apenas Códigos Resumidos do GitHub)
 const masterBookmarkletDoc = `================================================================================
                     EASYQUIZ — MANUAL SUPREMO DE BOOKMARKLETS
 ================================================================================
 GitHub: https://github.com/minifoxie/EasyQuiz
 
-Estes são os códigos definitivos e atualizados do EasyQuiz.
+Estes são os códigos definitivos e resumidos do EasyQuiz.
 Basta criar um favorito no seu navegador (Ctrl+D ou botão direito na barra
 de favoritos > Adicionar página) e colar o código desejado no campo "URL".
 
-GARANTIA ANTI-CACHE & HOT-RELOAD AUTOMÁTICO:
-  • O parâmetro "?t=' + Date.now()" força o navegador e os servidores CDN do GitHub
-    a NUNCA entregarem código em cache. Toda execução busca o commit mais recente.
-  • Se uma versão anterior já estiver rodando na aba, o código destrói a
-    instância antiga e limpa o DOM antes de injetar a nova, garantindo 100% de
-    fidelidade sem necessidade de recarregar a página (F5).
+GARANTIA ANTI-CACHE & ATUALIZAÇÃO AUTOMÁTICA:
+  • O parâmetro "?t=' + Date.now()" garante que o navegador e o CDN do GitHub
+    NUNCA entreguem código em cache, sempre baixando a versão mais recente.
+  • Auto-limpeza prévia: se já houver uma versão rodando na página, ela é
+    destruída antes de injetar a nova, garantindo execução perfeita sem F5.
 
 ================================================================================
-OPÇÃO 1: EASYQUIZ PRO — MODO COMPLETO COM PAINEL VS CODE (RECOMENDADO)
+MODO COMPLETO (LEGACY COM PAINEL LATERAL VS CODE)
 ================================================================================
-Interface gráfica completa e retrátil estilo VS Code na lateral direita.
-Inclui:
-  • Coluna de Atalhos com abas:
-    1. Resolver (Foguete)
-    2. Cérebro da IA (Chip de contexto e árvore DOM)
-    3. Mídias & Imagens (Miniaturas reais, status da IA, relevância e lightbox)
-    4. Métricas & Cronômetro (Histórico e tempo por questão)
-    5. Terminal & Debug Output (Logs ao vivo, tokens e console)
-    6. Configurações (Chaves de API, modelos Gemini, visão computacional)
-  • Injeção em 5 estratégias com auto-recuperação (Auto-Replan)
-  • Suporte a drag-and-drop, matrizes V/F, radio/checkbox e texto livre
-  • Atalho de teclado: Alt+Q para abrir/fechar e analisar
+Painel completo com todas as abas:
+  1. Resolver (Foguete)
+  2. Cérebro da IA (Chip de contexto e árvore DOM)
+  3. Mídias & Imagens (Miniaturas reais, status da IA, relevância e lightbox)
+  4. Métricas & Cronômetro (Histórico e tempo por questão)
+  5. Terminal & Debug Output (Logs ao vivo, tokens e console)
+  6. Configurações (Chaves de API, modelos Gemini, visão computacional)
+Atalho: Alt+Q para abrir/fechar e analisar.
 
-COPIE A LINHA ABAIXO PARA O CAMPO URL DO SEU FAVORITO:
+COPIE O CÓDIGO ABAIXO PARA O CAMPO URL DO SEU FAVORITO:
 --------------------------------------------------------------------------------
 ${legacyBookmarklet}
 --------------------------------------------------------------------------------
 
 ================================================================================
-OPÇÃO 2: EASYQUIZ DISCRETO — MODO STEALTH (SEM INTERFACE)
+MODO DISCRETO (STEALTH 100% SEM INTERFACE)
 ================================================================================
-Modo 100% invisível para resolução sem deixar pistas ou interface aberta.
-Opera em segundo plano com micro-indicadores e respostas por clique/teclado.
-Inclui:
-  • Micro-toast no canto da tela e cursor-guia discreto
-  • Atalho Shift+V: Janela de Mídias e Imagens com lightbox em alta resolução
-  • Atalho Shift+H: DevTools completo (Console, Fluxo de Passos, Plano IA, Mídias, Auditoria)
-  • Atalho Alt+Q / Shift+Q: Analisar questão atual
-  • Atalho Shift+M: Selecionar modelo Gemini
-  • Atalho Shift+A: Configurar chaves de API
-  • Atalho Shift+C: Menu rápido de comandos
-  • Atalho Shift+Z: Cancelar fluxo ativo
-  • Atalho Shift+R: Re-analisar questão
-  • Avanço rápido por qualquer tecla ou clique direto
+Invisível, silencioso, opera em segundo plano:
+  • Shift+V: Janela de Mídias e Imagens (miniaturas reais e lightbox da IA)
+  • Shift+H: DevTools completo (Console, Fluxo, Plano IA, Mídias, Auditoria)
+  • Alt+Q / Shift+Q: Analisar questão
+  • Shift+M: Selecionar modelo Gemini
+  • Shift+A: Configurar chaves de API
+  • Shift+C: Menu de comandos clicáveis
+  • Shift+Z: Cancelar fluxo ativo
+  • Shift+R: Re-analisar questão
 
-COPIE A LINHA ABAIXO PARA O CAMPO URL DO SEU FAVORITO:
+COPIE O CÓDIGO ABAIXO PARA O CAMPO URL DO SEU FAVORITO:
 --------------------------------------------------------------------------------
 ${discreteLegacy}
---------------------------------------------------------------------------------
-
-================================================================================
-OPÇÃO 3: VERSÃO INLINE AUTO-CONTIDA (ANTI-CSP — SEM FETCH EXTERNO)
-================================================================================
-Utilize esta versão apenas se o site bloquear conexões externas (CSP connect-src).
-O bundle completo vem embutido diretamente no próprio favorito.
-
-• MODO COMPLETO (INLINE):
---------------------------------------------------------------------------------
-${bookmarkletCode}
---------------------------------------------------------------------------------
-
-• MODO DISCRETO (INLINE):
---------------------------------------------------------------------------------
-${discreteBookmarkletCode}
 --------------------------------------------------------------------------------
 `
 
