@@ -42,7 +42,7 @@ export function loadSettings(): EasyQuizSettings {
       autoApply: parsed.autoApply !== undefined ? Boolean(parsed.autoApply) : true,
       autoAdvance: Boolean(parsed.autoAdvance),
       hostDarkMode: parsed.hostDarkMode !== undefined ? Boolean(parsed.hostDarkMode) : true,
-      useVision: Boolean(parsed.useVision),
+      useVision: parsed.useVision !== undefined ? Boolean(parsed.useVision) : DEFAULT_SETTINGS.useVision,
       confidenceThreshold:
         typeof parsed.confidenceThreshold === 'number'
           ? parsed.confidenceThreshold

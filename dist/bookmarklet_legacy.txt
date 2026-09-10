@@ -1,1 +1,0 @@
-javascript:(function(){fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/easyquiz.js',{cache:'no-store'}).then(r=>r.text()).then(code=>{try{(0,eval)(code)}catch(e){alert('EasyQuiz erro: '+e)}})})();

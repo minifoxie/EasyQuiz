@@ -2088,12 +2088,14 @@ export class EasyQuizPanel {
         `border-left: 3px solid ${isRelevant ? '#5865f2' : '#666'}`,
       ].join(';')
 
+      const dataUri = img.base64 ? `data:${img.mediaType || 'image/jpeg'};base64,${img.base64}` : ''
+
       // Thumbnail da imagem
       let imgHtml = ''
-      if (img.data && img.data.startsWith('data:image')) {
+      if (dataUri) {
         imgHtml = `
           <div style="position: relative; background: #111; border-bottom: 1px solid rgba(255,255,255,0.06);">
-            <img src="${img.data}" 
+            <img src="${dataUri}" 
               style="width: 100%; max-height: 180px; object-fit: contain; display: block; cursor: pointer;"
               alt="Captura ${idx + 1}"
               title="Clique para ampliar"
@@ -2122,7 +2124,7 @@ export class EasyQuizPanel {
             ${relevanceBadge}
           </div>
           <div style="font-size:10px;color:#aaa;line-height:1.5;">${aiText}</div>
-          ${img.textContext && img.data ? `<div style="font-size:9px;color:#666;margin-top:2px;">Contexto textual: ${img.textContext.slice(0, 100)}${img.textContext.length > 100 ? '...' : ''}</div>` : ''}
+          ${img.textContext && dataUri ? `<div style="font-size:9px;color:#666;margin-top:2px;">Contexto textual: ${img.textContext.slice(0, 100)}${img.textContext.length > 100 ? '...' : ''}</div>` : ''}
         </div>`
 
       card.innerHTML = imgHtml + metaHtml
@@ -2199,7 +2201,7 @@ export class EasyQuizPanel {
         label: `${statusIcon} Img ${idx + 1} [${statusLabel}]`,
         value: `${aiSummary}`,
         badge: relevance,
-        imgSrc: img.data, // Adiciona o base64 para renderização
+        imgSrc: img.base64 ? `data:${img.mediaType || 'image/jpeg'};base64,${img.base64}` : undefined,
       }
     })
     

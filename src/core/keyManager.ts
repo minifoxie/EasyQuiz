@@ -113,8 +113,15 @@ export class KeyManager {
     const ready = valid.filter((k) => (k.cooldownUntil || 0) <= now)
 
     if (ready.length > 0) {
-      // Ordena por lastUsedAt ascendente (a que foi usada há mais tempo ou nunca usada vai primeiro)
-      ready.sort((a, b) => (a.lastUsedAt || 0) - (b.lastUsedAt || 0))
+      // Prioriza por menor latência comprovada; se empatado, por lastUsedAt (round-robin) e addedAt
+      ready.sort((a, b) => {
+        const latA = a.lastLatencyMs !== undefined ? a.lastLatencyMs : 99999
+        const latB = b.lastLatencyMs !== undefined ? b.lastLatencyMs : 99999
+        if (latA !== latB) return latA - latB
+        const usedDiff = (a.lastUsedAt || 0) - (b.lastUsedAt || 0)
+        if (usedDiff !== 0) return usedDiff
+        return a.addedAt - b.addedAt
+      })
       return ready.slice(0, count)
     }
 

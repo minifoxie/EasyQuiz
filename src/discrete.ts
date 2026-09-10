@@ -29,10 +29,11 @@ declare global {
 }
 
 if (window.__eqdiscrete) {
-  window.__eqdiscrete.analyze()
-} else {
-  void initDiscrete()
+  try {
+    window.__eqdiscrete.destroy()
+  } catch {}
 }
+void initDiscrete()
 
 function injectPreconnect(): void {
   try {
@@ -146,6 +147,7 @@ async function initDiscrete(): Promise<void> {
 
       const images = await captureImages(ctx.scope, settings.useVision)
       if (signal.aborted) return
+      debugOutput.setImages(images)
 
       const tStart = performance.now()
       const result = await analyzeWithGemini(
@@ -162,7 +164,7 @@ async function initDiscrete(): Promise<void> {
       const plan = result.plan as AnalysisPlan & { interactionFlow?: unknown }
 
       debugOutput.log('SYS', `Análise concluída em ${latency}ms via ${result.usedModel ?? settings.model} — pageType: ${plan.pageType} | mode: ${plan.mode} | ${plan.actions?.length ?? 0} ação(ões)`)
-      debugOutput.setPlan(plan, ctx.questionText, latency, settings.model)
+      debugOutput.setPlan(plan, ctx.questionText, latency, settings.model, images)
 
       if (plan.memoryToStore) addSessionMemory(plan.memoryToStore)
 
@@ -307,6 +309,7 @@ async function initDiscrete(): Promise<void> {
 
   const COMMANDS = [
     { keys: 'Shift+Q', label: 'Analisar página',   action: () => void doAnalyze() },
+    { keys: 'Shift+V', label: 'Mídias IA (Vision)',action: () => { debugOutput.openTab('media'); toast.flash('Mídias IA') } },
     { keys: 'Shift+M', label: 'Trocar modelo',     action: () => modelMenu.isOpen() ? modelMenu.close() : modelMenu.open() },
     { keys: 'Shift+A', label: 'Config API keys',   action: () => keyMenu.isOpen() ? keyMenu.close() : keyMenu.open() },
     { keys: 'Shift+Z', label: 'Abortar fluxo',     action: () => applicator.isActive() ? applicator.abort() : toast.flash('Nada ativo') },
@@ -353,6 +356,9 @@ async function initDiscrete(): Promise<void> {
     }
     if (e.shiftKey && k === 'H') {
       e.preventDefault(); e.stopPropagation(); debugOutput.toggle(); return
+    }
+    if (e.shiftKey && (k === 'V' || k === 'v')) {
+      e.preventDefault(); e.stopPropagation(); debugOutput.openTab('media'); toast.flash('Mídias IA'); return
     }
     if (e.shiftKey && k === 'I') {
       e.preventDefault(); e.stopPropagation(); toast.reshow(); return

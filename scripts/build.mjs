@@ -1,4 +1,4 @@
-import { mkdir, writeFile, readFile } from 'node:fs/promises'
+import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
 
@@ -69,36 +69,110 @@ await build(discreteBuildOptions)
 // suportam javascript: URLs de qualquer tamanho quando salvas como favorito.
 // ============================================================
 
+// ============================================================
+// GERAÇÃO DOS BOOKMARKLETS UNIFICADOS E LIMPEZA
+// ============================================================
 const bundleRaw = await readFile(path.join(dist, 'easyquiz.js'), 'utf-8')
-
-// Remove o banner de comentário do topo (/* ... */) para economizar bytes
 const bundleClean = bundleRaw.replace(/^\/\*[\s\S]*?\*\/\s*/, '')
-
-// Wrap: protege variáveis globais e garante que o bundle não polua o escopo
-// void 0 no final evita que o browser tente navegar para o valor de retorno
 const bookmarkletCode = `javascript:(function(){${bundleClean}})();void 0`
 
-await writeFile(path.join(dist, 'bookmarklet.txt'), `${bookmarkletCode}\n`, 'utf-8')
-
-// Versão legacy fetch+eval
-// Usa raw.githubusercontent.com com cache:'no-store' para SEMPRE buscar o código mais novo.
-// O jsDelivr cacheia @main por até 7 dias e ignora query strings — por isso foi abandonado.
-const githubRepo = 'minifoxie/EasyQuiz'
-const rawBase = `https://raw.githubusercontent.com/${githubRepo}/main/dist`
-const legacyBookmarklet = `javascript:(function(){fetch('${rawBase}/easyquiz.js',{cache:'no-store'}).then(r=>r.text()).then(code=>{try{(0,eval)(code)}catch(e){alert('EasyQuiz erro: '+e)}})})();`
-await writeFile(path.join(dist, 'bookmarklet_legacy.txt'), `${legacyBookmarklet}\n`, 'utf-8')
-
-// ============================================================
-// BOOKMARKLET DISCRETO
-// ============================================================
 const discreteRaw = await readFile(path.join(dist, 'discrete.js'), 'utf-8')
 const discreteClean = discreteRaw.replace(/^\/\*[\s\S]*?\*\/\s*/, '')
 const discreteBookmarkletCode = `javascript:(function(){${discreteClean}})();void 0`
-await writeFile(path.join(dist, 'bookmarklet_discrete.txt'), `${discreteBookmarkletCode}\n`, 'utf-8')
 
-// Versão legacy do Discreto — também com cache:'no-store' e raw GitHub
-const discreteLegacy = `javascript:(function(){fetch('${rawBase}/discrete.js',{cache:'no-store'}).then(r=>r.text()).then(code=>{try{(0,eval)(code)}catch(e){alert('EasyQuiz Discreto erro: '+e)}})})();`
-await writeFile(path.join(dist, 'bookmarklet_discrete_legacy.txt'), `${discreteLegacy}\n`, 'utf-8')
+// Versões Auto-Update Anti-Cache (Legacy Fetch + Eval com timestamp único e auto-destruição prévia)
+const githubRepo = 'minifoxie/EasyQuiz'
+const rawBase = `https://raw.githubusercontent.com/${githubRepo}/main/dist`
+
+const legacyBookmarklet = `javascript:(function(){fetch('${rawBase}/easyquiz.js?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(code){try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var host=document.getElementById('easyquiz-shadow-root');if(host)host.remove();(0,eval)(code)}catch(e){alert('EasyQuiz erro na execução: '+e)}}).catch(function(err){alert('EasyQuiz falha no download: '+err)})})();`
+
+const discreteLegacy = `javascript:(function(){fetch('${rawBase}/discrete.js?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(code){try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(code)}catch(e){alert('EasyQuiz Discreto erro na execução: '+e)}}).catch(function(err){alert('EasyQuiz Discreto falha no download: '+err)})})();`
+
+// Deleta arquivos .txt antigos e redundantes
+for (const oldTxt of ['bookmarklet_legacy.txt', 'bookmarklet_discrete.txt', 'bookmarklet_discrete_legacy.txt']) {
+  try {
+    await unlink(path.join(dist, oldTxt))
+  } catch {}
+}
+
+// Arquivo Único Mestre de Bookmarklets com Documentação Completa
+const masterBookmarkletDoc = `================================================================================
+                    EASYQUIZ — MANUAL SUPREMO DE BOOKMARKLETS
+================================================================================
+GitHub: https://github.com/minifoxie/EasyQuiz
+
+Estes são os códigos definitivos e atualizados do EasyQuiz.
+Basta criar um favorito no seu navegador (Ctrl+D ou botão direito na barra
+de favoritos > Adicionar página) e colar o código desejado no campo "URL".
+
+GARANTIA ANTI-CACHE & HOT-RELOAD AUTOMÁTICO:
+  • O parâmetro "?t=' + Date.now()" força o navegador e os servidores CDN do GitHub
+    a NUNCA entregarem código em cache. Toda execução busca o commit mais recente.
+  • Se uma versão anterior já estiver rodando na aba, o código destrói a
+    instância antiga e limpa o DOM antes de injetar a nova, garantindo 100% de
+    fidelidade sem necessidade de recarregar a página (F5).
+
+================================================================================
+OPÇÃO 1: EASYQUIZ PRO — MODO COMPLETO COM PAINEL VS CODE (RECOMENDADO)
+================================================================================
+Interface gráfica completa e retrátil estilo VS Code na lateral direita.
+Inclui:
+  • Coluna de Atalhos com abas:
+    1. Resolver (Foguete)
+    2. Cérebro da IA (Chip de contexto e árvore DOM)
+    3. Mídias & Imagens (Miniaturas reais, status da IA, relevância e lightbox)
+    4. Métricas & Cronômetro (Histórico e tempo por questão)
+    5. Terminal & Debug Output (Logs ao vivo, tokens e console)
+    6. Configurações (Chaves de API, modelos Gemini, visão computacional)
+  • Injeção em 5 estratégias com auto-recuperação (Auto-Replan)
+  • Suporte a drag-and-drop, matrizes V/F, radio/checkbox e texto livre
+  • Atalho de teclado: Alt+Q para abrir/fechar e analisar
+
+COPIE A LINHA ABAIXO PARA O CAMPO URL DO SEU FAVORITO:
+--------------------------------------------------------------------------------
+${legacyBookmarklet}
+--------------------------------------------------------------------------------
+
+================================================================================
+OPÇÃO 2: EASYQUIZ DISCRETO — MODO STEALTH (SEM INTERFACE)
+================================================================================
+Modo 100% invisível para resolução sem deixar pistas ou interface aberta.
+Opera em segundo plano com micro-indicadores e respostas por clique/teclado.
+Inclui:
+  • Micro-toast no canto da tela e cursor-guia discreto
+  • Atalho Shift+V: Janela de Mídias e Imagens com lightbox em alta resolução
+  • Atalho Shift+H: DevTools completo (Console, Fluxo de Passos, Plano IA, Mídias, Auditoria)
+  • Atalho Alt+Q / Shift+Q: Analisar questão atual
+  • Atalho Shift+M: Selecionar modelo Gemini
+  • Atalho Shift+A: Configurar chaves de API
+  • Atalho Shift+C: Menu rápido de comandos
+  • Atalho Shift+Z: Cancelar fluxo ativo
+  • Atalho Shift+R: Re-analisar questão
+  • Avanço rápido por qualquer tecla ou clique direto
+
+COPIE A LINHA ABAIXO PARA O CAMPO URL DO SEU FAVORITO:
+--------------------------------------------------------------------------------
+${discreteLegacy}
+--------------------------------------------------------------------------------
+
+================================================================================
+OPÇÃO 3: VERSÃO INLINE AUTO-CONTIDA (ANTI-CSP — SEM FETCH EXTERNO)
+================================================================================
+Utilize esta versão apenas se o site bloquear conexões externas (CSP connect-src).
+O bundle completo vem embutido diretamente no próprio favorito.
+
+• MODO COMPLETO (INLINE):
+--------------------------------------------------------------------------------
+${bookmarkletCode}
+--------------------------------------------------------------------------------
+
+• MODO DISCRETO (INLINE):
+--------------------------------------------------------------------------------
+${discreteBookmarkletCode}
+--------------------------------------------------------------------------------
+`
+
+await writeFile(path.join(dist, 'bookmarklet.txt'), masterBookmarkletDoc, 'utf-8')
 
 
 const discreteBmEscaped = discreteBookmarkletCode
@@ -149,11 +223,14 @@ const installerDiscreto = `<!DOCTYPE html>
       <h3>Atalhos do Sistema</h3>
       <table>
         <tr><td><kbd>Alt+Q</kbd> / <kbd>Shift+Q</kbd></td><td>Analisar p&#xE1;gina atual</td></tr>
+        <tr><td><kbd>Shift+V</kbd></td><td>M&#xED;dias &amp; Imagens IA (Lightbox)</td></tr>
+        <tr><td><kbd>Shift+H</kbd></td><td>Debug Output (Logs, Fluxo, IA)</td></tr>
         <tr><td><kbd>Shift+M</kbd></td><td>Selecionar modelo Gemini</td></tr>
         <tr><td><kbd>Shift+A</kbd></td><td>Configurar chaves de API</td></tr>
         <tr><td><kbd>Shift+Z</kbd></td><td>Cancelar fluxo ativo</td></tr>
         <tr><td><kbd>Shift+R</kbd></td><td>Re-analisar p&#xE1;gina</td></tr>
-        <tr><td><kbd>Shift+H</kbd></td><td>Status atual (dica r&#xE1;pida)</td></tr>
+        <tr><td><kbd>Shift+C</kbd></td><td>Menu de Comandos clic&#xE1;veis</td></tr>
+        <tr><td><kbd>Shift+I</kbd></td><td>Status atual (dica r&#xE1;pida)</td></tr>
         <tr><td><kbd>Escape</kbd></td><td>Fechar menus</td></tr>
         <tr><td><em>Qualquer tecla&#x2728;</em></td><td>Avan&#xE7;a resposta de texto</td></tr>
         <tr><td><em>Clique&#x2728;</em></td><td>Executa sele&#xE7;&#xE3;o/a&#xE7;&#xE3;o</td></tr>
@@ -258,6 +335,5 @@ const bundleSize = Buffer.byteLength(bundleContent, 'utf-8')
 
 console.log('[EasyQuiz] Build concluído com sucesso!')
 console.log(`- Artefato JS: dist/easyquiz.js (${(bundleSize / 1024).toFixed(1)} KB)`)
-console.log(`- Bookmarklet: dist/bookmarklet.txt (${(bookmarkletSize / 1024).toFixed(1)} KB inline — sem eval, sem fetch)`)
-console.log(`- Bookmarklet legacy: dist/bookmarklet_legacy.txt (fetch+eval — pode falhar em sites com CSP)`)
+console.log(`- Manual Unificado Supremo: dist/bookmarklet.txt`)
 console.log(`- Userscript: dist/easyquiz.user.js`)

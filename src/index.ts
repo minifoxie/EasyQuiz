@@ -48,10 +48,14 @@ async function initEasyQuiz(): Promise<void> {
   // Pré-aquece a conexão com a API Google Gemini (DNS prefetch + Preconnect)
   injectPreconnect()
 
-  // Se já existir uma instância rodando, apenas alterna a visualização
+  // Se já existir uma instância rodando (reexecução do bookmarklet para atualizar), limpa a antiga
   if (eqWindow.__easyquiz) {
-    eqWindow.__easyquiz.toggle()
-    return
+    try {
+      eqWindow.__easyquiz.destroy()
+    } catch {}
+    try {
+      document.getElementById('easyquiz-shadow-root')?.remove()
+    } catch {}
   }
 
   let settings: EasyQuizSettings = loadSettings()

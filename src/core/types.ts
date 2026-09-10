@@ -170,7 +170,7 @@ export const DEFAULT_SETTINGS: EasyQuizSettings = {
   autoApply: true,
   autoAdvance: false,
   hostDarkMode: true,
-  useVision: false,
+  useVision: true,
   confidenceThreshold: 0.8,
 }
 

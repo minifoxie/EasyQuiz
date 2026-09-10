@@ -12,6 +12,7 @@
  */
 
 import type { InteractionStep } from './promptDiscrete'
+import type { CapturedImage } from '../core/types'
 
 export type LogCategory = 'SYS' | 'AI' | 'FLOW' | 'DOM' | 'ACTION' | 'KEY' | 'CLICK' | 'WARN' | 'ERROR' | 'REPLAN'
 
@@ -31,9 +32,10 @@ export interface DebugOutputOptions {
 export class DebugOutput {
   private el: HTMLDivElement | null = null
   private pillEl: HTMLDivElement | null = null
-  private activeTab: 'console' | 'flow' | 'plan' | 'audit' = 'console'
+  private activeTab: 'console' | 'flow' | 'plan' | 'audit' | 'media' = 'console'
   private activeFilter: 'all' | 'error' | 'flow' | 'dom' | 'ai' = 'all'
   private autoScroll = true
+  private capturedImages: CapturedImage[] = []
 
   private logs: LogEntry[] = []
   private logSeq = 0
@@ -90,6 +92,18 @@ export class DebugOutput {
       this.clampPosition()
     }
     if (this.pillEl) this.pillEl.style.display = 'none'
+    this.render()
+  }
+
+  openTab(tab: 'console' | 'flow' | 'plan' | 'audit' | 'media'): void {
+    this.activeTab = tab
+    this.open()
+    if (this.el) {
+      this.el.querySelectorAll('.__eq_dbg_tab__').forEach((t) => {
+        const isTarget = t.getAttribute('data-tab') === tab
+        t.classList.toggle('active', isTarget)
+      })
+    }
     this.render()
   }
 
@@ -156,11 +170,22 @@ export class DebugOutput {
     }
   }
 
-  setPlan(plan: any, questionText = '', latency = 0, model = '--'): void {
+  setImages(images: CapturedImage[]): void {
+    this.capturedImages = images || []
+    this.updateTabCounters()
+    if (this.isOpen() && this.activeTab === 'media') {
+      this.renderMedia()
+    }
+  }
+
+  setPlan(plan: any, questionText = '', latency = 0, model = '--', images?: CapturedImage[]): void {
     this.currentPlan = plan
     this.questionSummary = (questionText || '').slice(0, 300)
     this.latencyMs = latency
     this.modelName = model
+    if (images) {
+      this.capturedImages = images
+    }
     this.stepStatuses.clear()
     this.stepErrors.clear()
 
@@ -313,6 +338,8 @@ export class DebugOutput {
       this.renderFlow()
     } else if (this.activeTab === 'plan') {
       this.renderPlan()
+    } else if (this.activeTab === 'media') {
+      this.renderMedia()
     } else if (this.activeTab === 'audit') {
       this.renderAudit()
     }
@@ -560,6 +587,92 @@ export class DebugOutput {
     })
   }
 
+  private renderMedia(): void {
+    const body = this.el?.querySelector('.__eq_dbg_body__') as HTMLElement
+    if (!body) return
+
+    if (!this.capturedImages || this.capturedImages.length === 0) {
+      body.innerHTML = `
+        <div class="__eq_dbg_empty__" style="padding:40px 20px;text-align:center;">
+          <div style="font-size:32px;margin-bottom:8px;">🖼️</div>
+          <div style="font-size:13px;font-weight:600;color:#e8eaed;">Nenhuma mídia detectada na questão atual</div>
+          <div style="font-size:11px;color:#9aa0a6;margin-top:6px;max-width:320px;margin-left:auto;margin-right:auto;line-height:1.5;">
+            EasyQuiz varre automaticamente imagens &lt;img&gt;, gráficos &lt;svg&gt;, &lt;canvas&gt; e fundos CSS do escopo da questão ao analisar (Shift+Q).
+          </div>
+        </div>
+      `
+      return
+    }
+
+    const descs: any[] = this.currentPlan?.imageDescriptions || []
+
+    let cardsHtml = ''
+    this.capturedImages.forEach((img, idx) => {
+      const desc = descs.find((d: any) => d.index === idx)
+      const isRelevant = desc?.relevant ?? true
+      const aiText = desc?.description ?? (img.textContext || 'Aguardando análise da IA...')
+      const statusIcon = img.captureStatus === 'captured' ? '✅' : img.captureStatus === 'text_only' ? '📝' : '⚠️'
+      const statusLabel = img.captureStatus === 'captured' ? 'Visual' : img.captureStatus === 'text_only' ? 'Texto' : 'Falhou'
+      const dataUri = img.base64 ? `data:${img.mediaType || 'image/jpeg'};base64,${img.base64}` : ''
+
+      let thumbHtml = ''
+      if (dataUri) {
+        thumbHtml = `
+          <div style="position:relative;background:#111;border-bottom:1px solid #3c4043;height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+            <img src="${dataUri}"
+              style="max-width:100%;max-height:100%;object-fit:contain;cursor:pointer;"
+              alt="Mídia ${idx + 1}"
+              title="Clique para ampliar"
+              onclick="(function(el){ var ov=document.createElement('div'); ov.style='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;cursor:zoom-out;'; var img=document.createElement('img'); img.src=el.src; img.style='max-width:95vw;max-height:95vh;border-radius:6px;box-shadow:0 8px 32px rgba(0,0,0,0.8);'; ov.appendChild(img); ov.onclick=function(){ov.remove();}; document.body.appendChild(ov); })(this)"
+            >
+            <div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.75);border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;color:#fff;">
+              ${statusIcon} ${statusLabel}
+            </div>
+          </div>
+        `
+      } else {
+        thumbHtml = `
+          <div style="background:#1e1f22;padding:20px;text-align:center;color:#9aa0a6;font-size:11px;border-bottom:1px solid #3c4043;">
+            ${statusIcon} ${statusLabel} — sem dados visuais
+          </div>
+        `
+      }
+
+      const relevanceBadge = isRelevant
+        ? '<span style="font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:3px;background:rgba(129,201,149,0.2);border:1px solid rgba(129,201,149,0.4);color:#81c995;">RELEVANTE</span>'
+        : '<span style="font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:3px;background:rgba(242,139,130,0.2);border:1px solid rgba(242,139,130,0.4);color:#f28b82;">IGNORADA</span>'
+
+      cardsHtml += `
+        <div style="background:#292a2d;border:1px solid #3c4043;border-radius:6px;overflow:hidden;border-left:3px solid ${isRelevant ? '#81c995' : '#5f6368'};">
+          ${thumbHtml}
+          <div style="padding:10px 12px;display:flex;flex-direction:column;gap:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:11.5px;font-weight:700;color:#e8eaed;">Imagem ${idx + 1} (${escapeHtml(img.source || 'inline')})</span>
+              ${relevanceBadge}
+            </div>
+            ${img.associatedLabel ? `<div style="font-size:10.5px;color:#8ab4f8;font-weight:500;">${escapeHtml(img.associatedLabel)}</div>` : ''}
+            <div style="font-size:11px;color:#bdc1c6;line-height:1.45;background:#1e1f22;padding:6px 8px;border-radius:4px;">
+              <strong style="color:#9aa0a6;display:block;font-size:10px;text-transform:uppercase;margin-bottom:2px;">Interpretação da IA:</strong>
+              ${escapeHtml(aiText)}
+            </div>
+          </div>
+        </div>
+      `
+    })
+
+    body.innerHTML = `
+      <div style="padding:12px;overflow-y:auto;height:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+          <div style="font-size:11px;font-weight:700;color:#9aa0a6;text-transform:uppercase;">
+            Mídias Analisadas (${this.capturedImages.length})
+          </div>
+          <div style="font-size:10.5px;color:#8ab4f8;">Clique em qualquer imagem para ampliar</div>
+        </div>
+        ${cardsHtml}
+      </div>
+    `
+  }
+
   private renderAudit(): void {
     const body = this.el?.querySelector('.__eq_dbg_body__') as HTMLElement
     if (!body) return
@@ -615,6 +728,12 @@ export class DebugOutput {
     if (flowTabBadge) {
       flowTabBadge.textContent = this.currentFlow.length > 0 ? `${this.currentStepIdx + 1}/${this.currentFlow.length}` : '0'
     }
+
+    // Atualiza badge da aba Mídias
+    const mediaTabBadge = this.el.querySelector('#__eq_tab_badge_media__')
+    if (mediaTabBadge) {
+      mediaTabBadge.textContent = String(this.capturedImages.length)
+    }
   }
 
   private updatePill(): void {
@@ -643,6 +762,7 @@ export class DebugOutput {
           <button class="__eq_dbg_tab__ ${this.activeTab === 'console' ? 'active' : ''}" data-tab="console">Console</button>
           <button class="__eq_dbg_tab__ ${this.activeTab === 'flow' ? 'active' : ''}" data-tab="flow">Fluxo <span class="__eq_tab_badge__" id="__eq_tab_badge_flow__">0</span></button>
           <button class="__eq_dbg_tab__ ${this.activeTab === 'plan' ? 'active' : ''}" data-tab="plan">Plano IA</button>
+          <button class="__eq_dbg_tab__ ${this.activeTab === 'media' ? 'active' : ''}" data-tab="media">Mídias <span class="__eq_tab_badge__" id="__eq_tab_badge_media__">0</span></button>
           <button class="__eq_dbg_tab__ ${this.activeTab === 'audit' ? 'active' : ''}" data-tab="audit">Auditoria</button>
         </div>
         <div class="__eq_dbg_controls__">
