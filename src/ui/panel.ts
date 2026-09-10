@@ -1,4 +1,4 @@
-import type { AnalysisPlan, CapturedContext, EasyQuizSettings, ResponseMode, ExecutionEngine, ModelOption, ActivityMetrics, QuestionTimingRecord } from '../core/types'
+import type { AnalysisPlan, CapturedContext, CapturedImage, ImageDescriptionEntry, EasyQuizSettings, ResponseMode, ExecutionEngine, ModelOption, ActivityMetrics, QuestionTimingRecord } from '../core/types'
 import type { ExecutionResult } from '../dom/executor'
 import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey, validateModelFast, isValidQuizModel, keyManager, KeyManager, resetSessionBlacklist } from '../core/gemini'
 import { clearSessionMemories, getSessionMemories, resetAllData, loadActivityMetrics, resetActivityMetrics } from '../core/storage'
@@ -85,6 +85,8 @@ export class EasyQuizPanel {
   private stopwatchStartTime: number = 0
   private latestPlan: AnalysisPlan | null = null
   private latestContext: CapturedContext | null = null
+  private latestImages: CapturedImage[] = []
+  private latestImageDescriptions: ImageDescriptionEntry[] = []
   private latestPromptText: string = ''
 
   // Métricas & Cronômetro
@@ -1992,12 +1994,26 @@ export class EasyQuizPanel {
 
   public updateContext(context: CapturedContext, plan?: AnalysisPlan): void {
     this.latestContext = context
-    if (plan) this.latestPlan = plan
+    if (plan) {
+      this.latestPlan = plan
+      // Atualiza descrições de imagem do plano
+      if (plan.imageDescriptions) {
+        this.latestImageDescriptions = plan.imageDescriptions
+      }
+    }
     if (this.activeTab === 'brain') {
       this.renderContextTree()
       if (plan) this.refreshInspectorView()
     } else if (this.activeTab === 'debug') {
       this.refreshDebugView()
+    }
+  }
+
+  /** Atualiza a lista de imagens capturadas para exibição na aba Contexto */
+  public updateImages(images: CapturedImage[]): void {
+    this.latestImages = images
+    if (this.activeTab === 'brain') {
+      this.renderContextTree()
     }
   }
 
@@ -2055,6 +2071,30 @@ export class EasyQuizPanel {
         })),
       ])
       this.contextTreeContainer.appendChild(planNode)
+    }
+
+    // Pasta 5: Imagens Detectadas
+    const imgs = this.latestImages
+    const descs = this.latestImageDescriptions
+    if (imgs.length > 0) {
+      const imgItems = imgs.map((img, idx) => {
+        const desc = descs.find(d => d.index === idx)
+        const statusIcon = img.captureStatus === 'captured' ? '✅' : img.captureStatus === 'text_only' ? '📝' : '❌'
+        const statusLabel = img.captureStatus === 'captured' ? 'Visual' : img.captureStatus === 'text_only' ? 'Texto' : 'Falhou'
+        const relevance = desc ? (desc.relevant ? '🎯 Relevante' : '⚠️ Ignorada') : '—'
+        const aiSummary = desc ? desc.description.slice(0, 80) : (img.textContext ? img.textContext.slice(0, 80) : 'Aguardando análise IA...')
+        return {
+          label: `${statusIcon} Img ${idx + 1} [${statusLabel}]`,
+          value: `${aiSummary} | ${img.associatedLabel || img.alt || 'sem label'}`,
+          badge: relevance,
+        }
+      })
+      const imgNode = this.createTreeFolder(
+        `🖼️ IMAGENS DETECTADAS (${imgs.length})`,
+        true,
+        imgItems,
+      )
+      this.contextTreeContainer.appendChild(imgNode)
     }
   }
 

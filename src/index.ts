@@ -169,6 +169,8 @@ async function initEasyQuiz(): Promise<void> {
       if (images.length > 0) {
         const attachedElements = images.map((img) => img.element).filter(Boolean) as Element[]
         highlightAttachedImages(attachedElements)
+        // Atualiza a aba Contexto com as imagens capturadas
+        panel.updateImages(images)
       }
 
       if (currentController.signal.aborted) return undefined
@@ -216,6 +218,7 @@ async function initEasyQuiz(): Promise<void> {
         if (images.length > 0) {
           const attachedElements = images.map((img) => img.element).filter(Boolean) as Element[]
           highlightAttachedImages(attachedElements)
+          panel.updateImages(images)
         }
         panel.setStatus(`Reconsultando IA com escopo ampliado (${context.controls.length} controles)...`, 'info')
 

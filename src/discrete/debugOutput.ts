@@ -13,7 +13,7 @@
 
 import type { InteractionStep } from './promptDiscrete'
 
-export type LogCategory = 'SYS' | 'AI' | 'FLOW' | 'DOM' | 'ACTION' | 'KEY' | 'CLICK' | 'WARN' | 'ERROR'
+export type LogCategory = 'SYS' | 'AI' | 'FLOW' | 'DOM' | 'ACTION' | 'KEY' | 'CLICK' | 'WARN' | 'ERROR' | 'REPLAN'
 
 export interface LogEntry {
   id: number
@@ -605,7 +605,7 @@ export class DebugOutput {
     const cntAi = this.el.querySelector('#__eq_cnt_ai')
 
     if (cntAll) cntAll.textContent = String(this.logs.length)
-    if (cntErr) cntErr.textContent = String(this.logs.filter((l) => l.category === 'ERROR' || l.category === 'WARN').length)
+    if (cntErr) cntErr.textContent = String(this.logs.filter((l) => l.category === 'ERROR' || l.category === 'WARN' || l.category === 'REPLAN').length)
     if (cntFlow) cntFlow.textContent = String(this.logs.filter((l) => l.category === 'FLOW' || l.category === 'KEY' || l.category === 'CLICK').length)
     if (cntDom) cntDom.textContent = String(this.logs.filter((l) => l.category === 'DOM' || l.category === 'ACTION').length)
     if (cntAi) cntAi.textContent = String(this.logs.filter((l) => l.category === 'AI').length)
@@ -938,9 +938,11 @@ export class DebugOutput {
       .__eq_bg_click__ { background: #2b3a4a; color: #78d9ec; }
       .__eq_bg_warn__  { background: #5c3b00; color: #fdd663; }
       .__eq_bg_error__ { background: #5c1d1d; color: #f28b82; }
+      .__eq_bg_replan__{ background: #4a2800; color: #ffb86c; }
 
       .__eq_cat_error__ { background: rgba(234,67,53,0.1); }
       .__eq_cat_warn__  { background: rgba(251,188,4,0.06); }
+      .__eq_cat_replan__{ background: rgba(255,184,108,0.08); }
 
       /* Flow List */
       .__eq_dbg_flow_header__ {

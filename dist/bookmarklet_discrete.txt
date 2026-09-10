@@ -771,7 +771,7 @@ ${a.detail}`:""}`).join(`
           </div>
         </div>
       </div>
-    `)}updateTabCounters(){if(!this.el)return;let e=this.el.querySelector("#__eq_cnt_all"),n=this.el.querySelector("#__eq_cnt_err"),o=this.el.querySelector("#__eq_cnt_flow"),i=this.el.querySelector("#__eq_cnt_dom"),a=this.el.querySelector("#__eq_cnt_ai");e&&(e.textContent=String(this.logs.length)),n&&(n.textContent=String(this.logs.filter(r=>r.category==="ERROR"||r.category==="WARN").length)),o&&(o.textContent=String(this.logs.filter(r=>r.category==="FLOW"||r.category==="KEY"||r.category==="CLICK").length)),i&&(i.textContent=String(this.logs.filter(r=>r.category==="DOM"||r.category==="ACTION").length)),a&&(a.textContent=String(this.logs.filter(r=>r.category==="AI").length));let s=this.el.querySelector("#__eq_tab_badge_flow__");s&&(s.textContent=this.currentFlow.length>0?`${this.currentStepIdx+1}/${this.currentFlow.length}`:"0")}updatePill(){if(!this.pillEl)return;let e=this.logs.filter(a=>a.category==="ERROR").length,n=this.currentFlow.length,o=n>0?`${this.currentStepIdx+1}/${n}`:"Idle",i=this.pillEl.querySelector(".__eq_pill_text__");i&&(i.textContent=`EQ Debug: ${o} ${e>0?`(${e} err)`:"\u2022 OK"}`)}createDom(){this.el=document.createElement("div"),this.el.id="__eq_dbg_window__",this.el.style.display="none",this.el.innerHTML=`
+    `)}updateTabCounters(){if(!this.el)return;let e=this.el.querySelector("#__eq_cnt_all"),n=this.el.querySelector("#__eq_cnt_err"),o=this.el.querySelector("#__eq_cnt_flow"),i=this.el.querySelector("#__eq_cnt_dom"),a=this.el.querySelector("#__eq_cnt_ai");e&&(e.textContent=String(this.logs.length)),n&&(n.textContent=String(this.logs.filter(r=>r.category==="ERROR"||r.category==="WARN"||r.category==="REPLAN").length)),o&&(o.textContent=String(this.logs.filter(r=>r.category==="FLOW"||r.category==="KEY"||r.category==="CLICK").length)),i&&(i.textContent=String(this.logs.filter(r=>r.category==="DOM"||r.category==="ACTION").length)),a&&(a.textContent=String(this.logs.filter(r=>r.category==="AI").length));let s=this.el.querySelector("#__eq_tab_badge_flow__");s&&(s.textContent=this.currentFlow.length>0?`${this.currentStepIdx+1}/${this.currentFlow.length}`:"0")}updatePill(){if(!this.pillEl)return;let e=this.logs.filter(a=>a.category==="ERROR").length,n=this.currentFlow.length,o=n>0?`${this.currentStepIdx+1}/${n}`:"Idle",i=this.pillEl.querySelector(".__eq_pill_text__");i&&(i.textContent=`EQ Debug: ${o} ${e>0?`(${e} err)`:"\u2022 OK"}`)}createDom(){this.el=document.createElement("div"),this.el.id="__eq_dbg_window__",this.el.style.display="none",this.el.innerHTML=`
       <div class="__eq_dbg_header__">
         <div class="__eq_dbg_tabs__">
           <button class="__eq_dbg_tab__ ${this.activeTab==="console"?"active":""}" data-tab="console">Console</button>
@@ -1039,9 +1039,11 @@ ${a.detail}`:""}`).join(`
       .__eq_bg_click__ { background: #2b3a4a; color: #78d9ec; }
       .__eq_bg_warn__  { background: #5c3b00; color: #fdd663; }
       .__eq_bg_error__ { background: #5c1d1d; color: #f28b82; }
+      .__eq_bg_replan__{ background: #4a2800; color: #ffb86c; }
 
       .__eq_cat_error__ { background: rgba(234,67,53,0.1); }
       .__eq_cat_warn__  { background: rgba(251,188,4,0.06); }
+      .__eq_cat_replan__{ background: rgba(255,184,108,0.08); }
 
       /* Flow List */
       .__eq_dbg_flow_header__ {

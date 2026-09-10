@@ -805,7 +805,7 @@ ${a.detail}`:&quot;&quot;}`).join(`
           &lt;/div&gt;
         &lt;/div&gt;
       &lt;/div&gt;
-    `)}updateTabCounters(){if(!this.el)return;let e=this.el.querySelector(&quot;#__eq_cnt_all&quot;),n=this.el.querySelector(&quot;#__eq_cnt_err&quot;),o=this.el.querySelector(&quot;#__eq_cnt_flow&quot;),i=this.el.querySelector(&quot;#__eq_cnt_dom&quot;),a=this.el.querySelector(&quot;#__eq_cnt_ai&quot;);e&amp;&amp;(e.textContent=String(this.logs.length)),n&amp;&amp;(n.textContent=String(this.logs.filter(r=&gt;r.category===&quot;ERROR&quot;||r.category===&quot;WARN&quot;).length)),o&amp;&amp;(o.textContent=String(this.logs.filter(r=&gt;r.category===&quot;FLOW&quot;||r.category===&quot;KEY&quot;||r.category===&quot;CLICK&quot;).length)),i&amp;&amp;(i.textContent=String(this.logs.filter(r=&gt;r.category===&quot;DOM&quot;||r.category===&quot;ACTION&quot;).length)),a&amp;&amp;(a.textContent=String(this.logs.filter(r=&gt;r.category===&quot;AI&quot;).length));let s=this.el.querySelector(&quot;#__eq_tab_badge_flow__&quot;);s&amp;&amp;(s.textContent=this.currentFlow.length&gt;0?`${this.currentStepIdx+1}/${this.currentFlow.length}`:&quot;0&quot;)}updatePill(){if(!this.pillEl)return;let e=this.logs.filter(a=&gt;a.category===&quot;ERROR&quot;).length,n=this.currentFlow.length,o=n&gt;0?`${this.currentStepIdx+1}/${n}`:&quot;Idle&quot;,i=this.pillEl.querySelector(&quot;.__eq_pill_text__&quot;);i&amp;&amp;(i.textContent=`EQ Debug: ${o} ${e&gt;0?`(${e} err)`:&quot;\u2022 OK&quot;}`)}createDom(){this.el=document.createElement(&quot;div&quot;),this.el.id=&quot;__eq_dbg_window__&quot;,this.el.style.display=&quot;none&quot;,this.el.innerHTML=`
+    `)}updateTabCounters(){if(!this.el)return;let e=this.el.querySelector(&quot;#__eq_cnt_all&quot;),n=this.el.querySelector(&quot;#__eq_cnt_err&quot;),o=this.el.querySelector(&quot;#__eq_cnt_flow&quot;),i=this.el.querySelector(&quot;#__eq_cnt_dom&quot;),a=this.el.querySelector(&quot;#__eq_cnt_ai&quot;);e&amp;&amp;(e.textContent=String(this.logs.length)),n&amp;&amp;(n.textContent=String(this.logs.filter(r=&gt;r.category===&quot;ERROR&quot;||r.category===&quot;WARN&quot;||r.category===&quot;REPLAN&quot;).length)),o&amp;&amp;(o.textContent=String(this.logs.filter(r=&gt;r.category===&quot;FLOW&quot;||r.category===&quot;KEY&quot;||r.category===&quot;CLICK&quot;).length)),i&amp;&amp;(i.textContent=String(this.logs.filter(r=&gt;r.category===&quot;DOM&quot;||r.category===&quot;ACTION&quot;).length)),a&amp;&amp;(a.textContent=String(this.logs.filter(r=&gt;r.category===&quot;AI&quot;).length));let s=this.el.querySelector(&quot;#__eq_tab_badge_flow__&quot;);s&amp;&amp;(s.textContent=this.currentFlow.length&gt;0?`${this.currentStepIdx+1}/${this.currentFlow.length}`:&quot;0&quot;)}updatePill(){if(!this.pillEl)return;let e=this.logs.filter(a=&gt;a.category===&quot;ERROR&quot;).length,n=this.currentFlow.length,o=n&gt;0?`${this.currentStepIdx+1}/${n}`:&quot;Idle&quot;,i=this.pillEl.querySelector(&quot;.__eq_pill_text__&quot;);i&amp;&amp;(i.textContent=`EQ Debug: ${o} ${e&gt;0?`(${e} err)`:&quot;\u2022 OK&quot;}`)}createDom(){this.el=document.createElement(&quot;div&quot;),this.el.id=&quot;__eq_dbg_window__&quot;,this.el.style.display=&quot;none&quot;,this.el.innerHTML=`
       &lt;div class=&quot;__eq_dbg_header__&quot;&gt;
         &lt;div class=&quot;__eq_dbg_tabs__&quot;&gt;
           &lt;button class=&quot;__eq_dbg_tab__ ${this.activeTab===&quot;console&quot;?&quot;active&quot;:&quot;&quot;}&quot; data-tab=&quot;console&quot;&gt;Console&lt;/button&gt;
@@ -1073,9 +1073,11 @@ ${a.detail}`:&quot;&quot;}`).join(`
       .__eq_bg_click__ { background: #2b3a4a; color: #78d9ec; }
       .__eq_bg_warn__  { background: #5c3b00; color: #fdd663; }
       .__eq_bg_error__ { background: #5c1d1d; color: #f28b82; }
+      .__eq_bg_replan__{ background: #4a2800; color: #ffb86c; }
 
       .__eq_cat_error__ { background: rgba(234,67,53,0.1); }
       .__eq_cat_warn__  { background: rgba(251,188,4,0.06); }
+      .__eq_cat_replan__{ background: rgba(255,184,108,0.08); }
 
       /* Flow List */
       .__eq_dbg_flow_header__ {
