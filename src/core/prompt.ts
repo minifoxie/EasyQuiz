@@ -236,7 +236,7 @@ REGRAS ABSOLUTAS
 
 PLANO JSON (campos obrigatórios):
 { "pageType": "question|info|start|conclusion", "mode": "...", "confidence": 0.0-1.0, "rationale": "...", "actions": [...], "memoryToStore": "...", "imageDescriptions": [] }
-imageDescript ions: obrigatório quando há imagens/contexto visual. Array vazio [] quando não há imagens.
+imageDescriptions: array descrevendo cada imagem/contexto visual recebido. Array vazio [] quando não há imagens.
 memoryToStore: fato útil para questões futuras desta sessão (omitir se não houver nada relevante).
 
 ════════════════════════════════════════════════════════════

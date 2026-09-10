@@ -163,14 +163,31 @@ async function rasterizeHtmlNode(node: HTMLElement): Promise<CapturedImage | nul
  * (não é ícone, logo, ornamento, avatar, etc.)
  */
 export function validateImageRelevance(el: Element, alt: string, width: number, height: number): boolean {
-  // 1. Dimensão mínima: imagens menores que 48x48 são certamente ícones
+  // 1. Se dimensoes são 0 (imagem não carregada) tenta via getBoundingClientRect
+  if (width <= 0 || height <= 0) {
+    const rect = typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect() : { width: 0, height: 0 }
+    width = rect.width || width
+    height = rect.height || height
+    // Se ainda for 0 após rect, verifica se tem src (potencialmente relevante) ou é claramente um ícone
+    if (width <= 0 || height <= 0) {
+      // Sem dimensoes: aceita se tiver alt/src relevante, rejeita orn/icon
+      const decorativeOnly = /\b(icon|logo|avatar|badge|emoji|spinner|loading)\b/i
+      if (alt && decorativeOnly.test(alt)) return false
+      const srcStr = el instanceof HTMLImageElement ? (el.src || '') : ''
+      if (srcStr && /\/icons?\/|\/logos?\/|\/avatars?\/|\/badges?\//i.test(srcStr)) return false
+      // Sem informações suficientes — inclui se tiver src ou alt não vazio
+      return !!(srcStr || alt)
+    }
+  }
+
+  // 2. Dimensão mínima: imagens menores que 48x48 são certamente ícones
   if (width < 48 || height < 48) return false
 
-  // 2. Proporção extrema sugere separador/banner decorativo (ex: 1000x8)
+  // 3. Proporção extrema sugere separador/banner decorativo (ex: 1000x8)
   const ratio = Math.max(width, height) / Math.max(1, Math.min(width, height))
   if (ratio > 15) return false
 
-  // 3. Atributos ou classes indicativas de ornamento/ícone/avatar/logo
+  // 4. Atributos ou classes indicativas de ornamento/ícone/avatar/logo
   const classStr = el.getAttribute('class') || ''
   const ariaHidden = el.getAttribute('aria-hidden')
   const role = el.getAttribute('role')
@@ -184,20 +201,20 @@ export function validateImageRelevance(el: Element, alt: string, width: number, 
   if (alt && decorativePatterns.test(alt)) return false
   if (srcStr && /\/icons?\/|\/logos?\/|\/avatars?\/|\/badges?\/|\/emojis?\//i.test(srcStr)) return false
 
-  // 4. Alt text vazio ou apresentacional geralmente = decoração
+  // 5. Alt text vazio ou apresentacional geralmente = decoração
   if (alt === '' || alt === ' ' || alt === '-') return false
 
-  // 5. Imagens que claramente são de conteúdo (gráficos, tabelas, mapas, diagramas)
+  // 6. Imagens que claramente são de conteúdo (gráficos, tabelas, mapas, diagramas)
   const contentPatterns = /\b(graph|chart|diagram|table|map|formula|equation|figure|plot|curve|histogram|scatter|matrix|image|foto|imagem|gráfico|tabela|mapa|fórmula|questão|enunciado|stimulus)\b/i
   if (contentPatterns.test(alt) || contentPatterns.test(classStr)) return true
 
-  // 6. Se a imagem está dentro de um container de questão/enunciado = relevante
+  // 7. Se a imagem está dentro de um container de questão/enunciado = relevante
   const questionContainer = el.closest(
     '[data-question], [class*="question" i], [class*="prompt" i], [class*="stimulus" i], [class*="enunciado" i], [class*="statement" i], article, .problem, .exercise'
   )
   if (questionContainer) return true
 
-  // 7. Por padrão: aceita se dimensão razoável (≥80x80)
+  // 8. Por padrão: aceita se dimensão razoável (≥80x80)
   return width >= 80 && height >= 80
 }
 
@@ -460,8 +477,10 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
   )
   for (const img of images) {
     try {
-      const w = img.naturalWidth || img.width || 0
-      const h = img.naturalHeight || img.height || 0
+      // Usa naturalWidth/naturalHeight e fallback para getBoundingClientRect
+      const rect = img.getBoundingClientRect()
+      const w = img.naturalWidth || rect.width || img.width || 0
+      const h = img.naturalHeight || rect.height || img.height || 0
       const alt = img.alt || ''
 
       // Valida relevância antes de tentar capturar

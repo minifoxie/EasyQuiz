@@ -350,35 +350,34 @@ async function initEasyQuiz(): Promise<void> {
       if (signal?.aborted) return
       panel.setExecutionReport(result)
 
-      // Log de falhas de drag com diagnóstico detalhado
+      // Log e replanejamento para QUALQUER tipo de ação que falhou
       if (result.failedActions && result.failedActions.length > 0) {
-        const dragFails = result.failedActions.filter(f => f.action.t === 'drag')
-        if (dragFails.length > 0) {
-          panel.logToConsole(
-            `> [DRAG] ⚠️ ${dragFails.length} ação(ões) de categorização falharam após todas as estratégias.`,
-            'text-yellow',
-          )
-          for (const fail of dragFails) {
-            const a = fail.action as any
-            panel.logToConsole(`>   ✗ "${a.from}" → "${a.to}" | ${fail.evidence}`, 'text-yellow')
-          }
-          // Tenta executar fallback JS imediatamente
-          await runDragFallback(dragFails, signal)
+        panel.logToConsole(
+          `> [REPLAN] ⚠️ ${result.failedActions.length} ação(ões) não verificadas no DOM. Iniciando replanejamento...`,
+          'text-yellow',
+        )
+        for (const fail of result.failedActions) {
+          const a = fail.action as any
+          const label = a.t === 'drag' ? `drag: "${a.from}" → "${a.to}"` :
+            a.t === 'clk' || a.t === 'chk' ? `${a.t}: "${a.id}"` :
+            a.t === 'val' ? `val: "${a.id}" = "${a.v}"` :
+            JSON.stringify(a).slice(0, 80)
+          panel.logToConsole(`>   ✗ [${a.t.toUpperCase()}] ${label} | ${fail.evidence.slice(0, 80)}`, 'text-yellow')
         }
+        await runActionFallback(result.failedActions, signal)
       }
+      // Aplica\u00e7\u00e3o bem-sucedida:
+      // - success=true significa que TODAS as a\u00e7\u00f5es foram verificadas no DOM
+      // - Tamb\u00e9m aceita resultado parcial se pelo menos 1 foi verificada (n\u00e3o apenas aplicada)
       const elapsedMs = currentQuestionStartTime > 0 ? Date.now() - currentQuestionStartTime : 1200
-      const regularActionsCount = latestPlan.actions.filter((a) => a.t !== 'adv' && a.t !== 'js').length
-      const isQuestion = latestPlan.pageType === 'question' || regularActionsCount > 0
-      // Aplicação bem sucedida: qualquer ação prescrita aplicada com sucesso no DOM
+      const hasVerified = result.verified > 0
       const hasApplied = result.applied > 0
-      const isStrictSuccess = isQuestion
-        ? (result.success || hasApplied)
-        : (result.success || result.advanced)
+      const isStrictSuccess = result.success || (hasVerified && hasApplied)
 
-      if (isStrictSuccess || hasApplied) {
+      if (isStrictSuccess) {
         panel.setProgress(100, 'Sucesso! Resposta preenchida.')
         panel.logToConsole(
-          `> [DOM] ✓ ${result.applied} ação(ões) aplicada(s) com sucesso na página!`,
+          `> [DOM] ✓ ${result.applied} ação(ões) aplicada(s) — ${result.verified} verificada(s) no DOM.`,
           'text-green',
         )
         if (result.advanced) {
@@ -406,6 +405,14 @@ async function initEasyQuiz(): Promise<void> {
           actionsCount: result.applied,
         })
         panel.updateTimingMetrics(metrics)
+      } else if (hasApplied) {
+        // Aplicou mas não verificou — possivelmente aplicação correta mas sem evidência DOM clara
+        panel.setProgress(75, 'Resposta aplicada (verificação incerta).')
+        panel.logToConsole(
+          `> [DOM] ⚠️ ${result.applied} ação(ões) disparadas mas sem confirmação DOM clara. Pendentes: ${result.failed.join(', ') || 'nenhuma'}`,
+          'text-yellow',
+        )
+        panel.setStatus(`Resposta preenchida (${result.applied} ação(ões) aplicadas, verificação incerta).`, 'warning')
       } else {
         // Nenhuma ação aplicada (alvo de resposta não localizado no DOM)
         panel.setProgress(0, 'Alvo de resposta não localizado.')
@@ -430,32 +437,101 @@ async function initEasyQuiz(): Promise<void> {
     }
   }
 
-  async function runDragFallback(fails: FailedActionDetail[], signal?: AbortSignal): Promise<void> {
-    if (!latestPlan) return
-    panel.logToConsole('> [REPLAN] 🔄 Gerando fallback JS para drag/categorização...', 'text-blue')
-    try {
-      for (const fail of fails) {
-        if (signal?.aborted) return
-        const a = fail.action as any
-        const fromStr = String(a.from || '')
-        const toStr = String(a.to || '')
-        const js = buildDragFallbackJs(fromStr, toStr, fromStr, toStr)
-        panel.logToConsole(`> [REPLAN] JS fallback para: "${fromStr}" → "${toStr}"`, 'text-blue')
+  /**
+   * Re-planejamento automático para QUALQUER ação que falhou.
+   * - Drag: gera JS direto via buildDragFallbackJs
+   * - Clique, checkbox, valor, seleção: re-consulta a IA com diagnóstico focado e pede JS de injeção
+   */
+  async function runActionFallback(fails: FailedActionDetail[], signal?: AbortSignal): Promise<void> {
+    if (!latestPlan || !latestContext) return
 
-        const fallbackPlan: AnalysisPlan = {
-          ...latestPlan,
-          actions: [{ t: 'js', v: js }],
-          pageType: 'question',
-        }
-        const fallbackResult = await executePlan(fallbackPlan, false, 1, createExecutionPolicy(settings))
-        if (fallbackResult.applied > 0) {
-          panel.logToConsole('> [REPLAN] ✅ Fallback JS aplicado!', 'text-green')
-        } else {
-          panel.logToConsole('> [REPLAN] ✗ Fallback JS sem efeito visível.', 'text-yellow')
-        }
+    // --- 1. Drag failures → JS procedural imediato ---
+    const dragFails = fails.filter(f => f.action.t === 'drag')
+    for (const fail of dragFails) {
+      if (signal?.aborted) return
+      const a = fail.action as any
+      const fromStr = String(a.from || '')
+      const toStr = String(a.to || '')
+      const js = buildDragFallbackJs(fromStr, toStr, fromStr, toStr)
+      panel.logToConsole(`> [REPLAN] 🔧 Drag JS fallback: "${fromStr}" → "${toStr}"`, 'text-blue')
+      const fp: AnalysisPlan = { ...latestPlan, actions: [{ t: 'js', v: js }], pageType: 'question' }
+      const fr = await executePlan(fp, false, 1, createExecutionPolicy(settings))
+      panel.logToConsole(fr.applied > 0 ? '> [REPLAN] ✅ Drag fallback aplicado!' : '> [REPLAN] ✗ Drag fallback sem efeito.', fr.applied > 0 ? 'text-green' : 'text-yellow')
+    }
+
+    // --- 2. Demais falhas → Re-consulta à IA com contexto de diagnóstico ---
+    const nonDragFails = fails.filter(f => f.action.t !== 'drag')
+    if (nonDragFails.length === 0) return
+    if (signal?.aborted) return
+
+    panel.logToConsole('> [REPLAN] 🔄 Re-consultando IA para ações não aplicadas...', 'text-blue')
+
+    // Captura estado atual do DOM ao redor dos controles que falharam
+    const failSummary = nonDragFails.map(f => {
+      const a = f.action as any
+      let domSnap = ''
+      try {
+        // Tenta capturar HTML do elemento alvo para diagnóstico
+        const el = document.querySelector(`[data-easyquiz-id="${a.id}"]`) ||
+          document.getElementById(a.id || '') ||
+          Array.from(document.querySelectorAll('input, button, [role="radio"], [role="checkbox"], [role="option"]'))
+            .find(e => (e.textContent || '').toLowerCase().includes(String(a.id || '').toLowerCase().slice(0, 20)))
+        if (el) domSnap = el.outerHTML.slice(0, 300)
+      } catch {}
+
+      return `Ação (${a.t}) alvo="${a.id || a.from || ''}" valor="${a.v || a.c || ''}" — Falha: "${f.evidence.slice(0, 80)}"${domSnap ? `\nHTML do alvo: ${domSnap}` : ''}`
+    }).join('\n---\n')
+
+    // Gera um prompt focado pedindo JS de injeção
+    const replanPrompt = `
+[REPLANEJAMENTO URGENTE]
+As seguintes ações foram geradas mas NÃO foram verificadas no DOM após 3 tentativas automáticas:
+${failSummary}
+
+Contexto da questão atual:
+${latestContext.questionText.slice(0, 500)}
+
+Controles disponíveis na página (JSON):
+${JSON.stringify(latestContext.controls.slice(0, 8).map(c => ({ id: c.id, type: c.type, label: c.label, options: c.options?.slice(0, 4) })), null, 2)}
+
+Gere APENAS ações {t:"js"} com código JavaScript que use $eq.find(id) ou document.querySelector para localizar e marcar/preencher/clicar o controle correto DIRETAMENTE.
+Use: $eq.find(id)?.click() ou setNativeValue equivalente via descriptor.
+NÃO repita as mesmas ações que falharam. Crie código JS robusto como fallback.
+`
+
+    try {
+      const ctx = { ...latestContext, questionText: replanPrompt }
+      const replanResult = await analyzeWithGemini(
+        ctx,
+        [], // sem imagens no replan
+        { ...settings, model: settings.model }, // mantém o modelo atual
+        (msg, type) => panel.logToConsole(`> [REPLAN-API] ${msg}`, type === 'error' ? 'text-red' : 'text-blue'),
+        signal,
+      )
+
+      if (signal?.aborted || !replanResult?.plan) {
+        panel.logToConsole('> [REPLAN] ✗ Re-consulta não retornou plano.', 'text-yellow')
+        return
+      }
+
+      const replanPlan = replanResult.plan
+      const jsActions = replanPlan.actions.filter(a => a.t === 'js')
+
+      if (jsActions.length === 0) {
+        panel.logToConsole('> [REPLAN] ℹ️ IA não gerou ações JS de fallback.', 'text-yellow')
+        return
+      }
+
+      panel.logToConsole(`> [REPLAN] 🤖 IA gerou ${jsActions.length} ação(ões) JS de fallback. Executando...`, 'text-blue')
+      const fallbackPlan: AnalysisPlan = { ...latestPlan, actions: jsActions, pageType: 'question' }
+      const fallbackResult = await executePlan(fallbackPlan, false, 1, createExecutionPolicy(settings))
+      if (fallbackResult.applied > 0) {
+        panel.logToConsole(`> [REPLAN] ✅ Replan aplicado: ${fallbackResult.applied} ação(ões) JS executada(s)!`, 'text-green')
+      } else {
+        panel.logToConsole('> [REPLAN] ✗ Replan executado mas sem efeito DOM confirmado.', 'text-yellow')
       }
     } catch (e) {
-      panel.logToConsole(`> [REPLAN] Erro: ${e instanceof Error ? e.message : String(e)}`, 'text-yellow')
+      panel.logToConsole(`> [REPLAN] Erro na re-consulta: ${e instanceof Error ? e.message : String(e)}`, 'text-yellow')
     }
   }
 

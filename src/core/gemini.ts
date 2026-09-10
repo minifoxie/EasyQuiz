@@ -143,7 +143,7 @@ const GEMINI_JSON_SCHEMA = {
           relevant:       { type: 'BOOLEAN' },
           associatedLabel:{ type: 'STRING' },
         },
-        required: ['index', 'description', 'relevant'],
+        // Nota: 'required' omitido intencionalmente nos items para compatibilidade com todas as versoes da API Gemini
       },
     },
     actions: {
