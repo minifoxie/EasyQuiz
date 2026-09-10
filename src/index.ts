@@ -4,7 +4,7 @@ import { addSessionMemory, loadSettings, saveSettings, recordQuestionTiming, loa
 import { createExecutionPolicy } from './core/policy'
 import type { AnalysisPlan, EasyQuizSettings, FailedActionDetail } from './core/types'
 import { captureCurrentContext, captureFullPageText } from './dom/detector'
-import { executePlan, setupSmartOptionInterceptors, buildDragFallbackJs } from './dom/executor'
+import { executePlan, setupSmartOptionInterceptors, buildDragFallbackJs, injectClickViaScript, findElementExt, verifyActionApplied, executeAlternativeActionPath } from './dom/executor'
 import { clearHighlights, highlightAttachedImages, highlightScope, highlightTargetActions } from './dom/highlighter'
 import { captureImages } from './media/capture'
 import { EasyQuizPanel } from './ui/panel'
@@ -439,13 +439,13 @@ async function initEasyQuiz(): Promise<void> {
 
   /**
    * Re-planejamento automático para QUALQUER ação que falhou.
-   * - Drag: gera JS direto via buildDragFallbackJs
-   * - Clique, checkbox, valor, seleção: re-consulta a IA com diagnóstico focado e pede JS de injeção
+   * Pipeline de 5 estratégias progressivas — cada uma verifica o DOM após tentar.
+   * Para assim que uma estratégia tiver sucesso.
    */
   async function runActionFallback(fails: FailedActionDetail[], signal?: AbortSignal): Promise<void> {
-    if (!latestPlan || !latestContext) return
+    if (!latestPlan) return
 
-    // --- 1. Drag failures → JS procedural imediato ---
+    // --- 0. Drag failures → JS procedural imediato (rota especial) ---
     const dragFails = fails.filter(f => f.action.t === 'drag')
     for (const fail of dragFails) {
       if (signal?.aborted) return
@@ -459,79 +459,178 @@ async function initEasyQuiz(): Promise<void> {
       panel.logToConsole(fr.applied > 0 ? '> [REPLAN] ✅ Drag fallback aplicado!' : '> [REPLAN] ✗ Drag fallback sem efeito.', fr.applied > 0 ? 'text-green' : 'text-yellow')
     }
 
-    // --- 2. Demais falhas → Re-consulta à IA com contexto de diagnóstico ---
+    // --- Demais falhas (não-drag) — Pipeline de 5 estratégias ---
     const nonDragFails = fails.filter(f => f.action.t !== 'drag')
     if (nonDragFails.length === 0) return
     if (signal?.aborted) return
 
-    panel.logToConsole('> [REPLAN] 🔄 Re-consultando IA para ações não aplicadas...', 'text-blue')
+    panel.logToConsole(`> [REPLAN] 🔄 ${nonDragFails.length} ação(ões) pendente(s) — iniciando pipeline de recuperação multi-estratégia...`, 'text-blue')
 
-    // Captura estado atual do DOM ao redor dos controles que falharam
-    const failSummary = nonDragFails.map(f => {
-      const a = f.action as any
-      let domSnap = ''
+    for (const fail of nonDragFails) {
+      if (signal?.aborted) return
+      const a = fail.action as any
+      const label = a.t === 'clk' || a.t === 'chk' ? `${a.t}: "${a.id}"` :
+        a.t === 'val' ? `val: "${a.id}" = "${a.v}"` :
+        a.t === 'sel' ? `sel: "${a.id}" = "${Array.isArray(a.v) ? a.v[0] : a.v}"` :
+        JSON.stringify(a).slice(0, 60)
+
+      panel.logToConsole(`> [REPLAN] ⚡ Recuperando: ${label}`, 'text-blue')
+
+      const elId = String(a.id || a.name || a.selector || '')
+      const valHint = a.v !== undefined ? String(a.v) : ''
+
+      // ESTRATÉGIA 1: executeAlternativeActionPath (rota alternativa padrão)
+      panel.logToConsole(`> [REPLAN] Estratégia 1: rota alternativa padrão...`, 'text-blue')
       try {
-        // Tenta capturar HTML do elemento alvo para diagnóstico
-        const el = document.querySelector(`[data-easyquiz-id="${a.id}"]`) ||
-          document.getElementById(a.id || '') ||
-          Array.from(document.querySelectorAll('input, button, [role="radio"], [role="checkbox"], [role="option"]'))
-            .find(e => (e.textContent || '').toLowerCase().includes(String(a.id || '').toLowerCase().slice(0, 20)))
-        if (el) domSnap = el.outerHTML.slice(0, 300)
+        await executeAlternativeActionPath(fail.action)
+        await new Promise(r => setTimeout(r, 250))
+        if (verifyActionApplied(fail.action)) {
+          panel.logToConsole(`> [REPLAN] ✅ Estratégia 1 OK: ${label}`, 'text-green')
+          continue
+        }
       } catch {}
 
-      return `Ação (${a.t}) alvo="${a.id || a.from || ''}" valor="${a.v || a.c || ''}" — Falha: "${f.evidence.slice(0, 80)}"${domSnap ? `\nHTML do alvo: ${domSnap}` : ''}`
-    }).join('\n---\n')
-
-    // Gera um prompt focado pedindo JS de injeção
-    const replanPrompt = `
-[REPLANEJAMENTO URGENTE]
-As seguintes ações foram geradas mas NÃO foram verificadas no DOM após 3 tentativas automáticas:
-${failSummary}
-
-Contexto da questão atual:
-${latestContext.questionText.slice(0, 500)}
-
-Controles disponíveis na página (JSON):
-${JSON.stringify(latestContext.controls.slice(0, 8).map(c => ({ id: c.id, type: c.type, label: c.label, options: c.options?.slice(0, 4) })), null, 2)}
-
-Gere APENAS ações {t:"js"} com código JavaScript que use $eq.find(id) ou document.querySelector para localizar e marcar/preencher/clicar o controle correto DIRETAMENTE.
-Use: $eq.find(id)?.click() ou setNativeValue equivalente via descriptor.
-NÃO repita as mesmas ações que falharam. Crie código JS robusto como fallback.
-`
-
-    try {
-      const ctx = { ...latestContext, questionText: replanPrompt }
-      const replanResult = await analyzeWithGemini(
-        ctx,
-        [], // sem imagens no replan
-        { ...settings, model: settings.model }, // mantém o modelo atual
-        (msg, type) => panel.logToConsole(`> [REPLAN-API] ${msg}`, type === 'error' ? 'text-red' : 'text-blue'),
-        signal,
-      )
-
-      if (signal?.aborted || !replanResult?.plan) {
-        panel.logToConsole('> [REPLAN] ✗ Re-consulta não retornou plano.', 'text-yellow')
-        return
+      // ESTRATÉGIA 2: injectClickViaScript (bypass isTrusted via <script> injection)
+      if (a.t === 'clk' || a.t === 'chk') {
+        panel.logToConsole(`> [REPLAN] Estratégia 2: script injection (bypass isTrusted)...`, 'text-blue')
+        try {
+          const el = findElementExt(elId, valHint) || findElementExt(elId.replace(/[^\w\s]/g, ' ').trim(), valHint)
+          if (el) {
+            injectClickViaScript(el)
+            await new Promise(r => setTimeout(r, 300))
+            if (verifyActionApplied(fail.action)) {
+              panel.logToConsole(`> [REPLAN] ✅ Estratégia 2 OK: ${label}`, 'text-green')
+              continue
+            }
+          }
+        } catch {}
       }
 
-      const replanPlan = replanResult.plan
-      const jsActions = replanPlan.actions.filter(a => a.t === 'js')
-
-      if (jsActions.length === 0) {
-        panel.logToConsole('> [REPLAN] ℹ️ IA não gerou ações JS de fallback.', 'text-yellow')
-        return
+      // ESTRATÉGIA 3: Keyboard simulation (Tab focus + Space/Enter)
+      // Frameworks como react-aria preferem eventos de teclado em vez de mouse
+      if (a.t === 'clk' || a.t === 'chk') {
+        panel.logToConsole(`> [REPLAN] Estratégia 3: simulação de teclado (Tab+Space)...`, 'text-blue')
+        try {
+          const el = findElementExt(elId, valHint) || findElementExt(elId.replace(/[^\w\s]/g, ' ').trim(), valHint)
+          if (el) {
+            el.focus?.()
+            await new Promise(r => setTimeout(r, 50))
+            el.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', keyCode: 32, bubbles: true, cancelable: true }))
+            el.dispatchEvent(new KeyboardEvent('keyup', { key: ' ', code: 'Space', keyCode: 32, bubbles: true, cancelable: true }))
+            await new Promise(r => setTimeout(r, 80))
+            el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true }))
+            el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true }))
+            await new Promise(r => setTimeout(r, 200))
+            if (verifyActionApplied(fail.action)) {
+              panel.logToConsole(`> [REPLAN] ✅ Estratégia 3 OK: ${label}`, 'text-green')
+              continue
+            }
+          }
+        } catch {}
       }
 
-      panel.logToConsole(`> [REPLAN] 🤖 IA gerou ${jsActions.length} ação(ões) JS de fallback. Executando...`, 'text-blue')
-      const fallbackPlan: AnalysisPlan = { ...latestPlan, actions: jsActions, pageType: 'question' }
-      const fallbackResult = await executePlan(fallbackPlan, false, 1, createExecutionPolicy(settings))
-      if (fallbackResult.applied > 0) {
-        panel.logToConsole(`> [REPLAN] ✅ Replan aplicado: ${fallbackResult.applied} ação(ões) JS executada(s)!`, 'text-green')
-      } else {
-        panel.logToConsole('> [REPLAN] ✗ Replan executado mas sem efeito DOM confirmado.', 'text-yellow')
+      // ESTRATÉGIA 4: Vue/React internals via <script> injection com acesso a instâncias
+      if (a.t === 'clk' || a.t === 'chk' || a.t === 'val') {
+        panel.logToConsole(`> [REPLAN] Estratégia 4: internals Vue/React via script injection...`, 'text-blue')
+        try {
+          const el = findElementExt(elId, valHint) || findElementExt(elId.replace(/[^\w\s]/g, ' ').trim(), valHint)
+          if (el) {
+            let scriptTid = el.id
+            const hadId = !!scriptTid
+            if (!scriptTid) {
+              scriptTid = `__eq_s4_${Math.random().toString(36).slice(2, 8)}`
+              el.id = scriptTid
+            }
+            const valStr = String(a.v ?? '')
+            const isVal = a.t === 'val'
+            const script = document.createElement('script')
+            script.textContent = `(function(){
+              var el=document.getElementById(${JSON.stringify(scriptTid)});
+              if(!el)return;
+              // Tenta Vue 3 update trigger
+              try{if(el.__vueParentComponent){var ins=el.__vueParentComponent;var pr=ins.props||{};if(pr.modelValue!==undefined&&typeof ins.emit==='function'){ins.emit('update:modelValue',${isVal ? JSON.stringify(valStr) : 'true'});}}}catch(e){}
+              // Tenta React setState via fiber
+              try{var fk=Object.keys(el).find(function(k){return k.startsWith('__reactFiber');});
+              if(fk){var fb=el[fk];while(fb){var p=fb.memoizedProps||{};
+              if(typeof p.onChange==='function')try{p.onChange({target:el,currentTarget:el,type:'change',bubbles:true,preventDefault:function(){},stopPropagation:function(){}});}catch(e){}
+              if(typeof p.onInput==='function')try{p.onInput({target:el,currentTarget:el,type:'input',bubbles:true,preventDefault:function(){},stopPropagation:function(){}});}catch(e){}
+              fb=fb.return;}}}catch(e){}
+            })()`.replace(/\n\s+/g, '')
+            document.head.appendChild(script)
+            script.remove()
+            if (!hadId) setTimeout(() => { try { if (el.id === scriptTid) el.removeAttribute('id') } catch {} }, 0)
+            await new Promise(r => setTimeout(r, 300))
+            if (verifyActionApplied(fail.action)) {
+              panel.logToConsole(`> [REPLAN] ✅ Estratégia 4 OK: ${label}`, 'text-green')
+              continue
+            }
+          }
+        } catch {}
       }
-    } catch (e) {
-      panel.logToConsole(`> [REPLAN] Erro na re-consulta: ${e instanceof Error ? e.message : String(e)}`, 'text-yellow')
+
+      // ESTRATÉGIA 5: Re-consulta IA com contexto de diagnóstico rico + pedido de JS customizado
+      if (signal?.aborted) return
+      panel.logToConsole(`> [REPLAN] Estratégia 5: re-consulta IA com diagnóstico focado...`, 'text-blue')
+
+      try {
+        let domSnap = ''
+        try {
+          const el = document.querySelector(`[data-easyquiz-id="${a.id}"]`) ||
+            document.getElementById(a.id || '') ||
+            Array.from(document.querySelectorAll('input, button, [role="radio"], [role="checkbox"], [role="option"]'))
+              .find(e => (e.textContent || '').toLowerCase().includes(String(a.id || '').toLowerCase().slice(0, 20)))
+          if (el) domSnap = (el as HTMLElement).outerHTML.slice(0, 400)
+        } catch {}
+
+        const ctx = captureCurrentContext(false) || captureFullPageText()
+        const failDescription = `Ação (${a.t}) alvo="${elId}" valor="${a.v || a.c || ''}" — Falha: "${fail.evidence.slice(0, 80)}"${domSnap ? `\nHTML do alvo: ${domSnap}` : ''}`
+        const strategiesAttempted = (fail as any).strategiesAttempted ? [(fail as any).strategiesAttempted].flat().concat(['alternative-path', 'injectScript', 'keyboard', 'vue-react-internals']) : ['alternative-path', 'injectScript', 'keyboard', 'vue-react-internals']
+
+        const replanPrompt = `[REPLANEJAMENTO URGENTE — TENTATIVA FINAL]
+A seguinte ação falhou após ${strategiesAttempted.length} estratégias automáticas: ${strategiesAttempted.join(', ')}.
+
+${failDescription}
+
+Contexto atual da questão:
+${ctx?.questionText.slice(0, 400) || 'N/A'}
+
+Controles disponíveis:
+${JSON.stringify((ctx?.controls || []).slice(0, 6).map(c => ({ id: c.id, type: c.type, label: c.label, options: c.options?.slice(0, 3) })), null, 2)}
+
+TAREFA: Gere APENAS ações {t:"js"} com JavaScript criativo e robusto que consiga marcar/preencher/clicar o controle correto. 
+Tente usar: document.querySelector, getComputedStyle, querySelectorAll com seletores diferentes, ou manipulação DOM direta.
+Você pode tentar múltiplas abordagens em um único bloco JS. Seja criativo.
+NÃO repita as estratégias já tentadas acima.`
+
+        const replanCtx = { ...ctx!, questionText: replanPrompt }
+        const replanResult = await analyzeWithGemini(
+          replanCtx, [], { ...settings },
+          (msg) => panel.logToConsole(`> [REPLAN-AI] ${msg}`, 'text-blue'),
+          signal,
+        )
+
+        if (signal?.aborted || !replanResult?.plan) {
+          panel.logToConsole('> [REPLAN] ✗ Re-consulta não retornou plano.', 'text-yellow')
+          continue
+        }
+
+        const jsActions = replanResult.plan.actions.filter(a => a.t === 'js')
+        if (jsActions.length === 0) {
+          panel.logToConsole('> [REPLAN] ℹ️ IA não gerou ações JS de fallback.', 'text-yellow')
+          continue
+        }
+
+        panel.logToConsole(`> [REPLAN] 🤖 IA gerou ${jsActions.length} ação(ões) JS custom. Executando...`, 'text-blue')
+        const fallbackPlan: AnalysisPlan = { ...latestPlan, actions: jsActions, pageType: 'question' }
+        const fallbackResult = await executePlan(fallbackPlan, false, 1, createExecutionPolicy(settings))
+        if (fallbackResult.applied > 0) {
+          panel.logToConsole(`> [REPLAN] ✅ Estratégia 5 OK: ${fallbackResult.applied} ação(ões) JS executada(s)!`, 'text-green')
+        } else {
+          panel.logToConsole('> [REPLAN] ✗ Todas as estratégias esgotadas para esta ação.', 'text-yellow')
+        }
+      } catch (e) {
+        panel.logToConsole(`> [REPLAN] Erro na re-consulta: ${e instanceof Error ? e.message : String(e)}`, 'text-yellow')
+      }
     }
   }
 

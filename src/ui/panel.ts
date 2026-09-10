@@ -79,7 +79,7 @@ export class EasyQuizPanel {
   private floatingAnswers: FloatingAnswersHud
   private initialSettings: EasyQuizSettings
   private isCollapsed: boolean = false
-  private activeTab: 'resolver' | 'brain' | 'metrics' | 'debug' | 'settings' = 'resolver'
+  private activeTab: 'resolver' | 'brain' | 'media' | 'metrics' | 'debug' | 'settings' = 'resolver'
   private isBusy: boolean = false
   private stopwatchInterval: any = null
   private stopwatchStartTime: number = 0
@@ -276,6 +276,11 @@ export class EasyQuizPanel {
                 <span class="eq-activity-icon">${ICONS.chip}</span>
               </button>
 
+              <button class="eq-activity-btn" id="eq-tab-media" role="tab" title="Mídias & Imagens (Capturas enviadas à IA e Interpretações)">
+                <span class="eq-activity-indicator"></span>
+                <span class="eq-activity-icon">${ICONS.image}</span>
+              </button>
+
               <button class="eq-activity-btn" id="eq-tab-metrics" role="tab" title="Métricas & Cronômetro (Tempo por Questão e Histórico)">
                 <span class="eq-activity-indicator"></span>
                 <span class="eq-activity-icon">${ICONS.stopwatch}</span>
@@ -439,6 +444,27 @@ export class EasyQuizPanel {
                 </div>
 
                 <div class="eq-footer-note" style="margin-top: auto;">Inspetor em Tempo Real • 100% Transparente</div>
+              </div>
+
+              <!-- TAB 2.5: MÍDIAS E IMAGENS -->
+              <div class="eq-view-pane" id="eq-view-media" style="display: none;">
+                <div class="eq-operation-header" style="margin-bottom: 8px;">
+                  <div>
+                    <div class="eq-eyebrow">CONTEXTO VISUAL</div>
+                    <h1 class="eq-operation-title" style="font-size: 15px;">Mídias da IA</h1>
+                    <p class="eq-operation-subtitle">Imagens capturadas e interpretação da IA para cada uma.</p>
+                  </div>
+                  <span class="eq-brand-badge" id="eq-media-count-badge" style="background: rgba(88,101,242,0.2); color: #7983f5;">0 mídias</span>
+                </div>
+
+                <div id="eq-media-grid" style="display: flex; flex-direction: column; gap: 12px; flex: 1; overflow-y: auto;">
+                  <div class="text-muted" style="padding: 16px 0; text-align: center;">
+                    Nenhuma imagem capturada ainda.<br>
+                    <span style="font-size: 10px; opacity: 0.6;">Ative “Visão Computacional” nas configurações e execute uma análise.</span>
+                  </div>
+                </div>
+
+                <div class="eq-footer-note" style="margin-top: auto;">Capturas Visuais • Interpretação IA em Tempo Real</div>
               </div>
 
               <!-- TAB 3: MÉTRICAS & CRONÔMETRO -->
@@ -898,11 +924,12 @@ export class EasyQuizPanel {
     }
   }
 
-  private switchTab(tab: 'resolver' | 'brain' | 'metrics' | 'debug' | 'settings') {
+  private switchTab(tab: 'resolver' | 'brain' | 'media' | 'metrics' | 'debug' | 'settings') {
     this.activeTab = tab
-    const tabs: Array<'resolver' | 'brain' | 'metrics' | 'debug' | 'settings'> = [
+    const tabs: Array<'resolver' | 'brain' | 'media' | 'metrics' | 'debug' | 'settings'> = [
       'resolver',
       'brain',
+      'media',
       'metrics',
       'debug',
       'settings',
@@ -923,6 +950,8 @@ export class EasyQuizPanel {
     if (tab === 'brain') {
       this.renderContextTree()
       this.refreshInspectorView()
+    } else if (tab === 'media') {
+      this.renderMediaTab()
     } else if (tab === 'metrics') {
       this.updateTimingMetrics()
     } else if (tab === 'debug') {
@@ -935,6 +964,7 @@ export class EasyQuizPanel {
     // Abas do Activity Bar Vertical
     this.shadow.querySelector('#eq-tab-resolver')?.addEventListener('click', () => this.switchTab('resolver'))
     this.shadow.querySelector('#eq-tab-brain')?.addEventListener('click', () => this.switchTab('brain'))
+    this.shadow.querySelector('#eq-tab-media')?.addEventListener('click', () => this.switchTab('media'))
     this.shadow.querySelector('#eq-tab-metrics')?.addEventListener('click', () => this.switchTab('metrics'))
     this.shadow.querySelector('#eq-tab-debug')?.addEventListener('click', () => this.switchTab('debug'))
     this.shadow.querySelector('#eq-tab-settings')?.addEventListener('click', () => this.switchTab('settings'))
@@ -1999,6 +2029,8 @@ export class EasyQuizPanel {
       // Atualiza descrições de imagem do plano
       if (plan.imageDescriptions) {
         this.latestImageDescriptions = plan.imageDescriptions
+        // Sincroniza a aba de Mídias com as interpretações da IA
+        this.renderMediaTab()
       }
     }
     if (this.activeTab === 'brain') {
@@ -2015,6 +2047,87 @@ export class EasyQuizPanel {
     if (this.activeTab === 'brain') {
       this.renderContextTree()
     }
+    if (this.activeTab === 'media' || images.length > 0) {
+      this.renderMediaTab()
+    }
+  }
+
+  public renderMediaTab(): void {
+    const grid = this.shadow?.querySelector('#eq-media-grid') as HTMLElement | null
+    const badge = this.shadow?.querySelector('#eq-media-count-badge') as HTMLElement | null
+    if (!grid) return
+
+    const imgs = this.latestImages
+    const descs = this.latestImageDescriptions
+
+    if (badge) badge.textContent = `${imgs.length} mídias`
+
+    if (imgs.length === 0) {
+      grid.innerHTML = `
+        <div class="text-muted" style="padding: 16px 0; text-align: center;">
+          Nenhuma imagem capturada ainda.<br>
+          <span style="font-size: 10px; opacity: 0.6;">Ative “Visão Computacional” nas configurações e execute uma análise.</span>
+        </div>`
+      return
+    }
+
+    grid.innerHTML = ''
+    imgs.forEach((img, idx) => {
+      const desc = descs.find(d => d.index === idx)
+      const statusIcon = img.captureStatus === 'captured' ? '✅' : img.captureStatus === 'text_only' ? '📝' : '❌'
+      const statusLabel = img.captureStatus === 'captured' ? 'Visual' : img.captureStatus === 'text_only' ? 'Texto' : 'Falhou'
+      const isRelevant = desc?.relevant ?? true
+      const aiText = desc?.description ?? (img.textContext || 'Aguardando análise da IA...')
+
+      const card = document.createElement('div')
+      card.style.cssText = [
+        'background: rgba(255,255,255,0.04)',
+        'border: 1px solid rgba(255,255,255,0.08)',
+        'border-radius: 8px',
+        'overflow: hidden',
+        `border-left: 3px solid ${isRelevant ? '#5865f2' : '#666'}`,
+      ].join(';')
+
+      // Thumbnail da imagem
+      let imgHtml = ''
+      if (img.data && img.data.startsWith('data:image')) {
+        imgHtml = `
+          <div style="position: relative; background: #111; border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <img src="${img.data}" 
+              style="width: 100%; max-height: 180px; object-fit: contain; display: block; cursor: pointer;"
+              alt="Captura ${idx + 1}"
+              title="Clique para ampliar"
+              onclick="(function(el){ var ov=document.createElement('div'); ov.style='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;cursor:zoom-out;'; var img=document.createElement('img'); img.src=el.src; img.style='max-width:95vw;max-height:95vh;border-radius:6px;'; ov.appendChild(img); ov.onclick=function(){ov.remove();}; document.body.appendChild(ov); })(this)"
+            >
+            <div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.7);border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;color:#fff;">
+              ${statusIcon} ${statusLabel}
+            </div>
+          </div>`
+      } else {
+        imgHtml = `
+          <div style="background:#1a1a1a; padding:12px; text-align:center; color:#666; font-size:11px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+            ${statusIcon} ${statusLabel} — sem dados de imagem
+          </div>`
+      }
+
+      // Metadados e descrição da IA
+      const relevanceBadge = isRelevant
+        ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(88,101,242,0.2);border:1px solid rgba(88,101,242,0.4);color:#7983f5;">RELEVANTE</span>'
+        : '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(255,85,85,0.2);border:1px solid rgba(255,85,85,0.4);color:#ff5555;">IGNORADA</span>'
+
+      const metaHtml = `
+        <div style="padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size:11px;font-weight:700;color:#e0e0e0;">Imagem ${idx + 1}</span>
+            ${relevanceBadge}
+          </div>
+          <div style="font-size:10px;color:#aaa;line-height:1.5;">${aiText}</div>
+          ${img.textContext && img.data ? `<div style="font-size:9px;color:#666;margin-top:2px;">Contexto textual: ${img.textContext.slice(0, 100)}${img.textContext.length > 100 ? '...' : ''}</div>` : ''}
+        </div>`
+
+      card.innerHTML = imgHtml + metaHtml
+      grid.appendChild(card)
+    })
   }
 
   public renderContextTree(): void {

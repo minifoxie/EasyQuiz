@@ -519,6 +519,53 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
 
 
 
+/**
+ * Injeta um clique via tag <script> executada no contexto real da página.
+ * Útil quando o site verifica event.isTrusted=true ou usa framework com listeners
+ * que bloqueiam eventos sintéticos do Shadow DOM do EasyQuiz.
+ * Tenta silenciosamente — se o site tem CSP strict, falha sem efeito.
+ */
+export function injectClickViaScript(element: HTMLElement): boolean {
+  try {
+    // Atribui um ID temporário se o elemento não tiver
+    let targetId = element.id
+    const hadId = !!targetId
+    if (!targetId) {
+      targetId = `__eq_tmp_${Math.random().toString(36).slice(2, 8)}`
+      element.id = targetId
+    }
+    const script = document.createElement('script')
+    script.textContent = (
+      `(function(){` +
+      `var el=document.getElementById(${JSON.stringify(targetId)});` +
+      `if(el){` +
+        `el.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,composed:true,view:window}));` +
+        `if(typeof el.click==='function')el.click();` +
+        // Tenta React fiber click direto
+        `var fk=Object.keys(el).find(function(k){return k.startsWith('__reactFiber')||k.startsWith('__reactInternalInstance');});` +
+        `if(fk){var fb=el[fk];while(fb){var mp=fb.memoizedProps||fb.pendingProps;` +
+          `if(mp&&typeof mp.onClick==='function'){try{mp.onClick({type:'click',target:el,currentTarget:el,bubbles:true,cancelable:true,preventDefault:function(){},stopPropagation:function(){}});}catch(e){}break;}` +
+          `fb=fb.return;}}` +
+        // Tenta __reactProps click
+        `var pk=Object.keys(el).find(function(k){return k.startsWith('__reactProps');});` +
+        `if(pk&&el[pk]&&typeof el[pk].onClick==='function'){try{el[pk].onClick({type:'click',target:el,currentTarget:el,bubbles:true,cancelable:true,preventDefault:function(){},stopPropagation:function(){}});}catch(e){}}` +
+        // Vue 3 _vei
+        `if(el._vei&&el._vei.onClick){var h=el._vei.onClick.value;var hs=Array.isArray(h)?h:[h];hs.forEach(function(fn){try{fn({type:'click',target:el});}catch(e){}});}` +
+      `}` +
+      `})()`
+    )
+    document.head.appendChild(script)
+    script.remove()
+    if (!hadId) {
+      // Remove o ID temporário após um tick
+      setTimeout(() => { try { if (element.id === targetId) element.removeAttribute('id') } catch {} }, 0)
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
 function setNativeValue(element: HTMLElement, value: string): void {
   let target: HTMLElement = element
 
@@ -1073,6 +1120,7 @@ function dispatchSingleClick(element: HTMLElement): void {
 export function verifyDragSuccess(
   origin: HTMLElement,
   dest: HTMLElement,
+  destChildCountBefore?: number,
 ): { success: boolean; evidence: string } {
   try {
     // 1. O destino contém o elemento de origem (movição DOM real)
@@ -1080,14 +1128,18 @@ export function verifyDragSuccess(
       return { success: true, evidence: 'origin is child of dest (DOM move confirmed)' }
     }
 
-    // 2. O elemento de origem desapareceu do pool original (foi removido)
-    const originParent = origin.parentElement
-    const destParent = dest.parentElement
-    if (originParent && destParent && originParent !== destParent && !document.body.contains(origin)) {
+    // 2. O elemento de origem desapareceu do pool original (foi removido/consumido)
+    if (!document.body.contains(origin)) {
       return { success: true, evidence: 'origin removed from DOM (consumed by framework)' }
     }
 
-    // 3. Atributos de estado que indicam categorização
+    // 3. Contagem de filhos do destino aumentou (item foi adicionado)
+    const currentChildCount = dest.children.length
+    if (destChildCountBefore !== undefined && currentChildCount > destChildCountBefore) {
+      return { success: true, evidence: `dest child count increased: ${destChildCountBefore} → ${currentChildCount}` }
+    }
+
+    // 4. Atributos de estado que indicam categorização
     const placedSignals = [
       origin.getAttribute('data-placed') === 'true',
       origin.getAttribute('data-assigned') === 'true',
@@ -1099,21 +1151,24 @@ export function verifyDragSuccess(
       return { success: true, evidence: `origin has placement indicator: class/attr` }
     }
 
-    // 4. Texto do origin já aparece como filho do destino
+    // 5. Texto do origin já aparece como filho do destino (framework pode criar clone)
     const originText = (origin.textContent || '').trim().toLowerCase()
     if (originText.length > 2) {
       const destChildren = Array.from(dest.querySelectorAll('*'))
       const found = destChildren.some(c => c !== dest && (c.textContent || '').trim().toLowerCase() === originText)
       if (found) {
-        return { success: true, evidence: `origin text found inside dest children` }
+        return { success: true, evidence: `origin text found inside dest children (clone or DOM move)` }
       }
     }
 
-    // 5. Verifica aria-label/data-category do destino se foi atualizado
-    const destLabel = dest.getAttribute('aria-label') || dest.getAttribute('data-category') || ''
-    const originLabel = origin.getAttribute('aria-label') || origin.getAttribute('data-category') || ''
-    if (destLabel && originLabel && dest.getAttribute('data-count')) {
-      return { success: true, evidence: `dest data-count changed, categorization likely succeeded` }
+    // 6. Verifica se data-count do destino foi atualizado (indicador de categorização)
+    if (dest.getAttribute('data-count') && parseInt(dest.getAttribute('data-count') || '0') > 0) {
+      return { success: true, evidence: `dest data-count > 0, categorization likely succeeded` }
+    }
+
+    // 7. Origin tem aria-hidden=true (frameworks React-DnD escondem o item após drop bem-sucedido)
+    if (origin.getAttribute('aria-hidden') === 'true' || origin.style.display === 'none' || origin.style.visibility === 'hidden') {
+      return { success: true, evidence: 'origin hidden after drop (framework confirmed placement)' }
     }
 
     return { success: false, evidence: 'no DOM evidence of successful drag/categorization' }
@@ -2020,7 +2075,7 @@ async function waitForNavigationChange(before: string, maxMs = 3500): Promise<{ 
 }
 
 // ---- ROTA ALTERNATIVA DE APLICAÇÃO (AUTO-CURA RESILIENTE MULTI-CAMINHO) ----
-async function executeAlternativeActionPath(action: DeclarativeAction): Promise<void> {
+export async function executeAlternativeActionPath(action: DeclarativeAction): Promise<void> {
   if (action.t === 'js' || action.t === 'adv') return
 
   if (action.t === 'drag') {
@@ -2282,7 +2337,14 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
       if (!cur && expected) return false
       const normCur = cur.replace(',', '.').replace(/\s+/g, '').toLowerCase()
       const normExp = expected.replace(',', '.').replace(/\s+/g, '').toLowerCase()
-      return normCur === normExp || normCur.includes(normExp) || normExp.includes(normCur) || cur.toLowerCase() === expected.toLowerCase()
+      // Para valores numéricos: comparar como número para evitar falso positivo ("1" matching "12")
+      const numCur = parseFloat(normCur)
+      const numExp = parseFloat(normExp)
+      if (!isNaN(numCur) && !isNaN(numExp) && normCur.match(/^-?[\d.,]+$/) && normExp.match(/^-?[\d.,]+$/)) {
+        return Math.abs(numCur - numExp) < 0.0001
+      }
+      // Para texto: exige match exato ou inclusão estrita (não o contrário, para evitar "A" matching "Avalanche")
+      return normCur === normExp || cur.toLowerCase() === expected.toLowerCase() || (normExp.length >= 3 && normCur === normExp)
     }
 
     if (action.t === 'sel') {
@@ -2379,25 +2441,30 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
           card.getAttribute('data-checked') === 'false' ||
           card.getAttribute('data-state') === 'unchecked'
 
+      // Verifica classes de seleção APENAS no card — excluindo classes do sistema EasyQuiz
+      // para evitar falso positivo onde highlight próprio do sistema bate no regex
+      const cardClassRaw = card.className || ''
       const hasClass = expected
-        ? /active|selected|checked|picked|correct|is-selected|choice-selected|selected-option|is-checked|chosen|current|highlight|ring|border-primary/i.test(
-            card.className || '',
-          )
-        : !/active|selected|checked|picked|correct|is-selected|choice-selected|selected-option|is-checked|chosen|current|highlight|ring|border-primary/i.test(
-            card.className || '',
-          )
+        ? /\b(active|selected|checked|picked|is-selected|choice-selected|selected-option|is-checked|chosen|current)\b/i.test(cardClassRaw)
+        : !/\b(active|selected|checked|picked|is-selected|choice-selected|selected-option|is-checked|chosen|current)\b/i.test(cardClassRaw)
 
       if (isAria || hasDataAttr || hasClass) return true
 
-      // Se for botão de ação ou seletor de clique genérico
-      const isActionButton = card instanceof HTMLButtonElement || card.getAttribute('role') === 'button'
-      if (isActionButton && action.t === 'clk') {
+      // Se for botão de ação puro (não é um card de opção de quiz): retorna true apenas
+      // se NÃO estiver dentro de um container de seleção de alternativas
+      // Isso previne o falso positivo onde qualquer clique em botão sem input é "sucesso"
+      const isInsideQuizOptions = Boolean(
+        card.closest('[role="radiogroup"], [role="listbox"], .options, .choices, [class*="option" i], [class*="choice" i], [class*="answer" i], [class*="quiz" i]')
+      )
+
+      if (action.t === 'clk' && !inputEl && !isInsideQuizOptions) {
+        // Botão de ação puro (não seleção de alternativa) — aceita clique como sucesso
         return true
       }
 
-      // Se for clique e o elemento foi clicado com sucesso sem ter input nativo interno de checagem
-      if (action.t === 'clk' && !inputEl) {
-        return true
+      // Para cards de quiz sem input nativo e sem evidência de estado: verificar aria-expanded/aria-pressed
+      if (card.getAttribute('aria-expanded') !== null || card.getAttribute('aria-pressed') !== null) {
+        return true // O clique mudou o estado de expansão/pressionamento
       }
 
       return false
@@ -2429,10 +2496,15 @@ export async function executePlan(
   /** Rastreia estratégias tentadas por ação para relatório de falha rico */
   const actionStrategies = new Map<DeclarativeAction, string[]>()
   const actionDomSnapshot = new Map<DeclarativeAction, string>()
+  /** Rastreia ações já contadas em appliedCount para não re-contar nas passagens 2 e 3 */
+  const appliedInPass1 = new Set<DeclarativeAction>()
 
   const isQuestion = plan.pageType === 'question'
 
   const chkActions = regularActions.filter((a) => a.t === 'chk' || (a.t === 'clk' && (a as any).c !== undefined))
+
+  // Captura contagem de filhos de destinos de drag ANTES das tentativas (para verificação incremental)
+  const dragDestChildCountBefore = new Map<DeclarativeAction, number>()
 
   // 1. PRIMEIRA PASSAGEM: Execução declarativa principal
   for (const action of regularActions) {
@@ -2441,11 +2513,15 @@ export async function executePlan(
     try {
       if (action.t === 'drag') {
         strategies.push('declarative-A-F')
-        // Captura snapshot do DOM antes da tentativa para diagnóstico
+        // Captura snapshot do DOM antes da tentativa para diagnóstico e verificação de filhos
         try {
           const fromEl = findDragTarget(action.from, 'source') || findElementExt(action.from)
+          const toEl = findDragTarget(action.to, 'destination') || findElementExt(action.to)
           if (fromEl) {
             actionDomSnapshot.set(action, fromEl.parentElement?.outerHTML?.slice(0, 500) || '')
+          }
+          if (toEl) {
+            dragDestChildCountBefore.set(action, toEl.children.length)
           }
         } catch {}
       } else {
@@ -2453,6 +2529,7 @@ export async function executePlan(
       }
       await executeDeclarativeAction(action, attempt, policy)
       appliedCount++
+      appliedInPass1.add(action)
     } catch (err) {
       actionErrors.set(action, err instanceof Error ? err.message : String(err))
       console.warn('[EasyQuiz] Ação declarativa primária falhou com segurança:', action, err)
@@ -2553,9 +2630,13 @@ export async function executePlan(
     if (verifyActionApplied(action)) {
       console.log(`[EasyQuiz Auto-Cura] ✓ Ação recuperada com sucesso pela rota de contingência!`)
       verifiedCount++
-      if (actionErrors.has(action)) {
+      // Só incrementa appliedCount se não foi contada na passagem 1
+      if (!appliedInPass1.has(action)) {
         actionErrors.delete(action)
         appliedCount++
+        appliedInPass1.add(action)
+      } else if (actionErrors.has(action)) {
+        actionErrors.delete(action)
       }
     }
   }
@@ -2570,6 +2651,19 @@ export async function executePlan(
       if (!verifyActionApplied(action)) {
         try {
           await executeAlternativeActionPath(action)
+          await new Promise((r) => setTimeout(r, 80))
+          // Passagem 3 extra: tentativa via injectClickViaScript para bypass isTrusted
+          if (!verifyActionApplied(action) && (action.t === 'clk' || action.t === 'chk')) {
+            try {
+              const elId = 'id' in action ? String((action as any).id || '') : ''
+              const valHint = (action as any).v !== undefined ? String((action as any).v).trim() : ''
+              const targetEl = findElementExt(elId, valHint) || findElementExt(cleanSearchTerm(elId), valHint)
+              if (targetEl) {
+                injectClickViaScript(targetEl)
+                await new Promise((r) => setTimeout(r, 120))
+              }
+            } catch {}
+          }
         } catch (err) {
           actionErrors.set(action, err instanceof Error ? err.message : String(err))
         }
@@ -2582,9 +2676,13 @@ export async function executePlan(
     for (const action of regularActions) {
       if (verifyActionApplied(action)) {
         verifiedCount++
-        if (actionErrors.has(action)) {
+        // Só incrementa appliedCount se esta ação não foi contada na passagem 1
+        if (!appliedInPass1.has(action)) {
           actionErrors.delete(action)
           appliedCount++
+          appliedInPass1.add(action)
+        } else if (actionErrors.has(action)) {
+          actionErrors.delete(action)
         }
       }
     }

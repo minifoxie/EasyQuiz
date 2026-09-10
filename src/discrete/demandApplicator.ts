@@ -29,6 +29,8 @@ import {
   simulateDragAndCategorize,
   safeCssEscape,
   cleanSearchTerm,
+  verifyActionApplied,
+  injectClickViaScript,
 } from '../dom/executor'
 
 export type ApplicatorState = 'idle' | 'waiting_key' | 'waiting_click' | 'done' | 'aborted'
@@ -445,7 +447,26 @@ export class DemandApplicator {
 
           // Elemento interativo sem input nativo (custom card, SPA)
           if (labelOrInteractive) simulatePointerClick(labelOrInteractive as HTMLElement)
-          this.debugOutput?.markStepSuccess(this.stepIdx, `Opção customizada ativada`)
+          await new Promise(r => setTimeout(r, 80))
+
+          // Verificação DOM: tenta confirmar que o card foi realmente selecionado
+          const isVerified = verifyActionApplied({
+            t: action.t as 'chk' | 'clk',
+            id: String(action.id ?? action.label ?? ''),
+            c: action.c as boolean,
+            v: action.v as string,
+          } as any)
+
+          if (!isVerified) {
+            // Estratégia extra: injectClickViaScript (bypass isTrusted para frameworks com CSP lax)
+            if (labelOrInteractive) {
+              injectClickViaScript(labelOrInteractive as HTMLElement)
+              await new Promise(r => setTimeout(r, 120))
+            }
+            this.debugOutput?.log('WARN', `Card custom: DOM não confirmou seleção — tentativa via script injection`)
+          } else {
+            this.debugOutput?.markStepSuccess(this.stepIdx, `Opção customizada ativada e verificada no DOM`)
+          }
           return true
         }
 
@@ -783,13 +804,60 @@ export class DemandApplicator {
 
   async forceAll(): Promise<void> {
     this.toast.flash('Injetando respostas...')
+    let successCount = 0
+    let failCount = 0
+
     for (let i = 0; i < this.flow.length; i++) {
       const step = this.flow[i]
       const action = step.action as Record<string, unknown>
       if (action.t === 'adv') continue
-      await this.forceStep(i)
-      await new Promise((r) => setTimeout(r, 60))
+
+      const ok = await this.forceStep(i)
+      await new Promise((r) => setTimeout(r, 80))
+
+      // Verificação DOM real após cada step
+      const actionForVerify = {
+        t: action.t as string,
+        id: String(action.id ?? action.label ?? ''),
+        c: action.c,
+        v: action.v,
+        name: action.name,
+        from: action.from,
+        to: action.to,
+      } as any
+
+      let domVerified = false
+      if (action.t !== 'drag' && action.t !== 'val' && action.t !== 'adv') {
+        try { domVerified = verifyActionApplied(actionForVerify) } catch {}
+      } else {
+        domVerified = ok // Para drag e val, confia no retorno de forceStep
+      }
+
+      if (!domVerified && ok && (action.t === 'chk' || action.t === 'clk')) {
+        // Tenta injectClickViaScript como backup
+        const el = this.resolveEl(action)
+        if (el) {
+          injectClickViaScript(el)
+          await new Promise((r) => setTimeout(r, 150))
+          try { domVerified = verifyActionApplied(actionForVerify) } catch {}
+        }
+        if (domVerified) {
+          this.debugOutput?.log('FLOW', `Step ${i + 1}: recuperado via script injection`)
+        } else {
+          this.debugOutput?.markStepFailed(i, `DOM não confirmou após script injection`)
+          failCount++
+          continue
+        }
+      }
+
+      if (domVerified || ok) {
+        successCount++
+      } else {
+        failCount++
+      }
     }
+
+    this.debugOutput?.log('FLOW', `forceAll: ${successCount} sucesso(s), ${failCount} falha(s)`)
     this.complete()
   }
 
