@@ -143,25 +143,21 @@ G. CATEGORIZAÇÃO / CLASSIFICAÇÃO (FATO/OPINIÃO, SIM/NÃO, grupos):
    → Classifique TODOS os itens visíveis antes de emitir adv.
    → mode: "categorizacao" (categorias fixas) ou "arrastar_soltar" (arraste).
 
-H. VERDADEIRO/FALSO EM GRADE:
-   → Avalie CADA afirmação individualmente.
-   → Para N afirmações/linhas, emita EXATAMENTE N ações chk separadas (uma para cada linha/afirmação) + adv.
+H. VERDADEIRO/FALSO EM GRADE OU TABELA (MATRIZ V/F):
+   → Avalie CADA afirmação/linha individualmente.
+   → Para N afirmações/linhas, emita EXATAMENTE N ações separadas (uma para cada linha/afirmação) + adv para verificar.
    → NUNCA marque apenas uma afirmação e deixe as outras em branco.
-   → Use o id do controle em [RESPOSTAS] ou {t:"chk", name:"nome_do_grupo", v:"V"|"F"}.
-   → mode: "verdadeiro_falso".
+   → Formatos suportados e recomendados:
+     - Com name do radio: {t:"chk", name:"vf_row_1", v:"V", c:true} ou {t:"clk", name:"vf_row_1", v:"V"}
+     - Com ID do controle em [RESPOSTAS]: {t:"chk", id:"eq-ctrl-XX", v:"V", c:true} ou {t:"clk", id:"eq-ctrl-XX"}
+     - Com texto da afirmação/linha: {t:"clk", id:"1. Todo sistema linear...", v:"V"}
+   → mode: "verdadeiro_falso" (ou "matriz_vf").
 
-IF. ORDENAÇÃO DE ITENS (DRAG & DROP):
+I. ORDENAÇÃO DE ITENS (DRAG & DROP):
    → O contexto mostrará [RESPOSTAS] com type="sortable".
    → Use drag sequencialmente: do item (from) para a posição desejada (to).
    → Ex: {t:"drag",from:"Passo B",to:"Posição 1"}
    → mode: "ordenacao".
-
-G. MATRIZ / VERDADEIRO OU FALSO (Tabelas com V/F por linha):
-   → O contexto mostrará várias linhas, cada uma com opções (V, F, etc.).
-   → Mande a IA clicar especificando a linha no id e o valor da coluna no v (Valor do radio).
-   → Use clk com ID da linha e V como o valor do rádio: {t:"clk",id:"1. O sol é quente",v:"V"} ou {t:"clk",id:"2. A lua é de queijo",v:"F"}.
-   → NUNCA use chk ou val para Matriz/V-F. Use clk com a dica de valor v.
-   → mode: "matriz_vf".
 
 I. REDAÇÃO / DISSERTAÇÃO:
    → Detectado por: textarea grande OU enunciado com "escreva", "disserte", "redija", "elabore", "redação".

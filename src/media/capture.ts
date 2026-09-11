@@ -72,32 +72,61 @@ async function rasterizeSvgElement(svgEl: SVGElement): Promise<Blob> {
 
   const clone = svgEl.cloneNode(true) as SVGElement
   if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+  if (!clone.getAttribute('xmlns:xlink')) clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink')
   clone.setAttribute('width', String(targetWidth))
   clone.setAttribute('height', String(targetHeight))
   if (!clone.getAttribute('viewBox') && rawWidth > 0 && rawHeight > 0) {
     clone.setAttribute('viewBox', `0 0 ${rawWidth} ${rawHeight}`)
   }
 
+  // Detecta cor de fundo real do elemento ou da página para preservar contraste em temas escuros (ex: KhanMath)
+  let bgColor = '#ffffff'
+  try {
+    let cur: HTMLElement | null = (svgEl.parentElement as HTMLElement) || (svgEl as any)
+    while (cur && cur !== document.documentElement) {
+      const cs = window.getComputedStyle ? window.getComputedStyle(cur) : null
+      const bg = cs?.backgroundColor
+      if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') {
+        bgColor = bg
+        break
+      }
+      cur = cur.parentElement
+    }
+  } catch {}
+
   const serializer = new XMLSerializer()
   const svgString = serializer.serializeToString(clone)
+
+  const loadImgFromUrl = (imgSrc: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      // NUNCA defina crossOrigin = 'anonymous' para URLs blob: ou data:, pois Chromium rejeita CORS em blob!
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error('Falha ao renderizar SVG em Image.'))
+      img.src = imgSrc
+    })
+  }
+
+  let img: HTMLImageElement | null = null
   const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
-  const url = URL.createObjectURL(svgBlob)
+  const blobUrl = URL.createObjectURL(svgBlob)
 
   try {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve()
-      img.onerror = () => reject(new Error('Falha ao renderizar SVG em Image.'))
-      img.src = url
-    })
+    try {
+      img = await loadImgFromUrl(blobUrl)
+    } catch {
+      // Fallback para data URI caso blobUrl falhe em sandbox estrito
+      const dataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`
+      img = await loadImgFromUrl(dataUri)
+    }
 
     const canvas = document.createElement('canvas')
     canvas.width = targetWidth
     canvas.height = targetHeight
     const ctx = canvas.getContext('2d', { alpha: false })
     if (!ctx) throw new Error('Sem suporte a Canvas 2D.')
-    ctx.fillStyle = '#ffffff'
+
+    ctx.fillStyle = bgColor
     ctx.fillRect(0, 0, targetWidth, targetHeight)
     ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
 
@@ -109,7 +138,7 @@ async function rasterizeSvgElement(svgEl: SVGElement): Promise<Blob> {
       )
     })
   } finally {
-    URL.revokeObjectURL(url)
+    URL.revokeObjectURL(blobUrl)
   }
 }
 
@@ -134,20 +163,22 @@ async function rasterizeHtmlNode(node: HTMLElement): Promise<CapturedImage | nul
     const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
     const url = URL.createObjectURL(svgBlob)
 
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve()
-      img.onerror = () => reject(new Error('Falha ao renderizar ForeignObject.'))
-      img.src = url
-    })
+    try {
+      const img = new Image()
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = () => reject(new Error('Falha ao renderizar ForeignObject.'))
+        img.src = url
+      })
 
-    const blob = await compressImage(img)
-    const base64 = await blobToBase64(blob)
-    URL.revokeObjectURL(url)
+      const blob = await compressImage(img)
+      const base64 = await blobToBase64(blob)
 
-    if (base64 && base64.length <= MAX_BASE64_LENGTH) {
-      return { mediaType: 'image/jpeg', base64, alt: 'Captura via rasterização DOM', source: 'rasterized', captureStatus: 'captured' }
+      if (base64 && base64.length <= MAX_BASE64_LENGTH) {
+        return { mediaType: 'image/jpeg', base64, alt: 'Captura via rasterização DOM', source: 'rasterized', captureStatus: 'captured' }
+      }
+    } finally {
+      URL.revokeObjectURL(url)
     }
   } catch (err) {
     console.warn('[EasyQuiz] Falha na rasterização do nó:', err)
@@ -256,7 +287,17 @@ export function extractTextContextForImage(el: Element): string {
     }
   }
 
-  // 5. Data attributes descritivos
+  // 5. Rótulos e textos internos de elementos SVG
+  if (el.tagName.toLowerCase() === 'svg') {
+    const textNodes = Array.from(el.querySelectorAll('text, tspan'))
+      .map((t) => t.textContent?.trim())
+      .filter(Boolean)
+    if (textNodes.length > 0) {
+      parts.push(`Rótulos/Textos do Gráfico: "${textNodes.join(' | ')}"`)
+    }
+  }
+
+  // 6. Data attributes descritivos
   const dataAlt = el.getAttribute('data-alt') || el.getAttribute('data-description') || ''
   if (dataAlt) parts.push(`Data: "${dataAlt}"`)
 

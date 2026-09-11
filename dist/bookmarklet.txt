@@ -3,47 +3,43 @@
 ================================================================================
 GitHub: https://github.com/minifoxie/EasyQuiz
 
-Estes são os códigos definitivos e resumidos do EasyQuiz.
+Estes são os códigos definitivos, resumidos e oficiais do EasyQuiz via GitHub Raw.
 Basta criar um favorito no seu navegador (Ctrl+D ou botão direito na barra
 de favoritos > Adicionar página) e colar o código desejado no campo "URL".
 
-GARANTIA ANTI-CACHE & ATUALIZAÇÃO AUTOMÁTICA:
-  • O parâmetro "?t=' + Date.now()" garante que o navegador e o CDN do GitHub
-    NUNCA entreguem código em cache, sempre baixando a versão mais recente.
-  • Auto-limpeza prévia: se já houver uma versão rodando na página, ela é
-    destruída antes de injetar a nova, garantindo execução perfeita sem F5.
-
-================================================================================
-MODO COMPLETO (LEGACY COM PAINEL LATERAL VS CODE)
-================================================================================
-Painel completo com todas as abas:
-  1. Resolver (Foguete)
-  2. Cérebro da IA (Chip de contexto e árvore DOM)
-  3. Mídias & Imagens (Miniaturas reais, status da IA, relevância e lightbox)
-  4. Métricas & Cronômetro (Histórico e tempo por questão)
-  5. Terminal & Debug Output (Logs ao vivo, tokens e console)
-  6. Configurações (Chaves de API, modelos Gemini, visão computacional)
-Atalho: Alt+Q para abrir/fechar e analisar.
-
-COPIE O CÓDIGO ABAIXO PARA O CAMPO URL DO SEU FAVORITO:
 --------------------------------------------------------------------------------
+1. MODO LEGACY (PAINEL COMPLETO ESTILO VS CODE)
+--------------------------------------------------------------------------------
+Painel visual flutuante completo com todas as abas:
+  • 🚀 Resolver (Ações rápidas e execução)
+  • 🧠 Cérebro da IA (Contexto e árvore de elementos)
+  • 🖼️ Mídias & Imagens (Miniaturas reais, status da IA, relevância e lightbox)
+  • ⏱️ Métricas & Cronômetro (Histórico e tempo por questão)
+  • 💻 Terminal & Debug Output (Logs ao vivo, console e tokens)
+  • ⚙️ Configurações (Chaves Gemini, seleção de modelo, visão computacional)
+Atalho padrão: Alt+Q para abrir/fechar e analisar.
+
+Opção A — Código Curto Direto (Recomendado):
+javascript:(function(){fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/easyquiz.js',{cache:'no-store'}).then(r=>r.text()).then(code=>{try{(0,eval)(code)}catch(e){alert('EasyQuiz erro: '+e)}})})();
+
+Opção B — Código com Anti-Cache Timestamp & Auto-Limpeza:
 javascript:(function(){fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/easyquiz.js?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(code){try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var host=document.getElementById('easyquiz-shadow-root');if(host)host.remove();(0,eval)(code)}catch(e){alert('EasyQuiz erro na execução: '+e)}}).catch(function(err){alert('EasyQuiz falha no download: '+err)})})();
---------------------------------------------------------------------------------
 
-================================================================================
-MODO DISCRETO (STEALTH 100% SEM INTERFACE)
-================================================================================
-Invisível, silencioso, opera em segundo plano:
+--------------------------------------------------------------------------------
+2. MODO DISCRETO (STEALTH 100% INVISÍVEL)
+--------------------------------------------------------------------------------
+Opera em segundo plano de forma 100% invisível sem botões na tela:
+  • Alt+Q / Shift+Q: Analisar questão
   • Shift+V: Janela de Mídias e Imagens (miniaturas reais e lightbox da IA)
   • Shift+H: DevTools completo (Console, Fluxo, Plano IA, Mídias, Auditoria)
-  • Alt+Q / Shift+Q: Analisar questão
-  • Shift+M: Selecionar modelo Gemini
-  • Shift+A: Configurar chaves de API
-  • Shift+C: Menu de comandos clicáveis
-  • Shift+Z: Cancelar fluxo ativo
+  • Shift+M: Trocar modelo de IA em tempo real
+  • Shift+A: Adicionar ou trocar chaves de API
+  • Shift+C: Menu de comandos rápidos
+  • Shift+Z: Cancelar fluxo atual
   • Shift+R: Re-analisar questão
 
-COPIE O CÓDIGO ABAIXO PARA O CAMPO URL DO SEU FAVORITO:
---------------------------------------------------------------------------------
+Opção A — Código Curto Direto (Recomendado):
+javascript:(function(){fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/discrete.js',{cache:'no-store'}).then(r=>r.text()).then(code=>{try{(0,eval)(code)}catch(e){alert('EasyQuiz Discreto erro: '+e)}})})();
+
+Opção B — Código com Anti-Cache Timestamp & Auto-Limpeza:
 javascript:(function(){fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/discrete.js?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(code){try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(code)}catch(e){alert('EasyQuiz Discreto erro na execução: '+e)}}).catch(function(err){alert('EasyQuiz Discreto falha no download: '+err)})})();
---------------------------------------------------------------------------------

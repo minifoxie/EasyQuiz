@@ -1,7 +1,7 @@
 import type { DeclarativeAction } from '../core/types'
 import { cleanSearchTerm, findElementExt } from './executor'
 import { findActiveScope } from './detector'
-import { isInsideEasyQuiz, isVisible } from './controls'
+import { isInsideEasyQuiz, isVisible, safeCssEscape } from './controls'
 
 let highlightedScope: HTMLElement | null = null
 let highlightedElements: HTMLElement[] = []
@@ -85,33 +85,61 @@ export function clearHighlights(): void {
 export function highlightAttachedImages(elements: Element[]): void {
   ensureImageHighlightKeyframes()
   for (const el of elements) {
-    if (!el || !(el instanceof (typeof HTMLElement !== 'undefined' ? HTMLElement : (el as any).constructor))) continue
+    if (!el || typeof (el as any).setAttribute !== 'function') continue
     const node = el as HTMLElement
 
-    node.style.outline = '3px solid #ffd600'
-    node.style.outlineOffset = '3px'
-    node.style.animation = 'eq-image-pulse-yellow-white 1.2s ease-in-out infinite'
-    node.setAttribute('data-easyquiz-image-highlight', 'true')
-    highlightedImages.push(node)
-
-    // Adicionar badge "📷 Capturado pela IA" no canto do elemento
     try {
-      const parent = node.parentElement
+      if ((node as any).style) {
+        node.style.outline = '3px solid #ffd600'
+        node.style.outlineOffset = '4px'
+        node.style.animation = 'eq-image-pulse-yellow-white 1.2s ease-in-out infinite'
+        if (el.tagName.toLowerCase() === 'svg') {
+          node.style.boxShadow = '0 0 16px rgba(255, 214, 0, 0.7)'
+          node.style.filter = 'drop-shadow(0 0 8px rgba(255, 214, 0, 0.8))'
+        }
+      }
+      node.setAttribute('data-easyquiz-image-highlight', 'true')
+      highlightedImages.push(node)
+    } catch {}
+
+    // Para SVG ou diagramas em container dedicado: também realça o container wrapper
+    const container = (el.tagName.toLowerCase() === 'svg'
+      ? (el.closest('.trig-diagram-container, [class*="diagram" i], [class*="graph" i], [class*="chart" i], figure') || el.parentElement)
+      : el.parentElement) as HTMLElement | null
+
+    if (container && container !== document.body && container !== document.documentElement) {
+      if (!container.hasAttribute('data-easyquiz-image-highlight')) {
+        try {
+          if (container.style && el.tagName.toLowerCase() === 'svg') {
+            container.style.outline = '2px solid rgba(255, 214, 0, 0.5)'
+            container.style.outlineOffset = '6px'
+            container.style.borderRadius = '8px'
+            container.setAttribute('data-easyquiz-image-highlight', 'true')
+            highlightedImages.push(container)
+          }
+        } catch {}
+      }
+    }
+
+    // Adicionar badge "📷 Imagem / Gráfico Analisado pela IA"
+    try {
+      const parent = container || node.parentElement
       if (parent && !parent.querySelector('[data-easyquiz-capture-badge]')) {
-        const prevPosition = window.getComputedStyle(parent).position
+        const prevPosition = window.getComputedStyle ? window.getComputedStyle(parent).position : (parent.style.position || '')
         if (prevPosition === 'static') {
           parent.style.position = 'relative'
         }
         const badge = document.createElement('div')
         badge.setAttribute('data-easyquiz-capture-badge', 'true')
-        badge.textContent = '📷 Capturado pela IA'
+        badge.textContent = '📷 Imagem / Gráfico Analisado pela IA'
         badge.style.cssText = `
           position: absolute; top: 4px; left: 4px; z-index: 99999;
-          background: rgba(0,0,0,0.75); color: #ffd600; font-size: 10px;
-          font-weight: 700; padding: 2px 7px; border-radius: 4px;
-          pointer-events: none; font-family: system-ui, sans-serif;
+          background: rgba(12, 14, 20, 0.92); color: #ffd600; font-size: 11px;
+          font-weight: 800; padding: 3px 8px; border-radius: 6px;
+          border: 1px solid rgba(255, 214, 0, 0.6);
+          pointer-events: none; font-family: system-ui, -apple-system, sans-serif;
           animation: eq-badge-fade-in 0.3s ease-out;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.5);
           letter-spacing: 0.3px;
         `
         parent.appendChild(badge)
@@ -184,10 +212,41 @@ export function highlightTargetActions(actions: DeclarativeAction[], confidence?
       continue
     }
 
-    if (!action.id) continue
     const valHint = (action as any).v !== undefined ? (Array.isArray((action as any).v) ? (action as any).v[0] : String((action as any).v)) : ''
-    let element = findElementExt(action.id, valHint, action.t === 'val' || action.t === 'sel') ||
-      findElementExt(cleanSearchTerm(action.id), valHint, action.t === 'val' || action.t === 'sel')
+    const nameHint = String((action as any).name ?? (action as any).n ?? '').trim()
+
+    let element: HTMLElement | null = null
+
+    // 1. Busca por nameHint (V/F e matrizes de rádio)
+    if (nameHint) {
+      const groupRadios = Array.from(
+        document.querySelectorAll(`input[name="${safeCssEscape(nameHint)}"]`)
+      ) as HTMLInputElement[]
+      if (valHint) {
+        element = groupRadios.find(r => r.value?.toLowerCase() === valHint.toLowerCase()) ?? null
+        if (!element) {
+          const isVkw = /^(v|verdadeiro|true|1|t|sim|correto)$/i.test(valHint)
+          const isFkw = /^(f|falso|false|0|nao|não|incorreto|errado)$/i.test(valHint)
+          if (isVkw || isFkw) {
+            const kws = isVkw ? ['v', 'verdadeiro', 'true', '1', 't', 'sim', 'correto'] : ['f', 'falso', 'false', '0', 'nao', 'não', 'incorreto', 'errado']
+            element = groupRadios.find(r => {
+              const val = r.value?.toLowerCase() ?? ''
+              if (kws.includes(val)) return true
+              const lbl = r.closest('label, .vf-label, td, [class*="option" i]')
+              const txt = (lbl?.textContent ?? '').trim().toLowerCase()
+              return kws.some(kw => txt === kw || txt.startsWith(kw + ' ') || txt.startsWith('(' + kw + ')'))
+            }) ?? null
+          }
+        }
+      }
+      if (!element && groupRadios.length > 0) element = groupRadios[0]
+    }
+
+    // 2. Busca por action.id
+    if (!element && action.id) {
+      element = findElementExt(action.id, valHint, action.t === 'val' || action.t === 'sel') ||
+        findElementExt(cleanSearchTerm(action.id), valHint, action.t === 'val' || action.t === 'sel')
+    }
 
     if (!element && action.t === 'sel') {
       let scopeRoot: HTMLElement = document.body
@@ -215,14 +274,15 @@ export function highlightTargetActions(actions: DeclarativeAction[], confidence?
       element.getAttribute('role') === 'combobox' ||
       element.getAttribute('role') === 'listbox'
 
-    // Elemento alvo ou seu wrapper de card/opção/linha visível
-    const rowWrapper = element.parentElement?.closest(
-      '.dropdown-row, [class*="dropdown" i], [class*="select-row" i], .form-group, tr, li',
+    const optionParent = element.closest(
+      'label, .vf-label, .option-card, [role="radio"], [role="checkbox"], [role="option"], [role="listitem"], .answer, .quiz-option, .form-check, [class*="option" i], [class*="choice" i]',
     ) as HTMLElement | null
 
-    const target = (rowWrapper || element.closest(
-      'label, .option-card, [role="radio"], [role="checkbox"], [role="listitem"], .answer, .quiz-option, .form-check, [class*="option" i], [class*="choice" i]',
-    ) || element) as HTMLElement
+    const rowWrapper = isSelect
+      ? (element.parentElement?.closest('.dropdown-row, [class*="dropdown" i], [class*="select-row" i], .form-group, tr, li') as HTMLElement | null)
+      : null
+
+    const target = (optionParent || rowWrapper || element) as HTMLElement
 
     target.style.outline = `2px solid ${colors.outline}`
     target.style.outlineOffset = '2px'

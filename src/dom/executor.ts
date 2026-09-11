@@ -274,6 +274,16 @@ export function findElementExt(idOrLabel: unknown, valueHint?: string, preferInp
         `[name="${escaped}"], [value="${escaped}"], [placeholder="${escaped}" i], [title="${escaped}" i], [data-category="${escaped}" i], [data-dropzone="${escaped}" i], [data-testid="${escaped}" i], [data-test-id="${escaped}" i], [aria-label="${escaped}" i]`,
       ),
     ) as HTMLElement[]
+    if (valueHint) {
+      const valMatch = attrCandidates.find((item) => {
+        if (!isVisible(item) || isInsideEasyQuiz(item)) return false
+        if (item instanceof HTMLInputElement && item.value.toLowerCase() === valueHint.toLowerCase()) return true
+        const card = item.closest('label, .vf-label, td, div')
+        return card && cleanSearchTerm(card.textContent).toLowerCase().includes(cleanSearchTerm(valueHint).toLowerCase())
+      })
+      if (valMatch) return resolveTargetControlOrCard(valMatch)
+    }
+
     const attrMatch = attrCandidates.find((item) => isVisible(item) && !isInsideEasyQuiz(item))
     if (attrMatch) {
       const isDrop = attrMatch.hasAttribute('data-category') || attrMatch.hasAttribute('data-dropzone') || attrMatch.classList.contains('dnd-zone')
@@ -1555,7 +1565,7 @@ if (typeof window !== 'undefined') {
 }
 
 // ---- EXECUTOR DECLARATIVO ----
-async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, policy = createExecutionPolicy()): Promise<void> {
+export async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, policy = createExecutionPolicy()): Promise<void> {
   assertActionAllowed(action, policy)
   if (action.t === 'js') {
     const code = String(action.v || '')
@@ -1603,15 +1613,17 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
           : (action as any).text
   const valHint = rawVal !== undefined && rawVal !== null ? String(rawVal).trim() : ''
 
-  // ── Resolução especial para chk com name+v (V/F e matrizes de rádio) ──────
-  // Quando a IA emite { t:'chk', name:'vf_row_1', v:'V', c:true }, action.id
-  // está vazio, mas precisamos do input[name="vf_row_1"][value="V"].
+  // ── Resolução especial para chk/clk com name+v ou id=name (V/F e matrizes de rádio) ──────
   let element: HTMLElement | null = null
-  const nameHint = String((action as any).name ?? (action as any).n ?? '').trim()
-  if (action.t === 'chk' && nameHint) {
+  let effectiveName = String((action as any).name ?? (action as any).n ?? '').trim()
+  if (!effectiveName && elId && document.querySelector(`input[type="radio"][name="${safeCssEscape(elId)}"]`)) {
+    effectiveName = elId
+  }
+
+  if ((action.t === 'chk' || action.t === 'clk') && effectiveName) {
     // Busca direta e eficiente por [name][value] — mais confiável que findElementExt para V/F
     const groupRadios = Array.from(
-      document.querySelectorAll(`input[name="${safeCssEscape(nameHint)}"]`)
+      document.querySelectorAll(`input[name="${safeCssEscape(effectiveName)}"]`)
     ) as HTMLInputElement[]
     if (valHint) {
       element = groupRadios.find(r => r.value?.toLowerCase() === valHint.toLowerCase()) ?? null
@@ -1801,7 +1813,8 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
       }
       break
     case 'chk':
-      if (element) setCheckedState(element, Boolean(action.c))
+      const targetCheck = action.c !== undefined ? Boolean(action.c) : true
+      if (element) setCheckedState(element, targetCheck)
       break
     case 'sel':
       if (element) {
@@ -1812,7 +1825,7 @@ async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, 
     case 'clk':
       if (element) {
         const isOptionCard = Boolean(
-          element.closest('.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], [class*="answer" i], li, tr') ||
+          element.closest('.option-card, label, .vf-label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], [class*="answer" i], li, tr') ||
           element.querySelector('input[type="radio"], input[type="checkbox"]') ||
           (element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type))
         )
@@ -2091,6 +2104,35 @@ export async function executeAlternativeActionPath(action: DeclarativeAction): P
   const valHint = (action as any).v !== undefined ? String((action as any).v).trim() : ''
   let el = findElementExt(elId, valHint) || findElementExt(cleanSearchTerm(elId), valHint)
 
+  let effectiveNameAlt = String((action as any).name ?? (action as any).n ?? '').trim()
+  if (!effectiveNameAlt && elId && document.querySelector(`input[type="radio"][name="${safeCssEscape(elId)}"]`)) {
+    effectiveNameAlt = elId
+  }
+
+  if (!el && effectiveNameAlt) {
+    const groupRadios = Array.from(
+      document.querySelectorAll(`input[name="${safeCssEscape(effectiveNameAlt)}"]`)
+    ) as HTMLInputElement[]
+    if (valHint) {
+      el = groupRadios.find(r => r.value?.toLowerCase() === valHint.toLowerCase()) ?? null
+    }
+    if (!el && valHint) {
+      const isVkw = /^(v|verdadeiro|true|1|t|sim|correto)$/i.test(valHint)
+      const isFkw = /^(f|falso|false|0|nao|não|incorreto|errado)$/i.test(valHint)
+      if (isVkw || isFkw) {
+        const kws = isVkw ? ['v','verdadeiro','true','1','t','sim','correto'] : ['f','falso','false','0','nao','não','incorreto','errado']
+        el = groupRadios.find(r => {
+          const val = r.value?.toLowerCase() ?? ''
+          if (kws.includes(val)) return true
+          const lbl = r.closest('label, td, [class*="option" i]')
+          const txt = (lbl?.textContent ?? '').trim().toLowerCase()
+          return kws.some(kw => txt === kw || txt.startsWith(kw+' ') || txt.startsWith('('+kw+')'))
+        }) ?? null
+      }
+    }
+    if (!el && groupRadios.length > 0) el = groupRadios[0]
+  }
+
   if (action.t === 'clk' || action.t === 'chk') {
     // 1. Tentar localizar o elemento por prefixos alternativos de alternativas se o seletor padrão falhou
     if (!el && elId) {
@@ -2152,12 +2194,12 @@ export async function executeAlternativeActionPath(action: DeclarativeAction): P
     }
 
     if (el) {
-      const card = (el.closest('.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, li') || el) as HTMLElement
+      const card = (el.closest('.option-card, label, .vf-label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, li') || el) as HTMLElement
       const input = el instanceof HTMLInputElement && ['radio', 'checkbox'].includes(el.type)
         ? el
         : (card.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null) ||
           (card.getAttribute('for') ? (card.ownerDocument.getElementById(card.getAttribute('for')!) as HTMLInputElement | null) : null)
-      const shouldCheck = action.t === 'chk' ? Boolean(action.c) : (action as any).c !== undefined ? Boolean((action as any).c) : true
+      const shouldCheck = (action as any).c !== undefined ? Boolean((action as any).c) : true
 
       // Executa o motor central de persistência
       setCheckedState(input || card, shouldCheck)
@@ -2392,10 +2434,44 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
 
     if (action.t === 'chk' || action.t === 'clk') {
       const valHint = (action as any).v !== undefined ? String((action as any).v).trim() : ''
-      const el = findElementExt(action.id, valHint) || findElementExt(cleanSearchTerm(action.id), valHint)
+
+      // ── Verificação especial para chk/clk com name (V/F e matrizes de rádio) ──
+      // Quando a IA emite { t:'chk', name:'vf_row_1', v:'V' }, action.id está vazio.
+      // Verificamos diretamente o radio group pelo name+value.
+      const nameHintVerify = String((action as any).name ?? (action as any).n ?? '').trim()
+      if (nameHintVerify && !action.id) {
+        const groupRadios = Array.from(
+          document.querySelectorAll(`input[name="${safeCssEscape(nameHintVerify)}"]`)
+        ) as HTMLInputElement[]
+        if (groupRadios.length > 0) {
+          const checkedRadio = groupRadios.find(r => r.checked)
+          if (!checkedRadio) return false
+          if (!valHint) return true // Algum rádio foi marcado — sucesso
+          // Verifica se o rádio correto está marcado
+          const checkedVal = checkedRadio.value?.toLowerCase() ?? ''
+          const expectedVal = valHint.toLowerCase()
+          if (checkedVal === expectedVal) return true
+          // Verifica correspondência V/F por keywords
+          const isVkw = /^(v|verdadeiro|true|1|t|sim|correto)$/i.test(valHint)
+          const isFkw = /^(f|falso|false|0|nao|não|incorreto|errado)$/i.test(valHint)
+          if (isVkw) return /^(v|verdadeiro|true|1|t|sim|correto)$/i.test(checkedVal)
+          if (isFkw) return /^(f|falso|false|0|nao|não|incorreto|errado)$/i.test(checkedVal)
+          return false
+        }
+        // Se não achou radios por name, deixa cair para busca normal
+      }
+
+      let el = findElementExt(action.id, valHint) || findElementExt(cleanSearchTerm(action.id), valHint)
+
+      // Fallback: quando id é vazio mas name está disponível, tenta pelo name
+      if (!el && nameHintVerify) {
+        const byName = document.querySelector(`input[name="${safeCssEscape(nameHintVerify)}"]`) as HTMLElement | null
+        if (byName) el = byName
+      }
+
       if (!el) return false
       const card = (el.closest(
-        '.option-card, label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, li',
+        '.option-card, label, .vf-label, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, li',
       ) || el) as HTMLElement
 
       const inputEl =
