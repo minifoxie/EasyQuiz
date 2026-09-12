@@ -80,17 +80,25 @@ const discreteRaw = await readFile(path.join(dist, 'discrete.js'), 'utf-8')
 const discreteClean = discreteRaw.replace(/^\/\*[\s\S]*?\*\/\s*/, '')
 const discreteBookmarkletCode = `javascript:(function(){${discreteClean}})();void 0`
 
-// Versões Auto-Update Anti-Cache (Legacy Fetch + Eval com timestamp único e auto-destruição prévia)
+// Bookmarklets Resilientes com Multi-CDN Failover e Proteção contra Erro 503/HTML
 const githubRepo = 'minifoxie/EasyQuiz'
 const rawBase = `https://raw.githubusercontent.com/${githubRepo}/main/dist`
+const cdnBase = `https://cdn.jsdelivr.net/gh/${githubRepo}@main/dist`
 
-const legacyBookmarklet = `javascript:(function(){fetch('${rawBase}/easyquiz.js?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(code){try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var host=document.getElementById('easyquiz-shadow-root');if(host)host.remove();(0,eval)(code)}catch(e){alert('EasyQuiz erro na execução: '+e)}}).catch(function(err){alert('EasyQuiz falha no download: '+err)})})();`
+// 1. Multi-CDN com Auto-Failover (GitHub Raw -> jsDelivr CDN se der 503 ou erro)
+const legacyMultiCdn = `javascript:(function(){function L(f){return fetch('${rawBase}/'+f,{cache:'no-store'}).then(function(r){return r.ok?r.text():Promise.reject()}).catch(function(){return fetch('${cdnBase}/'+f).then(function(r){return r.text()})}).then(function(t){if(!t||t.trim().charAt(0)==='<')throw new Error('503/HTML');return t})}L('easyquiz.js').then(function(c){try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();`
 
-const discreteLegacy = `javascript:(function(){fetch('${rawBase}/discrete.js?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(code){try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(code)}catch(e){alert('EasyQuiz Discreto erro na execução: '+e)}}).catch(function(err){alert('EasyQuiz Discreto falha no download: '+err)})})();`
+const discreteMultiCdn = `javascript:(function(){function L(f){return fetch('${rawBase}/'+f,{cache:'no-store'}).then(function(r){return r.ok?r.text():Promise.reject()}).catch(function(){return fetch('${cdnBase}/'+f).then(function(r){return r.text()})}).then(function(t){if(!t||t.trim().charAt(0)==='<')throw new Error('503/HTML');return t})}L('discrete.js').then(function(c){try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();`
 
-// Códigos Curtos Diretos (GitHub Raw sem timestamp)
-const legacyShort = `javascript:(function(){fetch('${rawBase}/easyquiz.js',{cache:'no-store'}).then(r=>r.text()).then(code=>{try{(0,eval)(code)}catch(e){alert('EasyQuiz erro: '+e)}})})();`
-const discreteShort = `javascript:(function(){fetch('${rawBase}/discrete.js',{cache:'no-store'}).then(r=>r.text()).then(code=>{try{(0,eval)(code)}catch(e){alert('EasyQuiz Discreto erro: '+e)}})})();`
+// 2. jsDelivr CDN Direto (Ultra-Curto, Alta Disponibilidade e 100% Imune a Erros 503 do GitHub)
+const legacyJsdelivr = `javascript:(function(){fetch('${cdnBase}/easyquiz.js').then(function(r){return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Erro na rede CDN');(0,eval)(c)}).catch(function(e){alert('EasyQuiz erro: '+e)})})();`
+
+const discreteJsdelivr = `javascript:(function(){fetch('${cdnBase}/discrete.js').then(function(r){return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Erro na rede CDN');(0,eval)(c)}).catch(function(e){alert('EasyQuiz Discreto erro: '+e)})})();`
+
+// 3. GitHub Raw Direto com Guarda Anti-HTML
+const legacyGithubRaw = `javascript:(function(){fetch('${rawBase}/easyquiz.js',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('GitHub retornou erro HTML');(0,eval)(c)}).catch(function(e){alert('EasyQuiz erro: '+e)})})();`
+
+const discreteGithubRaw = `javascript:(function(){fetch('${rawBase}/discrete.js',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('GitHub retornou erro HTML');(0,eval)(c)}).catch(function(e){alert('EasyQuiz Discreto erro: '+e)})})();`
 
 // Deleta arquivos .txt antigos e redundantes
 for (const oldTxt of ['bookmarklet_legacy.txt', 'bookmarklet_discrete.txt', 'bookmarklet_discrete_legacy.txt']) {
@@ -99,38 +107,48 @@ for (const oldTxt of ['bookmarklet_legacy.txt', 'bookmarklet_discrete.txt', 'boo
   } catch {}
 }
 
-// Arquivo Único Mestre de Bookmarklets com Documentação Completa (Apenas Códigos Resumidos do GitHub)
+// Arquivo Único Mestre de Bookmarklets com Documentação Completa
 const masterBookmarkletDoc = `================================================================================
                     EASYQUIZ — MANUAL SUPREMO DE BOOKMARKLETS
 ================================================================================
 GitHub: https://github.com/minifoxie/EasyQuiz
 
-Estes são os códigos definitivos, resumidos e oficiais do EasyQuiz via GitHub Raw.
-Basta criar um favorito no seu navegador (Ctrl+D ou botão direito na barra
-de favoritos > Adicionar página) e colar o código desejado no campo "URL".
+Estes são os códigos definitivos e resumidos do EasyQuiz com proteção total
+contra falhas de download (HTTP 503) e erros de sintaxe (Unexpected token '<').
+
+Como instalar:
+1. No seu navegador, crie um novo favorito (Ctrl+D ou botão direito na barra
+   de favoritos > Adicionar página / Adicionar favorito).
+2. Dê um nome (ex: "EasyQuiz" ou "EasyQuiz Discreto").
+3. No campo "URL" (ou endereço), cole o código desejado abaixo.
+4. Salve e clique no favorito em qualquer página de quiz!
 
 --------------------------------------------------------------------------------
-1. MODO LEGACY (PAINEL COMPLETO ESTILO VS CODE)
+1. MODO LEGACY (PAINEL COMPLETO FLUTUANTE ESTILO VS CODE)
 --------------------------------------------------------------------------------
 Painel visual flutuante completo com todas as abas:
-  • 🚀 Resolver (Ações rápidas e execução)
-  • 🧠 Cérebro da IA (Contexto e árvore de elementos)
-  • 🖼️ Mídias & Imagens (Miniaturas reais, status da IA, relevância e lightbox)
+  • 🚀 Resolver (Ações rápidas, preenchimento e execução)
+  • 🧠 Cérebro da IA (Contexto, árvore de elementos e análise de perguntas)
+  • 🖼️ Mídias & Imagens (Miniaturas reais de prints/SVGs, status IA, lightbox)
   • ⏱️ Métricas & Cronômetro (Histórico e tempo por questão)
   • 💻 Terminal & Debug Output (Logs ao vivo, console e tokens)
   • ⚙️ Configurações (Chaves Gemini, seleção de modelo, visão computacional)
 Atalho padrão: Alt+Q para abrir/fechar e analisar.
 
-Opção A — Código Curto Direto (Recomendado):
-${legacyShort}
+Opção A — Multi-CDN com Auto-Failover (RECOMENDADO — Mais Estável):
+Tenta GitHub Raw; se o GitHub retornar 503 ou erro, pula automaticamente para o jsDelivr CDN!
+${legacyMultiCdn}
 
-Opção B — Código com Anti-Cache Timestamp & Auto-Limpeza:
-${legacyBookmarklet}
+Opção B — jsDelivr CDN Direto (Ultra-Curto & 100% Imune ao Erro 503):
+${legacyJsdelivr}
+
+Opção C — GitHub Raw Direto (com proteção anti-HTML):
+${legacyGithubRaw}
 
 --------------------------------------------------------------------------------
-2. MODO DISCRETO (STEALTH 100% INVISÍVEL)
+2. MODO DISCRETO (STEALTH 100% INVISÍVEL — SEM INTERFACE FIXA)
 --------------------------------------------------------------------------------
-Opera em segundo plano de forma 100% invisível sem botões na tela:
+Opera em segundo plano de forma 100% invisível sem botões fixos na tela:
   • Alt+Q / Shift+Q: Analisar questão
   • Shift+V: Janela de Mídias e Imagens (miniaturas reais e lightbox da IA)
   • Shift+H: DevTools completo (Console, Fluxo, Plano IA, Mídias, Auditoria)
@@ -140,11 +158,15 @@ Opera em segundo plano de forma 100% invisível sem botões na tela:
   • Shift+Z: Cancelar fluxo atual
   • Shift+R: Re-analisar questão
 
-Opção A — Código Curto Direto (Recomendado):
-${discreteShort}
+Opção A — Multi-CDN com Auto-Failover (RECOMENDADO — Mais Estável):
+Tenta GitHub Raw; se o GitHub retornar 503 ou erro, pula automaticamente para o jsDelivr CDN!
+${discreteMultiCdn}
 
-Opção B — Código com Anti-Cache Timestamp & Auto-Limpeza:
-${discreteLegacy}
+Opção B — jsDelivr CDN Direto (Ultra-Curto & 100% Imune ao Erro 503):
+${discreteJsdelivr}
+
+Opção C — GitHub Raw Direto (com proteção anti-HTML):
+${discreteGithubRaw}
 `
 
 await writeFile(path.join(dist, 'bookmarklet.txt'), masterBookmarkletDoc, 'utf-8')
@@ -216,7 +238,7 @@ const installerDiscreto = `<!DOCTYPE html>
     <div class="step"><div class="step-num">2</div><div class="step-text">Arraste o bot&#xE3;o acima para a barra de favoritos</div></div>
     <div class="step"><div class="step-num">3</div><div class="step-text">Acesse qualquer quiz, clique no favorito e configure as API keys com <kbd>Shift+A</kbd></div></div>
     <div class="step"><div class="step-num">4</div><div class="step-text">Pressione <kbd>Shift+Q</kbd> para analisar. Siga as dicas no canto da tela.</div></div>
-    <div class="note"><strong>&#x26A0;&#xFE0F; Se n&#xE3;o conseguir arrastar:</strong> Bot&#xE3;o direito na barra &#x2192; Adicionar p&#xE1;gina &#x2192; cole o conte&#xFA;do de <code>dist/bookmarklet_discrete.txt</code> no campo URL.</div>
+    <div class="note"><strong>&#x26A0;&#xFE0F; Se n&#xE3;o conseguir arrastar:</strong> Bot&#xE3;o direito na barra &#x2192; Adicionar p&#xE1;gina &#x2192; cole o conte&#xFA;do de <code>dist/bookmarklet.txt</code> no campo URL.</div>
   </div>
 </body>
 </html>`

@@ -3,32 +3,42 @@
 ================================================================================
 GitHub: https://github.com/minifoxie/EasyQuiz
 
-Estes são os códigos definitivos, resumidos e oficiais do EasyQuiz via GitHub Raw.
-Basta criar um favorito no seu navegador (Ctrl+D ou botão direito na barra
-de favoritos > Adicionar página) e colar o código desejado no campo "URL".
+Estes são os códigos definitivos e resumidos do EasyQuiz com proteção total
+contra falhas de download (HTTP 503) e erros de sintaxe (Unexpected token '<').
+
+Como instalar:
+1. No seu navegador, crie um novo favorito (Ctrl+D ou botão direito na barra
+   de favoritos > Adicionar página / Adicionar favorito).
+2. Dê um nome (ex: "EasyQuiz" ou "EasyQuiz Discreto").
+3. No campo "URL" (ou endereço), cole o código desejado abaixo.
+4. Salve e clique no favorito em qualquer página de quiz!
 
 --------------------------------------------------------------------------------
-1. MODO LEGACY (PAINEL COMPLETO ESTILO VS CODE)
+1. MODO LEGACY (PAINEL COMPLETO FLUTUANTE ESTILO VS CODE)
 --------------------------------------------------------------------------------
 Painel visual flutuante completo com todas as abas:
-  • 🚀 Resolver (Ações rápidas e execução)
-  • 🧠 Cérebro da IA (Contexto e árvore de elementos)
-  • 🖼️ Mídias & Imagens (Miniaturas reais, status da IA, relevância e lightbox)
+  • 🚀 Resolver (Ações rápidas, preenchimento e execução)
+  • 🧠 Cérebro da IA (Contexto, árvore de elementos e análise de perguntas)
+  • 🖼️ Mídias & Imagens (Miniaturas reais de prints/SVGs, status IA, lightbox)
   • ⏱️ Métricas & Cronômetro (Histórico e tempo por questão)
   • 💻 Terminal & Debug Output (Logs ao vivo, console e tokens)
   • ⚙️ Configurações (Chaves Gemini, seleção de modelo, visão computacional)
 Atalho padrão: Alt+Q para abrir/fechar e analisar.
 
-Opção A — Código Curto Direto (Recomendado):
-javascript:(function(){fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/easyquiz.js',{cache:'no-store'}).then(r=>r.text()).then(code=>{try{(0,eval)(code)}catch(e){alert('EasyQuiz erro: '+e)}})})();
+Opção A — Multi-CDN com Auto-Failover (RECOMENDADO — Mais Estável):
+Tenta GitHub Raw; se o GitHub retornar 503 ou erro, pula automaticamente para o jsDelivr CDN!
+javascript:(function(){function L(f){return fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/'+f,{cache:'no-store'}).then(function(r){return r.ok?r.text():Promise.reject()}).catch(function(){return fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/'+f).then(function(r){return r.text()})}).then(function(t){if(!t||t.trim().charAt(0)==='<')throw new Error('503/HTML');return t})}L('easyquiz.js').then(function(c){try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();
 
-Opção B — Código com Anti-Cache Timestamp & Auto-Limpeza:
-javascript:(function(){fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/easyquiz.js?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(code){try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var host=document.getElementById('easyquiz-shadow-root');if(host)host.remove();(0,eval)(code)}catch(e){alert('EasyQuiz erro na execução: '+e)}}).catch(function(err){alert('EasyQuiz falha no download: '+err)})})();
+Opção B — jsDelivr CDN Direto (Ultra-Curto & 100% Imune ao Erro 503):
+javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/easyquiz.js').then(function(r){return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Erro na rede CDN');(0,eval)(c)}).catch(function(e){alert('EasyQuiz erro: '+e)})})();
+
+Opção C — GitHub Raw Direto (com proteção anti-HTML):
+javascript:(function(){fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/easyquiz.js',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('GitHub retornou erro HTML');(0,eval)(c)}).catch(function(e){alert('EasyQuiz erro: '+e)})})();
 
 --------------------------------------------------------------------------------
-2. MODO DISCRETO (STEALTH 100% INVISÍVEL)
+2. MODO DISCRETO (STEALTH 100% INVISÍVEL — SEM INTERFACE FIXA)
 --------------------------------------------------------------------------------
-Opera em segundo plano de forma 100% invisível sem botões na tela:
+Opera em segundo plano de forma 100% invisível sem botões fixos na tela:
   • Alt+Q / Shift+Q: Analisar questão
   • Shift+V: Janela de Mídias e Imagens (miniaturas reais e lightbox da IA)
   • Shift+H: DevTools completo (Console, Fluxo, Plano IA, Mídias, Auditoria)
@@ -38,8 +48,12 @@ Opera em segundo plano de forma 100% invisível sem botões na tela:
   • Shift+Z: Cancelar fluxo atual
   • Shift+R: Re-analisar questão
 
-Opção A — Código Curto Direto (Recomendado):
-javascript:(function(){fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/discrete.js',{cache:'no-store'}).then(r=>r.text()).then(code=>{try{(0,eval)(code)}catch(e){alert('EasyQuiz Discreto erro: '+e)}})})();
+Opção A — Multi-CDN com Auto-Failover (RECOMENDADO — Mais Estável):
+Tenta GitHub Raw; se o GitHub retornar 503 ou erro, pula automaticamente para o jsDelivr CDN!
+javascript:(function(){function L(f){return fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/'+f,{cache:'no-store'}).then(function(r){return r.ok?r.text():Promise.reject()}).catch(function(){return fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/'+f).then(function(r){return r.text()})}).then(function(t){if(!t||t.trim().charAt(0)==='<')throw new Error('503/HTML');return t})}L('discrete.js').then(function(c){try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();
 
-Opção B — Código com Anti-Cache Timestamp & Auto-Limpeza:
-javascript:(function(){fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/discrete.js?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(code){try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(code)}catch(e){alert('EasyQuiz Discreto erro na execução: '+e)}}).catch(function(err){alert('EasyQuiz Discreto falha no download: '+err)})})();
+Opção B — jsDelivr CDN Direto (Ultra-Curto & 100% Imune ao Erro 503):
+javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/discrete.js').then(function(r){return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Erro na rede CDN');(0,eval)(c)}).catch(function(e){alert('EasyQuiz Discreto erro: '+e)})})();
+
+Opção C — GitHub Raw Direto (com proteção anti-HTML):
+javascript:(function(){fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/discrete.js',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('GitHub retornou erro HTML');(0,eval)(c)}).catch(function(e){alert('EasyQuiz Discreto erro: '+e)})})();
