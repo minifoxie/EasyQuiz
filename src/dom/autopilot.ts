@@ -230,8 +230,23 @@ export class Autopilot {
       this.lastAttemptSig = contentSig
       this.lastAttemptTime = now
 
-      const answerControls = context.controls.filter((c) => c.role === 'answer')
+      let answerControls = context.controls.filter((c) => c.role === 'answer')
       const cache = loadDomainCache(window.location.hostname)
+
+      // Se não detectou controles de resposta de imediato, aguarda até 3 ciclos (300ms cada)
+      // para garantir que a SPA ou formulário concluiu a transição/animação e renderizou os inputs
+      if (answerControls.length === 0) {
+        for (let retryWait = 0; retryWait < 3; retryWait++) {
+          await this.sleep(300)
+          if (!this.active) return
+          const reContext = captureCurrentContext(false) || captureFullPageText()
+          if (reContext && reContext.controls.filter((c) => c.role === 'answer').length > 0) {
+            context = reContext
+            answerControls = context.controls.filter((c) => c.role === 'answer')
+            break
+          }
+        }
+      }
 
       if (answerControls.length > 0) {
         // QUESTÃO COM CONTROLES DE RESPOSTA
@@ -263,9 +278,12 @@ export class Autopilot {
             return
           }
 
-          // Marcar conteúdo como resolvido — MutationObserver vai ignorar próximas mutações
-          // de valores (checkmarks, campos preenchidos) desta mesma questão
-          this.resolvedSigs.add(contentSig)
+          // Só marca como resolvida se emitiu ações ou se atingiu o limite de tentativas
+          const attempts = (this.replanCount.get(contentSig) || 0) + 1
+          this.replanCount.set(contentSig, attempts)
+          if (plan.actions.length > 0 || attempts >= 3) {
+            this.resolvedSigs.add(contentSig)
+          }
 
         } else {
           this.errorCount++
@@ -277,9 +295,8 @@ export class Autopilot {
         }
 
       } else {
-        // SEM CONTROLES DE RESPOSTA — envia para a IA de qualquer forma
-        // (pode ser página info, start, conclusion, ou questão com DOM não carregado)
-        this.callbacks.onStatusChange('analyzing', '> [IA] Página sem controles detectados. Consultando IA...', 'text-blue')
+        // SEM CONTROLES DE RESPOSTA — página informativa/artigo/início
+        this.callbacks.onStatusChange('analyzing', '> [IA] Página informativa ou texto de leitura. Consultando IA...', 'text-blue')
         if (!this.active) return
 
         this.abortController = new AbortController()
@@ -306,11 +323,11 @@ export class Autopilot {
           }
 
           if (plan.pageType === 'info') {
-            this.callbacks.onStatusChange('advancing', '> [IA] 📖 Leitura concluída. Avançando...', 'text-green')
-            await this.sleep(100)
+            this.callbacks.onStatusChange('advancing', '> [IA] 📖 Leitura concluída. Avançando com segurança...', 'text-green')
+            await this.sleep(500)
           } else if (plan.pageType === 'start') {
             this.callbacks.onStatusChange('advancing', '> [SYS] Início detectado. Iniciando...', 'text-blue')
-            await this.sleep(100)
+            await this.sleep(500)
           }
 
           this.errorCount = 0
@@ -347,10 +364,9 @@ export class Autopilot {
     } finally {
       this.abortController = null
       this.isProcessing = false
-      // Re-verificar imediatamente após análise concluir:
-      // captura mudanças de página que ocorreram DURANTE o fetch da IA (isProcessing bloqueava o observer)
+      // Re-verificar após análise com tempo suficiente (800ms) para acomodar a transição DOM
       if (this.active) {
-        window.setTimeout(() => void this.checkAndAnalyze(), 150)
+        window.setTimeout(() => void this.checkAndAnalyze(), 800)
       }
     }
   }

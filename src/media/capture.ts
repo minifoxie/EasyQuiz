@@ -59,7 +59,7 @@ async function compressImage(source: HTMLImageElement | HTMLCanvasElement | Imag
 }
 
 // ============================================================
-// CAPTURA SVG
+// CAPTURA SVG E RASTERIZAÇÃO VETORIAL PROFUNDA
 // ============================================================
 async function rasterizeSvgElement(svgEl: SVGElement): Promise<Blob> {
   const rect = typeof svgEl.getBoundingClientRect === 'function' ? svgEl.getBoundingClientRect() : { width: 0, height: 0 }
@@ -78,6 +78,28 @@ async function rasterizeSvgElement(svgEl: SVGElement): Promise<Blob> {
   if (!clone.getAttribute('viewBox') && rawWidth > 0 && rawHeight > 0) {
     clone.setAttribute('viewBox', `0 0 ${rawWidth} ${rawHeight}`)
   }
+
+  // Injetar estilos computados essenciais em todos os elementos filhos do SVG
+  // para que cores, fontes e traços sejam idênticos mesmo sem CSS externo
+  try {
+    const origElements = Array.from(svgEl.querySelectorAll('*'))
+    const cloneElements = Array.from(clone.querySelectorAll('*'))
+    for (let i = 0; i < Math.min(origElements.length, cloneElements.length); i++) {
+      const orig = origElements[i] as SVGElement
+      const dest = cloneElements[i] as SVGElement
+      if (!orig || !dest || !dest.style) continue
+      const cs = window.getComputedStyle ? window.getComputedStyle(orig) : null
+      if (cs) {
+        if (cs.fill && cs.fill !== 'none') dest.style.fill = cs.fill
+        if (cs.stroke && cs.stroke !== 'none') dest.style.stroke = cs.stroke
+        if (cs.strokeWidth) dest.style.strokeWidth = cs.strokeWidth
+        if (cs.fontFamily) dest.style.fontFamily = cs.fontFamily
+        if (cs.fontSize) dest.style.fontSize = cs.fontSize
+        if (cs.fontWeight) dest.style.fontWeight = cs.fontWeight
+        if (cs.color) dest.style.color = cs.color
+      }
+    }
+  } catch {}
 
   // Detecta cor de fundo real do elemento ou da página para preservar contraste em temas escuros (ex: KhanMath)
   let bgColor = '#ffffff'
@@ -100,9 +122,9 @@ async function rasterizeSvgElement(svgEl: SVGElement): Promise<Blob> {
   const loadImgFromUrl = (imgSrc: string): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
       const img = new Image()
-      // NUNCA defina crossOrigin = 'anonymous' para URLs blob: ou data:, pois Chromium rejeita CORS em blob!
-      img.onload = () => resolve(img)
-      img.onerror = () => reject(new Error('Falha ao renderizar SVG em Image.'))
+      const timer = setTimeout(() => reject(new Error('Timeout render SVG')), 2500)
+      img.onload = () => { clearTimeout(timer); resolve(img) }
+      img.onerror = () => { clearTimeout(timer); reject(new Error('Falha ao renderizar SVG em Image.')) }
       img.src = imgSrc
     })
   }
@@ -143,45 +165,150 @@ async function rasterizeSvgElement(svgEl: SVGElement): Promise<Blob> {
 }
 
 // ============================================================
-// CAPTURA HTML NODE (ForeignObject)
+// MOTOR UNIVERSAL DE CAPTURA VISUAL "PRINT-LIKE" DE ÁREA
 // ============================================================
-async function rasterizeHtmlNode(node: HTMLElement): Promise<CapturedImage | null> {
+/**
+ * Captura um "print" do exato bounding-box de qualquer elemento visual
+ * (diagrama HTML, canvas, SVG aninhado, container com CSS), copiando
+ * recursivamente os estilos computados da renderização ativa.
+ */
+async function captureElementVisualSnapshot(node: HTMLElement): Promise<CapturedImage | null> {
   try {
-    const clone = node.cloneNode(true) as HTMLElement
-    const width = node.offsetWidth || 500
-    const height = node.offsetHeight || 500
+    const rect = node.getBoundingClientRect()
+    const width = Math.round(rect.width) || node.offsetWidth || 400
+    const height = Math.round(rect.height) || node.offsetHeight || 300
+    if (width < 30 || height < 30) return null
 
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-        <foreignObject width="100%" height="100%">
-          <div xmlns="http://www.w3.org/1999/xhtml" style="background:#fff;font-family:sans-serif;">
-            ${clone.innerHTML}
+    // Se o elemento contiver SVG ou for SVG, rasteriza via motor vetorial direto
+    const innerSvg = node.tagName.toLowerCase() === 'svg' ? (node as unknown as SVGElement) : node.querySelector('svg')
+    if (innerSvg && node.querySelectorAll('input, select, textarea').length === 0) {
+      try {
+        const blob = await rasterizeSvgElement(innerSvg)
+        const base64 = await blobToBase64(blob)
+        if (base64 && base64.length <= MAX_BASE64_LENGTH) {
+          return {
+            mediaType: 'image/jpeg',
+            base64,
+            alt: node.getAttribute('aria-label') || innerSvg.getAttribute('aria-label') || 'Captura de diagrama/gráfico',
+            source: 'visual_snapshot',
+            captureStatus: 'captured',
+            textContext: extractTextContextForImage(innerSvg),
+          }
+        }
+      } catch {}
+    }
+
+    // Se o nó for um canvas
+    if (node instanceof HTMLCanvasElement) {
+      try {
+        const blob = await compressImage(node)
+        const base64 = await blobToBase64(blob)
+        if (base64) {
+          return {
+            mediaType: 'image/jpeg',
+            base64,
+            alt: node.getAttribute('aria-label') || 'Captura de canvas visual',
+            source: 'canvas_snapshot',
+            captureStatus: 'captured',
+          }
+        }
+      } catch {}
+    }
+
+    // Detectar cor de fundo
+    let bgColor = '#ffffff'
+    try {
+      let cur: HTMLElement | null = node
+      while (cur && cur !== document.documentElement) {
+        const cs = window.getComputedStyle ? window.getComputedStyle(cur) : null
+        const bg = cs?.backgroundColor
+        if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') {
+          bgColor = bg
+          break
+        }
+        cur = cur.parentElement
+      }
+    } catch {}
+
+    const clone = node.cloneNode(true) as HTMLElement
+    const origElements = Array.from(node.querySelectorAll('*'))
+    const cloneElements = Array.from(clone.querySelectorAll('*'))
+
+    for (let i = 0; i < Math.min(origElements.length, cloneElements.length); i++) {
+      const orig = origElements[i] as HTMLElement
+      const dest = cloneElements[i] as HTMLElement
+      if (!orig || !dest || !dest.style) continue
+      try {
+        const cs = window.getComputedStyle(orig)
+        dest.style.color = cs.color
+        dest.style.backgroundColor = cs.backgroundColor
+        dest.style.borderColor = cs.borderColor
+        dest.style.borderWidth = cs.borderWidth
+        dest.style.borderStyle = cs.borderStyle
+        dest.style.fontSize = cs.fontSize
+        dest.style.fontFamily = cs.fontFamily
+        dest.style.fontWeight = cs.fontWeight
+        dest.style.lineHeight = cs.lineHeight
+        dest.style.letterSpacing = cs.letterSpacing
+        dest.style.textAlign = cs.textAlign
+      } catch {}
+    }
+
+    const scale = Math.min(2, Math.max(1, 1200 / Math.max(width, height)))
+    const targetW = Math.round(width * scale)
+    const targetH = Math.round(height * scale)
+
+    const foreignHtml = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${targetW}" height="${targetH}" viewBox="0 0 ${width} ${height}">
+        <foreignObject width="${width}" height="${height}">
+          <div xmlns="http://www.w3.org/1999/xhtml" style="background:${bgColor};width:100%;height:100%;overflow:hidden;box-sizing:border-box;">
+            ${clone.outerHTML}
           </div>
         </foreignObject>
       </svg>
     `
-    const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+
+    const svgBlob = new Blob([foreignHtml], { type: 'image/svg+xml;charset=utf-8' })
     const url = URL.createObjectURL(svgBlob)
 
     try {
       const img = new Image()
       await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve()
-        img.onerror = () => reject(new Error('Falha ao renderizar ForeignObject.'))
+        const timer = setTimeout(() => reject(new Error('Timeout render ForeignObject')), 2500)
+        img.onload = () => { clearTimeout(timer); resolve() }
+        img.onerror = () => { clearTimeout(timer); reject(new Error('Falha ao carregar ForeignObject')) }
         img.src = url
       })
 
-      const blob = await compressImage(img)
-      const base64 = await blobToBase64(blob)
+      const canvas = document.createElement('canvas')
+      canvas.width = targetW
+      canvas.height = targetH
+      const ctx = canvas.getContext('2d', { alpha: false })
+      if (ctx) {
+        ctx.fillStyle = bgColor
+        ctx.fillRect(0, 0, targetW, targetH)
+        ctx.drawImage(img, 0, 0, targetW, targetH)
 
-      if (base64 && base64.length <= MAX_BASE64_LENGTH) {
-        return { mediaType: 'image/jpeg', base64, alt: 'Captura via rasterização DOM', source: 'rasterized', captureStatus: 'captured' }
+        const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.90))
+        if (blob) {
+          const base64 = await blobToBase64(blob)
+          if (base64 && base64.length <= MAX_BASE64_LENGTH) {
+            return {
+              mediaType: 'image/jpeg',
+              base64,
+              alt: node.getAttribute('aria-label') || 'Captura visual da área (print-like)',
+              source: 'element_snapshot',
+              captureStatus: 'captured',
+              textContext: extractTextContextForImage(node),
+            }
+          }
+        }
       }
     } finally {
       URL.revokeObjectURL(url)
     }
   } catch (err) {
-    console.warn('[EasyQuiz] Falha na rasterização do nó:', err)
+    console.warn('[EasyQuiz] Snapshot visual do nó:', err)
   }
   return null
 }
@@ -314,16 +441,23 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
   if (!src) return null
   const alt = (img.alt || img.getAttribute('aria-label') || 'Imagem da questão').slice(0, 500)
 
-  // Estratégia 1: Canvas direto (falha silenciosamente em tainted canvas)
+  // Estratégia 1: Canvas direto (funciona para mesma origem, data: e blob:)
   if (img.complete && img.naturalWidth > 0) {
     try {
       const blob = await compressImage(img)
       const base64 = await blobToBase64(blob)
       if (base64 && base64.length <= MAX_BASE64_LENGTH) {
-        return { mediaType: 'image/jpeg', base64, alt, source: src.slice(0, 2000), captureStatus: 'captured' }
+        return {
+          mediaType: 'image/jpeg',
+          base64,
+          alt,
+          source: src.slice(0, 2000),
+          captureStatus: 'captured',
+          textContext: extractTextContextForImage(img),
+        }
       }
     } catch {
-      // Tented canvas ou dimensão inválida — passa para próxima estratégia
+      // Tainted canvas ou dimensão inválida — passa para próxima estratégia
     }
   }
 
@@ -338,61 +472,62 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
         bitmap.close()
         const base64 = await blobToBase64(compressed)
         if (base64 && base64.length <= MAX_BASE64_LENGTH) {
-          return { mediaType: 'image/jpeg', base64, alt, source: src.slice(0, 2000), captureStatus: 'captured' }
+          return {
+            mediaType: 'image/jpeg',
+            base64,
+            alt,
+            source: src.slice(0, 2000),
+            captureStatus: 'captured',
+            textContext: extractTextContextForImage(img),
+          }
         }
       }
     }
   } catch {
-    // CORS bloqueado — tenta no-cors
+    // CORS bloqueado
   }
 
-  // Estratégia 3: fetch no-cors (sem ler headers, mas obtém o blob)
-  if (!src.startsWith('data:')) {
-    try {
-      const res = await fetch(src, { mode: 'no-cors' })
-      const blob = await res.blob()
-      // no-cors retorna blob opaco — tenta via createImageBitmap mesmo assim
-      if (blob.size > 100) {
-        try {
-          const bitmap = await createImageBitmap(blob)
-          const compressed = await compressImage(bitmap)
-          bitmap.close()
-          const base64 = await blobToBase64(compressed)
-          if (base64 && base64.length > 100 && base64.length <= MAX_BASE64_LENGTH) {
-            return { mediaType: 'image/jpeg', base64, alt, source: src.slice(0, 2000), captureStatus: 'captured' }
+  // Estratégia 3: Bypass via Proxies CORS Transparentes (para sites que bloqueiam cross-origin)
+  if (src.startsWith('http')) {
+    const proxies = [
+      `https://corsproxy.io/?${encodeURIComponent(src)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(src)}`,
+    ]
+    for (const proxyUrl of proxies) {
+      try {
+        const controller = new AbortController()
+        const tid = setTimeout(() => controller.abort(), 3000)
+        const pRes = await fetch(proxyUrl, { signal: controller.signal })
+        clearTimeout(tid)
+        if (pRes.ok) {
+          const pBlob = await pRes.blob()
+          if (pBlob.type.startsWith('image/') || pBlob.size > 200) {
+            const bitmap = await createImageBitmap(pBlob)
+            const compressed = await compressImage(bitmap)
+            bitmap.close()
+            const base64 = await blobToBase64(compressed)
+            if (base64 && base64.length <= MAX_BASE64_LENGTH) {
+              return {
+                mediaType: 'image/jpeg',
+                base64,
+                alt,
+                source: src.slice(0, 2000),
+                captureStatus: 'captured',
+                textContext: extractTextContextForImage(img),
+              }
+            }
           }
-        } catch {
-          // Blob opaco sem decodificação — fallback para rasterização
         }
-      }
-    } catch {
-      // no-cors também bloqueado
+      } catch {}
     }
   }
 
-  // Estratégia 4: Rasterização do nó pai (ForeignObject)
-  const parentNode = img.parentElement || img
-  const rasterized = await rasterizeHtmlNode(parentNode as HTMLElement)
-  if (rasterized) return rasterized
+  // Estratégia 4: Snapshot visual "Print-like" do elemento renderizado no DOM
+  const parentNode = (img.parentElement || img) as HTMLElement
+  const snapshot = await captureElementVisualSnapshot(parentNode)
+  if (snapshot) return snapshot
 
-  // Estratégia 5: captureStream via canvas se disponível e img já está no DOM
-  try {
-    if (img.complete && img.naturalWidth > 0 && typeof (HTMLCanvasElement.prototype as any).captureStream === 'function') {
-      const offscreen = document.createElement('canvas')
-      offscreen.width = Math.min(img.naturalWidth, MAX_DIMENSION)
-      offscreen.height = Math.min(img.naturalHeight, MAX_DIMENSION)
-      const ctx2 = offscreen.getContext('2d')
-      if (ctx2) {
-        ctx2.drawImage(img, 0, 0, offscreen.width, offscreen.height)
-        const b64 = offscreen.toDataURL('image/jpeg', 0.88).split(',')[1]
-        if (b64 && b64.length > 100 && b64.length <= MAX_BASE64_LENGTH) {
-          return { mediaType: 'image/jpeg', base64: b64, alt, source: src.slice(0, 2000), captureStatus: 'captured' }
-        }
-      }
-    }
-  } catch {}
-
-  // Estratégia 6: Fallback textual — extrai contexto da imagem sem captura visual
+  // Estratégia 5: Fallback textual detalhado (metadados, alt, figcaption, vizinhança)
   const textCtx = extractTextContextForImage(img)
   if (textCtx || alt) {
     return {
@@ -401,7 +536,7 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
       alt,
       source: src.slice(0, 2000),
       captureStatus: 'text_only',
-      textContext: textCtx || `Imagem sem descrição textual disponível (src: ${src.slice(0, 100)})`,
+      textContext: textCtx || `Imagem da questão (src: ${src.slice(0, 100)})`,
     }
   }
 
@@ -547,17 +682,20 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
       const blob = await rasterizeSvgElement(svg)
       const base64 = await blobToBase64(blob)
       if (base64) {
+        const textCtx = extractTextContextForImage(svg)
         const cap: CapturedImage = {
           mediaType: 'image/jpeg',
           base64,
           alt: svg.getAttribute('aria-label') || 'Gráfico/Diagrama vetorial da questão',
           source: 'svg',
           captureStatus: 'captured',
+          textContext: textCtx,
         }
         if (pushCapture(cap, svg)) return captures
       }
     } catch {
-      const fallbackCap = await rasterizeHtmlNode(svg.parentElement || (svg as unknown as HTMLElement))
+      const container = (svg.closest('.trig-diagram-container, [class*="diagram" i], [class*="graph" i], figure') || svg.parentElement || svg) as HTMLElement
+      const fallbackCap = await captureElementVisualSnapshot(container)
       if (fallbackCap) {
         if (pushCapture(fallbackCap, svg)) return captures
       } else {
@@ -598,7 +736,7 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
           if (pushCapture(cap, cnv)) return captures
         }
       } catch {
-        const raster = await rasterizeHtmlNode(cnv.parentElement || cnv)
+        const raster = await captureElementVisualSnapshot((cnv.parentElement || cnv) as HTMLElement)
         if (pushCapture(raster, cnv)) return captures
       }
     }

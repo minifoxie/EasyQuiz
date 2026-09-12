@@ -6,27 +6,31 @@ import { isInsideEasyQuiz, isVisible, safeCssEscape } from './controls'
 let highlightedScope: HTMLElement | null = null
 let highlightedElements: HTMLElement[] = []
 let highlightedImages: HTMLElement[] = []
+let imageFrames: HTMLElement[] = []
 let captureBadges: HTMLElement[] = []
 let scanOverlay: HTMLElement | null = null
+let repositionListener: (() => void) | null = null
 
 const IMAGE_PULSE_KEYFRAMES = `
 @keyframes eq-image-pulse-yellow-white {
   0%, 100% {
+    border-color: #ffd600;
     outline-color: #ffd600;
-    box-shadow: 0 0 14px rgba(255, 214, 0, 0.95), 0 0 6px rgba(255, 214, 0, 0.6);
+    box-shadow: 0 0 16px rgba(255, 214, 0, 0.95), 0 0 32px rgba(255, 214, 0, 0.5), inset 0 0 12px rgba(255, 214, 0, 0.25);
   }
   50% {
+    border-color: #ffffff;
     outline-color: #ffffff;
-    box-shadow: 0 0 18px rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.8);
+    box-shadow: 0 0 22px rgba(255, 255, 255, 0.95), 0 0 40px rgba(255, 214, 0, 0.8), inset 0 0 16px rgba(255, 255, 255, 0.35);
   }
 }
-@keyframes eq-scope-scan {
-  0% { top: 0%; opacity: 1; }
-  80% { top: 90%; opacity: 0.6; }
-  100% { top: 100%; opacity: 0; }
+@keyframes eq-scope-scan-loop {
+  0% { top: 0%; opacity: 0.95; }
+  50% { top: 96%; opacity: 0.75; }
+  100% { top: 0%; opacity: 0.95; }
 }
 @keyframes eq-badge-fade-in {
-  0% { opacity: 0; transform: scale(0.7) translateY(4px); }
+  0% { opacity: 0; transform: scale(0.8) translateY(-4px); }
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 `
@@ -65,9 +69,22 @@ export function clearHighlights(): void {
     imgEl.style.removeProperty('outline')
     imgEl.style.removeProperty('outline-offset')
     imgEl.style.removeProperty('box-shadow')
+    imgEl.style.removeProperty('filter')
     imgEl.removeAttribute('data-easyquiz-image-highlight')
   }
   highlightedImages = []
+
+  // Remove molduras flutuantes de imagem
+  for (const frame of imageFrames) {
+    try { frame.remove() } catch {}
+  }
+  imageFrames = []
+
+  if (repositionListener && typeof window !== 'undefined') {
+    window.removeEventListener('scroll', repositionListener)
+    window.removeEventListener('resize', repositionListener)
+    repositionListener = null
+  }
 
   // Remove badges de captura
   for (const badge of captureBadges) {
@@ -84,80 +101,118 @@ export function clearHighlights(): void {
 
 export function highlightAttachedImages(elements: Element[]): void {
   ensureImageHighlightKeyframes()
+  const trackedPairs: Array<{ element: Element; frame: HTMLElement }> = []
+
   for (const el of elements) {
     if (!el || typeof (el as any).setAttribute !== 'function') continue
     const node = el as HTMLElement
 
+    // 1. Aplica destaque direto no elemento
     try {
       if ((node as any).style) {
         node.style.outline = '3px solid #ffd600'
         node.style.outlineOffset = '4px'
         node.style.animation = 'eq-image-pulse-yellow-white 1.2s ease-in-out infinite'
-        if (el.tagName.toLowerCase() === 'svg') {
-          node.style.boxShadow = '0 0 16px rgba(255, 214, 0, 0.7)'
-          node.style.filter = 'drop-shadow(0 0 8px rgba(255, 214, 0, 0.8))'
-        }
+        node.style.boxShadow = '0 0 16px rgba(255, 214, 0, 0.7)'
+        node.style.filter = 'drop-shadow(0 0 8px rgba(255, 214, 0, 0.8))'
       }
       node.setAttribute('data-easyquiz-image-highlight', 'true')
       highlightedImages.push(node)
     } catch {}
 
-    // Para SVG ou diagramas em container dedicado: também realça o container wrapper
-    const container = (el.tagName.toLowerCase() === 'svg'
-      ? (el.closest('.trig-diagram-container, [class*="diagram" i], [class*="graph" i], [class*="chart" i], figure') || el.parentElement)
-      : el.parentElement) as HTMLElement | null
-
-    if (container && container !== document.body && container !== document.documentElement) {
-      if (!container.hasAttribute('data-easyquiz-image-highlight')) {
-        try {
-          if (container.style && el.tagName.toLowerCase() === 'svg') {
-            container.style.outline = '2px solid rgba(255, 214, 0, 0.5)'
-            container.style.outlineOffset = '6px'
-            container.style.borderRadius = '8px'
-            container.setAttribute('data-easyquiz-image-highlight', 'true')
-            highlightedImages.push(container)
-          }
-        } catch {}
-      }
-    }
-
-    // Adicionar badge "📷 Imagem / Gráfico Analisado pela IA"
+    // 2. Cria Moldura Flutuante Bounding-Box no document.body
+    // Essa moldura é imune a cortes de overflow: hidden, especificações de SVG ou estilos do container
     try {
-      const parent = container || node.parentElement
-      if (parent && !parent.querySelector('[data-easyquiz-capture-badge]')) {
-        const prevPosition = window.getComputedStyle ? window.getComputedStyle(parent).position : (parent.style.position || '')
-        if (prevPosition === 'static') {
-          parent.style.position = 'relative'
-        }
+      const rect = el.getBoundingClientRect()
+      const effectiveW = rect.width || (el as HTMLElement).offsetWidth || 280
+      const effectiveH = rect.height || (el as HTMLElement).offsetHeight || 200
+
+      if (effectiveW > 10 && effectiveH > 10) {
+        const frame = document.createElement('div')
+        frame.setAttribute('data-easyquiz-image-frame', 'true')
+        frame.style.cssText = `
+          position: absolute;
+          top: ${rect.top + window.scrollY - 3}px;
+          left: ${rect.left + window.scrollX - 3}px;
+          width: ${rect.width + 6}px;
+          height: ${rect.height + 6}px;
+          border: 3px solid #ffd600;
+          border-radius: 8px;
+          pointer-events: none;
+          z-index: 2147483640;
+          box-sizing: border-box;
+          animation: eq-image-pulse-yellow-white 1.2s ease-in-out infinite;
+          box-shadow: 0 0 16px rgba(255, 214, 0, 0.95), 0 0 32px rgba(255, 214, 0, 0.5), inset 0 0 12px rgba(255, 214, 0, 0.25);
+        `
+
+        // Badge informativo acoplado à moldura
         const badge = document.createElement('div')
         badge.setAttribute('data-easyquiz-capture-badge', 'true')
         badge.textContent = '📷 Imagem / Gráfico Analisado pela IA'
         badge.style.cssText = `
-          position: absolute; top: 4px; left: 4px; z-index: 99999;
-          background: rgba(12, 14, 20, 0.92); color: #ffd600; font-size: 11px;
-          font-weight: 800; padding: 3px 8px; border-radius: 6px;
-          border: 1px solid rgba(255, 214, 0, 0.6);
-          pointer-events: none; font-family: system-ui, -apple-system, sans-serif;
-          animation: eq-badge-fade-in 0.3s ease-out;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+          position: absolute;
+          top: -14px;
+          left: 8px;
+          background: rgba(12, 14, 20, 0.95);
+          color: #ffd600;
+          font-size: 11px;
+          font-weight: 800;
+          padding: 2px 8px;
+          border-radius: 6px;
+          border: 1px solid rgba(255, 214, 0, 0.85);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
           letter-spacing: 0.3px;
+          white-space: nowrap;
+          pointer-events: none;
+          font-family: system-ui, -apple-system, sans-serif;
+          animation: eq-badge-fade-in 0.3s ease-out;
         `
-        parent.appendChild(badge)
+        frame.appendChild(badge)
+        document.body.appendChild(frame)
+        imageFrames.push(frame)
         captureBadges.push(badge)
+        trackedPairs.push({ element: el, frame })
       }
     } catch {}
+  }
+
+  // Sincroniza posição das molduras com scroll e redimensionamento
+  if (trackedPairs.length > 0 && !repositionListener && typeof window !== 'undefined') {
+    repositionListener = () => {
+      for (const pair of trackedPairs) {
+        try {
+          const r = pair.element.getBoundingClientRect()
+          if (r.width > 0 && r.height > 0) {
+            pair.frame.style.top = `${r.top + window.scrollY - 3}px`
+            pair.frame.style.left = `${r.left + window.scrollX - 3}px`
+            pair.frame.style.width = `${r.width + 6}px`
+            pair.frame.style.height = `${r.height + 6}px`
+          }
+        } catch {}
+      }
+    }
+    window.addEventListener('scroll', repositionListener, { passive: true })
+    window.addEventListener('resize', repositionListener, { passive: true })
   }
 }
 
 export function highlightScope(scope: HTMLElement): void {
-  clearHighlights()
+  // Limpa realces anteriores de escopo sem destruir molduras de imagens já vinculadas
+  if (highlightedScope && highlightedScope !== scope) {
+    highlightedScope.style.removeProperty('outline')
+    highlightedScope.style.removeProperty('outline-offset')
+  }
   ensureImageHighlightKeyframes()
   highlightedScope = scope
   scope.style.outline = '2px solid #00e5ff'
   scope.style.outlineOffset = '4px'
 
-  // Animação de scan — linha horizontal de cima para baixo indicando varredura da IA
+  // Animação de scan cibernético CONTÍNUO enquanto a IA analisa
   try {
+    if (scanOverlay) {
+      try { scanOverlay.remove() } catch {}
+      scanOverlay = null
+    }
     const prevPos = window.getComputedStyle(scope).position
     if (prevPos === 'static') {
       scope.style.position = 'relative'
@@ -167,16 +222,11 @@ export function highlightScope(scope: HTMLElement): void {
       position: absolute; left: 0; right: 0; top: 0; height: 3px;
       background: linear-gradient(90deg, transparent, #00e5ff, #00ff88, #00e5ff, transparent);
       z-index: 99998; pointer-events: none; border-radius: 2px;
-      animation: eq-scope-scan 0.8s ease-in-out forwards;
-      box-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+      animation: eq-scope-scan-loop 1.4s ease-in-out infinite;
+      box-shadow: 0 0 14px rgba(0, 229, 255, 0.85), 0 0 6px #00ff88;
     `
     scope.appendChild(scan)
     scanOverlay = scan
-    // Auto-remove depois da animação
-    setTimeout(() => {
-      try { scan.remove() } catch {}
-      if (scanOverlay === scan) scanOverlay = null
-    }, 900)
   } catch {}
 }
 
@@ -192,6 +242,11 @@ function getConfidenceColor(confidence?: number): { outline: string; bg: string;
 }
 
 export function highlightTargetActions(actions: DeclarativeAction[], confidence?: number): void {
+  // Análise concluída — remove a animação de scan
+  if (scanOverlay) {
+    try { scanOverlay.remove() } catch {}
+    scanOverlay = null
+  }
   const colors = getConfidenceColor(confidence)
 
   for (const action of actions) {

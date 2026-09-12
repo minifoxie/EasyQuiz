@@ -466,7 +466,8 @@ ${
         return `  - Imagem ${idx + 1} [CONTEXTO_TEXTUAL]: ${label}${altInfo} | ${img.textContext || 'sem contexto adicional'}`
       }
       if (img.captureStatus === 'captured' || img.base64) {
-        return `  - Imagem ${idx + 1} [VISUAL_INLINE]: ${label}${altInfo}`
+        const textInfo = img.textContext ? ` | Textos e rótulos do gráfico: "${img.textContext}"` : ''
+        return `  - Imagem ${idx + 1} [VISUAL_INLINE]: ${label}${altInfo}${textInfo}`
       }
       return `  - Imagem ${idx + 1} [FALHOU]: ${label}${altInfo}`
     }).join('\n')

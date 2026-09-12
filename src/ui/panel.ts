@@ -2478,6 +2478,11 @@ export class EasyQuizPanel {
     const executionCard = this.shadow.querySelector('#eq-execution-card') as HTMLElement | null
     if (executionCard) executionCard.hidden = true
 
+    if (plan.imageDescriptions && plan.imageDescriptions.length > 0) {
+      this.latestImageDescriptions = plan.imageDescriptions
+      this.renderMediaTab()
+    }
+
     // Atualiza Inspetor de IA e Debug em Tempo Real
     this.refreshInspectorView()
     this.refreshDebugView()

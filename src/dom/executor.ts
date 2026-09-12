@@ -2834,6 +2834,7 @@ export async function executePlan(
     await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 120 : 40))
 
     let checkWasClicked = false
+    let clickedCheckElement: HTMLElement | null = null
     // 1. Em questões com etapa intermediária de checagem ("Verificar", "Check", "Conferir", "Responder")
     if (plan.pageType !== 'info') {
       const checkBtn = findCheckButton()
@@ -2841,8 +2842,9 @@ export async function executePlan(
         await waitForEnabled(checkBtn, 1200)
         simulatePointerClick(checkBtn)
         checkWasClicked = true
+        clickedCheckElement = checkBtn
         // Aguarda transição imediata do quiz
-        await new Promise((resolve) => setTimeout(resolve, 350))
+        await new Promise((resolve) => setTimeout(resolve, 400))
       }
     }
 
@@ -2851,13 +2853,22 @@ export async function executePlan(
     const preferredId = advanceActions.length > 0 ? advanceActions[0].id : undefined
     let navBtn = findBestNavigationButton(preferredId)
 
+    // Se o botão de navegação for o mesmo elemento de checagem recém-clicado,
+    // não acione duas vezes no mesmo tick — o envio já foi consumado e o quiz processa a transição
+    if (navBtn && clickedCheckElement && navBtn === clickedCheckElement) {
+      advanced = true
+      navigationVerified = true
+      navigationEvidence = 'Resposta confirmada via botão de verificação/envio.'
+      navBtn = null
+    }
+
     // Se ainda não encontrou e houve clique intermediário, aguarda a transição de texto do botão
-    if (!navBtn && checkWasClicked) {
+    if (!navBtn && checkWasClicked && !clickedCheckElement) {
       await new Promise((resolve) => setTimeout(resolve, 250))
       navBtn = findBestNavigationButton(preferredId)
     }
 
-    if (navBtn) {
+    if (navBtn && (!clickedCheckElement || navBtn !== clickedCheckElement)) {
       await waitForEnabled(navBtn, 1500)
       const heuristic = preferredId || navBtn.textContent?.trim() || ''
       if (heuristic) {
@@ -2872,7 +2883,7 @@ export async function executePlan(
         console.warn('[EasyQuiz] O botão de avanço foi acionado, mas a navegação ainda não concluiu.')
       }
     } else if (checkWasClicked) {
-      // Se clicou no botão de checagem e não há outro botão, o envio já foi consumado
+      // Se clicou no botão de checagem e não há outro botão distinto, o envio já foi consumado
       advanced = true
       navigationVerified = true
       navigationEvidence = 'Resposta confirmada via botão de verificação/envio.'
