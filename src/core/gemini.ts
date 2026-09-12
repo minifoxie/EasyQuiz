@@ -734,9 +734,9 @@ export async function analyzeWithGemini(
   const getTimeout = (modelName: string, waveIdx: number): number => {
     const isPro = /pro/i.test(modelName)
     const isLite = /lite/i.test(modelName)
-    if (isPro)  return waveIdx === 0 ?  9000 : waveIdx === 1 ? 12000 : 16000
-    if (isLite) return waveIdx === 0 ?  3500 : waveIdx === 1 ?  5000 :  6500
-    return             waveIdx === 0 ?  4500 : waveIdx === 1 ?  6500 :  8000
+    if (isPro)  return waveIdx === 0 ? 18000 : waveIdx === 1 ? 24000 : 30000
+    if (isLite) return waveIdx === 0 ? 10000 : waveIdx === 1 ? 14000 : 18000
+    return             waveIdx === 0 ? 16000 : waveIdx === 1 ? 20000 : 25000
   }
 
   const runWave = async (

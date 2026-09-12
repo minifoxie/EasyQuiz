@@ -95,7 +95,18 @@ async function initDiscrete(): Promise<void> {
   async function doAnalyze(proactive = false, retry = 0): Promise<void> {
     if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
 
-    // Cancela análise anterior
+    // Se já estiver analisando e for uma chamada proativa redundante, não interrompe a análise em voo!
+    if (analyzing && proactive) {
+      debugOutput.log('SYS', 'Análise já em andamento — preservando requisição ativa')
+      return
+    }
+
+    // Não interrompe o aplicador se a análise for proativa e o usuário estiver interagindo
+    if (proactive && applicator.isActive()) {
+      return
+    }
+
+    // Cancela análise anterior em chamadas manuais explícitas ou retries
     if (currentAbort) { try { currentAbort.abort() } catch {} currentAbort = null }
     if (applicator.isActive()) applicator.abort()
 

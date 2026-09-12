@@ -9,6 +9,8 @@
  *    eliminando qualquer risco de engolir a transição de questão.
  */
 
+import { captureCurrentContext, captureFullPageText, createContentSignature } from '../dom/detector'
+
 interface PageWatcherOpts {
   onPageAdvance: () => void
 }
@@ -19,12 +21,12 @@ export class PageWatcher {
   private pollTimer: number | null = null
   private debounceTimer: number | null = null
   private cooldownUntil = 0
-  private readonly POLL_MS     = 700
-  private readonly DEBOUNCE_MS = 500
-  private readonly COOLDOWN_MS = 2500 // Cooldown balanceado para transições rápidas
+  private readonly POLL_MS     = 400
+  private readonly DEBOUNCE_MS = 250
+  private readonly COOLDOWN_MS = 800 // Cooldown balanceado para transições rápidas
 
-  private origPush    = history.pushState.bind(history)
-  private origReplace = history.replaceState.bind(history)
+  private origPush    = typeof history !== 'undefined' ? history.pushState.bind(history) : null
+  private origReplace = typeof history !== 'undefined' ? history.replaceState.bind(history) : null
 
   constructor(opts: PageWatcherOpts) {
     this.opts = opts
@@ -53,12 +55,14 @@ export class PageWatcher {
   // ── pushState / replaceState patch ────────────────────────────────────────
 
   private patchHistory(): void {
+    if (typeof history === 'undefined') return
     const self = this
-    history.pushState    = function (...a) { self.origPush(...a);    self.onUrlChange() }
-    history.replaceState = function (...a) { self.origReplace(...a); self.onUrlChange() }
+    history.pushState    = function (...a) { self.origPush?.(...a);    self.onUrlChange() }
+    history.replaceState = function (...a) { self.origReplace?.(...a); self.onUrlChange() }
   }
 
   private unpatchHistory(): void {
+    if (typeof history === 'undefined' || !this.origPush || !this.origReplace) return
     history.pushState    = this.origPush
     history.replaceState = this.origReplace
   }
@@ -85,24 +89,11 @@ export class PageWatcher {
 
   private getSignature(): string {
     try {
-      const url = location.href
-      const title = document.title || ''
-
-      // Identifica o texto principal da questão atual
-      const qEl = document.querySelector(
-        '.question-text, .qtext, [data-question], [class*="question" i] h2, [class*="question" i] h3, [class*="prompt" i], [role="main"], main, article'
-      )
-      const qText = (qEl as HTMLElement)?.innerText?.trim()?.slice(0, 300) || ''
-
-      // Quantidade de opções e controles interativos
-      const ctrlCount = document.querySelectorAll(
-        'input:not([type="hidden"]), textarea, select, [role="radio"], [role="checkbox"], [role="option"], .option-card, [class*="choice" i], [class*="option" i]'
-      ).length
-
-      // Tamanho aproximado do corpo para detectar substituição completa de conteúdo
-      const bodyLen = Math.round(((document.body?.innerText || '').length) / 50) * 50
-
-      return `${url}|${title}|${qText}|${ctrlCount}|${bodyLen}`
+      const ctx = captureCurrentContext(true) || captureFullPageText()
+      if (ctx && ctx.questionText) {
+        return createContentSignature(ctx)
+      }
+      return `${location.href}|${document.title}|${(document.body?.innerText || '').slice(0, 300)}`
     } catch {
       return ''
     }

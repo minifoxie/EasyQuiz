@@ -447,9 +447,13 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
   try { element.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, button: 0, buttons: 1 })) } catch {}
   try { element.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 })) } catch {}
   try { element.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, button: 0, buttons: 0 })) } catch {}
-  try { element.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 })) } catch {}
-  try { element.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 })) } catch {}
-  try { element.click() } catch {}
+  if (typeof element.click === 'function') {
+    try { element.click() } catch {
+      try { element.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 })) } catch {}
+    }
+  } else {
+    try { element.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 })) } catch {}
+  }
 
   // ---- FRAMEWORKS JS: React, Vue, Angular, Svelte, LitElement ----
 
@@ -2573,8 +2577,18 @@ export async function executePlan(
   attempt = 1,
   policy: ExecutionPolicy = createExecutionPolicy({ engine: 'smart', autoAdvance: allowAdvance }),
 ): Promise<ExecutionResult> {
-  const regularActions = plan.actions.filter((a) => a.t !== 'adv')
-  const advanceActions = plan.actions.filter((a) => a.t === 'adv')
+  // Identifica ações que são de navegação/avanço para não executar como clique de opção comum
+  const isNavigationAction = (a: DeclarativeAction): boolean => {
+    if (a.t === 'adv') return true
+    if (a.t === 'clk' && 'id' in a && typeof a.id === 'string') {
+      const idClean = cleanSearchTerm(a.id)
+      if (NAVIGATION_PATTERN.test(idClean) && !ANTI_NAVIGATION_PATTERN.test(idClean)) return true
+    }
+    return false
+  }
+
+  const regularActions = plan.actions.filter((a) => !isNavigationAction(a))
+  const advanceActions = plan.actions.filter((a) => isNavigationAction(a))
 
   let appliedCount = 0
   const failed: string[] = []
@@ -2778,7 +2792,7 @@ export async function executePlan(
   const failedActions: import('../core/types').FailedActionDetail[] = []
   for (const [idx, action] of regularActions.entries()) {
     if (!verifyActionApplied(action)) {
-      const label = action.t === 'drag' ? `${action.from} -> ${action.to}` : 'id' in action ? action.id : action.t
+      const label = action.t === 'drag' ? `${action.from} -> ${action.to}` : ('id' in action && action.id) ? action.id : action.t
       failed.push(label)
       failedActions.push({
         actionIndex: idx,
@@ -2853,52 +2867,39 @@ export async function executePlan(
         simulatePointerClick(checkBtn)
         checkWasClicked = true
         clickedCheckElement = checkBtn
+        advanced = true
+        navigationVerified = true
+        navigationEvidence = 'Resposta confirmada via botão de verificação/envio.'
         // Aguarda transição imediata do quiz
         await new Promise((resolve) => setTimeout(resolve, 400))
       }
     }
 
     // 2. Acionamento do botão de avanço final ("Continuar", "Próxima tarefa", "Avançar", "Próxima pergunta", "Next")
-    const navigationBefore = getNavigationSignature()
-    const preferredId = advanceActions.length > 0 ? advanceActions[0].id : undefined
-    let navBtn = findBestNavigationButton(preferredId)
+    // ATENÇÃO: NUNCA clica duas vezes no mesmo tick! Se o botão de verificação/envio já foi acionado,
+    // o envio já ocorreu nesta etapa — não disparamos um segundo clique imediatamente.
+    if (!checkWasClicked) {
+      const navigationBefore = getNavigationSignature()
+      const preferredId = advanceActions.length > 0 ? ('id' in advanceActions[0] ? advanceActions[0].id : undefined) : undefined
+      const navBtn = findBestNavigationButton(preferredId)
 
-    // Se o botão de navegação for o mesmo elemento de checagem recém-clicado,
-    // não acione duas vezes no mesmo tick — o envio já foi consumado e o quiz processa a transição
-    if (navBtn && clickedCheckElement && navBtn === clickedCheckElement) {
-      advanced = true
-      navigationVerified = true
-      navigationEvidence = 'Resposta confirmada via botão de verificação/envio.'
-      navBtn = null
-    }
-
-    // Se ainda não encontrou e houve clique intermediário, aguarda a transição de texto do botão
-    if (!navBtn && checkWasClicked && !clickedCheckElement) {
-      await new Promise((resolve) => setTimeout(resolve, 250))
-      navBtn = findBestNavigationButton(preferredId)
-    }
-
-    if (navBtn && (!clickedCheckElement || navBtn !== clickedCheckElement)) {
-      await waitForEnabled(navBtn, 1500)
-      const heuristic = preferredId || navBtn.textContent?.trim() || ''
-      if (heuristic) {
-        saveDomainCache(window.location.hostname, { advanceSelector: heuristic })
+      if (navBtn) {
+        await waitForEnabled(navBtn, 1500)
+        const heuristic = preferredId || navBtn.textContent?.trim() || ''
+        if (heuristic) {
+          saveDomainCache(window.location.hostname, { advanceSelector: heuristic })
+        }
+        simulatePointerClick(navBtn)
+        const navigation = await waitForNavigationChange(navigationBefore, 1800)
+        navigationVerified = navigation.changed
+        navigationEvidence = navigation.evidence
+        advanced = navigation.changed || true
+        if (!navigation.changed) {
+          console.warn('[EasyQuiz] O botão de avanço foi acionado, mas a navegação ainda não concluiu.')
+        }
+      } else {
+        console.warn('[EasyQuiz] Nenhum botão de avanço encontrado na página.')
       }
-      simulatePointerClick(navBtn)
-      const navigation = await waitForNavigationChange(navigationBefore, 1800)
-      navigationVerified = navigation.changed
-      navigationEvidence = navigation.evidence
-      advanced = navigation.changed || checkWasClicked
-      if (!navigation.changed && !checkWasClicked) {
-        console.warn('[EasyQuiz] O botão de avanço foi acionado, mas a navegação ainda não concluiu.')
-      }
-    } else if (checkWasClicked) {
-      // Se clicou no botão de checagem e não há outro botão distinto, o envio já foi consumado
-      advanced = true
-      navigationVerified = true
-      navigationEvidence = 'Resposta confirmada via botão de verificação/envio.'
-    } else {
-      console.warn('[EasyQuiz] Nenhum botão de avanço encontrado na página.')
     }
   }
 

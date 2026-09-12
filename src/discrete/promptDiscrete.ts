@@ -228,7 +228,7 @@ function repairFlow(
       }
     }
 
-    // ── Reparo 3: elimina step duplicado consecutivo exato ──
+    // ── Reparo 3: elimina step duplicado consecutivo e avanço duplo ──
     const prev = repaired[repaired.length - 1]
     if (prev) {
       const prevAct = prev.action as Record<string, unknown>
@@ -242,8 +242,22 @@ function repairFlow(
         // Mantém o step mais informativo
         continue
       }
+      // Se já temos um step de avanço (adv), não permite outro step adv consecutivo
+      if (prevAct.t === 'adv' && act.t === 'adv') {
+        continue
+      }
+      // Se o anterior foi clk em botão de avanço/verificação e o atual é adv, funde em apenas adv
+      if (
+        (prevAct.t === 'clk' || prevAct.t === 'chk') &&
+        act.t === 'adv' &&
+        typeof prevAct.id === 'string' &&
+        /(avançar|proximo|próximo|next|continuar|verificar|submit|check)/i.test(prevAct.id)
+      ) {
+        repaired.pop()
+      }
     }
 
+    step.step = repaired.length + 1
     repaired.push(step)
   }
 
