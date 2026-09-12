@@ -447,6 +447,7 @@ export function simulatePointerClick(element: HTMLElement, coords?: [number, num
   try { element.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, button: 0, buttons: 1 })) } catch {}
   try { element.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0, buttons: 1 })) } catch {}
   try { element.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, button: 0, buttons: 0 })) } catch {}
+  try { element.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0, buttons: 0 })) } catch {}
   if (typeof element.click === 'function') {
     try { element.click() } catch {
       try { element.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0, buttons: 0 })) } catch {}
@@ -920,11 +921,13 @@ export function setCheckedState(element: HTMLElement, checked: boolean): void {
       simulatePointerClick(interactiveTarget)
     }
 
-    // 2. Aciona o clique no input nativo
-    try {
-      inputEl.focus?.()
-      inputEl.click()
-    } catch {}
+    // 2. Aciona o clique no input nativo se o clique no label/card não alternou o estado
+    if (inputEl.checked !== checked) {
+      try {
+        inputEl.focus?.()
+        inputEl.click()
+      } catch {}
+    }
 
     // 3. Se após o clique o estado ainda divergir (ex: framework SPA controlado ou preventDefault), força via descriptor
     if (inputEl.checked !== checked) {
@@ -2577,18 +2580,8 @@ export async function executePlan(
   attempt = 1,
   policy: ExecutionPolicy = createExecutionPolicy({ engine: 'smart', autoAdvance: allowAdvance }),
 ): Promise<ExecutionResult> {
-  // Identifica ações que são de navegação/avanço para não executar como clique de opção comum
-  const isNavigationAction = (a: DeclarativeAction): boolean => {
-    if (a.t === 'adv') return true
-    if (a.t === 'clk' && 'id' in a && typeof a.id === 'string') {
-      const idClean = cleanSearchTerm(a.id)
-      if (NAVIGATION_PATTERN.test(idClean) && !ANTI_NAVIGATION_PATTERN.test(idClean)) return true
-    }
-    return false
-  }
-
-  const regularActions = plan.actions.filter((a) => !isNavigationAction(a))
-  const advanceActions = plan.actions.filter((a) => isNavigationAction(a))
+  const regularActions = plan.actions.filter((a) => a.t !== 'adv')
+  const advanceActions = plan.actions.filter((a) => a.t === 'adv')
 
   let appliedCount = 0
   const failed: string[] = []

@@ -246,15 +246,6 @@ function repairFlow(
       if (prevAct.t === 'adv' && act.t === 'adv') {
         continue
       }
-      // Se o anterior foi clk em botão de avanço/verificação e o atual é adv, funde em apenas adv
-      if (
-        (prevAct.t === 'clk' || prevAct.t === 'chk') &&
-        act.t === 'adv' &&
-        typeof prevAct.id === 'string' &&
-        /(avançar|proximo|próximo|next|continuar|verificar|submit|check)/i.test(prevAct.id)
-      ) {
-        repaired.pop()
-      }
     }
 
     step.step = repaired.length + 1
