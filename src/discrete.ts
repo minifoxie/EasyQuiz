@@ -84,11 +84,12 @@ async function initDiscrete(): Promise<void> {
 
   const pageWatcher = new PageWatcher({
     onPageAdvance: () => {
-      // Não interrompe fluxo ativo já em andamento
-      if (applicator.isActive()) return
-      // Não dispara se já está analisando
-      if (analyzing) return
+      // Não interrompe fluxo ativo já em andamento, PageWatcher retentará
+      if (applicator.isActive()) return false
+      // Não dispara se já está analisando, PageWatcher retentará
+      if (analyzing) return false
       void doAnalyze(true)
+      return true
     },
   })
   pageWatcher.start()

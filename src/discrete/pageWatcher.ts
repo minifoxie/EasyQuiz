@@ -12,7 +12,7 @@
 import { captureCurrentContext, captureFullPageText, createContentSignature } from '../dom/detector'
 
 interface PageWatcherOpts {
-  onPageAdvance: () => void
+  onPageAdvance: () => boolean | void
 }
 
 export class PageWatcher {
@@ -112,9 +112,11 @@ export class PageWatcher {
     this.debounceTimer = window.setTimeout(() => {
       const curSig = this.getSignature()
       if (curSig && curSig !== this.lastSignature) {
-        this.lastSignature = curSig
-        this.cooldownUntil = Date.now() + this.COOLDOWN_MS
-        this.opts.onPageAdvance()
+        const ok = this.opts.onPageAdvance()
+        if (ok !== false) {
+          this.lastSignature = curSig
+          this.cooldownUntil = Date.now() + this.COOLDOWN_MS
+        }
       }
     }, waitMs)
   }

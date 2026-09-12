@@ -72,10 +72,6 @@ export class DemandApplicator {
   private charsInserted = new Map<number, number>()
   private failedSteps = new Set<number>()
 
-  // Escudo físico anti-vazamento de teclado
-  private activeLockedInput: (HTMLInputElement | HTMLTextAreaElement) | null = null
-  private boundSanitizer: (() => void) | null = null
-
   private boundKey:         (e: KeyboardEvent) => void
   private boundKeypress:    (e: KeyboardEvent) => void
   private boundBeforeInput: (e: InputEvent)    => void
@@ -120,7 +116,7 @@ export class DemandApplicator {
   }
 
   abort(): void {
-    this.unlockInput()
+    this.unlockAllInputs()
     const wasActive = this.isActive()
     this.state = 'aborted'
     this.isExecuting = false
@@ -143,13 +139,13 @@ export class DemandApplicator {
 
   // ── Escudo Físico de Teclado (Bloqueio Total contra Poluição) ───────────────
 
+  private lockedInputs = new Set<{ el: HTMLInputElement | HTMLTextAreaElement, sanitizer: (e: Event) => void }>()
+
   private lockInput(input: HTMLInputElement | HTMLTextAreaElement, fullText: string): void {
-    this.unlockInput()
-    this.activeLockedInput = input
     try { input.readOnly = true } catch {}
 
     // Sanitizador ativo contra IME, autocomplete ou extensões
-    this.boundSanitizer = () => {
+    const sanitizer = () => {
       if (input.value !== '' && input.value !== fullText) {
         const proto = input instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype
         const setter = (input instanceof HTMLInputElement ? nativeInputSetter : nativeTextareaSetter) || Object.getOwnPropertyDescriptor(proto, 'value')?.set
@@ -157,18 +153,16 @@ export class DemandApplicator {
         else input.value = fullText
       }
     }
-    input.addEventListener('input', this.boundSanitizer, { capture: true })
+    input.addEventListener('input', sanitizer, { capture: true })
+    this.lockedInputs.add({ el: input, sanitizer })
   }
 
-  private unlockInput(): void {
-    if (this.activeLockedInput) {
-      try { this.activeLockedInput.readOnly = false } catch {}
-      if (this.boundSanitizer) {
-        this.activeLockedInput.removeEventListener('input', this.boundSanitizer, { capture: true })
-        this.boundSanitizer = null
-      }
-      this.activeLockedInput = null
+  private unlockAllInputs(): void {
+    for (const item of this.lockedInputs) {
+      try { item.el.readOnly = false } catch {}
+      item.el.removeEventListener('input', item.sanitizer, { capture: true })
     }
+    this.lockedInputs.clear()
   }
 
   // ── Listeners — Captura Inequívoca em Window e Document ─────────────────────
@@ -196,7 +190,6 @@ export class DemandApplicator {
   // ── Navegação de Passos ───────────────────────────────────────────────────
 
   private gotoStep(idx: number): void {
-    this.unlockInput()
     this.isExecuting = false
     this.stepping = false
     this.pendingClick = false
@@ -237,7 +230,7 @@ export class DemandApplicator {
       }
     }
 
-    if (step.trigger === 'key' && !this.activeLockedInput) {
+    if (step.trigger === 'key' && this.lockedInputs.size === 0) {
       const active = document.activeElement
       if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
         this.lockInput(active, String(action.v ?? ''))
@@ -688,7 +681,6 @@ export class DemandApplicator {
     // Injeta o valor válido completo com todos os caracteres
     this.applyValueSlice(input, valToSet)
     this.charsInserted.set(stepIdx, fullText.length)
-    this.unlockInput()
     try { (input as HTMLInputElement).blur?.() } catch {}
     return true
   }
@@ -1021,7 +1013,7 @@ export class DemandApplicator {
   // ── Conclusão ─────────────────────────────────────────────────────────────
 
   private complete(): void {
-    this.unlockInput()
+    this.unlockAllInputs()
     this.state = 'done'
     this.isExecuting = false
     this.detach()
