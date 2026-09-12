@@ -70,6 +70,17 @@ async function initDiscrete(): Promise<void> {
   let currentAbort: AbortController | null = null
   let analyzing = false
   let retryTimer: number | null = null
+  let lastPreClickTs = 0
+
+  window.addEventListener('click', (e) => {
+    if (analyzing && e.isTrusted) {
+      const t = e.target as HTMLElement | null
+      if (t && !t.closest('#__eqdm_menu__,#__eqkm_overlay__,#__eqcm_menu__,#__eqdiscrete_coin__,#__eqdiscrete_toasts__,#__eq_dbg_window__,#__eq_dbg_pill__')) {
+        lastPreClickTs = Date.now()
+        debugOutput.log('CLICK', 'Clique antecipado registrado durante análise')
+      }
+    }
+  }, { capture: true })
 
   const pageWatcher = new PageWatcher({
     onPageAdvance: () => {
@@ -138,8 +149,8 @@ async function initDiscrete(): Promise<void> {
     }
 
     try {
-      // Aguarda DOM estabilizar em scans proativos
-      if (proactive) await new Promise(r => setTimeout(r, 700))
+      // Breve acomodação do DOM em scans proativos (60ms)
+      if (proactive) await new Promise(r => setTimeout(r, 60))
       if (signal.aborted) return
 
       let ctx = captureCurrentContext(false)
@@ -251,6 +262,11 @@ async function initDiscrete(): Promise<void> {
       }
 
       applicator.start(flow)
+      if (flow.length > 0 && flow[0].trigger === 'click' && (Date.now() - lastPreClickTs < 4000)) {
+        lastPreClickTs = 0
+        debugOutput.log('FLOW', 'Aplicando clique antecipado no primeiro step')
+        setTimeout(() => void applicator.forceStep(0), 40)
+      }
 
     } catch (e) {
       if (signal.aborted) return

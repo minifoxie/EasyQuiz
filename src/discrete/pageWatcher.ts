@@ -21,9 +21,9 @@ export class PageWatcher {
   private pollTimer: number | null = null
   private debounceTimer: number | null = null
   private cooldownUntil = 0
-  private readonly POLL_MS     = 350
-  private readonly DEBOUNCE_MS = 150
-  private readonly COOLDOWN_MS = 600 // Cooldown balanceado para transições rápidas
+  private readonly POLL_MS     = 180
+  private readonly DEBOUNCE_MS = 60
+  private readonly COOLDOWN_MS = 150
 
   private origPush    = typeof history !== 'undefined' ? history.pushState.bind(history) : null
   private origReplace = typeof history !== 'undefined' ? history.replaceState.bind(history) : null

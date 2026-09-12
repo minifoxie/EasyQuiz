@@ -220,7 +220,28 @@ export function findElementExt(idOrLabel: unknown, valueHint?: string, preferInp
   // 4. Resolução Ordinal Alfabética Direta (ex: "A", "B", "C", "D", "Alternativa B")
   const ordinalLetterMatch = trimmed.match(/^(?:item|opção|opcao|afirmação|afirmacao|alternativa|linha|afirmativa|questão|questao)?\s*#?([a-eA-E])$/i)
   if (ordinalLetterMatch) {
-    const letterIdx = ordinalLetterMatch[1].toUpperCase().charCodeAt(0) - 65
+    const letter = ordinalLetterMatch[1].toUpperCase()
+    const letterIdx = letter.charCodeAt(0) - 65
+
+    // 4.1 Prioridade Máxima: input[type="radio"][value="B"] ou input[type="checkbox"][value="B"] visível
+    const directValMatch = Array.from(
+      document.querySelectorAll(`input[type="radio"][value="${letter}" i], input[type="checkbox"][value="${letter}" i]`)
+    ).find((el) => isVisible(el as HTMLElement) && !isInsideEasyQuiz(el as HTMLElement)) as HTMLElement | null
+    if (directValMatch) return resolveTargetControlOrCard(directValMatch)
+
+    // 4.2 Busca por option-card ou label que tenha badge com a letra (ex: "B)", "(B)", "B.")
+    const badgeMatch = Array.from(
+      document.querySelectorAll('.option-card, .choice, .answer, label, [role="radio"], [role="checkbox"]')
+    ).find((el) => {
+      if (!isVisible(el as HTMLElement) || isInsideEasyQuiz(el as HTMLElement)) return false
+      const badge = el.querySelector('.option-badge, .badge, [class*="badge" i], [class*="letter" i]')
+      const badgeText = (badge?.textContent || '').trim().toUpperCase()
+      if (badgeText === letter || badgeText === `${letter})` || badgeText === `(${letter})` || badgeText === `${letter}.` || badgeText === `${letter}:`) return true
+      const firstText = (el.textContent || '').trim().toUpperCase()
+      return firstText.startsWith(`${letter})`) || firstText.startsWith(`(${letter})`) || firstText.startsWith(`${letter}.`) || firstText.startsWith(`${letter}:`)
+    }) as HTMLElement | null
+    if (badgeMatch) return resolveTargetControlOrCard(badgeMatch)
+
     if (letterIdx >= 0) {
       const visibleChoices = getDistinctVisibleChoices()
       if (letterIdx < visibleChoices.length) {
@@ -2842,11 +2863,17 @@ export async function executePlan(
 
   // Decide se deve tentar avançar:
   // - Sucesso total: todas as ações verificadas
-  // - Sucesso parcial: a maioria foi aplicada (pelo menos 1 ação regular bem-sucedida)
-  //   Não faz sentido dizer "avançando" e não avançar — o usuário espera progredir
-  const partialSuccess = appliedCount > 0 && appliedCount >= regularActions.length / 2
+  // - Sucesso parcial: pelo menos 1 ação foi REALMENTE verificada no DOM
+  // CRÍTICO: Em questões, NUNCA avança e NUNCA clica em "Verificar" se verifiedCount === 0!
+  const partialSuccess = isQuestion
+    ? (verifiedCount > 0 && verifiedCount >= Math.ceil(regularActions.length / 2))
+    : (appliedCount > 0 && appliedCount >= regularActions.length / 2)
 
-  if (allowAdvance && (success || (!isQuestion && regularActions.length === 0) || partialSuccess)) {
+  const canAttemptAdvance = isQuestion
+    ? (verifiedCount > 0 && (success || partialSuccess))
+    : (success || regularActions.length === 0 || partialSuccess)
+
+  if (allowAdvance && canAttemptAdvance) {
     // Aguarda o framework registrar o input/seleção antes de tentar avançar
     await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 120 : 40))
 
@@ -2860,11 +2887,21 @@ export async function executePlan(
         simulatePointerClick(checkBtn)
         checkWasClicked = true
         clickedCheckElement = checkBtn
-        advanced = true
-        navigationVerified = true
-        navigationEvidence = 'Resposta confirmada via botão de verificação/envio.'
-        // Aguarda transição imediata do quiz
-        await new Promise((resolve) => setTimeout(resolve, 400))
+        // Aguarda transição ou mensagem de erro imediata do quiz
+        await new Promise((resolve) => setTimeout(resolve, 350))
+
+        // Verifica se o clique exibiu uma mensagem de erro na página (ex: "selecione uma alternativa")
+        const activeErr = document.querySelector('.feedback-message.error, [class*="feedback"][class*="error" i], [role="alert"][class*="error" i]') as HTMLElement | null
+        const isErrorVisible = activeErr && isVisible(activeErr) && (activeErr.textContent || '').trim().length > 0
+        if (isErrorVisible) {
+          advanced = false
+          navigationVerified = false
+          navigationEvidence = `Aviso do formulário após checagem: ${activeErr.textContent?.trim().slice(0, 100)}`
+        } else {
+          advanced = true
+          navigationVerified = true
+          navigationEvidence = 'Resposta confirmada via botão de verificação/envio.'
+        }
       }
     }
 

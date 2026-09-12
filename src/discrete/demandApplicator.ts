@@ -72,6 +72,10 @@ export class DemandApplicator {
   private charsInserted = new Map<number, number>()
   private failedSteps = new Set<number>()
 
+  // Escudo físico anti-vazamento de teclado
+  private activeLockedInput: (HTMLInputElement | HTMLTextAreaElement) | null = null
+  private boundSanitizer: (() => void) | null = null
+
   private boundKey:         (e: KeyboardEvent) => void
   private boundKeypress:    (e: KeyboardEvent) => void
   private boundBeforeInput: (e: InputEvent)    => void
@@ -116,6 +120,7 @@ export class DemandApplicator {
   }
 
   abort(): void {
+    this.unlockInput()
     const wasActive = this.isActive()
     this.state = 'aborted'
     this.isExecuting = false
@@ -136,27 +141,62 @@ export class DemandApplicator {
   getCurrentStep(): number    { return this.stepIdx }
   getTotalSteps(): number     { return this.flow.length }
 
-  // ── Listeners ─────────────────────────────────────────────────────────────
+  // ── Escudo Físico de Teclado (Bloqueio Total contra Poluição) ───────────────
+
+  private lockInput(input: HTMLInputElement | HTMLTextAreaElement, fullText: string): void {
+    this.unlockInput()
+    this.activeLockedInput = input
+    try { input.readOnly = true } catch {}
+
+    // Sanitizador ativo contra IME, autocomplete ou extensões
+    this.boundSanitizer = () => {
+      if (input.value !== '' && input.value !== fullText) {
+        const proto = input instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype
+        const setter = (input instanceof HTMLInputElement ? nativeInputSetter : nativeTextareaSetter) || Object.getOwnPropertyDescriptor(proto, 'value')?.set
+        if (setter) setter.call(input, fullText)
+        else input.value = fullText
+      }
+    }
+    input.addEventListener('input', this.boundSanitizer, { capture: true })
+  }
+
+  private unlockInput(): void {
+    if (this.activeLockedInput) {
+      try { this.activeLockedInput.readOnly = false } catch {}
+      if (this.boundSanitizer) {
+        this.activeLockedInput.removeEventListener('input', this.boundSanitizer, { capture: true })
+        this.boundSanitizer = null
+      }
+      this.activeLockedInput = null
+    }
+  }
+
+  // ── Listeners — Captura Inequívoca em Window e Document ─────────────────────
 
   private attach(): void {
-    window.addEventListener('keydown',     this.boundKey,         { capture: true })
-    window.addEventListener('keypress',    this.boundKeypress,    { capture: true })
-    window.addEventListener('beforeinput', this.boundBeforeInput, { capture: true })
-    window.addEventListener('keyup',       this.boundKeyup,       { capture: true })
-    window.addEventListener('click',       this.boundClick,       { capture: true })
+    for (const target of [window, document]) {
+      target.addEventListener('keydown',     this.boundKey,         { capture: true })
+      target.addEventListener('keypress',    this.boundKeypress,    { capture: true })
+      target.addEventListener('beforeinput', this.boundBeforeInput, { capture: true })
+      target.addEventListener('keyup',       this.boundKeyup,       { capture: true })
+      target.addEventListener('click',       this.boundClick,       { capture: true })
+    }
   }
 
   private detach(): void {
-    window.removeEventListener('keydown',     this.boundKey,         { capture: true })
-    window.removeEventListener('keypress',    this.boundKeypress,    { capture: true })
-    window.removeEventListener('beforeinput', this.boundBeforeInput, { capture: true })
-    window.removeEventListener('keyup',       this.boundKeyup,       { capture: true })
-    window.removeEventListener('click',       this.boundClick,       { capture: true })
+    for (const target of [window, document]) {
+      target.removeEventListener('keydown',     this.boundKey,         { capture: true })
+      target.removeEventListener('keypress',    this.boundKeypress,    { capture: true })
+      target.removeEventListener('beforeinput', this.boundBeforeInput, { capture: true })
+      target.removeEventListener('keyup',       this.boundKeyup,       { capture: true })
+      target.removeEventListener('click',       this.boundClick,       { capture: true })
+    }
   }
 
   // ── Navegação de Passos ───────────────────────────────────────────────────
 
   private gotoStep(idx: number): void {
+    this.unlockInput()
     this.isExecuting = false
     this.stepping = false
     this.pendingClick = false
@@ -186,11 +226,24 @@ export class DemandApplicator {
       const el = this.resolveEl(action)
       if (el) {
         this.highlight.highlightTarget([el])
-        // Foca o campo para feedback visual natural
+        // Foca o campo para feedback visual natural e trava contra poluição de digitação
         if (step.trigger === 'key') {
           const input = this.resolveInput(el)
+          if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
+            this.lockInput(input, String(action.v ?? ''))
+          }
           try { (input as HTMLInputElement)?.focus?.() } catch {}
         }
+      }
+    }
+
+    if (step.trigger === 'key' && !this.activeLockedInput) {
+      const active = document.activeElement
+      if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+        this.lockInput(active, String(action.v ?? ''))
+      } else {
+        const anyInput = document.querySelector('input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=radio]):not([type=checkbox]),textarea,[contenteditable=true]') as HTMLInputElement | null
+        if (anyInput) this.lockInput(anyInput, String(action.v ?? ''))
       }
     }
 
@@ -635,6 +688,7 @@ export class DemandApplicator {
     // Injeta o valor válido completo com todos os caracteres
     this.applyValueSlice(input, valToSet)
     this.charsInserted.set(stepIdx, fullText.length)
+    this.unlockInput()
     try { (input as HTMLInputElement).blur?.() } catch {}
     return true
   }
@@ -647,11 +701,16 @@ export class DemandApplicator {
         if (tracker) tracker.setValue('')
       } catch {}
 
-      // 2. Aplica o valor authoritative via setter nativo do protótipo
+      // 2. Aplica o valor authoritative via setter nativo do protótipo — limpando resíduos antes
       const proto = input instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype
       const setter = (input instanceof HTMLInputElement ? nativeInputSetter : nativeTextareaSetter) || Object.getOwnPropertyDescriptor(proto, 'value')?.set
-      if (setter) setter.call(input, fullValue)
-      else        input.value = fullValue
+      if (setter) {
+        setter.call(input, '')
+        setter.call(input, fullValue)
+      } else {
+        input.value = ''
+        input.value = fullValue
+      }
 
       // 3. Dispara sequência de eventos sintéticos para React, Vue, Angular, Svelte
       try {
@@ -695,6 +754,17 @@ export class DemandApplicator {
     const labelStr = String(action.label ?? '').trim()
     const fromStr  = String(action.from  ?? '').trim()
     const nameStr  = String(action.name  ?? (action as any).n ?? '').trim()
+
+    // 0. Resolução Direta de Alternativa Alfabética Única (ex: "A", "B", "C", "D")
+    const rawTarget = (idStr || labelStr || valStr).trim()
+    const letterMatch = rawTarget.match(/^(?:item|opção|opcao|afirmação|afirmacao|alternativa|linha|afirmativa|questão|questao)?\s*#?([a-eA-E])$/i)
+    if (letterMatch && (action.t === 'chk' || action.t === 'clk')) {
+      const letter = letterMatch[1].toUpperCase()
+      const radioByVal = Array.from(
+        document.querySelectorAll(`input[type="radio"][value="${letter}" i], input[type="checkbox"][value="${letter}" i]`)
+      ).find(r => !r.closest('#__eqdm_menu__,#__eqkm_overlay__,#__eqcm_menu__,#__eqdiscrete_coin__,#__eqdiscrete_toasts__,#__eq_dbg_window__,#__eq_dbg_pill__')) as HTMLElement | null
+      if (radioByVal) return radioByVal
+    }
 
     // 1. Identifica se a ação é uma marcação de Verdadeiro / Falso (V/F)
     const vfHint = valStr || (labelStr.match(/:\s*(verdadeiro|falso|v|f)\b/i)?.[1] ?? '') || (idStr.match(/_(v|f|verdadeiro|falso)$/i)?.[1] ?? '')
@@ -951,6 +1021,7 @@ export class DemandApplicator {
   // ── Conclusão ─────────────────────────────────────────────────────────────
 
   private complete(): void {
+    this.unlockInput()
     this.state = 'done'
     this.isExecuting = false
     this.detach()
