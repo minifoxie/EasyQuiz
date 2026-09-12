@@ -361,11 +361,20 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
   // Ativa quando nenhum controle real foi encontrado OU quando só elementos 'other' (enunciado/labels) foram coletados
   // Os cards de escolha do Wayground são <div class="cursor-pointer ... bg-ds-light-..."> com ID hexadecimal
   // e NÃO têm role="button", input interno, nem class "option/choice" — por isso escapam das passadas anteriores
-  const onlyOtherType = selectedElements.length > 0 && selectedElements.every(el => {
-    const txt = (el.textContent || '').trim()
-    // 'other' sem ID real ou com texto muito curto = label/enunciado, não é opção de resposta
-    return !el.id || txt.length < 10 || /^\d+\s*\/\s*\d+$/.test(txt) || /^question text/i.test(txt)
-  })
+  const hasRealInputs = selectedElements.some((el) =>
+    ['input', 'select', 'textarea'].includes(el.tagName.toLowerCase()),
+  )
+
+  const onlyOtherType =
+    !hasRealInputs &&
+    selectedElements.length > 0 &&
+    selectedElements.every((el) => {
+      const tag = el.tagName.toLowerCase()
+      if (['input', 'select', 'textarea', 'button'].includes(tag)) return false
+      const txt = (el.textContent || '').trim()
+      // 'other' sem ID real ou com texto muito curto = label/enunciado, não é opção de resposta
+      return !el.id || txt.length < 10 || /^\d+\s*\/\s*\d+$/.test(txt) || /^question text/i.test(txt)
+    })
 
   if (selectedElements.length === 0 || onlyOtherType) {
     if (onlyOtherType) selectedElements.length = 0 // descarta labels/enunciado

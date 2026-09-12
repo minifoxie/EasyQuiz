@@ -61,7 +61,9 @@ async function compressImage(source: HTMLImageElement | HTMLCanvasElement | Imag
 // ============================================================
 // CAPTURA SVG E RASTERIZAÇÃO VETORIAL PROFUNDA
 // ============================================================
-async function rasterizeSvgElement(svgEl: SVGElement): Promise<Blob> {
+async function rasterizeSvgElement(
+  svgEl: SVGElement,
+): Promise<{ blob?: Blob; base64: string; mediaType: string }> {
   const rect = typeof svgEl.getBoundingClientRect === 'function' ? svgEl.getBoundingClientRect() : { width: 0, height: 0 }
   const rawWidth = rect.width || parseFloat(svgEl.getAttribute('width') || '0') || parseFloat(svgEl.style.width || '0') || 400
   const rawHeight = rect.height || parseFloat(svgEl.getAttribute('height') || '0') || parseFloat(svgEl.style.height || '0') || 300
@@ -119,48 +121,65 @@ async function rasterizeSvgElement(svgEl: SVGElement): Promise<Blob> {
   const serializer = new XMLSerializer()
   const svgString = serializer.serializeToString(clone)
 
-  const loadImgFromUrl = (imgSrc: string): Promise<HTMLImageElement> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      const timer = setTimeout(() => reject(new Error('Timeout render SVG')), 2500)
-      img.onload = () => { clearTimeout(timer); resolve(img) }
-      img.onerror = () => { clearTimeout(timer); reject(new Error('Falha ao renderizar SVG em Image.')) }
-      img.src = imgSrc
-    })
-  }
-
-  let img: HTMLImageElement | null = null
-  const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
-  const blobUrl = URL.createObjectURL(svgBlob)
-
+  let fallbackSvgBase64 = ''
   try {
-    try {
-      img = await loadImgFromUrl(blobUrl)
-    } catch {
-      // Fallback para data URI caso blobUrl falhe em sandbox estrito
-      const dataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`
-      img = await loadImgFromUrl(dataUri)
+    fallbackSvgBase64 = btoa(unescape(encodeURIComponent(svgString)))
+  } catch {}
+
+  // Tenta rasterização visual em Canvas com timeout estrito de 1200ms
+  try {
+    const loadImgFromUrl = (imgSrc: string): Promise<HTMLImageElement> => {
+      return new Promise((resolve, reject) => {
+        const img = new Image()
+        const timer = setTimeout(() => reject(new Error('Timeout render SVG')), 1200)
+        img.onload = () => { clearTimeout(timer); resolve(img) }
+        img.onerror = () => { clearTimeout(timer); reject(new Error('Falha ao renderizar SVG em Image.')) }
+        img.src = imgSrc
+      })
+    }
+
+    let img: HTMLImageElement | null = null
+    if (fallbackSvgBase64) {
+      try {
+        img = await loadImgFromUrl(`data:image/svg+xml;base64,${fallbackSvgBase64}`)
+      } catch {}
+    }
+    if (!img) {
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+      const blobUrl = URL.createObjectURL(svgBlob)
+      try {
+        img = await loadImgFromUrl(blobUrl)
+      } finally {
+        URL.revokeObjectURL(blobUrl)
+      }
     }
 
     const canvas = document.createElement('canvas')
     canvas.width = targetWidth
     canvas.height = targetHeight
     const ctx = canvas.getContext('2d', { alpha: false })
-    if (!ctx) throw new Error('Sem suporte a Canvas 2D.')
+    if (ctx && img) {
+      ctx.fillStyle = bgColor
+      ctx.fillRect(0, 0, targetWidth, targetHeight)
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
 
-    ctx.fillStyle = bgColor
-    ctx.fillRect(0, 0, targetWidth, targetHeight)
-    ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/jpeg', 0.92)
+      })
+      if (blob) {
+        const base64 = await blobToBase64(blob)
+        if (base64) {
+          return { blob, base64, mediaType: 'image/jpeg' }
+        }
+      }
+    }
+  } catch {}
 
-    return new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (blob) => (blob ? resolve(blob) : reject(new Error('Falha na compressão do SVG.'))),
-        'image/jpeg',
-        0.92,
-      )
-    })
-  } finally {
-    URL.revokeObjectURL(blobUrl)
+  // Se o canvas falhou ou o ambiente não renderizou a Image, usa o SVG vetorial puro em base64
+  // (imune a falhas de canvas e suportado universalmente tanto pela IA quanto pela aba de Mídia)
+  return {
+    base64: fallbackSvgBase64,
+    mediaType: 'image/svg+xml',
   }
 }
 
@@ -183,12 +202,11 @@ async function captureElementVisualSnapshot(node: HTMLElement): Promise<Captured
     const innerSvg = node.tagName.toLowerCase() === 'svg' ? (node as unknown as SVGElement) : node.querySelector('svg')
     if (innerSvg && node.querySelectorAll('input, select, textarea').length === 0) {
       try {
-        const blob = await rasterizeSvgElement(innerSvg)
-        const base64 = await blobToBase64(blob)
-        if (base64 && base64.length <= MAX_BASE64_LENGTH) {
+        const svgRes = await rasterizeSvgElement(innerSvg)
+        if (svgRes.base64 && svgRes.base64.length <= MAX_BASE64_LENGTH) {
           return {
-            mediaType: 'image/jpeg',
-            base64,
+            mediaType: svgRes.mediaType as any,
+            base64: svgRes.base64,
             alt: node.getAttribute('aria-label') || innerSvg.getAttribute('aria-label') || 'Captura de diagrama/gráfico',
             source: 'visual_snapshot',
             captureStatus: 'captured',
@@ -487,39 +505,45 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
     // CORS bloqueado
   }
 
-  // Estratégia 3: Bypass via Proxies CORS Transparentes (para sites que bloqueiam cross-origin)
+  // Estratégia 3: Bypass via Proxies CORS Transparentes (concorrente com timeout rápido de 1500ms)
   if (src.startsWith('http')) {
     const proxies = [
       `https://corsproxy.io/?${encodeURIComponent(src)}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent(src)}`,
     ]
-    for (const proxyUrl of proxies) {
+    const tryProxy = async (proxyUrl: string): Promise<Response> => {
+      const controller = new AbortController()
+      const tid = setTimeout(() => controller.abort(), 1500)
       try {
-        const controller = new AbortController()
-        const tid = setTimeout(() => controller.abort(), 3000)
-        const pRes = await fetch(proxyUrl, { signal: controller.signal })
+        const res = await fetch(proxyUrl, { signal: controller.signal })
         clearTimeout(tid)
-        if (pRes.ok) {
-          const pBlob = await pRes.blob()
-          if (pBlob.type.startsWith('image/') || pBlob.size > 200) {
-            const bitmap = await createImageBitmap(pBlob)
-            const compressed = await compressImage(bitmap)
-            bitmap.close()
-            const base64 = await blobToBase64(compressed)
-            if (base64 && base64.length <= MAX_BASE64_LENGTH) {
-              return {
-                mediaType: 'image/jpeg',
-                base64,
-                alt,
-                source: src.slice(0, 2000),
-                captureStatus: 'captured',
-                textContext: extractTextContextForImage(img),
-              }
-            }
+        if (res.ok) return res
+        throw new Error('Proxy status ' + res.status)
+      } catch (e) {
+        clearTimeout(tid)
+        throw e
+      }
+    }
+    try {
+      const pRes = await Promise.any(proxies.map(tryProxy))
+      const pBlob = await pRes.blob()
+      if (pBlob.type.startsWith('image/') || pBlob.size > 200) {
+        const bitmap = await createImageBitmap(pBlob)
+        const compressed = await compressImage(bitmap)
+        bitmap.close()
+        const base64 = await blobToBase64(compressed)
+        if (base64 && base64.length <= MAX_BASE64_LENGTH) {
+          return {
+            mediaType: 'image/jpeg',
+            base64,
+            alt,
+            source: src.slice(0, 2000),
+            captureStatus: 'captured',
+            textContext: extractTextContextForImage(img),
           }
         }
-      } catch {}
-    }
+      }
+    } catch {}
   }
 
   // Estratégia 4: Snapshot visual "Print-like" do elemento renderizado no DOM
@@ -647,70 +671,86 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
     return visualCaptures >= MAX_IMAGES
   }
 
+  // Procura no escopo e no container da questão (caso o escopo detectado tenha sido apenas a grade de opções)
+  const roots: HTMLElement[] = [scope]
+  const container = scope.closest(
+    'article, .card, [class*="question" i], [class*="exercise" i], form, [data-test-id*="exercise" i], [data-testid*="exercise" i]',
+  ) as HTMLElement | null
+  if (container && container !== scope && container !== document.body && isVisible(container)) {
+    roots.push(container)
+  }
+
   // 1. Imagens nativas (<img>)
-  const images = Array.from(scope.querySelectorAll('img')).filter(
-    (el) => isVisible(el) && !isUtilityOrGamificationControl(el),
-  )
-  for (const img of images) {
-    try {
-      // Usa naturalWidth/naturalHeight e fallback para getBoundingClientRect
-      const rect = img.getBoundingClientRect()
-      const w = img.naturalWidth || rect.width || img.width || 0
-      const h = img.naturalHeight || rect.height || img.height || 0
-      const alt = img.alt || ''
+  const seenImgs = new Set<HTMLImageElement>()
+  for (const root of roots) {
+    const images = Array.from(root.querySelectorAll('img')).filter(
+      (el) => isVisible(el) && !isUtilityOrGamificationControl(el) && !seenImgs.has(el),
+    )
+    for (const img of images) {
+      seenImgs.add(img)
+      try {
+        // Usa naturalWidth/naturalHeight e fallback para getBoundingClientRect
+        const rect = img.getBoundingClientRect()
+        const w = img.naturalWidth || rect.width || img.width || 0
+        const h = img.naturalHeight || rect.height || img.height || 0
+        const alt = img.alt || ''
 
-      // Valida relevância antes de tentar capturar
-      if (!validateImageRelevance(img, alt, w, h)) continue
+        // Valida relevância antes de tentar capturar
+        if (!validateImageRelevance(img, alt, w, h)) continue
 
-      const cap = await captureImageElement(img)
-      if (pushCapture(cap, img)) return captures
-    } catch {}
+        const cap = await captureImageElement(img)
+        if (pushCapture(cap, img)) return captures
+      } catch {}
+    }
   }
 
   // 2. Gráficos Vetoriais (<svg>)
-  const svgs = Array.from(scope.querySelectorAll('svg')).filter((svg) => {
-    if (!isVisible(svg) || isUtilityOrGamificationControl(svg)) return false
-    const rect = typeof svg.getBoundingClientRect === 'function' ? svg.getBoundingClientRect() : { width: 0, height: 0 }
-    const width = rect.width || parseFloat(svg.getAttribute('width') || '0')
-    const height = rect.height || parseFloat(svg.getAttribute('height') || '0')
-    if (width < 30 || height < 30) return false
-    return hasMeaningfulSvgGraphics(svg)
-  })
+  const seenSvgs = new Set<SVGElement>()
+  for (const root of roots) {
+    const svgs = Array.from(root.querySelectorAll('svg')).filter((svg) => {
+      if (!isVisible(svg) || isUtilityOrGamificationControl(svg) || seenSvgs.has(svg)) return false
+      const rect = typeof svg.getBoundingClientRect === 'function' ? svg.getBoundingClientRect() : { width: 0, height: 0 }
+      const width = rect.width || parseFloat(svg.getAttribute('width') || '0')
+      const height = rect.height || parseFloat(svg.getAttribute('height') || '0')
+      if (width < 30 || height < 30) return false
+      return hasMeaningfulSvgGraphics(svg)
+    })
 
-  for (const svg of svgs) {
-    try {
-      const blob = await rasterizeSvgElement(svg)
-      const base64 = await blobToBase64(blob)
-      if (base64) {
-        const textCtx = extractTextContextForImage(svg)
-        const cap: CapturedImage = {
-          mediaType: 'image/jpeg',
-          base64,
-          alt: svg.getAttribute('aria-label') || 'Gráfico/Diagrama vetorial da questão',
-          source: 'svg',
-          captureStatus: 'captured',
-          textContext: textCtx,
-        }
-        if (pushCapture(cap, svg)) return captures
-      }
-    } catch {
-      const container = (svg.closest('.trig-diagram-container, [class*="diagram" i], [class*="graph" i], figure') || svg.parentElement || svg) as HTMLElement
-      const fallbackCap = await captureElementVisualSnapshot(container)
-      if (fallbackCap) {
-        if (pushCapture(fallbackCap, svg)) return captures
-      } else {
-        // Extrai contexto textual do SVG
-        const textCtx = extractTextContextForImage(svg)
-        if (textCtx) {
-          const textCap: CapturedImage = {
-            mediaType: 'image/jpeg',
-            base64: '',
-            alt: svg.getAttribute('aria-label') || 'Gráfico vetorial',
+    for (const svg of svgs) {
+      seenSvgs.add(svg)
+      try {
+        const result = await rasterizeSvgElement(svg)
+        if (result.base64) {
+          const textCtx = extractTextContextForImage(svg)
+          const cap: CapturedImage = {
+            mediaType: result.mediaType as any,
+            base64: result.base64,
+            alt: svg.getAttribute('aria-label') || 'Gráfico/Diagrama vetorial da questão',
             source: 'svg',
-            captureStatus: 'text_only',
+            captureStatus: 'captured',
             textContext: textCtx,
           }
-          pushCapture(textCap, svg)
+          if (pushCapture(cap, svg)) return captures
+        }
+      } catch {
+        const parentDiag = (svg.closest('.trig-diagram-container, [class*="diagram" i], [class*="graph" i], figure') || svg.parentElement || svg) as HTMLElement
+        const fallbackCap = await captureElementVisualSnapshot(parentDiag)
+        if (fallbackCap) {
+          if (pushCapture(fallbackCap, svg)) return captures
+        } else {
+          // Extrai contexto textual do SVG
+          const textCtx = extractTextContextForImage(svg)
+          if (textCtx) {
+            const textCap: CapturedImage = {
+              mediaType: 'image/jpeg',
+              base64: '',
+              alt: svg.getAttribute('aria-label') || 'Gráfico vetorial',
+              source: 'svg',
+              captureStatus: 'text_only',
+              textContext: textCtx,
+            }
+            pushCapture(textCap, svg)
+          }
         }
       }
     }

@@ -134,8 +134,8 @@ export function highlightAttachedImages(elements: Element[]): void {
           position: absolute;
           top: ${rect.top + window.scrollY - 3}px;
           left: ${rect.left + window.scrollX - 3}px;
-          width: ${rect.width + 6}px;
-          height: ${rect.height + 6}px;
+          width: ${effectiveW + 6}px;
+          height: ${effectiveH + 6}px;
           border: 3px solid #ffd600;
           border-radius: 8px;
           pointer-events: none;
