@@ -3,7 +3,7 @@ import { buildUserPrompt } from './core/prompt'
 import { addSessionMemory, loadSettings, saveSettings, recordQuestionTiming, loadActivityMetrics, resetActivityMetrics } from './core/storage'
 import { createExecutionPolicy } from './core/policy'
 import type { AnalysisPlan, EasyQuizSettings, FailedActionDetail } from './core/types'
-import { captureCurrentContext, captureFullPageText } from './dom/detector'
+import { captureCurrentContext, captureFullPageText, isQuestionContent } from './dom/detector'
 import { executePlan, setupSmartOptionInterceptors, buildDragFallbackJs, injectClickViaScript, findElementExt, verifyActionApplied, executeAlternativeActionPath } from './dom/executor'
 import { clearHighlights, highlightAttachedImages, highlightScope, highlightTargetActions } from './dom/highlighter'
 import { captureImages } from './media/capture'
@@ -338,12 +338,22 @@ async function initEasyQuiz(): Promise<void> {
     }
 
     const isInfoOrStart = latestPlan.pageType === 'info' || latestPlan.pageType === 'start'
+    const regularActions = latestPlan.actions.filter((a) => a.t !== 'adv')
+    const isQuestionPage = latestPlan.pageType === 'question' || isQuestionContent(latestPlan.rationale || '')
+
+    // Se for uma questão e nenhuma ação de resposta foi formulada, NUNCA avança!
+    if (isQuestionPage && regularActions.length === 0) {
+      panel.logToConsole('> [NAV] ⛔ Avanço bloqueado: questão sem respostas prescritas.', 'text-yellow')
+      return
+    }
+
     // forceAdvance=true quando chamado pelo Autopilot — ignora autoAdvance (que é opt-in para modo manual)
     // No Autopilot, o avanço é SEMPRE desejado quando a confiança atinge o limiar
     const canAdvance =
       (forceAdvance || settings.autoAdvance || isInfoOrStart) &&
       latestPlan.confidence >= settings.confidenceThreshold &&
-      !latestPlan.needsMoreContext
+      !latestPlan.needsMoreContext &&
+      (!isQuestionPage || regularActions.length > 0)
 
     panel.setBusy(true, 'Aplicando respostas no formulário...')
     panel.setProgress(85, `Aplicando ${latestPlan.actions.length} ação(ões) no formulário...`)

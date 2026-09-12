@@ -402,4 +402,8 @@ async function initDiscrete(): Promise<void> {
       delete window.__eqdiscrete
     },
   }
+
+  // Análise imediata na inicialização do bookmarklet para armar o aplicador na 1ª questão
+  void doAnalyze(true)
 }
+

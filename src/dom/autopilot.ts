@@ -1,6 +1,6 @@
 import type { AnalysisPlan } from '../core/types'
 import { loadDomainCache } from '../core/storage'
-import { captureCurrentContext, captureFullPageText, createContextSignature, createContentSignature } from './detector'
+import { captureCurrentContext, captureFullPageText, createContextSignature, createContentSignature, isQuestionContent } from './detector'
 import { findElementExt, simulatePointerClick, findBestNavigationButton, buildDragFallbackJs } from './executor'
 
 export type AutopilotStatus = 'idle' | 'waiting' | 'analyzing' | 'advancing' | 'error'
@@ -95,6 +95,8 @@ export class Autopilot {
   // Estado inteligente — baseado em conteúdo, não em valores
   private errorCount = 0
   private resolvedSigs = new Set<string>()  // sigs de conteúdo já analisadas com SUCESSO
+  private advancedSigs = new Set<string>()  // sigs que já tiveram ação de avanço acionada (anti-duplo avanço)
+  private hasPendingMutationDuringProcessing = false
   private lastContentSig = ''               // última sig de conteúdo vista
   private lastAttemptSig = ''               // última sig tentada (independente de sucesso)
   private lastAttemptTime = 0              // timestamp da última tentativa
@@ -112,11 +114,17 @@ export class Autopilot {
   public start() {
     if (this.active) return
     this.active = true
+    this.advancedSigs.clear()
+    this.hasPendingMutationDuringProcessing = false
     this.callbacks.onStatusChange('waiting', '> [SYS] Autopilot ENGAGED. Monitorando...')
 
     if (typeof MutationObserver !== 'undefined') {
       this.observer = new MutationObserver(() => {
-        if (!this.active || this.isProcessing) return
+        if (!this.active) return
+        if (this.isProcessing) {
+          this.hasPendingMutationDuringProcessing = true
+          return
+        }
         if (this.mutationTimer) clearTimeout(this.mutationTimer)
         // 120ms de debounce — rápido o suficiente para detectar nova página,
         // mas sem disparar para cada pequena mutação de atributo
@@ -147,6 +155,8 @@ export class Autopilot {
     this.observer = null
     this.isProcessing = false
     this.resolvedSigs.clear()
+    this.advancedSigs.clear()
+    this.hasPendingMutationDuringProcessing = false
     this.replanCount.clear()
     this.callbacks.onStatusChange('idle', '> [SYS] Autopilot DESATIVADO pelo usuário.', 'text-yellow')
   }
@@ -231,13 +241,15 @@ export class Autopilot {
       this.lastAttemptTime = now
 
       let answerControls = context.controls.filter((c) => c.role === 'answer')
-      const cache = loadDomainCache(window.location.hostname)
+      const isQuestion = isQuestionContent(context.questionText)
 
-      // Se não detectou controles de resposta de imediato, aguarda até 3 ciclos (300ms cada)
-      // para garantir que a SPA ou formulário concluiu a transição/animação e renderizou os inputs
-      if (answerControls.length === 0) {
-        for (let retryWait = 0; retryWait < 3; retryWait++) {
-          await this.sleep(300)
+      // Polling adaptativo resiliente:
+      // Se o texto é de questão mas os controles ainda não apareceram,
+      // aguarda até 14 ciclos de 250ms (3.5 segundos) para a SPA terminar a renderização
+      if (answerControls.length === 0 && isQuestion) {
+        this.callbacks.onStatusChange('waiting', '> [DOM] Questão identificada. Aguardando renderização dos controles...', 'text-yellow')
+        for (let retryWait = 0; retryWait < 14; retryWait++) {
+          await this.sleep(250)
           if (!this.active) return
           const reContext = captureCurrentContext(false) || captureFullPageText()
           if (reContext && reContext.controls.filter((c) => c.role === 'answer').length > 0) {
@@ -248,8 +260,8 @@ export class Autopilot {
         }
       }
 
-      if (answerControls.length > 0) {
-        // QUESTÃO COM CONTROLES DE RESPOSTA
+      if (answerControls.length > 0 || isQuestion) {
+        // QUESTÃO DETECTADA (com controles nativos ou via texto)
         this.callbacks.onStatusChange('analyzing', '> [IA] Questão detectada. Consultando IA...', 'text-blue')
         if (!this.active) return
 
@@ -278,7 +290,18 @@ export class Autopilot {
             return
           }
 
-          // Só marca como resolvida se emitiu ações ou se atingiu o limite de tentativas
+          // Se for questão e a IA prescreveu 0 ações (e não é conclusão):
+          if (plan.actions.length === 0) {
+            const attempts = (this.replanCount.get(contentSig) || 0) + 1
+            this.replanCount.set(contentSig, attempts)
+            if (attempts < 3) {
+              this.callbacks.onStatusChange('waiting', `> [AVISO] Nenhuma resposta formulada para esta questão. Retentando (${attempts}/3)...`, 'text-yellow')
+              await this.sleep(1200)
+              this.lastAttemptTime = 0
+              return
+            }
+          }
+
           const attempts = (this.replanCount.get(contentSig) || 0) + 1
           this.replanCount.set(contentSig, attempts)
           if (plan.actions.length > 0 || attempts >= 3) {
@@ -287,15 +310,19 @@ export class Autopilot {
 
         } else {
           this.errorCount++
-          const cooldown = this.errorCount === 1 ? 5000 : 8000
-          this.callbacks.onStatusChange('waiting', `> [AVISO] Falha na análise (${this.errorCount}). Aguardando ${cooldown / 1000}s...`, 'text-yellow')
+          const cooldown = this.errorCount === 1 ? 3000 : 5000
+          this.callbacks.onStatusChange('waiting', `> [AVISO] Falha na análise (${this.errorCount}). Retentando em ${cooldown / 1000}s...`, 'text-yellow')
           await this.sleep(cooldown)
-          // Reset do throttle para permitir retry imediato após o cooldown
           this.lastAttemptTime = 0
         }
 
       } else {
-        // SEM CONTROLES DE RESPOSTA — página informativa/artigo/início
+        // SEM CONTROLES E NÃO É QUESTÃO — página informativa/artigo/início
+        if (this.advancedSigs.has(contentSig)) {
+          // Já avançamos nesta página informativa — não clica novamente
+          return
+        }
+
         this.callbacks.onStatusChange('analyzing', '> [IA] Página informativa ou texto de leitura. Consultando IA...', 'text-blue')
         if (!this.active) return
 
@@ -331,13 +358,13 @@ export class Autopilot {
           }
 
           this.errorCount = 0
-          // Só marca como resolvido se a IA confirmou o tipo de página e emitiu actions
-          if (plan.actions.length > 0) this.resolvedSigs.add(contentSig)
+          this.resolvedSigs.add(contentSig)
+          this.advancedSigs.add(contentSig)
 
         } else {
           this.errorCount++
-          const cooldown = this.errorCount === 1 ? 5000 : 8000
-          this.callbacks.onStatusChange('waiting', `> [AVISO] Falha ao processar página (${this.errorCount}). Aguardando ${cooldown / 1000}s...`, 'text-yellow')
+          const cooldown = this.errorCount === 1 ? 3000 : 5000
+          this.callbacks.onStatusChange('waiting', `> [AVISO] Falha ao processar página (${this.errorCount}). Retentando em ${cooldown / 1000}s...`, 'text-yellow')
           await this.sleep(cooldown)
           this.lastAttemptTime = 0
         }
@@ -346,10 +373,10 @@ export class Autopilot {
       // Após muitas falhas consecutivas: não para — apenas emite aviso e reinicia o contador
       // Parar permanentemente causava o bug de "desistir" que o usuário relatou
       if (this.errorCount >= 5) {
-        this.callbacks.onStatusChange('waiting', '> [AVISO] Muitas falhas. Reiniciando contadores e aguardando 15s...', 'text-yellow')
+        this.callbacks.onStatusChange('waiting', '> [AVISO] Muitas falhas. Reiniciando contadores e aguardando 10s...', 'text-yellow')
         this.errorCount = 0
         this.lastAttemptTime = 0
-        await this.sleep(15000)
+        await this.sleep(10000)
       }
 
     } catch (err) {
@@ -364,9 +391,11 @@ export class Autopilot {
     } finally {
       this.abortController = null
       this.isProcessing = false
-      // Re-verificar após análise com tempo suficiente (800ms) para acomodar a transição DOM
+      const hadPending = this.hasPendingMutationDuringProcessing
+      this.hasPendingMutationDuringProcessing = false
+      // Re-verificar após análise com tempo suficiente para acomodar a transição DOM
       if (this.active) {
-        window.setTimeout(() => void this.checkAndAnalyze(), 800)
+        window.setTimeout(() => void this.checkAndAnalyze(), hadPending ? 300 : 750)
       }
     }
   }

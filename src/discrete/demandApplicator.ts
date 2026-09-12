@@ -75,6 +75,7 @@ export class DemandApplicator {
   private boundKey:         (e: KeyboardEvent) => void
   private boundKeypress:    (e: KeyboardEvent) => void
   private boundBeforeInput: (e: InputEvent)    => void
+  private boundKeyup:       (e: KeyboardEvent) => void
   private boundClick:       (e: MouseEvent)    => void
 
   constructor(
@@ -90,6 +91,7 @@ export class DemandApplicator {
     this.boundKey         = this.onKey.bind(this)
     this.boundKeypress    = this.onKeypress.bind(this)
     this.boundBeforeInput = this.onBeforeInput.bind(this)
+    this.boundKeyup       = this.onKeyup.bind(this)
     this.boundClick       = this.onClick.bind(this)
   }
 
@@ -140,6 +142,7 @@ export class DemandApplicator {
     window.addEventListener('keydown',     this.boundKey,         { capture: true })
     window.addEventListener('keypress',    this.boundKeypress,    { capture: true })
     window.addEventListener('beforeinput', this.boundBeforeInput, { capture: true })
+    window.addEventListener('keyup',       this.boundKeyup,       { capture: true })
     window.addEventListener('click',       this.boundClick,       { capture: true })
   }
 
@@ -147,6 +150,7 @@ export class DemandApplicator {
     window.removeEventListener('keydown',     this.boundKey,         { capture: true })
     window.removeEventListener('keypress',    this.boundKeypress,    { capture: true })
     window.removeEventListener('beforeinput', this.boundBeforeInput, { capture: true })
+    window.removeEventListener('keyup',       this.boundKeyup,       { capture: true })
     window.removeEventListener('click',       this.boundClick,       { capture: true })
   }
 
@@ -158,6 +162,13 @@ export class DemandApplicator {
     this.pendingClick = false
     this.clearTimer()
     this.highlight.clearAll()
+
+    // Desfoca qualquer input que ainda retenha foco no DOM
+    try {
+      if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) {
+        document.activeElement.blur()
+      }
+    } catch {}
 
     if (idx >= this.flow.length) {
       this.complete()
@@ -207,18 +218,30 @@ export class DemandApplicator {
   }
 
   private onKeypress(e: KeyboardEvent): void {
-    if (this.state === 'waiting_key' || this.stepping) {
+    if (this.isActive() || this.stepping) {
+      if (!isEqHotkey(e) && e.key !== 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        e.stopImmediatePropagation()
+      }
+    }
+  }
+
+  private onBeforeInput(e: InputEvent): void {
+    if ((this.isActive() || this.stepping) && e.isTrusted) {
       e.preventDefault()
       e.stopPropagation()
       e.stopImmediatePropagation()
     }
   }
 
-  private onBeforeInput(e: InputEvent): void {
-    if ((this.state === 'waiting_key' || this.stepping) && e.isTrusted) {
-      e.preventDefault()
-      e.stopPropagation()
-      e.stopImmediatePropagation()
+  private onKeyup(e: KeyboardEvent): void {
+    if (this.isActive() || this.stepping) {
+      if (!isEqHotkey(e) && e.key !== 'Escape' && !IGNORE_KEYS.has(e.key)) {
+        e.preventDefault()
+        e.stopPropagation()
+        e.stopImmediatePropagation()
+      }
     }
   }
 
@@ -231,10 +254,17 @@ export class DemandApplicator {
     if (isEqHotkey(e)) return
     if (e.key === 'Escape') return
 
+    // Se estiver aguardando clique: suprime a tecla para nunca poluir campos focados
     if (this.state === 'waiting_click') {
+      if (!IGNORE_KEYS.has(e.key)) {
+        e.preventDefault()
+        e.stopPropagation()
+        e.stopImmediatePropagation()
+      }
       this.toast.flash('Mouse Interact')
       return
     }
+
     if (this.state !== 'waiting_key') return
 
     // stepping=true: já agendamos o gotoStep, aguardando transição. Suprime teclas extras.
@@ -623,15 +653,10 @@ export class DemandApplicator {
       if (setter) setter.call(input, fullValue)
       else        input.value = fullValue
 
-      // 3. Dispara sequência completa de eventos sintéticos para React, Vue, Angular, Svelte
+      // 3. Dispara sequência de eventos sintéticos para React, Vue, Angular, Svelte
       try {
-        input.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, composed: true, data: fullValue, inputType: 'insertText' }))
-      } catch {}
-      try {
-        input.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, composed: true, data: fullValue, inputType: 'insertText' }))
-      } catch {
         input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true, composed: true }))
-      }
+      } catch {}
       try {
         input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true, composed: true }))
       } catch {}
@@ -840,6 +865,7 @@ export class DemandApplicator {
     const action = step.action as Record<string, unknown>
     const t = String(action.t ?? '')
 
+    let ok = false
     if (t === 'val') {
       const fullText = String(action.v ?? '')
       const el = this.resolveEl(action)
@@ -849,10 +875,18 @@ export class DemandApplicator {
       this.applyValueSlice(input, fullText)
       this.charsInserted.set(idx, fullText.length)
       this.debugOutput?.markStepSuccess(idx, `Texto "${fullText}" injetado`)
-      return true
+      ok = true
+    } else {
+      ok = await this.execClickAction(action, step)
     }
 
-    return await this.execClickAction(action, step)
+    if (ok && idx === this.stepIdx) {
+      this.clearTimer()
+      this.highlight.clearAll()
+      this.gotoStep(idx + 1)
+    }
+
+    return ok
   }
 
   async forceAll(): Promise<void> {

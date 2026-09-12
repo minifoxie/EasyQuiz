@@ -21,9 +21,9 @@ REGRAS DO interactionFlow:
 2. Triggers válidos:
    - "key"   → qualquer tecla (para val/texto)
    - "click" → qualquer clique (para chk/clk/sel/drag/adv)
-3. Para ação "val" (texto/número): use trigger="key" com chars=1. Sempre 1 step por campo val.
-   - Inputs de texto: o sistema injeta 1 char por tecla até o valor completo.
-   - Inputs numéricos (type=number): o sistema injeta o valor completo na 1ª tecla (número negativo, decimal, etc.).
+3. Para ação "val" (texto/número): use trigger="key". Sempre 1 único step por campo contendo o VALOR COMPLETO no campo "v" (ex: "282,6").
+   - NUNCA divida o valor em múltiplos steps nem caractere por caractere.
+   - 1 tecla do usuário = 1 campo preenchido com seu valor exato e completo.
    - Nunca duplique steps para o mesmo campo val.
 4. Para ação "chk","clk": trigger="click".
 5. Para ação "sel" (dropdown): 2 steps — step N = abrir (click), step N+1 = selecionar (click).
@@ -228,10 +228,37 @@ function repairFlow(
       }
     }
 
-    // ── Reparo 3: elimina step duplicado consecutivo e avanço duplo ──
+    // ── Reparo 2.1: val com valor truncado ou fatiado — recupera valor completo de actions[] ──
+    if (act.t === 'val') {
+      const matchingAct = actions.find(
+        (a) => a.t === 'val' && ((act.id && a.id === act.id) || (act.name && a.name === act.name))
+      )
+      if (matchingAct && matchingAct.v !== undefined && String(matchingAct.v).length > String(act.v ?? '').length) {
+        ;(step.action as Record<string, unknown>).v = matchingAct.v
+      }
+    }
+
+    // ── Reparo 3: elimina step duplicado consecutivo, colapsa múltiplos val e evita avanço duplo ──
     const prev = repaired[repaired.length - 1]
     if (prev) {
       const prevAct = prev.action as Record<string, unknown>
+
+      // Se ambos são 'val' mirando o mesmo alvo: funde em um único step com o valor completo
+      if (prevAct.t === 'val' && act.t === 'val') {
+        const sameTarget =
+          (Boolean(act.id) && Boolean(prevAct.id) && act.id === prevAct.id) ||
+          (Boolean(act.name) && Boolean(prevAct.name) && act.name === prevAct.name) ||
+          (!act.id && !act.name && !prevAct.id && !prevAct.name)
+        if (sameTarget) {
+          const fullActFromActions = actions.find(
+            (a) => a.t === 'val' && ((act.id && a.id === act.id) || (act.name && a.name === act.name))
+          )
+          const bestVal = fullActFromActions?.v ?? (String(prevAct.v || '').length >= String(act.v || '').length ? prevAct.v : act.v)
+          prevAct.v = bestVal
+          continue
+        }
+      }
+
       const isDup =
         prev.trigger === step.trigger &&
         prevAct.t === act.t &&

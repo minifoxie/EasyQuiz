@@ -524,3 +524,23 @@ export function createContentSignature(context: CapturedContext): string {
     controlStructure,
   ].join('::')
 }
+
+/**
+ * Detecta se o texto de um escopo representa de fato uma pergunta/questão acadêmica.
+ * Usado para impedir que questões em transição de SPA sejam incorretamente puladas como 'info'.
+ */
+export function isQuestionContent(text: string): boolean {
+  if (!text) return false
+  const t = text.toLowerCase()
+  const questionKeywords = [
+    '?', 'questão', 'questao', 'pergunta', 'exercício', 'exercicio',
+    'assinale', 'calcule', 'determine', 'qual é', 'qual o', 'quais',
+    'indique', 'selecione', 'escolha', 'responda', 'julgue',
+    'verdadeiro ou falso', 'complete', 'resolva', 'encontre',
+    'alternativa', 'correta', 'incorreta', 'm³', 'cm²', 'volume',
+    'probabilidade', 'matriz', 'valor de', 'resultado de', 'considere',
+    'dada a', 'sabendo que', 'quanto vale', 'obtenha'
+  ]
+  return questionKeywords.some((kw) => t.includes(kw))
+}
+

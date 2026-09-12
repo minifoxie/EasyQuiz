@@ -2592,7 +2592,7 @@ export async function executePlan(
   /** Rastreia ações já contadas em appliedCount para não re-contar nas passagens 2 e 3 */
   const appliedInPass1 = new Set<DeclarativeAction>()
 
-  const isQuestion = plan.pageType === 'question'
+  const isQuestion = plan.pageType === 'question' || regularActions.length > 0
 
   const chkActions = regularActions.filter((a) => a.t === 'chk' || (a.t === 'clk' && (a as any).c !== undefined))
 
@@ -2846,7 +2846,7 @@ export async function executePlan(
   //   Não faz sentido dizer "avançando" e não avançar — o usuário espera progredir
   const partialSuccess = appliedCount > 0 && appliedCount >= regularActions.length / 2
 
-  if (allowAdvance && (success || !isQuestion || partialSuccess)) {
+  if (allowAdvance && (success || (!isQuestion && regularActions.length === 0) || partialSuccess)) {
     // Aguarda o framework registrar o input/seleção antes de tentar avançar
     await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 120 : 40))
 
