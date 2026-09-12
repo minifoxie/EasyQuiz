@@ -80,25 +80,21 @@ const discreteRaw = await readFile(path.join(dist, 'discrete.js'), 'utf-8')
 const discreteClean = discreteRaw.replace(/^\/\*[\s\S]*?\*\/\s*/, '')
 const discreteBookmarkletCode = `javascript:(function(){${discreteClean}})();void 0`
 
-// Bookmarklets Resilientes com Multi-CDN Failover e Proteção contra Erro 503/HTML
+// Bookmarklets Resilientes com jsDelivr CDN Primário e Proteção Total contra Erro 503/HTML
 const githubRepo = 'minifoxie/EasyQuiz'
-const rawBase = `https://raw.githubusercontent.com/${githubRepo}/main/dist`
 const cdnBase = `https://cdn.jsdelivr.net/gh/${githubRepo}@main/dist`
+const fastlyBase = `https://fastly.jsdelivr.net/gh/${githubRepo}@main/dist`
+const rawBase = `https://raw.githubusercontent.com/${githubRepo}/main/dist`
 
-// 1. Multi-CDN com Auto-Failover (GitHub Raw -> jsDelivr CDN se der 503 ou erro)
-const legacyMultiCdn = `javascript:(function(){function L(f){return fetch('${rawBase}/'+f,{cache:'no-store'}).then(function(r){return r.ok?r.text():Promise.reject()}).catch(function(){return fetch('${cdnBase}/'+f).then(function(r){return r.text()})}).then(function(t){if(!t||t.trim().charAt(0)==='<')throw new Error('503/HTML');return t})}L('easyquiz.js').then(function(c){try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();`
+// 1. jsDelivr CDN Direto (RECOMENDADO — Ultra-Curto, Alta Disponibilidade e 100% Imune a Erros 503 do GitHub)
+const legacyJsdelivr = `javascript:(function(){fetch('${cdnBase}/easyquiz.js').then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();`
 
-const discreteMultiCdn = `javascript:(function(){function L(f){return fetch('${rawBase}/'+f,{cache:'no-store'}).then(function(r){return r.ok?r.text():Promise.reject()}).catch(function(){return fetch('${cdnBase}/'+f).then(function(r){return r.text()})}).then(function(t){if(!t||t.trim().charAt(0)==='<')throw new Error('503/HTML');return t})}L('discrete.js').then(function(c){try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();`
+const discreteJsdelivr = `javascript:(function(){fetch('${cdnBase}/discrete.js').then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();`
 
-// 2. jsDelivr CDN Direto (Ultra-Curto, Alta Disponibilidade e 100% Imune a Erros 503 do GitHub)
-const legacyJsdelivr = `javascript:(function(){fetch('${cdnBase}/easyquiz.js').then(function(r){return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Erro na rede CDN');(0,eval)(c)}).catch(function(e){alert('EasyQuiz erro: '+e)})})();`
+// 2. Multi-CDN com Auto-Failover Silencioso (jsDelivr -> Fastly jsDelivr -> GitHub Raw sem alarmes 503)
+const legacyMultiCdn = `javascript:(function(){function L(f){return fetch('${cdnBase}/'+f).then(function(r){if(!r.ok)throw 1;return r.text()}).catch(function(){return fetch('${fastlyBase}/'+f).then(function(r){if(!r.ok)throw 2;return r.text()})}).catch(function(){return fetch('${rawBase}/'+f,{cache:'no-store'}).then(function(r){if(!r.ok)throw 3;return r.text()})}).then(function(t){if(!t||t.trim().charAt(0)==='<')throw new Error('Código indisponível');return t})}L('easyquiz.js').then(function(c){try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();`
 
-const discreteJsdelivr = `javascript:(function(){fetch('${cdnBase}/discrete.js').then(function(r){return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Erro na rede CDN');(0,eval)(c)}).catch(function(e){alert('EasyQuiz Discreto erro: '+e)})})();`
-
-// 3. GitHub Raw Direto com Guarda Anti-HTML
-const legacyGithubRaw = `javascript:(function(){fetch('${rawBase}/easyquiz.js',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('GitHub retornou erro HTML');(0,eval)(c)}).catch(function(e){alert('EasyQuiz erro: '+e)})})();`
-
-const discreteGithubRaw = `javascript:(function(){fetch('${rawBase}/discrete.js',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('GitHub retornou erro HTML');(0,eval)(c)}).catch(function(e){alert('EasyQuiz Discreto erro: '+e)})})();`
+const discreteMultiCdn = `javascript:(function(){function L(f){return fetch('${cdnBase}/'+f).then(function(r){if(!r.ok)throw 1;return r.text()}).catch(function(){return fetch('${fastlyBase}/'+f).then(function(r){if(!r.ok)throw 2;return r.text()})}).catch(function(){return fetch('${rawBase}/'+f,{cache:'no-store'}).then(function(r){if(!r.ok)throw 3;return r.text()})}).then(function(t){if(!t||t.trim().charAt(0)==='<')throw new Error('Código indisponível');return t})}L('discrete.js').then(function(c){try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();`
 
 // Deleta arquivos .txt antigos e redundantes
 for (const oldTxt of ['bookmarklet_legacy.txt', 'bookmarklet_discrete.txt', 'bookmarklet_discrete_legacy.txt']) {
@@ -135,15 +131,11 @@ Painel visual flutuante completo com todas as abas:
   • ⚙️ Configurações (Chaves Gemini, seleção de modelo, visão computacional)
 Atalho padrão: Alt+Q para abrir/fechar e analisar.
 
-Opção A — Multi-CDN com Auto-Failover (RECOMENDADO — Mais Estável):
-Tenta GitHub Raw; se o GitHub retornar 503 ou erro, pula automaticamente para o jsDelivr CDN!
-${legacyMultiCdn}
-
-Opção B — jsDelivr CDN Direto (Ultra-Curto & 100% Imune ao Erro 503):
+Opção A — jsDelivr CDN Direto (RECOMENDADO — Ultra-Rápido & 100% Imune ao Erro 503):
 ${legacyJsdelivr}
 
-Opção C — GitHub Raw Direto (com proteção anti-HTML):
-${legacyGithubRaw}
+Opção B — Multi-CDN com Auto-Failover Silencioso (jsDelivr -> Fastly -> GitHub Raw):
+${legacyMultiCdn}
 
 --------------------------------------------------------------------------------
 2. MODO DISCRETO (STEALTH 100% INVISÍVEL — SEM INTERFACE FIXA)
@@ -158,15 +150,11 @@ Opera em segundo plano de forma 100% invisível sem botões fixos na tela:
   • Shift+Z: Cancelar fluxo atual
   • Shift+R: Re-analisar questão
 
-Opção A — Multi-CDN com Auto-Failover (RECOMENDADO — Mais Estável):
-Tenta GitHub Raw; se o GitHub retornar 503 ou erro, pula automaticamente para o jsDelivr CDN!
-${discreteMultiCdn}
-
-Opção B — jsDelivr CDN Direto (Ultra-Curto & 100% Imune ao Erro 503):
+Opção A — jsDelivr CDN Direto (RECOMENDADO — Ultra-Rápido & 100% Imune ao Erro 503):
 ${discreteJsdelivr}
 
-Opção C — GitHub Raw Direto (com proteção anti-HTML):
-${discreteGithubRaw}
+Opção B — Multi-CDN com Auto-Failover Silencioso (jsDelivr -> Fastly -> GitHub Raw):
+${discreteMultiCdn}
 `
 
 await writeFile(path.join(dist, 'bookmarklet.txt'), masterBookmarkletDoc, 'utf-8')

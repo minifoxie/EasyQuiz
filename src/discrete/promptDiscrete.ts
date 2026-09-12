@@ -131,21 +131,13 @@ export function buildFallbackFlow(actions: Record<string, unknown>[]): Interacti
   for (const action of actions) {
     const t = action.t as string
     if (t === 'val') {
-      const fullText = String(action.v ?? '')
-      const numChars = Math.max(1, fullText.length)  // 1 step por caractere
-      for (let ci = 0; ci < numChars; ci++) {
-        const isFirst = ci === 0
-        const isLast  = ci === numChars - 1
-        const progress = numChars > 1 ? `${ci + 1}/${numChars}` : null
-        flow.push({
-          step: step++,
-          trigger: 'key',
-          action,
-          chars: 1,
-          hint: isFirst ? 'Keyboard Interact' : (isLast ? 'Buffer Flush' : 'Key Capture'),
-          customMsg: progress,
-        })
-      }
+      flow.push({
+        step: step++,
+        trigger: 'key',
+        action,
+        hint: 'Keyboard Interact',
+        customMsg: null,
+      })
     } else if (t === 'chk' || t === 'clk') {
       flow.push({ step: step++, trigger: 'click', action, hint: 'Mouse Interact', customMsg: null })
     } else if (t === 'sel') {

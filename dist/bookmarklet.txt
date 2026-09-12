@@ -25,15 +25,11 @@ Painel visual flutuante completo com todas as abas:
   • ⚙️ Configurações (Chaves Gemini, seleção de modelo, visão computacional)
 Atalho padrão: Alt+Q para abrir/fechar e analisar.
 
-Opção A — Multi-CDN com Auto-Failover (RECOMENDADO — Mais Estável):
-Tenta GitHub Raw; se o GitHub retornar 503 ou erro, pula automaticamente para o jsDelivr CDN!
-javascript:(function(){function L(f){return fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/'+f,{cache:'no-store'}).then(function(r){return r.ok?r.text():Promise.reject()}).catch(function(){return fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/'+f).then(function(r){return r.text()})}).then(function(t){if(!t||t.trim().charAt(0)==='<')throw new Error('503/HTML');return t})}L('easyquiz.js').then(function(c){try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();
+Opção A — jsDelivr CDN Direto (RECOMENDADO — Ultra-Rápido & 100% Imune ao Erro 503):
+javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/easyquiz.js').then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();
 
-Opção B — jsDelivr CDN Direto (Ultra-Curto & 100% Imune ao Erro 503):
-javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/easyquiz.js').then(function(r){return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Erro na rede CDN');(0,eval)(c)}).catch(function(e){alert('EasyQuiz erro: '+e)})})();
-
-Opção C — GitHub Raw Direto (com proteção anti-HTML):
-javascript:(function(){fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/easyquiz.js',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('GitHub retornou erro HTML');(0,eval)(c)}).catch(function(e){alert('EasyQuiz erro: '+e)})})();
+Opção B — Multi-CDN com Auto-Failover Silencioso (jsDelivr -> Fastly -> GitHub Raw):
+javascript:(function(){function L(f){return fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/'+f).then(function(r){if(!r.ok)throw 1;return r.text()}).catch(function(){return fetch('https://fastly.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/'+f).then(function(r){if(!r.ok)throw 2;return r.text()})}).catch(function(){return fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/'+f,{cache:'no-store'}).then(function(r){if(!r.ok)throw 3;return r.text()})}).then(function(t){if(!t||t.trim().charAt(0)==='<')throw new Error('Código indisponível');return t})}L('easyquiz.js').then(function(c){try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();
 
 --------------------------------------------------------------------------------
 2. MODO DISCRETO (STEALTH 100% INVISÍVEL — SEM INTERFACE FIXA)
@@ -48,12 +44,8 @@ Opera em segundo plano de forma 100% invisível sem botões fixos na tela:
   • Shift+Z: Cancelar fluxo atual
   • Shift+R: Re-analisar questão
 
-Opção A — Multi-CDN com Auto-Failover (RECOMENDADO — Mais Estável):
-Tenta GitHub Raw; se o GitHub retornar 503 ou erro, pula automaticamente para o jsDelivr CDN!
-javascript:(function(){function L(f){return fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/'+f,{cache:'no-store'}).then(function(r){return r.ok?r.text():Promise.reject()}).catch(function(){return fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/'+f).then(function(r){return r.text()})}).then(function(t){if(!t||t.trim().charAt(0)==='<')throw new Error('503/HTML');return t})}L('discrete.js').then(function(c){try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();
+Opção A — jsDelivr CDN Direto (RECOMENDADO — Ultra-Rápido & 100% Imune ao Erro 503):
+javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/discrete.js').then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();
 
-Opção B — jsDelivr CDN Direto (Ultra-Curto & 100% Imune ao Erro 503):
-javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/discrete.js').then(function(r){return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Erro na rede CDN');(0,eval)(c)}).catch(function(e){alert('EasyQuiz Discreto erro: '+e)})})();
-
-Opção C — GitHub Raw Direto (com proteção anti-HTML):
-javascript:(function(){fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/discrete.js',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('GitHub retornou erro HTML');(0,eval)(c)}).catch(function(e){alert('EasyQuiz Discreto erro: '+e)})})();
+Opção B — Multi-CDN com Auto-Failover Silencioso (jsDelivr -> Fastly -> GitHub Raw):
+javascript:(function(){function L(f){return fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/'+f).then(function(r){if(!r.ok)throw 1;return r.text()}).catch(function(){return fetch('https://fastly.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/'+f).then(function(r){if(!r.ok)throw 2;return r.text()})}).catch(function(){return fetch('https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/'+f,{cache:'no-store'}).then(function(r){if(!r.ok)throw 3;return r.text()})}).then(function(t){if(!t||t.trim().charAt(0)==='<')throw new Error('Código indisponível');return t})}L('discrete.js').then(function(c){try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();

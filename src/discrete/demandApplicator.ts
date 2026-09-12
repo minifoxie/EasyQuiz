@@ -45,8 +45,8 @@ const IGNORE_KEYS = new Set([
 const isEqHotkey = (e: KeyboardEvent) =>
   e.altKey || (e.shiftKey && 'QAMZRHIC'.includes(e.key.toUpperCase()))
 
-const nativeInputSetter    = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,   'value')?.set
-const nativeTextareaSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')?.set
+const nativeInputSetter    = typeof HTMLInputElement !== 'undefined' ? Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,   'value')?.set : undefined
+const nativeTextareaSetter = typeof HTMLTextAreaElement !== 'undefined' ? Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')?.set : undefined
 
 export class DemandApplicator {
   private flow: InteractionStep[] = []
@@ -72,8 +72,10 @@ export class DemandApplicator {
   private charsInserted = new Map<number, number>()
   private failedSteps = new Set<number>()
 
-  private boundKey:   (e: KeyboardEvent) => void
-  private boundClick: (e: MouseEvent)    => void
+  private boundKey:         (e: KeyboardEvent) => void
+  private boundKeypress:    (e: KeyboardEvent) => void
+  private boundBeforeInput: (e: InputEvent)    => void
+  private boundClick:       (e: MouseEvent)    => void
 
   constructor(
     coin: CoinCursor,
@@ -85,8 +87,10 @@ export class DemandApplicator {
     this.toast = toast
     this.highlight = highlight
     this.debugOutput = debugOutput
-    this.boundKey   = this.onKey.bind(this)
-    this.boundClick = this.onClick.bind(this)
+    this.boundKey         = this.onKey.bind(this)
+    this.boundKeypress    = this.onKeypress.bind(this)
+    this.boundBeforeInput = this.onBeforeInput.bind(this)
+    this.boundClick       = this.onClick.bind(this)
   }
 
   setDebugOutput(debugOutput: DebugOutput): void {
@@ -133,13 +137,17 @@ export class DemandApplicator {
   // ── Listeners ─────────────────────────────────────────────────────────────
 
   private attach(): void {
-    window.addEventListener('keydown', this.boundKey,   { capture: true })
-    window.addEventListener('click',   this.boundClick, { capture: true })
+    window.addEventListener('keydown',     this.boundKey,         { capture: true })
+    window.addEventListener('keypress',    this.boundKeypress,    { capture: true })
+    window.addEventListener('beforeinput', this.boundBeforeInput, { capture: true })
+    window.addEventListener('click',       this.boundClick,       { capture: true })
   }
 
   private detach(): void {
-    window.removeEventListener('keydown', this.boundKey,   { capture: true })
-    window.removeEventListener('click',   this.boundClick, { capture: true })
+    window.removeEventListener('keydown',     this.boundKey,         { capture: true })
+    window.removeEventListener('keypress',    this.boundKeypress,    { capture: true })
+    window.removeEventListener('beforeinput', this.boundBeforeInput, { capture: true })
+    window.removeEventListener('click',       this.boundClick,       { capture: true })
   }
 
   // ── Navegação de Passos ───────────────────────────────────────────────────
@@ -198,20 +206,51 @@ export class DemandApplicator {
     }
   }
 
-  // ── Teclado — GATILHO para injeção de texto (1 caractere por tecla) ────────
-  // Permissivo a input rápido: stepping guard previne double-advance,
-  // e não usa isExecuting para operações de texto (síncronas e atômicas).
+  private onKeypress(e: KeyboardEvent): void {
+    if (this.state === 'waiting_key' || this.stepping) {
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation()
+    }
+  }
+
+  private onBeforeInput(e: InputEvent): void {
+    if ((this.state === 'waiting_key' || this.stepping) && e.isTrusted) {
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation()
+    }
+  }
+
+  // ── Teclado — GATILHO para injeção de texto válido ───────────────────────
+  // A tecla do usuário serve EXCLUSIVAMENTE como sinal/gatilho de avanço.
+  // A tecla física é 100% suprimida para nunca poluir o campo alvo.
+  // O sistema injeta o valor válido completo do fluxo sem misturas.
 
   private onKey(e: KeyboardEvent): void {
-    if (IGNORE_KEYS.has(e.key) || isEqHotkey(e)) return
+    if (isEqHotkey(e)) return
+    if (e.key === 'Escape') return
 
     if (this.state === 'waiting_click') {
       this.toast.flash('Mouse Interact')
       return
     }
     if (this.state !== 'waiting_key') return
-    // stepping=true: já agendamos o gotoStep, aguardando transição. Ignorar teclas extras.
-    if (this.stepping) return
+
+    // stepping=true: já agendamos o gotoStep, aguardando transição. Suprime teclas extras.
+    if (this.stepping) {
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation()
+      return
+    }
+
+    if (IGNORE_KEYS.has(e.key)) return
+
+    // SUPRESSÃO TOTAL DO EVENTO DE TECLADO DO USUÁRIO NO CAMPO DE TEXTO
+    e.preventDefault()
+    e.stopPropagation()
+    e.stopImmediatePropagation()
 
     this.debugOutput?.log('KEY', `Gatilho de teclado: "${e.key}" (Passo ${this.stepIdx + 1})`)
 
@@ -221,10 +260,8 @@ export class DemandApplicator {
     if (action.t !== 'val') return
 
     const fullText = String(action.v ?? '')
-    // SEMPRE 1 caractere por tecla — digitação fiel ao usuário
-    const chars = 1
 
-    // Texto vazio: qualquer tecla avança imediatamente
+    // Texto vazio: avança imediatamente
     if (fullText.length === 0) {
       this.stepping = true
       this.clearTimer()
@@ -234,8 +271,8 @@ export class DemandApplicator {
       return
     }
 
-    // Injeta 1 caractere no campo ALVO (operação síncrona — sem isExecuting)
-    const done = this.insertChars(this.stepIdx, action, fullText, chars)
+    // Injeta o valor válido completo com todos os caracteres no campo ALVO
+    const done = this.insertChars(this.stepIdx, action, fullText)
 
     if (done) {
       // Marca stepping imediatamente para bloquear teclas rápidas extras
@@ -244,12 +281,8 @@ export class DemandApplicator {
       this.highlight.clearAll()
       this.coin.flashOk(800)
       this.debugOutput?.markStepSuccess(this.stepIdx, `"${fullText}" inserido com sucesso`)
-      // Delay curto: 50ms é imperceptível para o usuário, mas previne race conditions
-      setTimeout(() => this.gotoStep(this.stepIdx + 1), 50)
-    } else {
-      const inserted = this.charsInserted.get(this.stepIdx) ?? 0
-      const pct = Math.round((inserted / fullText.length) * 100)
-      this.toast.flash(`${pct}%`)
+      // Delay curto: 60ms para transição fluida sem race conditions
+      setTimeout(() => this.gotoStep(this.stepIdx + 1), 60)
     }
   }
 
@@ -543,11 +576,7 @@ export class DemandApplicator {
     stepIdx: number,
     action: Record<string, unknown>,
     fullText: string,
-    chars: number,
   ): boolean {
-    const already = this.charsInserted.get(stepIdx) ?? 0
-    if (already >= fullText.length) return true
-
     const el = this.resolveEl(action)
     if (!el) {
       this.toast.flash('Campo não achado')
@@ -562,46 +591,70 @@ export class DemandApplicator {
       return true
     }
 
-    // ── Inputs numéricos: injeção completa na 1ª tecla ─────────────────────────
-    // O browser rejeita values parciais (ex: "-", "3.") para type=number, quebrando
-    // a acumulação char-a-char. Solução: na primeira tecla, injeta o valor completo.
-    // O passo avança imediatamente — 1 tecla = 1 campo numérico preenchido.
+    // Normalização para inputs de número HTML5
+    let valToSet = fullText
     const isNumberInput = input instanceof HTMLInputElement &&
       (input.type === 'number' || input.type === 'range')
     if (isNumberInput) {
-      this.applyValueSlice(input, fullText, /* replaceAll */ true)
-      this.charsInserted.set(stepIdx, fullText.length)
-      try { (input as HTMLInputElement).blur?.() } catch {}
-      return true   // completo em 1 tecla, independente do tamanho
+      const normalized = fullText.replace(',', '.').replace(/[^0-9.-]/g, '')
+      if (normalized && !isNaN(Number(normalized))) {
+        valToSet = normalized
+      }
     }
 
-    // ── Inputs de texto: acumulação char-a-char (1 char por tecla) ─────────────
-    const slice  = fullText.slice(already, already + chars)
-    const newPos = already + slice.length
-    this.applyValueSlice(input, slice, false)
-    this.charsInserted.set(stepIdx, newPos)
-
-    if (newPos >= fullText.length) {
-      try { (input as HTMLInputElement).blur?.() } catch {}
-      return true
-    }
-    return false
+    // Injeta o valor válido completo com todos os caracteres
+    this.applyValueSlice(input, valToSet)
+    this.charsInserted.set(stepIdx, fullText.length)
+    try { (input as HTMLInputElement).blur?.() } catch {}
+    return true
   }
 
-  private applyValueSlice(input: HTMLElement, slice: string, replaceAll = false): void {
+  private applyValueSlice(input: HTMLElement, fullValue: string): void {
     if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
-      // replaceAll=true: para inputs de número, substitui o valor inteiro (não acumula)
-      const newVal = replaceAll ? slice : (input.value + slice)
-      const setter = input instanceof HTMLInputElement ? nativeInputSetter : nativeTextareaSetter
-      if (setter) setter.call(input, newVal)
-      else        input.value = newVal
-      input.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true }))
-      input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }))
-      try { input.setSelectionRange(newVal.length, newVal.length) } catch {}
+      // 1. Redefine o _valueTracker do React para garantir que onChange/onInput dispare
+      try {
+        const tracker = (input as any)._valueTracker
+        if (tracker) tracker.setValue('')
+      } catch {}
+
+      // 2. Aplica o valor authoritative via setter nativo do protótipo
+      const proto = input instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype
+      const setter = (input instanceof HTMLInputElement ? nativeInputSetter : nativeTextareaSetter) || Object.getOwnPropertyDescriptor(proto, 'value')?.set
+      if (setter) setter.call(input, fullValue)
+      else        input.value = fullValue
+
+      // 3. Dispara sequência completa de eventos sintéticos para React, Vue, Angular, Svelte
+      try {
+        input.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, composed: true, data: fullValue, inputType: 'insertText' }))
+      } catch {}
+      try {
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, composed: true, data: fullValue, inputType: 'insertText' }))
+      } catch {
+        input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true, composed: true }))
+      }
+      try {
+        input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true, composed: true }))
+      } catch {}
+      try {
+        input.setSelectionRange(fullValue.length, fullValue.length)
+      } catch {}
+
+      // 4. Verificação de segurança: garante que o valor não foi sobrescrito
+      if (input.value !== fullValue && !(input instanceof HTMLInputElement && input.type === 'number' && Number(input.value) === Number(fullValue))) {
+        input.value = fullValue
+        try { setter?.call(input, fullValue) } catch {}
+      }
     } else if ((input as HTMLElement).isContentEditable) {
       const ce = input as HTMLElement
-      ce.textContent = (ce.textContent ?? '') + slice
-      ce.dispatchEvent(new Event('input', { bubbles: true }))
+      ce.textContent = fullValue
+      try {
+        ce.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, composed: true, data: fullValue, inputType: 'insertText' }))
+      } catch {
+        ce.dispatchEvent(new Event('input', { bubbles: true, cancelable: true, composed: true }))
+      }
+      try {
+        ce.dispatchEvent(new Event('change', { bubbles: true, cancelable: true, composed: true }))
+      } catch {}
       try {
         const r = document.createRange(); r.selectNodeContents(ce); r.collapse(false)
         const s = window.getSelection(); s?.removeAllRanges(); s?.addRange(r)

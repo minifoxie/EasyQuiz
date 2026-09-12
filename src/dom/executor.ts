@@ -719,18 +719,28 @@ function setNativeValue(element: HTMLElement, value: string): void {
     target.focus?.()
   } catch {}
 
-  // 2. Tenta digitação nativa via execCommand (simula evento de teclado físico direto no browser)
-  // Campos number NUNCA usam execCommand: o browser rejeita valores como "-" ou "1." silenciosamente,
-  // causando truncamento (ex: "-1" vira "1"). Para number, usamos apenas o setter nativo abaixo.
+  // 2. Limpeza prévia para impedir contaminação por caracteres misturados ou digitação anterior
+  try {
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+      const proto = target instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+      const preSetter = Object.getOwnPropertyDescriptor(proto, 'value')?.set
+      if (preSetter) preSetter.call(target, '')
+      else target.value = ''
+      try { target.select?.() } catch {}
+    } else if (target.isContentEditable) {
+      target.textContent = ''
+      try { document.execCommand?.('selectAll', false, undefined) } catch {}
+    }
+  } catch {}
+
+  // 3. Tenta digitação nativa via execCommand (simula evento de teclado físico direto no browser)
   let execSuccess = false
   try {
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
       if (target.type !== 'number' && target.type !== 'range') {
-        try { target.select?.() } catch {}
         execSuccess = document.execCommand?.('insertText', false, valToSet) || false
       }
     } else if (target.isContentEditable) {
-      try { document.execCommand?.('selectAll', false, undefined) } catch {}
       execSuccess = document.execCommand?.('insertText', false, valToSet) || false
     }
   } catch {}
