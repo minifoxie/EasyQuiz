@@ -336,6 +336,19 @@ await writeFile(path.join(dist, 'instalar_bookmarklet.html'), installerHtml, 'ut
 const bookmarkletSize = Buffer.byteLength(bookmarkletCode, 'utf-8')
 const bundleSize = Buffer.byteLength(bundleContent, 'utf-8')
 
+
+// ============================================================
+// DYNAMIC README VERSION UPDATER
+// ============================================================
+try {
+  let readme = await readFile(path.join(root, 'README.md'), 'utf-8');
+  readme = readme.replace(/badge\/Build-v[\d\.]+-00e5ff/g, `badge/Build-${versionLabel}-00e5ff`);
+  await writeFile(path.join(root, 'README.md'), readme);
+  console.log(`[EasyQuiz] README.md atualizado com a versão ${versionLabel}`);
+} catch (e) {
+  console.log('[EasyQuiz] Aviso: Não foi possível atualizar a versão no README.md', e);
+}
+
 console.log('[EasyQuiz] Build concluído com sucesso!')
 console.log(`- Artefato JS: dist/easyquiz.js (${(bundleSize / 1024).toFixed(1)} KB)`)
 console.log(`- Manual Unificado Supremo: dist/bookmarklet.txt`)

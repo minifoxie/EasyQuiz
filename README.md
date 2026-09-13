@@ -1,6 +1,6 @@
 <div align="center">
   <img src="dist/Canvas.png" alt="EasyQuiz Logo" width="200" />
-  <h1>EasyQuiz ⚡</h1>
+  <h1>EasyQuiz ⚡ <img src="https://img.shields.io/badge/Build-v1.7.3-00e5ff?style=flat-square" id="eq-version-badge" /></h1>
   <p><b>Seu Assistente Pessoal de Resoluções com Inteligência Artificial</b></p>
   <p><em>100% Serverless, Transparente e Autônomo.</em></p>
 
@@ -14,6 +14,8 @@
   <img src="https://img.shields.io/badge/Google_Gemini-1A73E8?style=for-the-badge&logo=googlebard&logoColor=white" /> 
   <img src="https://img.shields.io/badge/Claude_Sonnet-D97757?style=for-the-badge&logo=anthropic&logoColor=white" /> 
   <img src="https://img.shields.io/badge/Antigravity_IDE-000000?style=for-the-badge&logo=google&logoColor=white" />
+  <br><br>
+  <a href="#inicio-rapido"><img src="https://img.shields.io/badge/🚀_PEGAR_CÓDIGOS_BOOKMARKLET-ff0055?style=for-the-badge" alt="Pegar Códigos" /></a>
 </div>
 
 <br>
@@ -26,11 +28,11 @@ Com um único clique de teclado, ele lê a tela, enxerga os gráficos, processa 
 
 ## 📑 Tabela de Conteúdos
 1. [Por que o EasyQuiz é diferente?](#-por-que-o-easyquiz-é-diferente)
-2. [Instalação Rápida e Códigos Oficiais (Bookmarklets)](#-início-rápido-e-códigos-de-instalação-bookmarklets)
-3. [Como Obter Sua Chave da API](#-como-obter-sua-chave-da-api-totalmente-gratuita)
-4. [Modos de Operação (Legacy vs Discreto)](#-modos-de-operação-do-easyquiz)
-5. [Mecânicas Internas e Tecnologias](#-mecânicas-internas-e-tecnologias)
-6. [Suporte e Compatibilidade](#-suporte-e-compatibilidade-tecnológica)
+2. [Instalação Rápida e Códigos Oficiais (Bookmarklets)](#inicio-rapido)
+3. [Como Obter Sua Chave da API](#sistema-multi-key)
+4. [Modos de Operação (Legacy vs Discreto)](#modos-operacao)
+5. [Mecânicas Internas e Tecnologias](#mecanicas)
+6. [Suporte e Compatibilidade](#suporte)
 
 ---
 
@@ -43,6 +45,7 @@ Com um único clique de teclado, ele lê a tela, enxerga os gráficos, processa 
 
 <br>
 
+<a id="inicio-rapido"></a>
 <div align="center">
   <h2>🚀 INÍCIO RÁPIDO E CÓDIGOS DE INSTALAÇÃO (BOOKMARKLETS)</h2>
   <p><em>Preste bastante atenção aqui: o EasyQuiz é um Bookmarklet! Isso significa que não existe botão de "Baixar".<br>Você o instala como se fosse adicionar uma página aos seus favoritos em apenas 10 segundos.</em></p>
@@ -73,6 +76,7 @@ javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@mai
 
 ---
 
+<a id="sistema-multi-key"></a>
 ## 🔑 Sistema Multi-Key: Como Obter Suas Chaves (Totalmente Grátis)
 
 O EasyQuiz foi projetado com uma **Arquitetura Multi-Key** avançada. Como não cobramos mensalidades, toda a mágica ocorre diretamente entre sua máquina e os servidores do **Google Gemini**.
@@ -93,6 +97,7 @@ Para o sistema atingir sua velocidade e estabilidade máximas, **recomendamos fo
 
 <br>
 
+<a id="modos-operacao"></a>
 <div align="center">
   <h2>🎛️ Modos de Operação do EasyQuiz</h2>
 </div>
@@ -138,6 +143,7 @@ Quando a IA resolve injetar um texto, a ferramenta aguarda você pressionar qual
 
 <br>
 
+<a id="mecanicas"></a>
 <div align="center">
   <h2>🛠️ Mecânicas Internas e Tecnologias</h2>
 </div>
@@ -180,6 +186,7 @@ O script do EasyQuiz recebe o payload e atua como validador. Ele vasculha o seu 
 
 ---
 
+<a id="suporte"></a>
 ## 🌎 Suporte e Compatibilidade Tecnológica
 A tecnologia embarcada requer nativamente o motor **Chromium**. O ecossistema Apple (Safari) ou o Firefox possuem bloqueios nas APIs de captura de tela web e não são suportados.
 
