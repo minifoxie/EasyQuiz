@@ -1,9 +1,9 @@
-/* EasyQuiz App v5.6 */
+/* EasyQuiz App v5.7 */
 'use strict';
 
 const bkd = document.getElementById('global-backdrop');
 function openOverlay(id) { bkd.classList.add('open'); const el = document.getElementById(id); if(el) { el.classList.add('open'); } }
-function closeOverlay() { bkd.classList.remove('open'); document.querySelectorAll('.hint-popup.open').forEach(el => el.classList.remove('open')); }
+function closeOverlay() { bkd.classList.remove('open'); document.querySelectorAll('.hint-popup-wrapper.open').forEach(el => el.classList.remove('open')); }
 bkd.onclick = closeOverlay;
 
 (function() {
@@ -79,13 +79,13 @@ bkd.onclick = closeOverlay;
       });
 
       if (!isNear) {
-        if (!d.idle) { d.el.style.transform = `translate3d(${d.cx}px,${d.cy}px,0) scale(1)`; d.el.style.backgroundColor = 'rgba(255,255,255,0.06)'; d.idle = true; }
+        if (!d.idle) { d.el.style.transform = `translate3d(${d.cx}px,${d.cy}px,0) scale(1)`; d.el.style.backgroundColor = 'rgba(255,255,255,0.05)'; d.idle = true; }
         return;
       }
       d.idle = false;
       const totalPull = Math.sqrt(pullX*pullX + pullY*pullY);
       const scale = 1 + (totalPull / 42) * 15;
-      const alpha = 0.06 + (totalPull / 42) * 0.94;
+      const alpha = 0.05 + (totalPull / 42) * 0.95;
       d.el.style.transform = `translate3d(${d.cx - pullX}px,${d.cy - pullY}px,0) scale(${scale / 2})`;
       d.el.style.backgroundColor = totalPull > 10 ? `hsla(${(time + totalPull * 10) % 360},100%,65%,${alpha})` : `rgba(255,255,255,${alpha})`;
     });
