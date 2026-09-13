@@ -27,7 +27,7 @@ O projeto possui duas modalidades de uso:
 ### Método 1: Arrastar para a Barra de Favoritos (Recomendado)
 1. Abra o site: **[https://minifoxie.github.io/EasyQuiz/](https://minifoxie.github.io/EasyQuiz/)**
 2. Vá até a aba do modo desejado (**Modo Discreto** ou **Modo Legacy**).
-3. Clique e arraste o botão **"★ Arrastar para Favoritos"** diretamente para a sua barra de favoritos do navegador.
+3. Clique e arraste o botão **" Arrastar para Favoritos"** diretamente para a sua barra de favoritos do navegador.
 
 ### Método 2: Manualmente
 1. No Chrome ou Edge, pressione `Ctrl + Shift + B` para exibir a Barra de Favoritos.
@@ -94,3 +94,11 @@ Desenvolvido utilizando as melhores ferramentas e modelos de IA:
 ## Licença
 
 Distribuído sob a Licença MIT. Uso livre para fins educacionais e pessoais.
+
+
+### Modo Discreto:
+O Modo Discreto funciona 100% invisível no navegador. 
+Atalhos:
+- Shift + A: Abre o menu para adicionar chave da API.
+- Shift + Q: Lê a questão e obtém a resposta da IA e responde.
+- Shift + Z: Cancela qualquer execução.

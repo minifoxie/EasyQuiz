@@ -567,7 +567,7 @@ export class EasyQuizPanel {
                 <!-- Alerta de Erro Recente (Se houver) -->
                 <div class="eq-debug-error-card" id="eq-dbg-error-card" style="display: none;">
                   <div class="eq-debug-error-header">
-                    <span>⚠️ Último Erro / Falha Registrada</span>
+                    <span>️ Último Erro / Falha Registrada</span>
                     <button class="eq-icon-btn" id="eq-dbg-copy-error-btn" type="button" title="Copiar Erro" style="width: 20px; height: 20px;">
                       ${ICONS.copy}
                     </button>
@@ -1147,7 +1147,7 @@ export class EasyQuizPanel {
         const rawKeys = keyManager.exportRawKeys()
         this.callbacks.onSettingsChange({ apiKey: rawKeys[0], apiKeys: rawKeys })
         this.apiKeyInput.value = ''
-        this.setStatus(`✓ Nova chave adicionada com sucesso! (${rawKeys.length} chaves ativas no pool)`, 'success')
+        this.setStatus(` Nova chave adicionada com sucesso! (${rawKeys.length} chaves ativas no pool)`, 'success')
         applyCollapseState(false) // Auto-expande para garantir que o usuário veja a chave imediatamente
         try { localStorage.setItem('easyquiz_keys_collapsed', 'false') } catch {}
         this.renderKeysList()
@@ -1157,10 +1157,10 @@ export class EasyQuizPanel {
         testApiKey(cleanVal).then((testRes) => {
           if (testRes.ok) {
             keyManager.markSuccess(cleanVal, 100)
-            this.setStatus('✓ Nova chave validada com sucesso no Google AI Studio!', 'success')
+            this.setStatus(' Nova chave validada com sucesso no Google AI Studio!', 'success')
           } else {
             keyManager.markInvalid(cleanVal, testRes.message)
-            this.setStatus(`⚠️ Chave cadastrada, mas aviso retornado: ${testRes.message}`, 'warning')
+            this.setStatus(`️ Chave cadastrada, mas aviso retornado: ${testRes.message}`, 'warning')
           }
           this.renderKeysList()
         }).catch(() => {})
@@ -1292,17 +1292,17 @@ export class EasyQuizPanel {
       card.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1f2937;padding-bottom:10px;">
           <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:16px;">🔑</span>
+            <span style="font-size:16px;"></span>
             <h3 style="margin:0;font-size:14px;color:#00e5ff;font-weight:700;letter-spacing:0.02em;">Importar Chaves em Lote</h3>
           </div>
-          <button id="eq-bulk-x" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;border-radius:4px;pointer-events:auto;" title="Fechar (Esc)">✕</button>
+          <button id="eq-bulk-x" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;border-radius:4px;pointer-events:auto;" title="Fechar (Esc)"></button>
         </div>
         <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.4;">
           Cole suas chaves Gemini abaixo (uma por linha ou qualquer texto contendo chaves). O EasyQuiz extrai, adiciona e valida tudo automaticamente.
         </p>
         <div style="display:flex;gap:8px;">
           <button id="eq-bulk-paste-btn" type="button" style="background:#1e293b;color:#38bdf8;border:1px solid #0284c7;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;pointer-events:auto;">
-            📋 Colar do Clipboard
+             Colar do Clipboard
           </button>
           <button id="eq-bulk-clear-btn" type="button" style="background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;pointer-events:auto;">
             Limpar
@@ -1314,7 +1314,7 @@ export class EasyQuizPanel {
         <div id="eq-bulk-status" style="min-height:18px;font-size:11px;color:#94a3b8;line-height:1.4;"></div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:2px;">
           <button id="eq-bulk-cancel" type="button" style="background:#1e293b;color:#cbd5e1;border:1px solid #334155;border-radius:6px;padding:7px 16px;cursor:pointer;font-size:12px;font-weight:600;pointer-events:auto;">Cancelar</button>
-          <button id="eq-bulk-import" type="button" style="background:#00e5ff;color:#031326;border:none;border-radius:6px;padding:7px 18px;cursor:pointer;font-size:12px;font-weight:700;box-shadow:0 0 12px rgba(0,229,255,0.25);pointer-events:auto;">⚡ Importar e Validar</button>
+          <button id="eq-bulk-import" type="button" style="background:#00e5ff;color:#031326;border:none;border-radius:6px;padding:7px 18px;cursor:pointer;font-size:12px;font-weight:700;box-shadow:0 0 12px rgba(0,229,255,0.25);pointer-events:auto;"> Importar e Validar</button>
         </div>
       `
 
@@ -1433,7 +1433,7 @@ export class EasyQuizPanel {
         if (result.ok) {
           keyManager.markSuccess(result.key, 200)
           statusEl.style.color = '#4ade80'
-          statusEl.textContent = `✓ ${added} adicionada(s), ${duplicates} duplicada(s). Modelo '${result.model}' pronto!`
+          statusEl.textContent = ` ${added} adicionada(s), ${duplicates} duplicada(s). Modelo '${result.model}' pronto!`
         } else {
           statusEl.style.color = '#fbbf24'
           statusEl.textContent = `${added} adicionada(s), ${duplicates} duplicada(s). Aviso: ${result.message}`
@@ -1444,7 +1444,7 @@ export class EasyQuizPanel {
         importBtn.style.opacity = '1'
 
         if (added > 0) {
-          this.setStatus(`✓ Lote importado: ${added} chave(s) adicionada(s) ao pool!`, 'success')
+          this.setStatus(` Lote importado: ${added} chave(s) adicionada(s) ao pool!`, 'success')
           setTimeout(close, 2200)
         }
       })
@@ -1479,10 +1479,10 @@ export class EasyQuizPanel {
       card.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1f2937;padding-bottom:10px;">
           <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:16px;">🗝️</span>
+            <span style="font-size:16px;">️</span>
             <h3 style="margin:0;font-size:14px;color:#00e5ff;font-weight:700;">Ver / Editar Chaves como Texto</h3>
           </div>
-          <button id="eq-edittext-x" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;border-radius:4px;" title="Fechar (Esc)">✕</button>
+          <button id="eq-edittext-x" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;border-radius:4px;" title="Fechar (Esc)"></button>
         </div>
         <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.5;">
           Cada linha = uma chave. Edite, apague linhas ou cole novas. Clique <b style="color:#e2e8f0;">Salvar</b> para substituir todas as chaves atuais pelas do texto.
@@ -1492,10 +1492,10 @@ export class EasyQuizPanel {
           placeholder="Cole ou edite suas chaves aqui (uma por linha)"></textarea>
         <div id="eq-edittext-status" style="min-height:16px;font-size:11px;color:#94a3b8;"></div>
         <div style="display:flex;gap:8px;justify-content:space-between;margin-top:2px;align-items:center;">
-          <button id="eq-edittext-clear" type="button" style="background:#1e293b;color:#f87171;border:1px solid #7f1d1d;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:11px;font-weight:600;">🗑 Apagar Tudo</button>
+          <button id="eq-edittext-clear" type="button" style="background:#1e293b;color:#f87171;border:1px solid #7f1d1d;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:11px;font-weight:600;"> Apagar Tudo</button>
           <div style="display:flex;gap:8px;">
             <button id="eq-edittext-cancel" type="button" style="background:#1e293b;color:#cbd5e1;border:1px solid #334155;border-radius:6px;padding:7px 16px;cursor:pointer;font-size:12px;font-weight:600;">Cancelar</button>
-            <button id="eq-edittext-save" type="button" style="background:#00e5ff;color:#031326;border:none;border-radius:6px;padding:7px 18px;cursor:pointer;font-size:12px;font-weight:700;box-shadow:0 0 12px rgba(0,229,255,0.25);">💾 Salvar</button>
+            <button id="eq-edittext-save" type="button" style="background:#00e5ff;color:#031326;border:none;border-radius:6px;padding:7px 18px;cursor:pointer;font-size:12px;font-weight:700;box-shadow:0 0 12px rgba(0,229,255,0.25);"> Salvar</button>
           </div>
         </div>
       `
@@ -1548,11 +1548,11 @@ export class EasyQuizPanel {
 
         statusEl.style.color = '#4ade80'
         if (unique.length === 0) {
-          statusEl.textContent = '✓ Todas as chaves removidas.'
+          statusEl.textContent = ' Todas as chaves removidas.'
         } else {
-          statusEl.textContent = `✓ ${unique.length} chave(s) salva(s) com sucesso!`
+          statusEl.textContent = ` ${unique.length} chave(s) salva(s) com sucesso!`
         }
-        this.setStatus(unique.length > 0 ? `✓ ${unique.length} chave(s) salva(s)!` : 'Todas as chaves foram removidas.', unique.length > 0 ? 'success' : 'info')
+        this.setStatus(unique.length > 0 ? ` ${unique.length} chave(s) salva(s)!` : 'Todas as chaves foram removidas.', unique.length > 0 ? 'success' : 'info')
         setTimeout(close, 1400)
       })
     })
@@ -1577,7 +1577,7 @@ export class EasyQuizPanel {
       const keys = keyManager.getAllKeys()
       if (keys.length === 0) return this.setStatus('Nenhuma chave cadastrada para testar.', 'error')
 
-      this.setStatus(`⚡ Testando ${keys.length} chave(s) em paralelo...`, 'info')
+      this.setStatus(` Testando ${keys.length} chave(s) em paralelo...`, 'info')
       const currentModel = (this.modelSelect as HTMLSelectElement)?.value || 'gemini-3.5-flash-lite'
       const allRaw = keys.map(k => k.key)
 
@@ -1585,7 +1585,7 @@ export class EasyQuizPanel {
       const result = await validateModelFast(currentModel, allRaw)
       if (result.ok) {
         keyManager.markSuccess(result.key, 150)
-        this.setStatus(`✓ Validado! Modelo '${result.model}' respondeu com sucesso!`, 'success')
+        this.setStatus(` Validado! Modelo '${result.model}' respondeu com sucesso!`, 'success')
       } else {
         // Valida individualmente para marcar quais falharam
         const results = await Promise.allSettled(allRaw.map(k => testApiKey(k)))
@@ -2075,7 +2075,7 @@ export class EasyQuizPanel {
     grid.innerHTML = ''
     imgs.forEach((img, idx) => {
       const desc = descs.find(d => d.index === idx)
-      const statusIcon = img.captureStatus === 'captured' ? '✅' : img.captureStatus === 'text_only' ? '📝' : '❌'
+      const statusIcon = img.captureStatus === 'captured' ? '' : img.captureStatus === 'text_only' ? '' : ''
       const statusLabel = img.captureStatus === 'captured' ? 'Visual' : img.captureStatus === 'text_only' ? 'Texto' : 'Falhou'
       const isRelevant = desc?.relevant ?? true
       const aiText = desc?.description ?? (img.textContext || 'Aguardando análise da IA...')
@@ -2142,7 +2142,7 @@ export class EasyQuizPanel {
     this.contextTreeContainer.innerHTML = ''
 
     // Pasta 1: Escopo e Metadados da Página
-    const pageNode = this.createTreeFolder('📄 PÁGINA & ESCOPO ATUAL', true, [
+    const pageNode = this.createTreeFolder(' PÁGINA & ESCOPO ATUAL', true, [
       { label: 'Título', value: document.title || 'Sem título' },
       { label: 'URL', value: window.location.pathname || '/' },
       { label: 'Escopo DOM', value: ctx ? `${ctx.scope.tagName.toLowerCase()}${ctx.scope.className ? '.' + ctx.scope.className.split(' ').join('.') : ''}` : 'Document' },
@@ -2163,7 +2163,7 @@ export class EasyQuizPanel {
       }
     })
 
-    const controlsNode = this.createTreeFolder(`🎛️ CONTROLES DETECTADOS (${controls.length})`, controls.length > 0, controlsChildren)
+    const controlsNode = this.createTreeFolder(`️ CONTROLES DETECTADOS (${controls.length})`, controls.length > 0, controlsChildren)
     this.contextTreeContainer.appendChild(controlsNode)
 
     // Pasta 3: Memória RAG de Sessão
@@ -2172,12 +2172,12 @@ export class EasyQuizPanel {
       value: m,
       badge: 'RAG',
     }))
-    const memoriesNode = this.createTreeFolder(`🧠 MEMÓRIA RAG ACUMULADA (${memories.length})`, memories.length > 0, memoriesChildren)
+    const memoriesNode = this.createTreeFolder(` MEMÓRIA RAG ACUMULADA (${memories.length})`, memories.length > 0, memoriesChildren)
     this.contextTreeContainer.appendChild(memoriesNode)
 
     // Pasta 4: Último Plano da IA
     if (plan) {
-      const planNode = this.createTreeFolder(`🤖 ÚLTIMO PLANO IA (${plan.actions.length} ações)`, true, [
+      const planNode = this.createTreeFolder(` ÚLTIMO PLANO IA (${plan.actions.length} ações)`, true, [
         { label: 'Tipo Página', value: plan.pageType, badge: `${(plan.confidence * 100).toFixed(0)}%` },
         { label: 'Modo', value: plan.mode },
         { label: 'Raciocínio', value: plan.rationale || 'N/A' },
@@ -2194,9 +2194,9 @@ export class EasyQuizPanel {
     const descs = this.latestImageDescriptions
     const imgItems = imgs.map((img, idx) => {
       const desc = descs.find(d => d.index === idx)
-      const statusIcon = img.captureStatus === 'captured' ? '✅' : img.captureStatus === 'text_only' ? '📝' : '❌'
+      const statusIcon = img.captureStatus === 'captured' ? '' : img.captureStatus === 'text_only' ? '' : ''
       const statusLabel = img.captureStatus === 'captured' ? 'Visual' : img.captureStatus === 'text_only' ? 'Texto' : 'Falhou'
-      const relevance = desc ? (desc.relevant ? '🎯 Relevante' : '⚠️ Ignorada') : '—'
+      const relevance = desc ? (desc.relevant ? ' Relevante' : '️ Ignorada') : '—'
       const aiSummary = desc ? desc.description : (img.textContext ? img.textContext : 'Aguardando análise IA...')
       return {
         label: `${statusIcon} Img ${idx + 1} [${statusLabel}]`,
@@ -2207,7 +2207,7 @@ export class EasyQuizPanel {
     })
     
     const imgNode = this.createTreeFolder(
-      `🖼️ IMAGENS DETECTADAS (${imgs.length})`,
+      `️ IMAGENS DETECTADAS (${imgs.length})`,
       true, // Sempre começa expandida se tiver imagens
       imgItems,
     )
@@ -2594,7 +2594,7 @@ export class EasyQuizPanel {
     if (this.keysBadgeEl) {
       const readyCount = keys.filter((k) => !k.isCooldown).length
       const totalWins = keys.reduce((acc, k) => acc + (k.winCount || 0), 0)
-      const turboInfo = readyCount >= 3 ? ` ⚡ TURBO` : ''
+      const turboInfo = readyCount >= 3 ? `  TURBO` : ''
       this.keysBadgeEl.textContent = `${keys.length} chave${keys.length > 1 ? 's' : ''} (${readyCount} pronta${readyCount !== 1 ? 's' : ''})${turboInfo}`
       this.keysBadgeEl.className = `eq-key-badge ${readyCount >= 3 ? 'racing' : readyCount > 0 ? 'ready' : 'cooldown'}`
     }
@@ -2676,7 +2676,7 @@ export class EasyQuizPanel {
       if (wins > 0) {
         const winBadge = document.createElement('span')
         winBadge.className = 'eq-key-badge winner'
-        winBadge.textContent = `🏆 ${wins} vitória${wins > 1 ? 's' : ''}`
+        winBadge.textContent = ` ${wins} vitória${wins > 1 ? 's' : ''}`
         winBadge.title = `Esta chave foi a mais rápida ${wins} vez${wins > 1 ? 'es' : ''} nas corridas paralelas`
         info.appendChild(winBadge)
       }
@@ -2695,10 +2695,10 @@ export class EasyQuizPanel {
         const res = await testApiKey(k.key)
         if (res.ok) {
           keyManager.markSuccess(k.key, 120)
-          this.setStatus(`✓ ${k.label || `Chave ${idx + 1}`}: Conexão com Google Gemini aprovada!`, 'success')
+          this.setStatus(` ${k.label || `Chave ${idx + 1}`}: Conexão com Google Gemini aprovada!`, 'success')
         } else {
           keyManager.markInvalid(k.key, res.message)
-          this.setStatus(`⚠️ ${k.label || `Chave ${idx + 1}`}: ${res.message}`, 'error')
+          this.setStatus(`️ ${k.label || `Chave ${idx + 1}`}: ${res.message}`, 'error')
         }
         this.renderKeysList()
       })
@@ -2923,7 +2923,7 @@ export class EasyQuizPanel {
 
       const status = document.createElement('span')
       status.className = `eq-metrics-item-status is-${rec.status}`
-      status.textContent = rec.status === 'verified' || rec.status === 'answered' ? '✓ Injetado' : rec.status === 'manual' ? 'Gabarito' : 'Pendente'
+      status.textContent = rec.status === 'verified' || rec.status === 'answered' ? ' Injetado' : rec.status === 'manual' ? 'Gabarito' : 'Pendente'
 
       right.appendChild(dur)
       right.appendChild(status)
@@ -2953,7 +2953,7 @@ export class EasyQuizPanel {
     navigator.clipboard.writeText(lines.join('\n')).then(() => {
       if (this.metricsCopyBtn) {
         const orig = this.metricsCopyBtn.innerHTML
-        this.metricsCopyBtn.innerHTML = '✓ Copiado!'
+        this.metricsCopyBtn.innerHTML = ' Copiado!'
         setTimeout(() => {
           this.metricsCopyBtn.innerHTML = orig
         }, 1500)

@@ -195,7 +195,7 @@ async function initEasyQuiz(): Promise<void> {
       const onProgressCallback = (msg: string, type?: 'info' | 'warning' | 'error') => {
         panel.setStatus(msg, type === 'warning' ? 'info' : type)
         // Atualizar card fixo superior com o modelo em processo em tempo real
-        // ex: "⚡ Onda 2: 2 slot(s) [3.6-flash, 3.6-flash]..." → "Gemini 3.6-flash respondendo..."
+        // ex: " Onda 2: 2 slot(s) [3.6-flash, 3.6-flash]..." → "Gemini 3.6-flash respondendo..."
         const waveMatch = msg.match(/Onda\s+\d+.*?\[([^\]]+)\]/)
         if (waveMatch) {
           const modelShort = waveMatch[1].split(',')[0].trim()
@@ -247,14 +247,14 @@ async function initEasyQuiz(): Promise<void> {
 
       if (plan.memoryToStore) {
         addSessionMemory(plan.memoryToStore)
-        panel.logToConsole(`> [RAG] 🧠 Nova memória teórica salva na sessão: "${plan.memoryToStore}"`, 'text-yellow')
+        panel.logToConsole(`> [RAG]  Nova memória teórica salva na sessão: "${plan.memoryToStore}"`, 'text-yellow')
       }
 
       // Log de imageDescriptions — o que a IA entendeu de cada imagem
       if (plan.imageDescriptions && plan.imageDescriptions.length > 0) {
-        panel.logToConsole(`> [VISION] 🖼️ Análise de ${plan.imageDescriptions.length} imagem(ns) pela IA:`, 'text-blue')
+        panel.logToConsole(`> [VISION] ️ Análise de ${plan.imageDescriptions.length} imagem(ns) pela IA:`, 'text-blue')
         for (const imgDesc of plan.imageDescriptions) {
-          const icon = imgDesc.relevant ? '✅' : '⚠️'
+          const icon = imgDesc.relevant ? '' : '️'
           panel.logToConsole(
             `>   ${icon} Imagem ${imgDesc.index + 1} [${imgDesc.relevant ? 'RELEVANTE' : 'IGNORADA'}]: ${imgDesc.description}`,
             imgDesc.relevant ? 'text-blue' : 'text-yellow',
@@ -272,7 +272,7 @@ async function initEasyQuiz(): Promise<void> {
         panel.setStatus('Atividade concluída ou tela final detectada pela IA.', 'success')
       } else if (plan.pageType === 'info') {
         panel.setProgress(100, 'Contexto absorvido na memória!')
-        panel.setStatus('📘 Conteúdo de contexto absorvido na memória RAG. Avançando...', 'success')
+        panel.setStatus(' Conteúdo de contexto absorvido na memória RAG. Avançando...', 'success')
       } else if (plan.pageType === 'start') {
         panel.setProgress(100, 'Início detectado!')
         panel.setStatus('Início de atividade detectado. Iniciando...', 'info')
@@ -343,7 +343,7 @@ async function initEasyQuiz(): Promise<void> {
 
     // Se for uma questão e nenhuma ação de resposta foi formulada, NUNCA avança!
     if (isQuestionPage && regularActions.length === 0) {
-      panel.logToConsole('> [NAV] ⛔ Avanço bloqueado: questão sem respostas prescritas.', 'text-yellow')
+      panel.logToConsole('> [NAV]  Avanço bloqueado: questão sem respostas prescritas.', 'text-yellow')
       return
     }
 
@@ -367,7 +367,7 @@ async function initEasyQuiz(): Promise<void> {
       // Log e replanejamento para QUALQUER tipo de ação que falhou
       if (result.failedActions && result.failedActions.length > 0) {
         panel.logToConsole(
-          `> [REPLAN] ⚠️ ${result.failedActions.length} ação(ões) não verificadas no DOM. Iniciando replanejamento...`,
+          `> [REPLAN] ️ ${result.failedActions.length} ação(ões) não verificadas no DOM. Iniciando replanejamento...`,
           'text-yellow',
         )
         for (const fail of result.failedActions) {
@@ -376,7 +376,7 @@ async function initEasyQuiz(): Promise<void> {
             a.t === 'clk' || a.t === 'chk' ? `${a.t}: "${a.id}"` :
             a.t === 'val' ? `val: "${a.id}" = "${a.v}"` :
             JSON.stringify(a).slice(0, 80)
-          panel.logToConsole(`>   ✗ [${a.t.toUpperCase()}] ${label} | ${fail.evidence.slice(0, 80)}`, 'text-yellow')
+          panel.logToConsole(`>    [${a.t.toUpperCase()}] ${label} | ${fail.evidence.slice(0, 80)}`, 'text-yellow')
         }
         await runActionFallback(result.failedActions, signal)
       }
@@ -391,11 +391,11 @@ async function initEasyQuiz(): Promise<void> {
       if (isStrictSuccess) {
         panel.setProgress(100, 'Sucesso! Resposta preenchida.')
         panel.logToConsole(
-          `> [DOM] ✓ ${result.applied} ação(ões) aplicada(s) — ${result.verified} verificada(s) no DOM.`,
+          `> [DOM]  ${result.applied} ação(ões) aplicada(s) — ${result.verified} verificada(s) no DOM.`,
           'text-green',
         )
         if (result.advanced) {
-          panel.logToConsole(`> [NAV] ✓ Botão de confirmação/avanço acionado com sucesso!`, 'text-green')
+          panel.logToConsole(`> [NAV]  Botão de confirmação/avanço acionado com sucesso!`, 'text-green')
         } else if (canAdvance) {
           panel.logToConsole(`> [NAV] ${result.navigationEvidence}`, 'text-blue')
         }
@@ -423,7 +423,7 @@ async function initEasyQuiz(): Promise<void> {
         // Aplicou mas não verificou — possivelmente aplicação correta mas sem evidência DOM clara
         panel.setProgress(75, 'Resposta aplicada (verificação incerta).')
         panel.logToConsole(
-          `> [DOM] ⚠️ ${result.applied} ação(ões) disparadas mas sem confirmação DOM clara. Pendentes: ${result.failed.join(', ') || 'nenhuma'}`,
+          `> [DOM] ️ ${result.applied} ação(ões) disparadas mas sem confirmação DOM clara. Pendentes: ${result.failed.join(', ') || 'nenhuma'}`,
           'text-yellow',
         )
         panel.setStatus(`Resposta preenchida (${result.applied} ação(ões) aplicadas, verificação incerta).`, 'warning')
@@ -467,10 +467,10 @@ async function initEasyQuiz(): Promise<void> {
       const fromStr = String(a.from || '')
       const toStr = String(a.to || '')
       const js = buildDragFallbackJs(fromStr, toStr, fromStr, toStr)
-      panel.logToConsole(`> [REPLAN] 🔧 Drag JS fallback: "${fromStr}" → "${toStr}"`, 'text-blue')
+      panel.logToConsole(`> [REPLAN]  Drag JS fallback: "${fromStr}" → "${toStr}"`, 'text-blue')
       const fp: AnalysisPlan = { ...latestPlan, actions: [{ t: 'js', v: js }], pageType: 'question' }
       const fr = await executePlan(fp, false, 1, createExecutionPolicy(settings))
-      panel.logToConsole(fr.applied > 0 ? '> [REPLAN] ✅ Drag fallback aplicado!' : '> [REPLAN] ✗ Drag fallback sem efeito.', fr.applied > 0 ? 'text-green' : 'text-yellow')
+      panel.logToConsole(fr.applied > 0 ? '> [REPLAN]  Drag fallback aplicado!' : '> [REPLAN]  Drag fallback sem efeito.', fr.applied > 0 ? 'text-green' : 'text-yellow')
     }
 
     // --- Demais falhas (não-drag) — Pipeline de 5 estratégias ---
@@ -478,7 +478,7 @@ async function initEasyQuiz(): Promise<void> {
     if (nonDragFails.length === 0) return
     if (signal?.aborted) return
 
-    panel.logToConsole(`> [REPLAN] 🔄 ${nonDragFails.length} ação(ões) pendente(s) — iniciando pipeline de recuperação multi-estratégia...`, 'text-blue')
+    panel.logToConsole(`> [REPLAN]  ${nonDragFails.length} ação(ões) pendente(s) — iniciando pipeline de recuperação multi-estratégia...`, 'text-blue')
 
     for (const fail of nonDragFails) {
       if (signal?.aborted) return
@@ -488,7 +488,7 @@ async function initEasyQuiz(): Promise<void> {
         a.t === 'sel' ? `sel: "${a.id}" = "${Array.isArray(a.v) ? a.v[0] : a.v}"` :
         JSON.stringify(a).slice(0, 60)
 
-      panel.logToConsole(`> [REPLAN] ⚡ Recuperando: ${label}`, 'text-blue')
+      panel.logToConsole(`> [REPLAN]  Recuperando: ${label}`, 'text-blue')
 
       const elId = String(a.id || a.name || a.selector || '')
       const valHint = a.v !== undefined ? String(a.v) : ''
@@ -499,7 +499,7 @@ async function initEasyQuiz(): Promise<void> {
         await executeAlternativeActionPath(fail.action)
         await new Promise(r => setTimeout(r, 250))
         if (verifyActionApplied(fail.action)) {
-          panel.logToConsole(`> [REPLAN] ✅ Estratégia 1 OK: ${label}`, 'text-green')
+          panel.logToConsole(`> [REPLAN]  Estratégia 1 OK: ${label}`, 'text-green')
           continue
         }
       } catch {}
@@ -513,7 +513,7 @@ async function initEasyQuiz(): Promise<void> {
             injectClickViaScript(el)
             await new Promise(r => setTimeout(r, 300))
             if (verifyActionApplied(fail.action)) {
-              panel.logToConsole(`> [REPLAN] ✅ Estratégia 2 OK: ${label}`, 'text-green')
+              panel.logToConsole(`> [REPLAN]  Estratégia 2 OK: ${label}`, 'text-green')
               continue
             }
           }
@@ -536,7 +536,7 @@ async function initEasyQuiz(): Promise<void> {
             el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true }))
             await new Promise(r => setTimeout(r, 200))
             if (verifyActionApplied(fail.action)) {
-              panel.logToConsole(`> [REPLAN] ✅ Estratégia 3 OK: ${label}`, 'text-green')
+              panel.logToConsole(`> [REPLAN]  Estratégia 3 OK: ${label}`, 'text-green')
               continue
             }
           }
@@ -575,7 +575,7 @@ async function initEasyQuiz(): Promise<void> {
             if (!hadId) setTimeout(() => { try { if (el.id === scriptTid) el.removeAttribute('id') } catch {} }, 0)
             await new Promise(r => setTimeout(r, 300))
             if (verifyActionApplied(fail.action)) {
-              panel.logToConsole(`> [REPLAN] ✅ Estratégia 4 OK: ${label}`, 'text-green')
+              panel.logToConsole(`> [REPLAN]  Estratégia 4 OK: ${label}`, 'text-green')
               continue
             }
           }
@@ -624,7 +624,7 @@ NÃO repita as estratégias já tentadas acima.`
         )
 
         if (signal?.aborted || !replanResult?.plan) {
-          panel.logToConsole('> [REPLAN] ✗ Re-consulta não retornou plano.', 'text-yellow')
+          panel.logToConsole('> [REPLAN]  Re-consulta não retornou plano.', 'text-yellow')
           continue
         }
 
@@ -634,13 +634,13 @@ NÃO repita as estratégias já tentadas acima.`
           continue
         }
 
-        panel.logToConsole(`> [REPLAN] 🤖 IA gerou ${jsActions.length} ação(ões) JS custom. Executando...`, 'text-blue')
+        panel.logToConsole(`> [REPLAN]  IA gerou ${jsActions.length} ação(ões) JS custom. Executando...`, 'text-blue')
         const fallbackPlan: AnalysisPlan = { ...latestPlan, actions: jsActions, pageType: 'question' }
         const fallbackResult = await executePlan(fallbackPlan, false, 1, createExecutionPolicy(settings))
         if (fallbackResult.applied > 0) {
-          panel.logToConsole(`> [REPLAN] ✅ Estratégia 5 OK: ${fallbackResult.applied} ação(ões) JS executada(s)!`, 'text-green')
+          panel.logToConsole(`> [REPLAN]  Estratégia 5 OK: ${fallbackResult.applied} ação(ões) JS executada(s)!`, 'text-green')
         } else {
-          panel.logToConsole('> [REPLAN] ✗ Todas as estratégias esgotadas para esta ação.', 'text-yellow')
+          panel.logToConsole('> [REPLAN]  Todas as estratégias esgotadas para esta ação.', 'text-yellow')
         }
       } catch (e) {
         panel.logToConsole(`> [REPLAN] Erro na re-consulta: ${e instanceof Error ? e.message : String(e)}`, 'text-yellow')
