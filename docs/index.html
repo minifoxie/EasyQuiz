@@ -3,133 +3,326 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EasyQuiz — Inteligência Furtiva</title>
+  <meta name="description" content="EasyQuiz — Script de Bookmarklet Client-Side com IA Gemini para resolução inteligente de quizzes. Modo Discreto e Modo Legacy.">
+  <title>EasyQuiz — Script de Bookmarklet IA</title>
   <link rel="stylesheet" href="css/style.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
-  <canvas id="particle-canvas"></canvas>
+  <canvas id="bg-canvas"></canvas>
 
+  <!-- NAVBAR -->
   <nav class="navbar">
     <div class="nav-content">
-      <div class="logo">EasyQuiz <span>Pro</span> <span id="site-version" class="version-badge">v1.8.4</span></div>
+      <!-- Logo -->
+      <a href="#home" class="nav-logo" onclick="switchTab('home'); return false;">
+        <img src="logo.png" alt="EasyQuiz Logo">
+        <span class="nav-logo-text">EasyQuiz</span>
+        <div class="beta-badge-wrap">
+          <span id="beta-badge">
+            Beta Precisa
+            <div class="beta-tooltip">
+              O EasyQuiz é um Script de Bookmarklet ainda em desenvolvimento ativo.
+              Algumas funcionalidades podem ser instáveis dependendo da plataforma.
+              Use com cautela em ambientes de produção.
+            </div>
+          </span>
+        </div>
+        <span id="site-version" class="version-badge" style="margin-left:4px;">v1.8.4</span>
+      </a>
+
+      <!-- Tabs -->
       <div class="nav-links">
-        <a href="#home" class="nav-btn active" data-target="home"><i data-lucide="home"></i> Início</a>
-        <a href="#legacy" class="nav-btn" data-target="legacy"><i data-lucide="layout-dashboard"></i> Modo Legacy</a>
-        <a href="#discrete" class="nav-btn" data-target="discrete"><i data-lucide="ghost"></i> Modo Discreto</a>
+        <a href="#home" class="nav-btn active" data-target="home">
+          <i data-lucide="house"></i> Início
+        </a>
+        <a href="#legacy" class="nav-btn" data-target="legacy">
+          <i data-lucide="layout-dashboard"></i> Modo Legacy
+        </a>
+        <a href="#discrete" class="nav-btn" data-target="discrete">
+          <i data-lucide="ghost"></i> Modo Discreto
+        </a>
+        <a href="#api-key" class="nav-btn" data-target="api-key">
+          <i data-lucide="key-round"></i> API Key
+        </a>
+      </div>
+
+      <!-- Right links -->
+      <div class="nav-right">
+        <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" class="nav-link-external">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.185 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.021C22 6.484 17.522 2 12 2z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+        <a href="https://github.com/minifoxie/EasyQuiz/blob/main/README.md" target="_blank" class="nav-link-external">
+          <i data-lucide="file-text"></i>
+          <span>Docs</span>
+        </a>
       </div>
     </div>
   </nav>
 
   <main class="container">
-    
-    <!-- ABA: INÍCIO -->
-    <section id="home" class="tab-pane active fade-in">
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- ABA: INÍCIO                                 -->
+    <!-- ═══════════════════════════════════════════ -->
+    <section id="home" class="tab-pane active">
+      
       <header class="hero">
-        <div class="hero-badge"><i data-lucide="server-off"></i> Zero Servidor. 100% Client-Side.</div>
-        <h1 class="hero-title">A evolução invisível<br>do <span>Auxílio Cognitivo</span>.</h1>
-        <p class="hero-subtitle">Mapeamento semântico de DOM. Visão computacional de baixo nível. Evasão de Anti-Cheats com PointerEvents. Tudo processado na sua GPU local e na API do Google.</p>
-        
-        <div class="hero-actions">
+        <img src="logo.png" alt="EasyQuiz" class="hero-logo stagger-child">
+
+        <div class="hero-badge stagger-child">
+          <i data-lucide="server-off"></i>
+          Zero Servidor · 100% Client-Side · Script de Bookmarklet
+        </div>
+
+        <h1 class="hero-title stagger-child">
+          Auxílio cognitivo<br><span>invisível e furtivo.</span>
+        </h1>
+
+        <p class="hero-subtitle stagger-child">
+          Mapeamento semântico de DOM, Visão Computacional e evasão de Anti-Cheats com
+          <code style="font-family:monospace;background:#1a1a1a;padding:2px 6px;border-radius:4px;font-size:.9em;">PointerEvent</code>.
+          Tudo no seu navegador, sem servidores.
+        </p>
+
+        <div class="hero-actions stagger-child">
+          <!-- Dropdown Install Button -->
           <div class="dropdown">
             <button class="btn btn-primary dropdown-toggle" id="installDropdownBtn">
-              <i data-lucide="download"></i> Instalar Bookmarklet <i data-lucide="chevron-down" class="chevron"></i>
+              <i data-lucide="download"></i>
+              Instalar Script
+              <i data-lucide="chevron-down" class="chevron-icon"></i>
             </button>
             <div class="dropdown-menu" id="installDropdownMenu">
-              <div class="dropdown-item" onclick="switchTab('discrete')">
+              <div class="dropdown-label">Escolha o Modo</div>
+              <div class="dropdown-item" data-tab="discrete">
                 <div class="dropdown-icon"><i data-lucide="ghost"></i></div>
                 <div class="dropdown-text">
-                  <strong>Modo Discreto (Recomendado)</strong>
-                  <span>Operação invisível via atalhos do teclado.</span>
+                  <strong>Modo Discreto</strong>
+                  <span>Stealth total · operado por atalhos</span>
                 </div>
+                <span class="dropdown-badge">Recomendado</span>
               </div>
-              <div class="dropdown-item" onclick="switchTab('legacy')">
+              <div class="dropdown-sep"></div>
+              <div class="dropdown-item" data-tab="legacy">
                 <div class="dropdown-icon"><i data-lucide="layout-dashboard"></i></div>
                 <div class="dropdown-text">
                   <strong>Modo Legacy</strong>
-                  <span>Painel visual completo (HUD) arrastável.</span>
+                  <span>Painel HUD completo · auditoria visual</span>
+                </div>
+              </div>
+              <div class="dropdown-sep"></div>
+              <div class="dropdown-item" data-tab="api-key">
+                <div class="dropdown-icon"><i data-lucide="key-round"></i></div>
+                <div class="dropdown-text">
+                  <strong>Configurar API Key</strong>
+                  <span>Tutorial passo a passo</span>
                 </div>
               </div>
             </div>
           </div>
-          <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" class="btn btn-secondary"><i data-lucide="github"></i> Código Fonte</a>
+
+          <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" class="btn btn-secondary">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0">
+              <path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.185 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.021C22 6.484 17.522 2 12 2z"/>
+            </svg>
+            Código Fonte
+          </a>
         </div>
       </header>
 
+      <div class="section-divider stagger-child"></div>
+
+      <!-- Features -->
+      <div class="section-label stagger-child">
+        <h2>O que torna o EasyQuiz diferente</h2>
+        <p>Tecnologias de nível profissional embutidas em um único script.</p>
+      </div>
+
       <div class="features-grid">
-        <div class="feature-card">
+        <div class="feature-card stagger-child">
           <div class="feature-icon"><i data-lucide="scan-eye"></i></div>
-          <h3>Detecção Cega</h3>
-          <p>O algoritmo lê a semântica da página em tempo real. Não dependemos de seletores CSS fixos.</p>
+          <h3>Detecção Semântica Cega</h3>
+          <p>O algoritmo não usa seletores CSS fixos. Ele varre a Árvore DOM em busca de "assinaturas semânticas" — detecta questões em qualquer plataforma.</p>
         </div>
-        <div class="feature-card">
+        <div class="feature-card stagger-child">
           <div class="feature-icon"><i data-lucide="keyboard"></i></div>
-          <h3>Digitação Humana</h3>
-          <p>Burlamos detectores do React e Angular injetando respostas caractere por caractere via eventos nativos.</p>
+          <h3>Digitação Humanizada</h3>
+          <p>Injeção de respostas via <code>PointerEvent</code> + <code>KeyboardEvent</code> com delays aleatórios e coordenadas físicas reais, burlando React e Angular.</p>
         </div>
-        <div class="feature-card">
+        <div class="feature-card stagger-child">
           <div class="feature-icon"><i data-lucide="key-round"></i></div>
           <h3>Sistema Multi-Key</h3>
-          <p>Adicione 4 ou mais chaves da API do Google para obter Balanceamento de Carga instantâneo sem limites de uso.</p>
+          <p>Cadastre 4 ou mais chaves da API Google e obtenha balanceamento de carga automático, zero throttling e alta disponibilidade.</p>
+        </div>
+        <div class="feature-card stagger-child">
+          <div class="feature-icon"><i data-lucide="eye-off"></i></div>
+          <h3>Shadow DOM Isolado</h3>
+          <p>Todo o código do Script de Bookmarklet vive em um Shadow DOM encapsulado, invisível para os scripts da página hospedeira.</p>
+        </div>
+        <div class="feature-card stagger-child">
+          <div class="feature-icon"><i data-lucide="camera"></i></div>
+          <h3>Visão Computacional</h3>
+          <p>Para fórmulas matemáticas e gráficos em Canvas, o script tira um screenshot cirúrgico do elemento e envia multimodalmente para a IA.</p>
+        </div>
+        <div class="feature-card stagger-child">
+          <div class="feature-icon"><i data-lucide="brain"></i></div>
+          <h3>Chain of Thought (CoT)</h3>
+          <p>A IA é forçada a raciocinar antes de responder, eliminando alucinações e aumentando a taxa de acerto em questões complexas.</p>
         </div>
       </div>
-    
-      <div class="faq-section" style="margin-top: 80px; text-align: left; max-width: 800px; margin-left: auto; margin-right: auto; padding-bottom: 60px;">
-        <h2 style="text-align: center; margin-bottom: 40px; font-size: 2rem;">Por que a nossa IA é diferente?</h2>
-        
-        <div class="faq-card">
+
+      <div class="section-divider stagger-child"></div>
+
+      <!-- Tech Deep Dive -->
+      <div class="section-label stagger-child">
+        <h2>Por dentro da engenharia</h2>
+        <p>Tecnologias reais, não mágica.</p>
+      </div>
+
+      <div class="faq-grid">
+        <div class="faq-card stagger-child">
           <div class="faq-icon"><i data-lucide="cpu"></i></div>
           <div class="faq-content">
             <h3>Engenharia Reversa de DOM</h3>
-            <p>Em vez de procurar por classes específicas (o que falha se o professor mudar a cor do botão), nós varremos a Árvore DOM procurando a "Assinatura Semântica" de uma questão. Seja no Canvas, Moodle ou Blackboard, o EasyQuiz acha a área de clique.</p>
+            <p>Em vez de procurar por classes específicas (o que falha se a plataforma muda), varremos a Árvore DOM inteira procurando agrupamentos com "Assinatura Semântica" de questão. O bloco com maior pontuação é classificado como a Questão Ativa.</p>
           </div>
         </div>
-
-        <div class="faq-card">
+        <div class="faq-card stagger-child">
           <div class="faq-icon"><i data-lucide="fingerprint"></i></div>
           <div class="faq-content">
-            <h3>Bypass Nível de Sistema Operacional</h3>
-            <p>Formulários React modernos bloqueiam injeções de script (ex: <code>input.value = 'abc'</code>). O EasyQuiz dribla isso despachando eventos sintéticos idênticos ao hardware: <code>PointerEvent</code>, <code>KeyboardEvent</code>, com coordenadas X e Y e delays aleatórios para enganar o anti-cheat.</p>
+            <h3>Bypass de Framework Nativo</h3>
+            <p>Formulários em React, Vue e Angular ignoram injeções diretas de valor. O script despacha <code>PointerEvent</code> + <code>KeyboardEvent</code> sintéticos com coordenadas (x,y) humanizadas e redefine o <code>_valueTracker</code> interno do React para que a mudança seja detectada pelo framework.</p>
           </div>
         </div>
       </div>
 
+      <div class="section-divider stagger-child"></div>
+
+      <!-- Credits -->
+      <div class="credits-card stagger-child">
+        <h2>Construído com as melhores ferramentas</h2>
+        <p>Desenvolvido dentro da Antigravity IDE, usando os maiores modelos de IA disponíveis.</p>
+        <div class="credits-grid">
+          <div class="credit-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+              <path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.185 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.021C22 6.484 17.522 2 12 2z"/>
+            </svg>
+            <span>GitHub</span>
+          </div>
+          <div class="credit-item">
+            <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini">
+            <span>Google Gemini</span>
+          </div>
+          <div class="credit-item">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Anthropic_logo.svg/32px-Anthropic_logo.svg.png" alt="Anthropic">
+            <span>Claude Sonnet</span>
+          </div>
+          <div class="credit-item">
+            <img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" alt="Google">
+            <span>Antigravity IDE</span>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <!-- ABA: LEGACY -->
-    <section id="legacy" class="tab-pane fade-in">
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- ABA: MODO LEGACY                            -->
+    <!-- ═══════════════════════════════════════════ -->
+    <section id="legacy" class="tab-pane">
       
-      <!-- Instalação no Topo -->
-      <div class="install-banner">
-        <div class="install-header">
-          <div class="install-title">
-            <i data-lucide="download"></i>
-            <div>
-              <h2>Instalar: Modo Legacy</h2>
-              <p>O painel de auditoria visual arrastável.</p>
-            </div>
-          </div>
-          <div class="install-steps-inline">
-            <span><strong>1.</strong> Exiba os Favoritos (Ctrl+Shift+B)</span>
-            <span><strong>2.</strong> Clique direito > Adicionar Página</span>
-            <span><strong>3.</strong> Cole o código abaixo na URL</span>
+      <!-- Install Block -->
+      <div class="install-section stagger-child">
+        <div class="install-header-main">
+          <div class="install-icon"><i data-lucide="layout-dashboard"></i></div>
+          <div>
+            <h2>Modo Legacy — Painel HUD</h2>
+            <p>Script de Bookmarklet com painel visual flutuante completo e arrastável.</p>
           </div>
         </div>
-        <div class="code-card">
-          <div class="code-header">
-            <span class="code-title">Bookmarklet (Painel HUD)</span>
-            <button class="copy-btn" data-type="legacy"><i data-lucide="copy"></i> Copiar Código</button>
+        <div class="install-steps-row">
+          <div class="install-step">
+            <div class="step-num">1</div>
+            <p>Abra a <strong>Barra de Favoritos</strong> com <kbd>Ctrl+Shift+B</kbd></p>
           </div>
-          <pre><code id="code-legacy">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@4a289c9/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();</code></pre>
+          <div class="install-step">
+            <div class="step-num">2</div>
+            <p>Clique com botão direito na barra → <strong>Adicionar página</strong></p>
+          </div>
+          <div class="install-step">
+            <div class="step-num">3</div>
+            <p>Cole o código abaixo no campo <strong>URL</strong> e salve</p>
+          </div>
+          <div class="install-step">
+            <div class="step-num">4</div>
+            <p>Em qualquer quiz, clique no favorito criado</p>
+          </div>
+        </div>
+        <div class="code-accordion">
+          <button class="accordion-toggle">
+            <span class="accordion-toggle-left">
+              <i data-lucide="code-2"></i>
+              Código do Script de Bookmarklet — Legacy
+            </span>
+            <span class="accordion-toggle-right">
+              <button class="copy-btn" data-code="code-legacy" onclick="event.stopPropagation()">
+                <i data-lucide="copy"></i> Copiar Código
+              </button>
+              <i data-lucide="chevron-down" class="acc-chevron"></i>
+            </span>
+          </button>
+          <div class="accordion-content">
+            <pre class="code-inner" id="code-legacy">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@69de6dc/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();</pre>
+          </div>
         </div>
       </div>
 
-      <div class="content-block manual-block">
-        <h2><i data-lucide="terminal"></i> Modo Legacy: Auditoria Visual Completa</h2>
+      <!-- How to Use Card -->
+      <div class="howto-card stagger-child">
+        <div class="howto-card-header">
+          <div class="icon-wrap"><i data-lucide="play-circle"></i></div>
+          <div>
+            <h2>Como usar o Modo Legacy</h2>
+            <p>O painel HUD é ativado com o atalho <kbd>Alt+Q</kbd> após instalar o bookmarklet.</p>
+          </div>
+        </div>
+        <div class="howto-steps">
+          <div class="howto-step">
+            <div class="howto-step-num">1</div>
+            <div>
+              <h4>Instale e abra o quiz</h4>
+              <p>Cole o código acima como URL de um favorito. Acesse qualquer plataforma de quiz e clique no favorito instalado.</p>
+            </div>
+          </div>
+          <div class="howto-step">
+            <div class="howto-step-num">2</div>
+            <div>
+              <h4>Abra o Painel com <kbd>Alt+Q</kbd></h4>
+              <p>O painel HUD flutuante abrirá. Configure sua API Key clicando na aba de engrenagem antes de tudo.</p>
+            </div>
+          </div>
+          <div class="howto-step">
+            <div class="howto-step-num">3</div>
+            <div>
+              <h4>Resolva a questão</h4>
+              <p>Clique em "RESOLVER QUESTÃO ATUAL". A IA irá analisar o contexto visível e retornar a resposta na aba Principal.</p>
+            </div>
+          </div>
+          <div class="howto-step">
+            <div class="howto-step-num">4</div>
+            <div>
+              <h4>Injetar ou revisar</h4>
+              <p>Use o botão "Injetar Resposta" para auto-preencher, ou use a aba "Cérebro" para auditar o raciocínio da IA antes.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-block manual-block stagger-child">
+        <h2>💻 Modo Legacy: Auditoria Visual Completa</h2>
 
 <p>O <strong>Modo Legacy</strong> (ou Modo Painel) é o "Laboratório de Desenvolvedor" do EasyQuiz. Ele foi construído utilizando um <strong>Shadow DOM</strong> hiper-avançado. Isso significa que ele injeta uma janela flutuante completa, arrastável e de altíssima definição dentro da sua aba, mas o código dessa janela fica isolado e encriptografado, impedindo que o site hospedeiro veja o que ela contém.</p>
 
@@ -137,7 +330,7 @@
 
 <hr>
 
-<h3><i data-lucide="wrench"></i> A Anatomia do Painel</h3>
+<h3>🛠️ A Anatomia do Painel</h3>
 
 <p>Quando você clica no Bookmarklet do Modo Legacy, nada acontece inicialmente. A mágica só começa quando você pressiona <strong><code>Alt + Q</code></strong>. Um painel HUD deslizará elegantemente para dentro da sua tela.</p>
 
@@ -145,18 +338,10 @@
 
 <h4>1. Botão Gigante "RESOLVER QUESTÃO ATUAL"</h4>
 <p>Este botão é o coração do sistema. Ao clicar nele, o EasyQuiz procurará o "Ponto de Foco" mais provável (a div que parece conter a pergunta e as opções) e iniciará o <strong>Scrape Semântico</strong>.</p>
-<ul class="feature-list">
-<li>Em verde, ele demarcará na sua tela o que ele está lendo, criando uma "Caixa de Contenção" ao redor do texto e da imagem, se houver.</li>
-<li>Logo depois, ele enviará tudo de forma segura para os datacenters do Google Gemini.</li>
-</ul>
-
+<ul><li>Em verde, ele demarcará na sua tela o que ele está lendo, criando uma "Caixa de Contenção" ao redor do texto e da imagem, se houver.</li><li>Logo depois, ele enviará tudo de forma segura para os datacenters do Google Gemini.</li></ul>
 <h4>2. Aba de Controle Principal</h4>
 <p>Aqui a IA cospe o resultado do processamento dela em uma interface limpa.</p>
-<ul class="feature-list">
-<li><strong>Botão "Injetar Resposta":</strong> Ao ser clicado, força os PointerEvents no DOM para preencher a resposta detectada.</li>
-<li><strong>Botão "Limpar":</strong> Destrói as memórias locais daquela execução, liberando a rede para uma nova análise.</li>
-</ul>
-
+<ul><li><strong>Botão "Injetar Resposta":</strong> Ao ser clicado, força os PointerEvents no DOM para preencher a resposta detectada.</li><li><strong>Botão "Limpar":</strong> Destrói as memórias locais daquela execução, liberando a rede para uma nova análise.</li></ul>
 <h4>3. Aba "Cérebro" (Chain of Thought)</h4>
 <p>A aba mais interessante tecnicamente. O EasyQuiz exige que a IA crie um planejamento detalhado, debata consigo mesma e argumente a resposta *antes* de afirmar que a "Letra B" está certa. Todo esse monólogo interno em texto cru aparece nesta aba para você ler e ter certeza de que a Inteligência Artificial não teve uma "alucinação".</p>
 
@@ -171,7 +356,7 @@
 
 <hr>
 
-<h3><i data-lucide="rocket"></i> Como Iniciar</h3>
+<h3>🚀 Como Iniciar</h3>
 
 <p>1. Vá para a seção de Instalação na página principal.</p>
 <p>2. Copie o código do "Modo Legacy" e crie um Favorito.</p>
@@ -184,36 +369,99 @@
       </div>
     </section>
 
-    <!-- ABA: DISCRETO -->
-    <section id="discrete" class="tab-pane fade-in">
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- ABA: MODO DISCRETO                          -->
+    <!-- ═══════════════════════════════════════════ -->
+    <section id="discrete" class="tab-pane">
 
-      <!-- Instalação no Topo -->
-      <div class="install-banner solid-blue">
-        <div class="install-header">
-          <div class="install-title">
-            <i data-lucide="ghost"></i>
-            <div>
-              <h2>Instalar: Modo Discreto</h2>
-              <p>A verdadeira ferramenta furtiva operada por atalhos.</p>
-            </div>
-          </div>
-          <div class="install-steps-inline">
-            <span><strong>1.</strong> Exiba os Favoritos (Ctrl+Shift+B)</span>
-            <span><strong>2.</strong> Clique direito > Adicionar Página</span>
-            <span><strong>3.</strong> Cole o código abaixo na URL</span>
+      <div class="install-section stagger-child" style="border-color: rgba(60,100,200,0.3);">
+        <div class="install-header-main">
+          <div class="install-icon" style="border-color:rgba(60,100,200,0.3)"><i data-lucide="ghost"></i></div>
+          <div>
+            <h2>Modo Discreto — Stealth</h2>
+            <p>Script de Bookmarklet 100% invisível. Operação total via atalhos de teclado.</p>
           </div>
         </div>
-        <div class="code-card solid-blue">
-          <div class="code-header">
-            <span class="code-title">Bookmarklet (Invisível)</span>
-            <button class="copy-btn primary" data-type="discrete"><i data-lucide="copy"></i> Copiar Código</button>
+        <div class="install-steps-row">
+          <div class="install-step">
+            <div class="step-num">1</div>
+            <p>Abra a <strong>Barra de Favoritos</strong> com <kbd>Ctrl+Shift+B</kbd></p>
           </div>
-          <pre><code id="code-discrete">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@4a289c9/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();</code></pre>
+          <div class="install-step">
+            <div class="step-num">2</div>
+            <p>Clique direito na barra → <strong>Adicionar página</strong></p>
+          </div>
+          <div class="install-step">
+            <div class="step-num">3</div>
+            <p>Cole o código abaixo no campo <strong>URL</strong> e salve</p>
+          </div>
+          <div class="install-step">
+            <div class="step-num">4</div>
+            <p>No quiz, clique no favorito e pressione <kbd>Shift+A</kbd> para configurar</p>
+          </div>
+        </div>
+        <div class="code-accordion">
+          <button class="accordion-toggle">
+            <span class="accordion-toggle-left">
+              <i data-lucide="code-2"></i>
+              Código do Script de Bookmarklet — Discreto
+            </span>
+            <span class="accordion-toggle-right">
+              <button class="copy-btn primary" data-code="code-discrete" onclick="event.stopPropagation()">
+                <i data-lucide="copy"></i> Copiar Código
+              </button>
+              <i data-lucide="chevron-down" class="acc-chevron"></i>
+            </span>
+          </button>
+          <div class="accordion-content">
+            <pre class="code-inner" id="code-discrete">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@69de6dc/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();</pre>
+          </div>
         </div>
       </div>
 
-      <div class="content-block manual-block">
-        <h2><i data-lucide="ghost"></i> Modo Discreto: O Guia Furtivo Supremo</h2>
+      <!-- How to Use -->
+      <div class="howto-card stagger-child">
+        <div class="howto-card-header">
+          <div class="icon-wrap"><i data-lucide="keyboard"></i></div>
+          <div>
+            <h2>Como operar o Modo Discreto</h2>
+            <p>Todos os comandos são disparados por combinações de teclas. Nada aparece na tela.</p>
+          </div>
+        </div>
+        <div class="howto-steps">
+          <div class="howto-step">
+            <div class="howto-step-num">1</div>
+            <div>
+              <h4>Instale o bookmarklet e acesse o quiz</h4>
+              <p>Clique no favorito instalado. Nada mudará na tela — o script está rodando em segundo plano.</p>
+            </div>
+          </div>
+          <div class="howto-step">
+            <div class="howto-step-num">2</div>
+            <div>
+              <h4>Configure sua API Key com <kbd>Shift</kbd>+<kbd>A</kbd></h4>
+              <p>Um modal discreto aparecerá para você colar sua chave da API do Google AI Studio. A chave fica salva localmente no seu navegador.</p>
+            </div>
+          </div>
+          <div class="howto-step">
+            <div class="howto-step-num">3</div>
+            <div>
+              <h4>Resolva a questão com <kbd>Shift</kbd>+<kbd>Q</kbd></h4>
+              <p>O script analisa a página, envia para o Gemini e aguarda. Um micro-indicador aparecerá no canto da tela.</p>
+            </div>
+          </div>
+          <div class="howto-step">
+            <div class="howto-step-num">4</div>
+            <div>
+              <h4>Acompanhe e avance</h4>
+              <p>Quando a IA responder, pressione qualquer tecla para avançar um caractere, ou clique para selecionar. Use <kbd>Shift</kbd>+<kbd>Z</kbd> para cancelar.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-block manual-block stagger-child">
+        <h2>🕵️ Modo Discreto: O Guia Furtivo Supremo</h2>
 
 <p>O <strong>Modo Discreto</strong> (Stealth) do EasyQuiz foi arquitetado do zero para contornar qualquer tipo de inspeção visual, análise de rede superficial e detecção de automação por DOM.</p>
 
@@ -221,7 +469,7 @@
 
 <hr>
 
-<h3><i data-lucide="zap"></i> A Arquitetura de "Hooking" (Como burlamos os Anti-Cheats)</h3>
+<h3>⚡ A Arquitetura de "Hooking" (Como burlamos os Anti-Cheats)</h3>
 
 <p>Se um script apenas muda o valor de uma caixa de texto (<code>input.value = "Resposta"</code>), plataformas modernas (React/Angular) detectam a injeção mecânica instantaneamente e anulam a submissão, enviando a prova em branco.</p>
 
@@ -233,22 +481,14 @@
 
 <hr>
 
-<h3><i data-lucide="keyboard"></i> Tabela de Comandos de Batalha (Atalhos)</h3>
+<h3>⌨️ Tabela de Comandos de Batalha (Atalhos)</h3>
 
 <p>Estes atalhos governam o sistema. Memorize-os:</p>
 
-<div class="table-container"><table><thead><tr><th>Atalho</th><th>Ação</th></tr></thead><tbody>
-<tr><td><kbd><code>Shift + Q</code></kbd></td><td><strong>Escanear:</strong> Ativa o robô. Ele lê o DOM da questão focada (ou a última que você clicou) e dispara silenciosamente para a nuvem.</td></tr>
-<tr><td><kbd><code>Shift + Z</code></kbd></td><td><strong>Abort / Panic:</strong> Cancela qualquer digitação em andamento e mata a requisição pendente.</td></tr>
-<tr><td><kbd><code>Shift + R</code></kbd></td><td><strong>Recarregar IA:</strong> Força a IA a ler a questão de novo se ela der timeout.</td></tr>
-<tr><td><kbd><code>Shift + A</code></kbd></td><td><strong>Menu de API:</strong> Um mini-popup translúcido no rodapé para você colar suas chaves do Gemini. Suporta Múltiplas Chaves para balanceamento!</td></tr>
-<tr><td><kbd><code>Shift + M</code></kbd></td><td><strong>Trocar de Cérebro:</strong> Alterna internamente entre Gemini Flash, Pro e outras variantes.</td></tr>
-<tr><td><kbd><code>Shift + V</code></kbd></td><td><strong>Auditoria de Visão:</strong> Pisca rapidamente na tela um screenshot bruto de como a IA está enxergando suas fórmulas matemáticas, sumindo logo em seguida.</td></tr>
-</tbody></table></div>
-
+<div class="table-container"><table><thead><tr><th>Atalho</th><th>Descrição Tática</th></tr></thead><tbody><tr><td><code>Shift + Q</code></td><td><strong>Escanear:</strong> Ativa o robô. Ele lê o DOM da questão focada (ou a última que você clicou) e dispara silenciosamente para a nuvem.</td></tr><tr><td><code>Shift + Z</code></td><td><strong>Abort / Panic:</strong> Cancela qualquer digitação em andamento e mata a requisição pendente.</td></tr><tr><td><code>Shift + R</code></td><td><strong>Recarregar IA:</strong> Força a IA a ler a questão de novo se ela der timeout.</td></tr><tr><td><code>Shift + A</code></td><td><strong>Menu de API:</strong> Um mini-popup translúcido no rodapé para você colar suas chaves do Gemini. Suporta Múltiplas Chaves para balanceamento!</td></tr><tr><td><code>Shift + M</code></td><td><strong>Trocar de Cérebro:</strong> Alterna internamente entre Gemini Flash, Pro e outras variantes.</td></tr><tr><td><code>Shift + V</code></td><td><strong>Auditoria de Visão:</strong> Pisca rapidamente na tela um screenshot bruto de como a IA está enxergando suas fórmulas matemáticas, sumindo logo em seguida.</td></tr></tbody></table></div>
 <hr>
 
-<h3><i data-lucide="rocket"></i> Como Iniciar</h3>
+<h3>🚀 Como Iniciar</h3>
 
 <p>1. Vá para a seção de Instalação na página principal.</p>
 <p>2. Copie o código do "Modo Discreto" e crie um Favorito.</p>
@@ -262,9 +502,79 @@
       </div>
     </section>
 
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- ABA: API KEY                                -->
+    <!-- ═══════════════════════════════════════════ -->
+    <section id="api-key" class="tab-pane">
+      <div class="content-block" style="max-width: 780px; margin: 0 auto;">
+        <h2 class="stagger-child">Como obter sua API Key</h2>
+        <p class="sub stagger-child">A chave de API é o que permite que o EasyQuiz se comunique com o Google Gemini. É gratuita e leva menos de 2 minutos para configurar.</p>
+
+        <div class="api-callout stagger-child">
+          <i data-lucide="info"></i>
+          <p><strong>Privacidade garantida:</strong> A sua API Key nunca sai do seu navegador. O EasyQuiz não tem servidor — a comunicação é feita diretamente do seu navegador para a API do Google, sem intermediários.</p>
+        </div>
+
+        <div class="api-steps">
+          <div class="api-step-card stagger-child">
+            <div class="api-step-num">1</div>
+            <div class="api-step-content">
+              <h3>Acesse o Google AI Studio</h3>
+              <p>O Google AI Studio é a plataforma oficial do Google para gerenciar chaves da API Gemini. É completamente gratuita e não requer cartão de crédito para o nível básico.</p>
+              <a href="https://aistudio.google.com/app/apikey" target="_blank">
+                Abrir Google AI Studio <i data-lucide="external-link"></i>
+              </a>
+            </div>
+          </div>
+
+          <div class="api-step-card stagger-child">
+            <div class="api-step-num">2</div>
+            <div class="api-step-content">
+              <h3>Crie uma nova API Key</h3>
+              <p>Na página de API Keys, clique no botão <strong>"Create API Key"</strong> (azul, no topo à esquerda). Selecione um projeto existente do Google Cloud ou crie um novo clicando em "Create API key in new project".</p>
+            </div>
+          </div>
+
+          <div class="api-step-card stagger-child">
+            <div class="api-step-num">3</div>
+            <div class="api-step-content">
+              <h3>Copie a sua chave</h3>
+              <p>Após criada, a chave será exibida uma única vez (começa com <code>AIzaSy...</code>). Clique no ícone de cópia ao lado dela para copiá-la. <strong>Guarde-a em local seguro.</strong></p>
+            </div>
+          </div>
+
+          <div class="api-step-card stagger-child">
+            <div class="api-step-num">4</div>
+            <div class="api-step-content">
+              <h3>Cole a chave no EasyQuiz</h3>
+              <p>Com o bookmarklet instalado e ativo em um quiz:</p>
+              <p>
+                • <strong>Modo Discreto:</strong> Pressione <kbd>Shift</kbd>+<kbd>A</kbd> → cole a chave → confirme.<br>
+                • <strong>Modo Legacy:</strong> Abra o painel (<kbd>Alt+Q</kbd>) → clique na aba Engrenagem → cole a chave.
+              </p>
+              <p>A chave é salva localmente no <code>localStorage</code> do navegador. Você só precisa fazer isso uma vez por dispositivo.</p>
+            </div>
+          </div>
+
+          <div class="api-step-card stagger-child">
+            <div class="api-step-num">5</div>
+            <div class="api-step-content">
+              <h3>(Opcional) Configure Múltiplas Chaves</h3>
+              <p>Para evitar limites de uso (rate limits) e obter mais velocidade, recomendamos cadastrar pelo menos 4 chaves API de contas diferentes. O EasyQuiz fará balanceamento de carga automático entre elas, escolhendo a chave mais rápida a cada requisição.</p>
+              <p>Repita os passos acima com outras contas Google e adicione cada chave no gerenciador de chaves.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
-  <div id="toast" class="toast"><i data-lucide="check-circle-2"></i> <span>Código copiado com sucesso!</span></div>
+  <!-- Toast -->
+  <div id="toast">
+    <i data-lucide="check-circle-2"></i>
+    <span class="toast-msg">Código copiado!</span>
+  </div>
 
   <script src="js/app.js"></script>
 </body>
