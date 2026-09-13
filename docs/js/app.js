@@ -132,177 +132,47 @@ function initDropdown() {
   });
 }
 
-// ─── Code Overlay (fixed, over everything) ────────────────────────────────────
-function initCodeOverlay() {
-  const overlay = document.getElementById('code-overlay');
-  const backdrop = document.getElementById('code-overlay-backdrop');
-  const closeBtn = document.getElementById('co-close-btn');
-  const copyBtn = document.getElementById('co-copy-btn');
-  const codeEl = document.getElementById('co-code-content');
-  const titleEl = document.getElementById('co-title');
-
-  function close() { overlay.style.display = 'none'; }
-
-  backdrop.onclick = close;
-  closeBtn.onclick = close;
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
-
-  copyBtn.onclick = () => {
-    navigator.clipboard.writeText(codeEl.textContent.trim()).then(() => {
-      showToast('Codigo copiado!');
-      const og = copyBtn.innerHTML;
-      copyBtn.innerHTML = '<i data-lucide="check"></i> Copiado!';
-      if (window.lucide) lucide.createIcons();
-      setTimeout(() => { copyBtn.innerHTML = og; if (window.lucide) lucide.createIcons(); }, 2000);
-    });
-  };
-
-  document.querySelectorAll('.code-trigger-btn').forEach(btn => {
+// ─── Code Dropdown (below button) ──────────────────────────────────────────────
+function initCodeDropdowns() {
+  // Copy buttons (direct copy, no overlay)
+  document.querySelectorAll('.copy-direct-btn[data-code]').forEach(btn => {
     btn.onclick = e => {
       e.stopPropagation();
-      const codeId = btn.dataset.code;
-      const sourceEl = document.getElementById(codeId);
-      const code = sourceEl ? sourceEl.textContent.trim() : (
-        codeId === 'code-discrete' ? window._bm_discrete : window._bm_legacy
-      );
-      const label = codeId === 'code-discrete' ? 'Codigo - EQ Discret' : 'Codigo - EQ Legacy';
-      titleEl.textContent = label;
-      codeEl.textContent = code;
-      overlay.style.display = 'flex';
-      if (window.lucide) lucide.createIcons();
-    };
-  });
-}
-
-// ─── Hint Popups ──────────────────────────────────────────────────────────────
-function initHints() {
-  document.querySelectorAll('.hint-btn').forEach(btn => {
-    btn.onclick = e => {
-      e.stopPropagation();
-      const popup = document.getElementById(btn.dataset.hint);
-      if (!popup) return;
-      document.querySelectorAll('.hint-popup').forEach(p => { if (p !== popup) p.classList.remove('show'); });
-      popup.style.display = 'block';
-      requestAnimationFrame(() => popup.classList.add('show'));
-    };
-  });
-  document.querySelectorAll('.hint-close').forEach(btn => {
-    btn.onclick = () => {
-      const popup = btn.closest('.hint-popup');
-      popup.classList.remove('show');
-      setTimeout(() => { popup.style.display = 'none'; }, 400);
-    };
-  });
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.hint-popup') && !e.target.closest('.hint-btn')) {
-      document.querySelectorAll('.hint-popup.show').forEach(p => {
-        p.classList.remove('show');
-        setTimeout(() => { p.style.display = 'none'; }, 400);
+      const el = document.getElementById(btn.dataset.code);
+      const code = el ? el.textContent.trim() : '';
+      if (!code) return;
+      navigator.clipboard.writeText(code).then(() => {
+        showToast('Codigo copiado!');
+        const og = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="check"></i> Copiado!';
+        if (window.lucide) lucide.createIcons();
+        setTimeout(() => { btn.innerHTML = og; if (window.lucide) lucide.createIcons(); }, 2000);
       });
-    }
-  });
-}
-
-// ─── Changelog (GitHub API) ────────────────────────────────────────────────────
-let _totalCommits = 0;
-let _currentPage = 1;
-
-function formatVersion(n) {
-  return String(n).split('').join('.');
-}
-
-function formatDate(iso) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
-    ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
-
-function openCommitModal(commit, version) {
-  const overlay = document.getElementById('commit-overlay');
-  document.getElementById('cm-version').textContent = 'v' + version;
-  document.getElementById('cm-meta').textContent = commit.commit.author.name + ' · ' + formatDate(commit.commit.author.date);
-  const lines = commit.commit.message.split('\n');
-  document.getElementById('cm-title').textContent = lines[0];
-  document.getElementById('cm-desc').textContent = lines.slice(1).join('\n').trim();
-  document.getElementById('cm-details').innerHTML =
-    '<div class="cm-detail-row"><div class="cm-detail-label">SHA</div><div class="cm-detail-val">' + commit.sha + '</div></div>' +
-    '<div class="cm-detail-row"><div class="cm-detail-label">Autor</div><div class="cm-detail-val">' + commit.commit.author.name + '</div></div>' +
-    '<div class="cm-detail-row"><div class="cm-detail-label">Email</div><div class="cm-detail-val">' + (commit.commit.author.email || '—') + '</div></div>' +
-    '<div class="cm-detail-row"><div class="cm-detail-label">Data</div><div class="cm-detail-val">' + formatDate(commit.commit.author.date) + '</div></div>';
-  document.getElementById('cm-github-link').href = commit.html_url;
-  document.getElementById('cm-sha-link').href = 'https://github.com/minifoxie/EasyQuiz/commit/' + commit.sha;
-  overlay.style.display = 'flex';
-  if (window.lucide) lucide.createIcons();
-}
-
-function renderCommits(commits, page) {
-  const container = document.getElementById('commits-container');
-  const offset = (page - 1) * 20;
-
-  if (commits.length === 0) {
-    container.innerHTML = '<div class="commits-loading">Nenhum commit encontrado.</div>';
-    return;
-  }
-
-  container.innerHTML = '';
-  commits.forEach((commit, i) => {
-    const commitNum = _totalCommits - offset - i;
-    const version = formatVersion(Math.max(1, commitNum));
-    const date = formatDate(commit.commit.author.date);
-    const title = commit.commit.message.split('\n')[0];
-    const sha = commit.sha.substring(0, 7);
-
-    const row = document.createElement('div');
-    row.className = 'commit-row';
-    row.innerHTML =
-      '<div class="commit-version">v' + version + '</div>' +
-      '<div class="commit-info">' +
-        '<div class="commit-title">' + escapeHtml(title) + '</div>' +
-        '<div class="commit-meta"><span>' + escapeHtml(commit.commit.author.name) + '</span><span>' + date + '</span></div>' +
-      '</div>' +
-      '<div class="commit-sha">' + sha + '</div>' +
-      '<div class="commit-arrow"><i data-lucide="arrow-right"></i></div>';
-
-    row.onclick = () => openCommitModal(commit, version);
-    container.appendChild(row);
+    };
   });
 
-  if (window.lucide) lucide.createIcons();
-}
+  // Chevron triggers: open code dropdown below button
+  document.querySelectorAll('.code-dd-trigger').forEach(btn => {
+    btn.onclick = e => {
+      e.stopPropagation();
+      const dd = document.getElementById(btn.dataset.dd);
+      if (!dd) return;
+      const isOpen = dd.classList.contains('open');
+      document.querySelectorAll('.code-dropdown.open').forEach(d => d.classList.remove('open'));
+      document.querySelectorAll('.code-dd-trigger.active').forEach(b => b.classList.remove('active'));
+      if (!isOpen) {
+        dd.classList.add('open');
+        btn.classList.add('active');
+      }
+    };
+  });
 
-function escapeHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-async function loadChangelog(page) {
-  _currentPage = page;
-  const container = document.getElementById('commits-container');
-  container.innerHTML = '<div class="commits-loading"><i data-lucide="loader-2" class="spin-icon"></i> Carregando historico...</div>';
-  if (window.lucide) lucide.createIcons();
-
-  try {
-    if (!_totalCommits) {
-      const r1 = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
-      const link = r1.headers.get('Link') || '';
-      const m = link.match(/page=(\d+)>; rel="last"/);
-      _totalCommits = m ? parseInt(m[1]) : 100;
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.install-actions-wrap') && !e.target.closest('.code-dd-trigger')) {
+      document.querySelectorAll('.code-dropdown.open').forEach(d => d.classList.remove('open'));
+      document.querySelectorAll('.code-dd-trigger.active').forEach(b => b.classList.remove('active'));
     }
-
-    const resp = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=20&page=' + page);
-    const commits = await resp.json();
-
-    renderCommits(Array.isArray(commits) ? commits : [], page);
-    window._commitsLoaded = true;
-
-    const paginationRow = document.getElementById('pagination-row');
-    paginationRow.style.display = 'flex';
-    document.getElementById('page-info').textContent = 'Pagina ' + page;
-    document.getElementById('prev-page').disabled = page <= 1;
-    document.getElementById('next-page').disabled = Array.isArray(commits) && commits.length < 20;
-
-  } catch (err) {
-    container.innerHTML = '<div class="commits-loading">Erro ao carregar historico. Tente novamente.</div>';
-  }
+  });
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -321,7 +191,7 @@ function showToast(msg) {
 window.addEventListener('DOMContentLoaded', () => {
   if (window.lucide) lucide.createIcons();
   initDropdown();
-  initCodeOverlay();
+  initCodeDropdowns();
   initHints();
   initReveal();
 
