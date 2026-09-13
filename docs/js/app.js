@@ -1,4 +1,4 @@
-/* EasyQuiz App v4.7 */
+/* EasyQuiz App v5.1 */
 'use strict';
 
 // ─── OVERLAY BACKDROP MANAGER ──────────────────────────────────────
@@ -16,28 +16,45 @@ function closeOverlay() {
 }
 bkd.onclick = closeOverlay;
 
-// ─── Canvas Background ──────────────────────────────────────────────
-(function initCanvas() {
-  const canvas = document.getElementById('bg-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d', { alpha: false });
-  ctx.fillStyle = '#050508';
-  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+// ─── DOM Background (Replaces Canvas for 100% Blur Support) ───────
+(function initDOMBg() {
+  const bg = document.getElementById('bg-dom');
+  if (!bg) return;
   const CELL = 48;
   let cols = 0, rows = 0;
+  let dots = [];
   let mouse = { x: -9999, y: -9999 };
   let target = { x: -9999, y: -9999 };
   let clickPulse = 0;
-  const particles = Array.from({ length: 40 }, () => ({ x:0, y:0, vx:0, vy:0, life:0, size:0, hue:0 }));
+  let particles = Array.from({length: 40}, () => ({x:0, y:0, vx:0, vy:0, life:0, size:0, hue:0, el: document.createElement('div')}));
+  
+  particles.forEach(p => {
+    p.el.className = 'bg-particle';
+    bg.appendChild(p.el);
+  });
 
-  function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+  function buildGrid() {
+    dots.forEach(d => d.el.remove());
+    dots = [];
     cols = Math.ceil(window.innerWidth / CELL) + 1;
     rows = Math.ceil(window.innerHeight / CELL) + 1;
+    for(let r=0; r<rows; r++) {
+      for(let c=0; c<cols; c++) {
+        const cx = c * CELL;
+        const cy = r * CELL;
+        const d = document.createElement('i');
+        d.className = 'bg-dot';
+        d.style.transform = `translate3d(${cx}px, ${cy}px, 0)`;
+        bg.appendChild(d);
+        dots.push({ cx, cy, el: d });
+      }
+    }
   }
-  window.addEventListener('resize', resize);
-  resize();
+
+  let resizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(buildGrid, 200); });
+  buildGrid();
+
   window.addEventListener('mousemove', e => { target.x = e.clientX; target.y = e.clientY; });
   window.addEventListener('mouseleave', () => { target.x = -9999; target.y = -9999; });
   window.addEventListener('mousedown', () => {
@@ -55,37 +72,59 @@ bkd.onclick = closeOverlay;
     mouse.x += (target.x - mouse.x) * 0.1;
     mouse.y += (target.y - mouse.y) * 0.1;
     clickPulse *= 0.87;
-    ctx.fillStyle = 'rgba(5,5,8,0.42)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const cx = c * CELL, cy = r * CELL;
-        const dx = cx - mouse.x, dy = cy - mouse.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const force = Math.max(0, 1 - dist / 380);
-        const pull = force * 42 * (1 + clickPulse * 4.5);
-        const rx = cx - (dx / dist) * pull;
-        const ry = cy - (dy / dist) * pull;
-        const dotR = 1 + force * 15 + clickPulse * force * 24;
-        const alpha = 0.06 + force * 0.92;
-        ctx.beginPath();
-        ctx.arc(rx, ry, dotR, 0, Math.PI * 2);
-        ctx.fillStyle = force > 0.3
-          ? 'hsla(' + ((Date.now() / 3 + dist) % 360) + ',100%,65%,' + alpha + ')'
-          : 'rgba(255,255,255,' + alpha + ')';
-        ctx.fill();
+    const mx = mouse.x, my = mouse.y;
+    const time = Date.now() / 3;
+
+    // We only update dots that are near the mouse to save CPU/GPU.
+    // If clickPulse is active, we update all dots.
+    dots.forEach(d => {
+      const dx = d.cx - mx;
+      const dy = d.cy - my;
+      const dist2 = dx*dx + dy*dy;
+      
+      // Optimizaton: Only animate dots within 400px radius, unless pulsing
+      if (dist2 > 160000 && clickPulse < 0.05) {
+        if (!d.idle) {
+          d.el.style.transform = `translate3d(${d.cx}px, ${d.cy}px, 0) scale(1)`;
+          d.el.style.backgroundColor = 'rgba(255,255,255,0.06)';
+          d.idle = true;
+        }
+        return;
       }
-    }
+      
+      d.idle = false;
+      const dist = Math.sqrt(dist2) || 1;
+      const force = Math.max(0, 1 - dist / 380);
+      const pull = force * 42 * (1 + clickPulse * 4.5);
+      const rx = d.cx - (dx / dist) * pull;
+      const ry = d.cy - (dy / dist) * pull;
+      const dotR = 1 + force * 15 + clickPulse * force * 24;
+      const alpha = 0.06 + force * 0.92;
+      
+      d.el.style.transform = `translate3d(${rx}px, ${ry}px, 0) scale(${dotR / 2})`;
+      if (force > 0.3) {
+        d.el.style.backgroundColor = `hsla(${(time + dist) % 360},100%,65%,${alpha})`;
+      } else {
+        d.el.style.backgroundColor = `rgba(255,255,255,${alpha})`;
+      }
+    });
+
     particles.forEach(p => {
-      if (p.life <= 0) return;
+      if (p.life <= 0) {
+        if (!p.idle) { p.el.style.opacity = '0'; p.idle = true; }
+        return;
+      }
+      p.idle = false;
       p.x += p.vx; p.y += p.vy; p.vy += 0.55;
       p.vx *= 0.97; p.life -= 0.02; p.size *= 0.96;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, Math.max(0.1, p.size), 0, Math.PI * 2);
-      ctx.fillStyle = 'hsla(' + p.hue + ',100%,60%,' + p.life + ')';
-      ctx.fill();
+      p.el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0)`;
+      p.el.style.width = Math.max(0.1, p.size * 2) + 'px';
+      p.el.style.height = Math.max(0.1, p.size * 2) + 'px';
+      p.el.style.backgroundColor = `hsl(${p.hue},100%,60%)`;
+      p.el.style.opacity = p.life.toString();
     });
+
     requestAnimationFrame(draw);
   }
   draw();
@@ -99,27 +138,54 @@ function initReveal() {
   document.querySelectorAll('[data-reveal]').forEach(el => { el.classList.remove('revealed'); obs.observe(el); });
 }
 
-// ─── Tab Switching ───────────────────────────────────────────────────
+// ─── Tab Switching & Topbar Sync ────────────────────────────────────
 function switchTab(id) {
   const pane = document.getElementById(id);
   if (!pane) return;
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.target === id));
+  
+  // Tab classes
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   pane.classList.add('active');
+  
+  // Topbar highlight
+  document.querySelectorAll('.nav-links .nav-btn[data-target]').forEach(b => {
+    b.classList.toggle('active', b.dataset.target === id);
+  });
+
+  // Topbar Dropdown Sync
+  const ddBtn = document.getElementById('navModeBtn');
+  const ddText = document.getElementById('navModeText');
+  const ddIcon = document.getElementById('navModeIcon');
+  if (ddBtn && ddText && ddIcon) {
+    if (id === 'discrete') {
+      ddBtn.classList.add('active');
+      ddText.textContent = 'Modo Discreto';
+      ddIcon.setAttribute('data-lucide', 'eye-off');
+    } else if (id === 'legacy') {
+      ddBtn.classList.add('active');
+      ddText.textContent = 'Modo Legacy';
+      ddIcon.setAttribute('data-lucide', 'panel-top');
+    } else {
+      ddBtn.classList.remove('active');
+      ddText.textContent = 'Setup EasyQuiz';
+      ddIcon.setAttribute('data-lucide', 'layers');
+    }
+  }
+
   if (window.lucide) lucide.createIcons();
   initReveal();
   if (id === 'updates' && !window._commitsLoaded) loadChangelog(1);
 }
 
-// ─── Dropdown ───────────────────────────────────────────────────────
-function initDropdown() {
-  const btn = document.getElementById('installDropdownBtn');
-  const menu = document.getElementById('installDropdownMenu');
+// ─── Dropdowns ──────────────────────────────────────────────────────
+function initDropdown(btnId, menuId) {
+  const btn = document.getElementById(btnId);
+  const menu = document.getElementById(menuId);
   if (!btn || !menu) return;
   const dd = btn.closest('.dropdown');
   const toggle = open => {
     dd.classList.toggle('active', open);
-    btn.setAttribute('aria-expanded', String(open));
+    if(btn.hasAttribute('aria-expanded')) btn.setAttribute('aria-expanded', String(open));
     menu.classList.toggle('open', open);
   };
   btn.onclick = e => { e.stopPropagation(); toggle(!dd.classList.contains('active')); };
@@ -309,12 +375,16 @@ function showToast(msg) {
 // ─── Init ────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   if (window.lucide) lucide.createIcons();
-  initDropdown();
+  
+  initDropdown('installDropdownBtn', 'installDropdownMenu');
+  initDropdown('navModeBtn', 'navModeMenu');
+  
   initCodeButtons();
   initHints();
   initReveal();
 
-  document.querySelectorAll('.nav-btn').forEach(b => {
+  // Native topbar buttons (without dropdown data-tab)
+  document.querySelectorAll('.nav-links > .nav-btn').forEach(b => {
     b.onclick = e => { e.preventDefault(); switchTab(b.dataset.target); };
   });
 
@@ -329,6 +399,5 @@ window.addEventListener('DOMContentLoaded', () => {
   const initialHash = window.location.hash.replace('#', '') || 'home';
   switchTab(initialHash);
 
-  // Fetch real version
   fetchLatestCommit();
 });

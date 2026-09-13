@@ -5,31 +5,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="EasyQuiz - Sistema inteligente de auto resposta a quizzes 100% no navegador.">
   <title>EasyQuiz - Bookmarklet IA</title>
-  <link rel="icon" type="image/png" href="logo.png?v=4.7">
-  <link rel="stylesheet" href="css/style.css?v=4.7">
+  <link rel="icon" type="image/png" href="logo.png?v=5.1">
+  <link rel="stylesheet" href="css/style.css?v=5.1">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
-<canvas id="bg-canvas"></canvas>
+<!-- Replaced Canvas with DOM based particle engine -->
+<div id="bg-dom"></div>
 
 <header class="navbar">
   <div class="navbar-blur"></div>
   <div class="nav-content">
     <div class="nav-brand-group">
       <a href="#home" class="nav-brand" onclick="switchTab('home');return false;">
-        <img src="logo.png?v=4.7" alt="EasyQuiz" class="nav-logo-img">
+        <img src="logo.png?v=5.1" alt="EasyQuiz" class="nav-logo-img">
         <span class="brand-title">EasyQuiz</span>
       </a>
       <span class="badge-beta">BETA</span>
       <span class="version-plain" id="site-version">v1.0.0</span>
     </div>
+    
     <nav class="nav-links">
       <button type="button" class="nav-btn active" data-target="home"><i data-lucide="layout-grid"></i><span>Inicio</span><span class="nav-indicator"></span></button>
-      <button type="button" class="nav-btn" data-target="discrete"><i data-lucide="eye-off"></i><span>Modo Discreto</span><span class="nav-indicator"></span></button>
-      <button type="button" class="nav-btn" data-target="legacy"><i data-lucide="panel-top"></i><span>Modo Legacy</span><span class="nav-indicator"></span></button>
+      
+      <div class="dropdown nav-dropdown" id="modeDropdownGroup">
+        <button type="button" class="nav-btn" id="navModeBtn">
+          <i data-lucide="layers" id="navModeIcon"></i><span id="navModeText">Setup EasyQuiz</span><i data-lucide="chevron-down" class="chevron-icon"></i>
+          <span class="nav-indicator"></span>
+        </button>
+        <div class="dropdown-menu" id="navModeMenu">
+          <div class="dropdown-item" data-tab="discrete"><div class="dropdown-icon"><i data-lucide="eye-off"></i></div><div class="dropdown-text"><strong>Modo Discreto</strong></div></div>
+          <div class="dropdown-item" data-tab="legacy"><div class="dropdown-icon"><i data-lucide="panel-top"></i></div><div class="dropdown-text"><strong>Modo Legacy</strong></div></div>
+        </div>
+      </div>
+
       <button type="button" class="nav-btn" data-target="api-key"><i data-lucide="key"></i><span>Chave API</span><span class="nav-indicator"></span></button>
       <button type="button" class="nav-btn" data-target="updates"><i data-lucide="git-commit-horizontal"></i><span>Updates</span><span class="nav-indicator"></span></button>
     </nav>
+
     <div class="nav-right">
       <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" class="nav-icon-btn" title="GitHub">
         <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.185 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844a9.59 9.59 0 012.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0022 12.021C22 6.484 17.522 2 12 2z"/></svg>
@@ -46,7 +59,7 @@
   <!-- HOME -->
   <section id="home" class="tab-pane active">
     <header class="hero-layout" data-reveal>
-      <div><img src="logo.png?v=4.7" alt="EasyQuiz" class="hero-logo"></div>
+      <div><img src="logo.png?v=5.1" alt="EasyQuiz" class="hero-logo"></div>
       <div>
         <div class="hero-meta-row">
           <span class="hero-name">EasyQuiz</span>
@@ -89,7 +102,7 @@
   <section id="discrete" class="tab-pane">
     <div class="mode-page-hero" data-reveal>
       <div class="mode-id-card">
-        <img src="logo.png?v=4.7" alt="EasyQuiz" class="mode-card-logo">
+        <img src="logo.png?v=5.1" alt="EasyQuiz" class="mode-card-logo">
         <div class="mode-card-label"><span>Modo Discreto</span><i data-lucide="eye-off"></i></div>
       </div>
       <div class="mode-page-info">
@@ -147,7 +160,7 @@
   <section id="legacy" class="tab-pane">
     <div class="mode-page-hero" data-reveal>
       <div class="mode-id-card">
-        <img src="logo.png?v=4.7" alt="EasyQuiz" class="mode-card-logo">
+        <img src="logo.png?v=5.1" alt="EasyQuiz" class="mode-card-logo">
         <div class="mode-card-label"><span>Modo Legacy</span><i data-lucide="panel-top"></i></div>
       </div>
       <div class="mode-page-info">
@@ -368,7 +381,7 @@ AIzaSy9876543210ZYXWVUTSRQPONMLKJIabcd</pre>
   <div class="footer-inner">
     <div class="footer-divider"></div>
     <div class="footer-row">
-      <div class="footer-brand"><img src="logo.png?v=4.7" width="20" height="20" alt="EasyQuiz"><span>EasyQuiz &copy; 2026</span></div>
+      <div class="footer-brand"><img src="logo.png?v=5.1" width="20" height="20" alt="EasyQuiz"><span>EasyQuiz &copy; 2026</span></div>
       <div class="footer-links">
         <a href="https://github.com/minifoxie/EasyQuiz" target="_blank">GitHub</a>
         <a href="https://github.com/minifoxie/EasyQuiz/blob/main/README.md" target="_blank">Docs</a>
@@ -379,6 +392,6 @@ AIzaSy9876543210ZYXWVUTSRQPONMLKJIabcd</pre>
 </footer>
 
 <div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Copiado!</span></div>
-<script src="js/app.js?v=4.7"></script>
+<script src="js/app.js?v=5.1"></script>
 </body>
 </html>
