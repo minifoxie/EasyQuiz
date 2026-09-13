@@ -1,4 +1,4 @@
-/* EasyQuiz App v6.0 */
+/* EasyQuiz App v6.1 */
 'use strict';
 
 const bkd = document.getElementById('global-backdrop');
@@ -215,15 +215,12 @@ async function loadChangelog(page) {
       const dt = new Date(c.commit.author.date).toLocaleString('pt-BR');
       
       const el = document.createElement('div'); el.className = 'commit-row glass';
-      
       const animDir = (i % 2 === 0) ? 'slide-right' : 'slide-left';
       el.setAttribute('data-anim', animDir);
       el.style.setProperty('--delay', `${0.05 * i}s`);
-      
       const desc = body ? '<div class="commit-full-desc">'+escH(body)+'</div>' : '<div class="commit-full-desc" style="color:var(--gray-3);font-style:italic">Sem descricao adicional.</div>';
       
       el.innerHTML = '<div class="commit-main"><div class="commit-version">'+escH(vs)+'</div><div class="commit-content"><div class="commit-title">'+escH(title)+'</div>'+(body?'<div class="commit-body">'+escH(body.length>200?body.slice(0,200)+'...':body)+'</div>':'')+'<div class="commit-meta">por <strong>'+escH(c.commit.author.name)+'</strong> — '+escH(dt)+'</div></div><div class="commit-right-icon"><i data-lucide="chevron-down"></i></div></div><div class="commit-details-inline">'+desc+'<div class="commit-actions"><a href="'+c.html_url+'" target="_blank" class="btn btn-outline sm" onclick="event.stopPropagation()">Ver no GitHub <i data-lucide="external-link"></i></a><a href="https://github.com/minifoxie/EasyQuiz/commit/'+c.sha+'" target="_blank" class="btn btn-secondary sm" onclick="event.stopPropagation()"><i data-lucide="git-commit-horizontal"></i> Diff</a></div></div>';
-      
       el.onclick = () => { const o = el.classList.contains('open'); document.querySelectorAll('.commit-row').forEach(r => r.classList.remove('open')); if(!o){el.classList.add('open');setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'nearest'}),300);} };
       ctr.appendChild(el);
     });
@@ -250,6 +247,7 @@ async function osAnimLoop() {
   if (wraps.length === 0) return;
   
   while (true) {
+    // State 0: Reset
     wraps.forEach(w => {
       w.className = 'os-anim-wrapper';
       w.querySelector('.eq-dropzone').style.background = 'transparent';
@@ -257,25 +255,34 @@ async function osAnimLoop() {
     });
     await sleep(800);
     
+    // State 1: Show Keys
     wraps.forEach(w => w.classList.add('s-keys'));
-    await sleep(600);
+    await sleep(400);
+    
+    // State 1b: Press Keys
     wraps.forEach(w => w.classList.add('s-keys-press'));
     await sleep(400);
+    
+    // State 2: Bookmarks Bar Appears, hide keys
     wraps.forEach(w => {
-      w.classList.remove('s-keys-press');
+      w.classList.remove('s-keys', 's-keys-press');
       w.classList.add('s-bms');
     });
+    await sleep(600);
+    
+    // State 3: Mouse to Button
+    wraps.forEach(w => w.classList.add('s-hover'));
     await sleep(800);
     
-    wraps.forEach(w => w.classList.add('s-hover'));
-    await sleep(1000);
-    
+    // State 4: Mouse Down (Ripple + Grab)
     wraps.forEach(w => w.classList.add('s-down'));
     await sleep(400);
     
+    // State 5: Drag to Bookmarks
     wraps.forEach(w => w.classList.add('s-drag'));
-    await sleep(1000);
+    await sleep(900);
     
+    // State 6: Drop (Release)
     wraps.forEach(w => w.classList.add('s-drop'));
     await sleep(1200);
   }
@@ -292,5 +299,5 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('hashchange', () => { switchTab(window.location.hash.replace('#','') || 'home'); });
   switchTab(window.location.hash.replace('#','') || 'home');
   fetchLatestCommit();
-  osAnimLoop(); // Start OS Animation
-});
+  osAnimLoop();
+});\
