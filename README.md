@@ -1,4 +1,7 @@
 # EasyQuiz
+<p align="center">
+  <img src="docs/logo.png?v=2.5" width="160" alt="EasyQuiz Logo">
+</p>
 
 > **Sistema de auto adaptação e auto resposta a sites com autonomia completa.**
 > Versão Beta — 100% Client-Side no Navegador.
