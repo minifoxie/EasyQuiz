@@ -20,7 +20,9 @@ bkd.onclick = closeOverlay;
 (function initCanvas() {
   const canvas = document.getElementById('bg-canvas');
   if (!canvas) return;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  ctx.fillStyle = '#050508';
+  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
   const CELL = 48;
   let cols = 0, rows = 0;
   let mouse = { x: -9999, y: -9999 };

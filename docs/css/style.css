@@ -33,12 +33,11 @@ a { text-decoration: none; color: inherit; }
 img { display: block; max-width: 100%; }
 
 /* ─── CANVAS ─── */
-#bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; transform: translateZ(0); will-change: transform; }
+#bg-canvas { position: fixed; inset: 0; pointer-events: none; }
 
 /* ─── GLASS ─── */
 .glass {
   background: rgba(255,255,255,0.04);
-  transform: translateZ(0);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid rgba(255,255,255,0.08);
@@ -48,7 +47,7 @@ img { display: block; max-width: 100%; }
 .navbar { position: fixed; top: 0; left: 0; z-index: 1000; height: var(--nav-h); width: 100%; }
 .navbar-blur {
   position: absolute; inset: 0;
-  transform: translateZ(0);
+  
   background: linear-gradient(180deg, rgba(3,3,3,0.94) 0%, rgba(3,3,3,0.72) 65%, transparent 100%);
   backdrop-filter: blur(40px) saturate(160%);
   -webkit-backdrop-filter: blur(40px) saturate(160%);
@@ -122,9 +121,9 @@ img { display: block; max-width: 100%; }
 .btn:hover { transform:scale(1.05) translateY(-2px); box-shadow: 0 14px 28px rgba(0,0,0,0.6); }
 .btn:active { transform:scale(0.93); }
 .btn-primary { background: var(--white); color: var(--black); }
-.btn-outline { background: rgba(255,255,255,0.05); color: var(--white); border: 1.5px solid rgba(255,255,255,0.2); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transform: translateZ(0); }
+.btn-outline { background: rgba(255,255,255,0.05); color: var(--white); border: 1.5px solid rgba(255,255,255,0.2); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);  }
 .btn-outline:hover { background: rgba(255,255,255,0.1); border-color: var(--white); }
-.btn-secondary { background: rgba(20,20,22,0.9); color: var(--white); border: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transform: translateZ(0); }
+.btn-secondary { background: rgba(20,20,22,0.9); color: var(--white); border: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);  }
 .btn.sm { height: 38px; padding: 0 16px; font-size: 0.82rem; }
 
 /* ─── CODE BUTTON GROUP ─── */
@@ -157,7 +156,6 @@ img { display: block; max-width: 100%; }
 .dropdown-menu {
   display:none; position:absolute; top:calc(100%+10px); left:0;
   background: rgba(10,10,12,0.88);
-  transform: translateZ(0);
   backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%);
   border: 1px solid rgba(255,255,255,0.12);
   width:300px; box-shadow: 0 32px 80px rgba(0,0,0,0.9); padding:6px; z-index:9000;
