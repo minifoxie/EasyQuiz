@@ -247,44 +247,113 @@ async function osAnimLoop() {
   if (wraps.length === 0) return;
   
   while (true) {
-    // State 0: Reset
-    wraps.forEach(w => {
-      w.className = 'os-anim-wrapper';
-      w.querySelector('.eq-dropzone').style.background = 'transparent';
-      w.querySelector('.os-ghost').style.transition = 'none';
-    });
-    await sleep(800);
+    // Check visibility
+    let isVisible = false;
+    wraps.forEach(w => { if (w.offsetWidth > 0) isVisible = true; });
+    if (!isVisible) {
+      await sleep(1000);
+      continue;
+    }
     
-    // State 1: Show Keys
-    wraps.forEach(w => w.classList.add('s-keys'));
-    await sleep(400);
-    
-    // State 1b: Press Keys
-    wraps.forEach(w => w.classList.add('s-keys-press'));
-    await sleep(400);
-    
-    // State 2: Bookmarks Bar Appears, hide keys
-    wraps.forEach(w => {
-      w.classList.remove('s-keys', 's-keys-press');
-      w.classList.add('s-bms');
-    });
-    await sleep(600);
-    
-    // State 3: Mouse to Button
-    wraps.forEach(w => w.classList.add('s-hover'));
-    await sleep(800);
-    
-    // State 4: Mouse Down (Ripple + Grab)
-    wraps.forEach(w => w.classList.add('s-down'));
-    await sleep(400);
-    
-    // State 5: Drag to Bookmarks
-    wraps.forEach(w => w.classList.add('s-drag'));
-    await sleep(900);
-    
-    // State 6: Drop (Release)
-    wraps.forEach(w => w.classList.add('s-drop'));
-    await sleep(1200);
+    for (const wrap of wraps) {
+      if (wrap.offsetWidth === 0) continue;
+      const camera = wrap.querySelector('.os-anim-camera');
+      const cursor = wrap.querySelector('.os-cursor');
+      const ghost = wrap.querySelector('.os-ghost');
+      const dropzone = wrap.querySelector('.eq-dropzone');
+      const btn = wrap.querySelector('.os-eq-btn');
+      const kb = wrap.querySelector('.os-keyboard-hint');
+      const keys = kb.querySelectorAll('kbd');
+      
+      // Reset State
+      wrap.className = 'os-anim-wrapper';
+      camera.style.transform = 'scale(1) translate(0, 0)';
+      cursor.className = 'os-cursor';
+      cursor.style.transition = 'none';
+      cursor.style.top = '80%';
+      cursor.style.left = '80%';
+      ghost.style.opacity = '0';
+      ghost.style.transition = 'none';
+      dropzone.innerHTML = '';
+      btn.style.opacity = '1';
+      btn.style.transform = 'scale(1)';
+      keys.forEach(k => k.className = '');
+      
+      await sleep(500);
+      
+      // 1. Show Keyboard Hint
+      wrap.classList.add('s-keys');
+      await sleep(600);
+      
+      // 2. Press keys sequentially
+      if (keys[0]) { keys[0].classList.add('pressed'); await sleep(150); }
+      if (keys[1]) { keys[1].classList.add('pressed'); await sleep(150); }
+      if (keys[2]) { keys[2].classList.add('pressed'); await sleep(150); }
+      
+      // 3. Show Bookmarks bar
+      wrap.classList.add('s-bms');
+      await sleep(400);
+      
+      // Release keys and hide hint
+      keys.forEach(k => k.classList.remove('pressed'));
+      await sleep(200);
+      wrap.classList.remove('s-keys');
+      
+      // 4. Move cursor to button and zoom in
+      cursor.style.transition = 'all 0.8s cubic-bezier(0.16,1,0.3,1)';
+      
+      // Zoom into the bottom area where button is
+      camera.style.transform = 'scale(1.4) translate(-10%, -20%)';
+      
+      cursor.style.top = (btn.offsetTop + 10) + 'px';
+      cursor.style.left = (btn.offsetLeft + 50) + 'px';
+      await sleep(800);
+      
+      // 5. Click and hold
+      cursor.classList.add('holding');
+      btn.style.transform = 'scale(0.95)';
+      btn.style.opacity = '0.5';
+      
+      // Show ghost attached to cursor
+      ghost.style.opacity = '1';
+      ghost.style.top = (btn.offsetTop + 10) + 'px';
+      ghost.style.left = (btn.offsetLeft + 50) + 'px';
+      
+      await sleep(500);
+      
+      // 6. Drag to dropzone, camera follows
+      cursor.style.transition = 'all 1s cubic-bezier(0.16,1,0.3,1)';
+      ghost.style.transition = 'all 1s cubic-bezier(0.16,1,0.3,1)';
+      
+      // Dropzone is in bookmarks bar
+      cursor.style.top = '72px'; // approx height of url bar + tabs
+      cursor.style.left = '200px'; // approx position of dropzone
+      ghost.style.top = '58px';
+      ghost.style.left = '160px';
+      
+      // Camera zooms to top area
+      camera.style.transform = 'scale(1.4) translate(0%, 0%)';
+      
+      wrap.classList.add('s-drag');
+      await sleep(1000);
+      
+      // 7. Drop
+      cursor.classList.remove('holding');
+      wrap.classList.add('s-drop');
+      dropzone.innerHTML = ghost.innerHTML;
+      ghost.style.opacity = '0';
+      
+      // Cursor moves slightly away
+      cursor.style.top = '120px';
+      cursor.style.left = '250px';
+      
+      await sleep(500);
+      
+      // 8. Zoom out
+      camera.style.transform = 'scale(1) translate(0, 0)';
+      
+      await sleep(1500);
+    }
   }
 }
 
