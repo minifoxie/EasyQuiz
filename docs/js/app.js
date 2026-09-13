@@ -299,7 +299,11 @@ function escH(u) { return u.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'
 async function fetchLatestCommit() {
   try {
     const r = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
-    if (!r.ok) return;
+      if (!r.ok) {
+        document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = 'v1.0.0 (API Rate Limit)');
+        document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = 'Erro API GitHub');
+        return;
+      }
     const lh = r.headers.get('link'); if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if (m) _totalCommits = parseInt(m[1]); }
     const d = await r.json(); 
       if (!d||!d[0]) {
