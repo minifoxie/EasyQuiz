@@ -1,4 +1,4 @@
-/* EasyQuiz App v5.1 */
+/* EasyQuiz App v5.2 */
 'use strict';
 
 // ─── OVERLAY BACKDROP MANAGER ──────────────────────────────────────
@@ -12,11 +12,11 @@ function openOverlay(modalId) {
 }
 function closeOverlay() {
   bkd.classList.remove('open');
-  document.querySelectorAll('.hint-popup.open, .code-modal-wrap.open, .commit-modal-wrap.open').forEach(el => el.classList.remove('open'));
+  document.querySelectorAll('.hint-popup.open').forEach(el => el.classList.remove('open'));
 }
 bkd.onclick = closeOverlay;
 
-// ─── DOM Background (Replaces Canvas for 100% Blur Support) ───────
+// ─── DOM Background (Squares + Worms) ──────────────────────────────
 (function initDOMBg() {
   const bg = document.getElementById('bg-dom');
   if (!bg) return;
@@ -27,10 +27,16 @@ bkd.onclick = closeOverlay;
   let target = { x: -9999, y: -9999 };
   let clickPulse = 0;
   let particles = Array.from({length: 40}, () => ({x:0, y:0, vx:0, vy:0, life:0, size:0, hue:0, el: document.createElement('div')}));
+  let worms = Array.from({length: 12}, () => ({x:0, y:0, tx:0, ty:0, vx:0, vy:0, active:false, el: document.createElement('div')}));
   
   particles.forEach(p => {
     p.el.className = 'bg-particle';
     bg.appendChild(p.el);
+  });
+  worms.forEach(w => {
+    w.el.className = 'bg-worm';
+    w.el.style.display = 'none';
+    bg.appendChild(w.el);
   });
 
   function buildGrid() {
@@ -68,6 +74,22 @@ bkd.onclick = closeOverlay;
     });
   });
 
+  function spawnWorm(w) {
+    w.active = true;
+    w.x = Math.random() * window.innerWidth;
+    w.y = Math.random() * window.innerHeight;
+    w.tx = Math.random() * window.innerWidth;
+    w.ty = Math.random() * window.innerHeight;
+    const ang = Math.atan2(w.ty - w.y, w.tx - w.x);
+    w.vx = Math.cos(ang) * 20; // fast worms
+    w.vy = Math.sin(ang) * 20;
+    w.el.style.display = 'block';
+    w.el.style.transform = `translate3d(${w.x}px, ${w.y}px, 0) rotate(${ang}rad)`;
+    w.el.style.width = (Math.random() * 120 + 60) + 'px';
+    const hue = Math.random() * 360;
+    w.el.style.background = `linear-gradient(90deg, transparent, hsla(${hue},100%,70%,0.9), transparent)`;
+  }
+
   function draw() {
     mouse.x += (target.x - mouse.x) * 0.1;
     mouse.y += (target.y - mouse.y) * 0.1;
@@ -76,14 +98,11 @@ bkd.onclick = closeOverlay;
     const mx = mouse.x, my = mouse.y;
     const time = Date.now() / 3;
 
-    // We only update dots that are near the mouse to save CPU/GPU.
-    // If clickPulse is active, we update all dots.
     dots.forEach(d => {
       const dx = d.cx - mx;
       const dy = d.cy - my;
       const dist2 = dx*dx + dy*dy;
       
-      // Optimizaton: Only animate dots within 400px radius, unless pulsing
       if (dist2 > 160000 && clickPulse < 0.05) {
         if (!d.idle) {
           d.el.style.transform = `translate3d(${d.cx}px, ${d.cy}px, 0) scale(1)`;
@@ -123,6 +142,21 @@ bkd.onclick = closeOverlay;
       p.el.style.height = Math.max(0.1, p.size * 2) + 'px';
       p.el.style.backgroundColor = `hsl(${p.hue},100%,60%)`;
       p.el.style.opacity = p.life.toString();
+    });
+
+    worms.forEach(w => {
+      if (!w.active) {
+        if (Math.random() < 0.008) spawnWorm(w);
+      } else {
+        w.x += w.vx; w.y += w.vy;
+        const dist2 = (w.tx - w.x)**2 + (w.ty - w.y)**2;
+        if (dist2 < 400 || w.x < -200 || w.x > window.innerWidth+200 || w.y < -200 || w.y > window.innerHeight+200) {
+          w.active = false; w.el.style.display = 'none';
+        } else {
+          const ang = Math.atan2(w.vy, w.vx);
+          w.el.style.transform = `translate3d(${w.x}px, ${w.y}px, 0) rotate(${ang}rad)`;
+        }
+      }
     });
 
     requestAnimationFrame(draw);
@@ -167,7 +201,7 @@ function switchTab(id) {
       ddIcon.setAttribute('data-lucide', 'panel-top');
     } else {
       ddBtn.classList.remove('active');
-      ddText.textContent = 'Setup EasyQuiz';
+      ddText.textContent = 'Setup Modos';
       ddIcon.setAttribute('data-lucide', 'layers');
     }
   }
@@ -184,6 +218,9 @@ function initDropdown(btnId, menuId) {
   if (!btn || !menu) return;
   const dd = btn.closest('.dropdown');
   const toggle = open => {
+    // Close other dropdowns
+    if(open) document.querySelectorAll('.dropdown.active').forEach(d => { if(d!==dd) { d.classList.remove('active'); const b=d.querySelector('button'); if(b) b.setAttribute('aria-expanded','false'); const m=d.querySelector('.dropdown-menu'); if(m) m.classList.remove('open'); } });
+    
     dd.classList.toggle('active', open);
     if(btn.hasAttribute('aria-expanded')) btn.setAttribute('aria-expanded', String(open));
     menu.classList.toggle('open', open);
@@ -219,28 +256,9 @@ function initCodeButtons() {
       }).catch(() => showToast('Erro ao copiar'));
     };
   });
-
-  document.querySelectorAll('.code-show-btn').forEach(btn => {
-    btn.onclick = e => {
-      e.stopPropagation();
-      const codeKey = btn.dataset.code;
-      const codeEl = document.getElementById('code-' + codeKey + '-data');
-      const code = codeEl ? codeEl.textContent.trim() : '';
-      if (!code) return;
-      const title = codeKey === 'discrete' ? 'EQ Discret — Codigo de Injecao' : 'EQ Legacy — Codigo de Injecao';
-      document.getElementById('code-modal-title').textContent = title;
-      document.getElementById('global-code-content').textContent = code;
-      openOverlay('global-code-modal');
-      if (window.lucide) lucide.createIcons();
-    };
-  });
-
-  document.getElementById('code-modal-close-btn').onclick = closeOverlay;
-
-  document.getElementById('modal-copy-btn').onclick = () => {
-    const code = document.getElementById('global-code-content').textContent;
-    navigator.clipboard.writeText(code).then(() => showToast('Codigo copiado!'));
-  };
+  
+  initDropdown('codeMenuBtnDiscrete', 'codeMenuDiscrete');
+  initDropdown('codeMenuBtnLegacy', 'codeMenuLegacy');
 }
 
 // ─── Hints ──────────────────────────────────────────────────────────
@@ -279,7 +297,6 @@ async function fetchLatestCommit() {
     const sha = data[0].sha.slice(0, 7);
     const dateStr = new Date(data[0].commit.author.date).toLocaleDateString('pt-BR');
 
-    // Update real version formatting
     const finalVer = _totalCommits > 0 ? toVersionString(_totalCommits) : 'v1.0.0';
     document.querySelectorAll('#site-version, #home-version').forEach(el => {
       el.textContent = finalVer;
@@ -324,28 +341,35 @@ async function loadChangelog(page) {
       const dateStr = new Date(commit.commit.author.date).toLocaleString('pt-BR');
       const el = document.createElement('div');
       el.className = 'commit-row glass';
+      
+      let detailsBody = '';
+      if (body) {
+        detailsBody += '<div class="commit-full-desc">' + escapeHtml(body) + '</div>';
+      } else {
+        detailsBody += '<div class="commit-full-desc" style="color:var(--gray-3);font-style:italic">Sem descricao adicional.</div>';
+      }
+      
       el.innerHTML =
+        '<div class="commit-main">' +
         '<div class="commit-version">' + escapeHtml(vStr) + '</div>' +
         '<div class="commit-content">' +
         '<div class="commit-title">' + escapeHtml(title) + '</div>' +
         (body ? '<div class="commit-body">' + escapeHtml(body.length > 200 ? body.slice(0,200)+'...' : body) + '</div>' : '') +
         '<div class="commit-meta">por <strong>' + escapeHtml(commit.commit.author.name) + '</strong> — ' + escapeHtml(dateStr) + '</div>' +
-        '</div>';
+        '</div></div>' +
+        '<div class="commit-details-inline">' + detailsBody +
+        '<div class="commit-actions">' +
+        '<a href="' + commit.html_url + '" target="_blank" class="btn btn-outline sm" onclick="event.stopPropagation()">Ver no GitHub <i data-lucide="external-link"></i></a>' +
+        '<a href="https://github.com/minifoxie/EasyQuiz/commit/' + commit.sha + '" target="_blank" class="btn btn-secondary sm" onclick="event.stopPropagation()"><i data-lucide="git-commit-horizontal"></i> Diff</a>' +
+        '</div></div>';
+      
       el.onclick = () => {
-        document.getElementById('cm-version').textContent = vStr;
-        document.getElementById('cm-meta').innerHTML = 'por <strong>' + escapeHtml(commit.commit.author.name) + '</strong><br>' + escapeHtml(dateStr);
-        document.getElementById('cm-title').textContent = title;
-        document.getElementById('cm-desc').textContent = body || 'Sem descricao adicional.';
-        let details = '<div class="detail-row"><span>SHA:</span> ' + commit.sha + '</div>';
-        if (commit.commit.verification && commit.commit.verification.verified) {
-          details += '<div class="detail-row"><span>Assinatura:</span> Verificada &#10003;</div>';
+        const isOpen = el.classList.contains('open');
+        document.querySelectorAll('.commit-row').forEach(r => r.classList.remove('open'));
+        if (!isOpen) {
+          el.classList.add('open');
+          setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 300);
         }
-        document.getElementById('cm-details').innerHTML = details;
-        document.getElementById('cm-github-link').href = commit.html_url;
-        document.getElementById('cm-sha-link').href = 'https://github.com/minifoxie/EasyQuiz/commit/' + commit.sha;
-        document.getElementById('cm-details-acc').classList.remove('open');
-        openOverlay('commit-modal');
-        if (window.lucide) lucide.createIcons();
       };
       container.appendChild(el);
     });
@@ -383,12 +407,10 @@ window.addEventListener('DOMContentLoaded', () => {
   initHints();
   initReveal();
 
-  // Native topbar buttons (without dropdown data-tab)
   document.querySelectorAll('.nav-links > .nav-btn').forEach(b => {
     b.onclick = e => { e.preventDefault(); switchTab(b.dataset.target); };
   });
 
-  document.getElementById('cm-close').onclick = closeOverlay;
   document.getElementById('prev-page').onclick = () => loadChangelog(_currentPage - 1);
   document.getElementById('next-page').onclick = () => loadChangelog(_currentPage + 1);
 
