@@ -152,6 +152,25 @@ O EasyQuiz burla isso redefinindo os `_valueTracker` do React nativamente e disp
 
 ---
 
+## 🧠 Deep Dive: Fluxo de Raciocínio e Arquitetura da IA
+O EasyQuiz não simplesmente "joga" a pergunta no Gemini e espera um milagre. Ele emprega técnicas avançadas de **Chain of Thought (CoT)** e **Agentic Prompting** divididas em micro-etapas de execução rigorosas que você pode acompanhar pelo "Cérebro" ou "Auditoria" da ferramenta.
+
+### 1. Fase de Contextualização (Scanning)
+Quando você aperta `Alt + Q`, o sistema extrai a **árvore estrutural** da questão (separando o que é enunciado, opções e texto de apoio). Ao mesmo tempo, caso haja imagens, ele tira um *screenshot* cirúrgico usando a sua GPU local. Tudo isso é empacotado e enviado de forma criptografada para o modelo.
+
+### 2. Fase de Raciocínio Silencioso (Reasoning)
+A IA é proibida pelo sistema de cuspir a resposta logo de cara. Primeiro, ela é forçada a gerar um bloco lógico chamado `[RACIOCÍNIO]`. Aqui, ela debate consigo mesma, resolve equações passo a passo, relembra literatura teórica e elimina as "pegadinhas" (distratores) uma a uma. Isso eleva a taxa de acerto lógico para margens assustadoras.
+
+### 3. Fase de Planejamento de Ação (Action Plan)
+Sabendo a resposta, a IA não diz "É a Letra A", pois os sites randomizam a ordem das opções. Ela emite um payload JSON arquitetado contendo um **Plano de Execução**:
+- **Radios/Checkboxes:** Ela cita o pedaço do texto exato que o robô deve procurar e clicar.
+- **Campos de Digitação (Inputs):** Ela prevê a string perfeita para ser digitada.
+
+### 4. Fase de Validação e Injeção (O "Dedo" Virtual)
+O script do EasyQuiz recebe o payload e atua como validador. Ele vasculha o seu DOM buscando o que a IA mandou clicar. Se for achado, a ferramenta executa a ação burlando Frameworks e Listeners da página, garantindo que o acerto seja validado e enviado para o servidor do seu professor sem deixar vestígios mecânicos.
+
+---
+
 ## 🌎 Suporte e Compatibilidade Tecnológica
 A tecnologia embarcada requer nativamente o motor **Chromium**. O ecossistema Apple (Safari) ou o Firefox possuem bloqueios nas APIs de captura de tela web e não são suportados.
 
