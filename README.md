@@ -3,8 +3,8 @@
   <h1>EasyQuiz ⚡ <img src="https://img.shields.io/badge/Build-v1.7.3-00e5ff?style=flat-square" id="eq-version-badge" /></h1>
   <p><b>A Evolução Invisível do Auxílio Cognitivo via IA</b></p>
 
-  <a href="https://minifoxie.github.io/EasyQuiz/docs" target="_blank">
-    <img src="https://img.shields.io/badge/ACESSAR_SITE_OFICIAL_COM_OS_CÓDIGOS-000000?style=for-the-badge&logo=apple&logoColor=white" width="400" alt="Site Oficial" />
+  <a href="https://minifoxie.github.io/EasyQuiz/" target="_blank">
+    <img src="https://img.shields.io/badge/ACESSAR_SITE_OFICIAL_COM_OS_CÓDIGOS-2B2D31?style=for-the-badge&logo=codeigniter&logoColor=white" width="400" alt="Site Oficial" />
   </a>
 </div>
 
