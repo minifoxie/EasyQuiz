@@ -73,18 +73,21 @@ javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@mai
 
 ---
 
-## 🔑 Como Obter Sua Chave da API (Totalmente Gratuita)
+## 🔑 Sistema Multi-Key: Como Obter Suas Chaves (Totalmente Grátis)
 
-O EasyQuiz não possui servidores ou banco de dados próprios para processamento. Toda a mágica acontece diretamente entre o seu computador e os servidores do **Google Gemini**. Para isso, você precisa de uma "chave" de acesso.
+O EasyQuiz foi projetado com uma **Arquitetura Multi-Key** avançada. Como não cobramos mensalidades, toda a mágica ocorre diretamente entre sua máquina e os servidores do **Google Gemini**.
 
-1. Acesse o portal para desenvolvedores do Google: **[Google AI Studio](https://aistudio.google.com/app/apikey)**.
-2. Faça login com sua conta do Google (a mesma que você já usa no Gmail ou YouTube).
-3. Clique no botão azul gigante **"Create API Key"** (Criar chave de API).
-4. O sistema irá gerar um texto longo (algo como `AIzaSyBw...`). **Copie esse texto**.
-5. No **EasyQuiz**, clique na engrenagem de configurações ⚙️ (no Modo Legacy) ou pressione `Shift + A` (no Modo Discreto).
-6. Cole a sua chave e salve!
+Para o sistema atingir sua velocidade e estabilidade máximas, **recomendamos fortemente que você adicione pelo menos 4 Chaves de API de contas Google diferentes**. O EasyQuiz fará um "Balanceamento de Carga" inteligente entre elas. Se uma chave cansar (Rate Limit), ele pula para a próxima instantaneamente, garantindo um fluxo impecável e sem interrupções!
 
-> 🛡️ **Segurança em Primeiro Lugar:** Sua chave é salva exclusivamente no armazenamento local (`localStorage`) do seu navegador. Ela nunca é enviada para os criadores do EasyQuiz ou para terceiros.
+### Passo a Passo para criar suas Chaves:
+1. Acesse o portal oficial para desenvolvedores: **[Google AI Studio](https://aistudio.google.com/app/apikey)**.
+2. Faça login com sua conta do Google principal.
+3. Clique no botão azul gigante **"Create API Key"** (Criar chave).
+4. O sistema gerará um texto longo (algo como `AIzaSyBw...`). **Copie esse código**.
+5. No **EasyQuiz**, abra as configurações ⚙️ (Modo Legacy) ou pressione `Shift + A` (Modo Discreto) e cole sua chave.
+6. **Repita o processo!** Entre no Google AI Studio com outras contas Google que você possua (contas de e-mail alternativas) e gere mais chaves. Adicione todas no EasyQuiz usando o botão "+".
+
+> 🛡️ **Segurança e Privacidade Absoluta:** Suas chaves são armazenadas localmente no seu computador (`localStorage`). Elas **nunca** são enviadas para nós ou para terceiros. Você é o único dono do tráfego.
 
 ---
 
