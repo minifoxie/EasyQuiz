@@ -35,8 +35,28 @@
         <p class="hero-subtitle">Mapeamento semântico de DOM. Visão computacional de baixo nível. Evasão de Anti-Cheats com PointerEvents. Tudo processado na sua GPU local e na API do Google.</p>
         
         <div class="hero-actions">
-          <button class="btn btn-secondary" onclick="switchTab('legacy')"><i data-lucide="layout-dashboard"></i> Explorar Modo Legacy</button>
-          <button class="btn btn-primary" onclick="switchTab('discrete')"><i data-lucide="ghost"></i> Explorar Modo Discreto</button>
+          <div class="dropdown">
+            <button class="btn btn-primary dropdown-toggle" id="installDropdownBtn">
+              <i data-lucide="download"></i> Instalar Bookmarklet <i data-lucide="chevron-down" class="chevron"></i>
+            </button>
+            <div class="dropdown-menu" id="installDropdownMenu">
+              <div class="dropdown-item" onclick="switchTab('discrete')">
+                <div class="dropdown-icon"><i data-lucide="ghost"></i></div>
+                <div class="dropdown-text">
+                  <strong>Modo Discreto (Recomendado)</strong>
+                  <span>Operação invisível via atalhos do teclado.</span>
+                </div>
+              </div>
+              <div class="dropdown-item" onclick="switchTab('legacy')">
+                <div class="dropdown-icon"><i data-lucide="layout-dashboard"></i></div>
+                <div class="dropdown-text">
+                  <strong>Modo Legacy</strong>
+                  <span>Painel visual completo (HUD) arrastável.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" class="btn btn-secondary"><i data-lucide="github"></i> Código Fonte</a>
         </div>
       </header>
 
@@ -57,6 +77,27 @@
           <p>Adicione 4 ou mais chaves da API do Google para obter Balanceamento de Carga instantâneo sem limites de uso.</p>
         </div>
       </div>
+    
+      <div class="faq-section" style="margin-top: 80px; text-align: left; max-width: 800px; margin-left: auto; margin-right: auto; padding-bottom: 60px;">
+        <h2 style="text-align: center; margin-bottom: 40px; font-size: 2rem;">Por que a nossa IA é diferente?</h2>
+        
+        <div class="faq-card">
+          <div class="faq-icon"><i data-lucide="cpu"></i></div>
+          <div class="faq-content">
+            <h3>Engenharia Reversa de DOM</h3>
+            <p>Em vez de procurar por classes específicas (o que falha se o professor mudar a cor do botão), nós varremos a Árvore DOM procurando a "Assinatura Semântica" de uma questão. Seja no Canvas, Moodle ou Blackboard, o EasyQuiz acha a área de clique.</p>
+          </div>
+        </div>
+
+        <div class="faq-card">
+          <div class="faq-icon"><i data-lucide="fingerprint"></i></div>
+          <div class="faq-content">
+            <h3>Bypass Nível de Sistema Operacional</h3>
+            <p>Formulários React modernos bloqueiam injeções de script (ex: <code>input.value = 'abc'</code>). O EasyQuiz dribla isso despachando eventos sintéticos idênticos ao hardware: <code>PointerEvent</code>, <code>KeyboardEvent</code>, com coordenadas X e Y e delays aleatórios para enganar o anti-cheat.</p>
+          </div>
+        </div>
+      </div>
+
     </section>
 
     <!-- ABA: LEGACY -->

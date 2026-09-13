@@ -161,3 +161,20 @@ function animateParticles() {
 
 initParticles();
 animateParticles();
+
+// Dropdown Logic
+document.addEventListener('DOMContentLoaded', () => {
+  const dropdownBtn = document.getElementById('installDropdownBtn');
+  const dropdown = document.querySelector('.dropdown');
+  
+  if(dropdownBtn && dropdown) {
+    dropdownBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle('active');
+    });
+
+    document.addEventListener('click', () => {
+      dropdown.classList.remove('active');
+    });
+  }
+});

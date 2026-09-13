@@ -605,3 +605,112 @@ i[data-lucide] {
   .install-header { flex-direction: column; align-items: flex-start; }
   .install-steps-inline { flex-direction: column; gap: 8px; width: 100%; }
 }
+
+/* Dropdown Context Menu */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: rgba(20, 20, 22, 0.95);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-lg);
+  min-width: 340px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+  z-index: 200;
+  padding: 8px;
+  text-align: left;
+}
+.dropdown.active .dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.dropdown-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.dropdown-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dropdown-text strong {
+  color: var(--text-main);
+  font-size: 1rem;
+}
+.dropdown-text span {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+.chevron {
+  transition: transform 0.25s;
+}
+.dropdown.active .chevron {
+  transform: rotate(180deg);
+}
+
+/* FAQ Cards */
+.faq-card {
+  display: flex;
+  gap: 24px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  padding: 32px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 24px;
+  transition: var(--transition);
+}
+.faq-card:hover {
+  border-color: rgba(0, 102, 204, 0.3);
+  background: linear-gradient(120deg, var(--bg-panel) 0%, rgba(0, 102, 204, 0.05) 100%);
+}
+.faq-icon {
+  width: 56px;
+  height: 56px;
+  background: var(--secondary);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.faq-icon i[data-lucide] { width: 28px; height: 28px; margin: 0; }
+.faq-content h3 { font-size: 1.3rem; margin-bottom: 8px; color: var(--text-main); }
+.faq-content p { color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; }
+
+@media (max-width: 600px) {
+  .dropdown-menu { width: calc(100vw - 40px); }
+  .faq-card { flex-direction: column; gap: 16px; padding: 24px; }
+}
