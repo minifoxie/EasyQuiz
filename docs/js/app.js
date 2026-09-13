@@ -1,7 +1,6 @@
-/* EasyQuiz App v4.3 */
+/* EasyQuiz App v4.4 */
 'use strict';
 
-// ─── Canvas Background (Extreme Gravity + Click Explosion) ─────────────────
 (function initCanvas() {
   const canvas = document.getElementById('bg-canvas');
   if (!canvas) return;
@@ -12,9 +11,7 @@
   let target = { x: -9999, y: -9999 };
   let clickPulse = 0;
 
-  const particles = Array.from({ length: 40 }, () => ({
-    x: 0, y: 0, vx: 0, vy: 0, life: 0, size: 0, hue: 0
-  }));
+  const particles = Array.from({ length: 40 }, () => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0, size: 0, hue: 0 }));
 
   function resize() {
     canvas.width = window.innerWidth;
@@ -43,7 +40,7 @@
     mouse.y += (target.y - mouse.y) * 0.12;
     clickPulse *= 0.88;
 
-    ctx.fillStyle = 'rgba(3,3,3,0.35)';
+    ctx.fillStyle = 'rgba(5,5,8,0.45)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     for (let r = 0; r < rows; r++) {
@@ -84,7 +81,6 @@
   draw();
 })();
 
-// ─── Scroll Reveal ────────────────────────────────────────────────────────────
 function initReveal() {
   const obs = new IntersectionObserver(entries => {
     entries.forEach(e => {
@@ -97,7 +93,6 @@ function initReveal() {
   });
 }
 
-// ─── Tab Switching ────────────────────────────────────────────────────────────
 function switchTab(id) {
   const pane = document.getElementById(id);
   if (!pane) return;
@@ -106,15 +101,12 @@ function switchTab(id) {
   pane.classList.add('active');
   if (window.lucide) lucide.createIcons();
   initReveal();
-  history.replaceState(null, null, '#' + id);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-
+  
   if (id === 'updates' && !window._commitsLoaded) {
     loadChangelog(1);
   }
 }
 
-// ─── Dropdown ─────────────────────────────────────────────────────────────────
 function initDropdown() {
   const btn = document.getElementById('installDropdownBtn');
   const menu = document.getElementById('installDropdownMenu');
@@ -128,53 +120,29 @@ function initDropdown() {
   btn.onclick = e => { e.stopPropagation(); toggle(!dd.classList.contains('active')); };
   document.addEventListener('click', e => { if (!dd.contains(e.target)) toggle(false); });
   menu.querySelectorAll('.dropdown-item[data-tab]').forEach(i => {
-    i.onclick = () => { toggle(false); switchTab(i.dataset.tab); };
+    i.onclick = () => { toggle(false); window.location.hash = i.dataset.tab; };
   });
 }
 
-// ─── Code Dropdown (below button) ──────────────────────────────────────────────
-function initCodeDropdowns() {
-  document.querySelectorAll('.copy-direct-btn[data-code]').forEach(btn => {
-    btn.onclick = e => {
-      e.stopPropagation();
-      const el = document.getElementById(btn.dataset.code);
-      const code = el ? el.textContent.trim() : '';
-      if (!code) return;
-      navigator.clipboard.writeText(code).then(() => {
-        showToast('Codigo copiado!');
-        const og = btn.innerHTML;
-        btn.innerHTML = '<i data-lucide="check"></i> Copiado!';
-        if (window.lucide) lucide.createIcons();
-        setTimeout(() => { btn.innerHTML = og; if (window.lucide) lucide.createIcons(); }, 2000);
-      });
-    };
-  });
-
-  document.querySelectorAll('.code-dd-trigger').forEach(btn => {
-    btn.onclick = e => {
-      e.stopPropagation();
-      const dd = document.getElementById(btn.dataset.dd);
-      if (!dd) return;
-      const isOpen = dd.classList.contains('open');
-      document.querySelectorAll('.code-dropdown.open').forEach(d => d.classList.remove('open'));
-      document.querySelectorAll('.code-dd-trigger.active').forEach(b => b.classList.remove('active'));
-      if (!isOpen) {
-        dd.classList.add('open');
-        btn.classList.add('active');
+function initModals() {
+  // Code modal logic
+  document.querySelectorAll('.code-modal-trigger').forEach(btn => {
+    btn.onclick = () => {
+      const codeId = btn.dataset.code;
+      const dataDiv = document.getElementById(codeId + '-data');
+      if(dataDiv) {
+        document.getElementById('global-code-content').textContent = dataDiv.textContent;
+        document.getElementById('global-code-modal').classList.add('open');
       }
     };
   });
+  
+  // Close code modal on outside click
+  document.getElementById('global-code-modal').onclick = e => {
+    if(e.target.id === 'global-code-modal') e.target.classList.remove('open');
+  };
 
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.install-actions-wrap') && !e.target.closest('.code-dd-trigger')) {
-      document.querySelectorAll('.code-dropdown.open').forEach(d => d.classList.remove('open'));
-      document.querySelectorAll('.code-dd-trigger.active').forEach(b => b.classList.remove('active'));
-    }
-  });
-}
-
-// ─── Hints ────────────────────────────────────────────────────────────────────
-function initHints() {
+  // Hint popup logic
   document.querySelectorAll('.hint-btn').forEach(btn => {
     btn.onclick = e => {
       e.stopPropagation();
@@ -195,7 +163,6 @@ function initHints() {
   });
 }
 
-// ─── Github Commits ───────────────────────────────────────────────────────────
 let _currentPage = 1;
 function escapeHtml(u) { return u.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
 
@@ -203,7 +170,7 @@ async function loadChangelog(page) {
   _currentPage = page;
   const container = document.getElementById('commits-container');
   if (!container) return;
-  container.innerHTML = '<div class="commits-loading"><i data-lucide="loader-2" class="spin-icon"></i> Carregando pagina ' + page + '...</div>';
+  container.innerHTML = '<div class="commits-loading"><i data-lucide="loader-2" class="spin-icon"></i> Carregando historico...</div>';
   if (window.lucide) lucide.createIcons();
   
   try {
@@ -211,12 +178,11 @@ async function loadChangelog(page) {
     if (!res.ok) throw new Error('API Error');
     const commits = await res.json();
     
-    // Attempt to get total count to format version correctly (assuming ~200 commits total for reverse calculation)
     const totalCommitsRes = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
     const linkHeader = totalCommitsRes.headers.get('link');
     let totalCommits = 200; 
     if (linkHeader) {
-      const match = linkHeader.match(/page=(\d+)>; rel="last"/);
+      const match = linkHeader.match(/page=(d+)>; rel="last"/);
       if (match) totalCommits = parseInt(match[1]);
     }
 
@@ -224,11 +190,11 @@ async function loadChangelog(page) {
     
     commits.forEach((commit, idx) => {
       const globalIdx = totalCommits - ((page - 1) * 20 + idx);
-      const vStr = globalIdx > 0 ? \`v\${Math.floor(globalIdx/100)}.\${Math.floor((globalIdx%100)/10)}.\${globalIdx%10}\` : 'v0.0.1';
+      const vStr = globalIdx > 0 ? `v${Math.floor(globalIdx/100)}.${Math.floor((globalIdx%100)/10)}.${globalIdx%10}` : 'v0.0.1';
       
-      const msgLines = commit.commit.message.split('\\n');
+      const msgLines = commit.commit.message.split('\n');
       const title = msgLines[0];
-      const body = msgLines.slice(1).join('\\n').trim();
+      const body = msgLines.slice(1).join('\n').trim();
       const dateStr = new Date(commit.commit.author.date).toLocaleString('pt-BR');
       
       const el = document.createElement('div');
@@ -249,13 +215,16 @@ async function loadChangelog(page) {
         
         let details = '<div class="detail-row"><span>SHA:</span> ' + commit.sha + '</div>';
         if(commit.commit.verification && commit.commit.verification.verified) {
-          details += '<div class="detail-row"><span>Assinatura:</span> Verificada <i data-lucide="badge-check" style="color:var(--accent);width:14px;height:14px;vertical-align:middle"></i></div>';
+          details += '<div class="detail-row"><span>Assinatura:</span> Verificada <i data-lucide="badge-check" style="color:#4ade80;width:14px;height:14px;vertical-align:middle"></i></div>';
         }
         document.getElementById('cm-details').innerHTML = details;
         document.getElementById('cm-github-link').href = commit.html_url;
         document.getElementById('cm-sha-link').href = 'https://github.com/minifoxie/EasyQuiz/commit/' + commit.sha;
         
-        document.getElementById('commit-overlay').style.display = 'flex';
+        // Reset accordion
+        document.getElementById('cm-details-acc').classList.remove('open');
+        
+        document.getElementById('commit-modal').classList.add('open');
         if (window.lucide) lucide.createIcons();
       };
       
@@ -272,7 +241,6 @@ async function loadChangelog(page) {
   }
 }
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
 let _tt = null;
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -284,24 +252,27 @@ function showToast(msg) {
   _tt = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   if (window.lucide) lucide.createIcons();
   initDropdown();
-  initCodeDropdowns();
-  initHints();
+  initModals();
   initReveal();
 
   document.querySelectorAll('.nav-btn').forEach(b => {
-    b.onclick = e => { e.preventDefault(); switchTab(b.dataset.target); };
+    b.onclick = e => { e.preventDefault(); window.location.hash = b.dataset.target; };
   });
 
-  document.getElementById('commit-backdrop').onclick = () => { document.getElementById('commit-overlay').style.display = 'none'; };
-  document.getElementById('cm-close').onclick = () => { document.getElementById('commit-overlay').style.display = 'none'; };
+  document.getElementById('cm-backdrop').onclick = () => { document.getElementById('commit-modal').classList.remove('open'); };
+  document.getElementById('cm-close').onclick = () => { document.getElementById('commit-modal').classList.remove('open'); };
 
   document.getElementById('prev-page').onclick = () => loadChangelog(_currentPage - 1);
   document.getElementById('next-page').onclick = () => loadChangelog(_currentPage + 1);
 
-  const hash = window.location.hash.replace('#', '');
-  if (hash && document.getElementById(hash)) switchTab(hash);
+  window.addEventListener('hashchange', () => {
+    const h = window.location.hash.replace('#', '') || 'home';
+    switchTab(h);
+  });
+  
+  const initialHash = window.location.hash.replace('#', '') || 'home';
+  switchTab(initialHash);
 });

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="EasyQuiz - Sistema inteligente de auto resposta a quizzes 100% no navegador.">
   <title>EasyQuiz - Bookmarklet IA</title>
-  <link rel="icon" type="image/png" href="logo.png?v=4.3">
-  <link rel="stylesheet" href="css/style.css?v=4.3">
+  <link rel="icon" type="image/png" href="logo.png?v=4.4">
+  <link rel="stylesheet" href="css/style.css?v=4.4">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
@@ -16,8 +16,8 @@
   <div class="navbar-blur"></div>
   <div class="nav-content">
     <div class="nav-brand-group">
-      <a href="#home" class="nav-brand" onclick="switchTab('home');return false;">
-        <img src="logo.png?v=4.3" alt="EasyQuiz" class="nav-logo-img">
+      <a href="#home" class="nav-brand" onclick="window.location.hash='home';return false;">
+        <img src="logo.png?v=4.4" alt="EasyQuiz" class="nav-logo-img">
         <span class="brand-title">EasyQuiz</span>
       </a>
       <span class="badge-beta">BETA</span>
@@ -43,7 +43,7 @@
   <section id="home" class="tab-pane active">
     <header class="hero-layout" data-reveal>
       <div class="hero-logo-col">
-        <img src="logo.png?v=4.3" alt="EasyQuiz" class="hero-logo">
+        <img src="logo.png?v=4.4" alt="EasyQuiz" class="hero-logo">
       </div>
       <div class="hero-content-col">
         <div class="hero-meta-row">
@@ -64,6 +64,8 @@
               <div class="dropdown-item" data-tab="legacy"><div class="dropdown-icon"><i data-lucide="panel-top"></i></div><div class="dropdown-text"><strong>Modo Legacy</strong><span>Interface flutuante completa</span></div></div>
             </div>
           </div>
+          <button type="button" class="btn btn-outline" onclick="window.location.hash='updates';"><i data-lucide="git-commit-horizontal"></i> Ver atualizacoes</button>
+          <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" class="btn btn-secondary" style="padding:0;width:48px" title="GitHub"><i data-lucide="github"></i></a>
         </div>
       </div>
     </header>
@@ -98,44 +100,18 @@
   <!-- MODO DISCRETO -->
   <section id="discrete" class="tab-pane">
     <div class="mode-page-hero" data-reveal>
-      <div class="mode-id-card glass">
-        <img src="logo.png?v=4.3" alt="EasyQuiz" class="mode-card-logo">
+      <div class="mode-id-card">
+        <img src="logo.png?v=4.4" alt="EasyQuiz" class="mode-card-logo">
         <div class="mode-card-label"><span>Modo Discreto</span><i data-lucide="eye-off"></i></div>
       </div>
       <div class="mode-page-info">
         <h1 class="mode-page-title">EasyQuiz Discreto</h1>
         <p class="mode-page-desc">Invisivel. Sem paineis. Apenas atalhos de teclado rapidos para leitura e auto-preenchimento ninja. Zero interfaces na prova.</p>
-        <div class="install-actions-wrap">
-          <div class="mode-install-actions">
-            <a href="javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@c923b65/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Indisponivel');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EQ: '+e)}}).catch(function(e){alert('EQ falha: '+e)})})();" class="drag-bm-btn" draggable="true" id="bm-discrete" title="EQ Discret"><span class="bm-sr-name">EQ Discret</span><span class="bm-visual-inner" aria-hidden="true"><span class="bm-dots"><span class="bm-dot"></span><span class="bm-dot"></span><span class="bm-dot"></span><span class="bm-dot"></span><span class="bm-dot"></span><span class="bm-dot"></span></span>Arrastar para favoritos</span></a>
-            <button type="button" class="btn btn-primary copy-direct-btn" data-code="code-discrete"><i data-lucide="copy"></i> Copiar</button>
-            <button type="button" class="code-dd-trigger" data-dd="code-discrete-dd" title="Ver codigo"><i data-lucide="chevron-down"></i></button>
-          </div>
-          <div class="code-dropdown" id="code-discrete-dd">
-            <div class="code-dd-header">
-              <span>Codigo de Injecao - EQ Discret</span>
-              <button type="button" class="copy-direct-btn" data-code="code-discrete"><i data-lucide="copy"></i> Copiar</button>
-            </div>
-            <pre class="code-inner" id="code-discrete">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@c923b65/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Indisponivel');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EQ: '+e)}}).catch(function(e){alert('EQ falha: '+e)})})();</pre>
-          </div>
-          <div class="drag-hint"><i data-lucide="arrow-up"></i> Arraste o botao para a barra de favoritos</div>
+        <div class="mode-install-actions">
+          <button type="button" class="btn btn-primary code-modal-trigger" data-code="code-discrete"><i data-lucide="code-2"></i> Copiar Codigo</button>
+          <a href="javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@c923b65/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Indisponivel');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EQ: '+e)}}).catch(function(e){alert('EQ falha: '+e)})})();" class="drag-bm-btn" draggable="true" title="EQ Discret">EQ Discret</a>
+          <button type="button" class="hint-btn" data-hint="hint-discrete">?</button>
         </div>
-        <button type="button" class="hint-btn" data-hint="hint-discrete">?</button>
-      </div>
-    </div>
-
-    <div class="hint-popup" id="hint-discrete">
-      <button class="hint-close"><i data-lucide="x"></i></button>
-      <h4>Como sao as chaves de API</h4>
-      <p>No menu <kbd>Shift+A</kbd>, cole suas chaves - uma por linha:</p>
-      <pre class="hint-code">AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ123456
-AIzaSy9876543210ZYXWVUTSRQPONMLKJIabcd</pre>
-      <div class="hint-rules">
-        <div class="hint-ok"><i data-lucide="check"></i> Uma chave por linha</div>
-        <div class="hint-ok"><i data-lucide="check"></i> Sem espacos ou tabs extras</div>
-        <div class="hint-ok"><i data-lucide="check"></i> Chave comeca sempre com <code>AIzaSy</code></div>
-        <div class="hint-no"><i data-lucide="x"></i> Nao use virgulas, ponto-e-virgula ou aspas</div>
-        <div class="hint-no"><i data-lucide="x"></i> Nao misture outros textos ou comentarios</div>
       </div>
     </div>
 
@@ -171,44 +147,18 @@ AIzaSy9876543210ZYXWVUTSRQPONMLKJIabcd</pre>
   <!-- MODO LEGACY -->
   <section id="legacy" class="tab-pane">
     <div class="mode-page-hero" data-reveal>
-      <div class="mode-id-card glass">
-        <img src="logo.png?v=4.3" alt="EasyQuiz" class="mode-card-logo">
+      <div class="mode-id-card">
+        <img src="logo.png?v=4.4" alt="EasyQuiz" class="mode-card-logo">
         <div class="mode-card-label"><span>Modo Legacy</span><i data-lucide="panel-top"></i></div>
       </div>
       <div class="mode-page-info">
         <h1 class="mode-page-title">EasyQuiz Legacy</h1>
         <p class="mode-page-desc">Laboratorio Visual Completo. Painel HUD flutuante com Shadow DOM isolado. Audite o raciocinio da IA, logs e controle chaves visualmente.</p>
-        <div class="install-actions-wrap">
-          <div class="mode-install-actions">
-            <a href="javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@c923b65/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Indisponivel');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EQ: '+e)}}).catch(function(e){alert('EQ falha: '+e)})})();" class="drag-bm-btn" draggable="true" id="bm-legacy" title="EQ Legacy"><span class="bm-sr-name">EQ Legacy</span><span class="bm-visual-inner" aria-hidden="true"><span class="bm-dots"><span class="bm-dot"></span><span class="bm-dot"></span><span class="bm-dot"></span><span class="bm-dot"></span><span class="bm-dot"></span><span class="bm-dot"></span></span>Arrastar para favoritos</span></a>
-            <button type="button" class="btn btn-primary copy-direct-btn" data-code="code-legacy"><i data-lucide="copy"></i> Copiar</button>
-            <button type="button" class="code-dd-trigger" data-dd="code-legacy-dd" title="Ver codigo"><i data-lucide="chevron-down"></i></button>
-          </div>
-          <div class="code-dropdown" id="code-legacy-dd">
-            <div class="code-dd-header">
-              <span>Codigo de Injecao - EQ Legacy</span>
-              <button type="button" class="copy-direct-btn" data-code="code-legacy"><i data-lucide="copy"></i> Copiar</button>
-            </div>
-            <pre class="code-inner" id="code-legacy">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@c923b65/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Indisponivel');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EQ: '+e)}}).catch(function(e){alert('EQ falha: '+e)})})();</pre>
-          </div>
-          <div class="drag-hint"><i data-lucide="arrow-up"></i> Arraste o botao para a barra de favoritos</div>
+        <div class="mode-install-actions">
+          <button type="button" class="btn btn-primary code-modal-trigger" data-code="code-legacy"><i data-lucide="code-2"></i> Copiar Codigo</button>
+          <a href="javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@c923b65/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Indisponivel');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EQ: '+e)}}).catch(function(e){alert('EQ falha: '+e)})})();" class="drag-bm-btn" draggable="true" title="EQ Legacy">EQ Legacy</a>
+          <button type="button" class="hint-btn" data-hint="hint-legacy">?</button>
         </div>
-        <button type="button" class="hint-btn" data-hint="hint-legacy">?</button>
-      </div>
-    </div>
-
-    <div class="hint-popup" id="hint-legacy">
-      <button class="hint-close"><i data-lucide="x"></i></button>
-      <h4>Como sao as chaves de API</h4>
-      <p>Na aba <kbd>Engrenagem</kbd> do painel, cole as chaves - uma por linha:</p>
-      <pre class="hint-code">AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ123456
-AIzaSy9876543210ZYXWVUTSRQPONMLKJIabcd</pre>
-      <div class="hint-rules">
-        <div class="hint-ok"><i data-lucide="check"></i> Uma chave por linha</div>
-        <div class="hint-ok"><i data-lucide="check"></i> Sem espacos ou tabs extras</div>
-        <div class="hint-ok"><i data-lucide="check"></i> Chave comeca sempre com <code>AIzaSy</code></div>
-        <div class="hint-no"><i data-lucide="x"></i> Nao use virgulas, ponto-e-virgula ou aspas</div>
-        <div class="hint-no"><i data-lucide="x"></i> Nao misture outros textos ou comentarios</div>
       </div>
     </div>
 
@@ -311,19 +261,47 @@ AIzaSy9876543210ZYXWVUTSRQPONMLKJIabcd</pre>
 
 </main>
 
-<!-- COMMIT DETAIL OVERLAY -->
-<div id="commit-overlay" class="commit-overlay" style="display:none">
-  <div class="commit-overlay-backdrop" id="commit-backdrop"></div>
-  <div class="commit-modal glass">
+<!-- CODE INJECTION MODAL (CENTERED OVER EVERYTHING) -->
+<div class="code-modal-overlay" id="global-code-modal">
+  <div class="code-modal">
+    <div class="code-modal-header">
+      <h3>Codigo de Injecao</h3>
+      <button class="code-modal-close" onclick="document.getElementById('global-code-modal').classList.remove('open')"><i data-lucide="x"></i></button>
+    </div>
+    <div class="code-modal-body" id="global-code-content"></div>
+    <div class="code-modal-footer">
+      <button class="btn btn-primary copy-trigger" onclick="navigator.clipboard.writeText(document.getElementById('global-code-content').textContent); showToast('Copiado!');">
+        <i data-lucide="copy"></i> Copiar Codigo
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- DATA STORE FOR CODES -->
+<div id="code-discrete-data" style="display:none">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@c923b65/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Indisponivel');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EQ: '+e)}}).catch(function(e){alert('EQ falha: '+e)})})();</div>
+<div id="code-legacy-data" style="display:none">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@c923b65/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Indisponivel');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EQ: '+e)}}).catch(function(e){alert('EQ falha: '+e)})})();</div>
+
+<!-- COMMIT DETAIL MODAL -->
+<div class="commit-modal" id="commit-modal">
+  <div class="cm-backdrop" id="cm-backdrop"></div>
+  <div class="cm-dialog">
+    <button type="button" class="cm-close" id="cm-close"><i data-lucide="x"></i></button>
     <div class="cm-header">
-      <div class="cm-version-badge" id="cm-version"></div>
-      <div class="cm-meta" id="cm-meta"></div>
-      <button type="button" class="co-close" id="cm-close"><i data-lucide="x"></i></button>
+      <div>
+        <div class="cm-version-badge" id="cm-version"></div>
+        <div class="cm-meta" id="cm-meta"></div>
+      </div>
     </div>
     <div class="cm-body">
       <h3 id="cm-title"></h3>
-      <pre id="cm-desc" class="cm-desc"></pre>
-      <div class="cm-details" id="cm-details"></div>
+      <div class="cm-desc" id="cm-desc"></div>
+      
+      <div class="cm-details-acc" id="cm-details-acc">
+        <div class="cm-details-head" onclick="document.getElementById('cm-details-acc').classList.toggle('open')">
+          Informacoes Adicionais <i data-lucide="chevron-down"></i>
+        </div>
+        <div class="cm-details-body" id="cm-details"></div>
+      </div>
     </div>
     <div class="cm-footer">
       <a id="cm-github-link" href="#" target="_blank" class="btn btn-outline sm">Ver no GitHub <i data-lucide="external-link"></i></a>
@@ -332,11 +310,42 @@ AIzaSy9876543210ZYXWVUTSRQPONMLKJIabcd</pre>
   </div>
 </div>
 
+<!-- HINT POPUP GLOBAL -->
+<div class="hint-popup" id="hint-discrete">
+  <button class="hint-close"><i data-lucide="x"></i></button>
+  <h4>Como sao as chaves de API</h4>
+  <p>No menu <kbd>Shift+A</kbd>, cole suas chaves - uma por linha:</p>
+  <pre class="hint-code">AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ123456
+AIzaSy9876543210ZYXWVUTSRQPONMLKJIabcd</pre>
+  <div class="hint-rules">
+    <div class="hint-ok"><i data-lucide="check"></i> Uma chave por linha</div>
+    <div class="hint-ok"><i data-lucide="check"></i> Sem espacos ou tabs extras</div>
+    <div class="hint-ok"><i data-lucide="check"></i> Chave comeca sempre com <code>AIzaSy</code></div>
+    <div class="hint-no"><i data-lucide="x"></i> Nao use virgulas, ponto-e-virgula ou aspas</div>
+    <div class="hint-no"><i data-lucide="x"></i> Nao misture outros textos ou comentarios</div>
+  </div>
+</div>
+
+<div class="hint-popup" id="hint-legacy">
+  <button class="hint-close"><i data-lucide="x"></i></button>
+  <h4>Como sao as chaves de API</h4>
+  <p>Na aba <kbd>Engrenagem</kbd> do painel, cole as chaves - uma por linha:</p>
+  <pre class="hint-code">AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ123456
+AIzaSy9876543210ZYXWVUTSRQPONMLKJIabcd</pre>
+  <div class="hint-rules">
+    <div class="hint-ok"><i data-lucide="check"></i> Uma chave por linha</div>
+    <div class="hint-ok"><i data-lucide="check"></i> Sem espacos ou tabs extras</div>
+    <div class="hint-ok"><i data-lucide="check"></i> Chave comeca sempre com <code>AIzaSy</code></div>
+    <div class="hint-no"><i data-lucide="x"></i> Nao use virgulas, ponto-e-virgula ou aspas</div>
+    <div class="hint-no"><i data-lucide="x"></i> Nao misture outros textos ou comentarios</div>
+  </div>
+</div>
+
 <footer class="site-footer">
   <div class="footer-inner">
     <div class="footer-divider"></div>
     <div class="footer-row">
-      <div class="footer-brand"><img src="logo.png?v=4.3" width="22" height="22" alt="EasyQuiz"><span>EasyQuiz &copy; 2026</span></div>
+      <div class="footer-brand"><img src="logo.png?v=4.4" width="22" height="22" alt="EasyQuiz"><span>EasyQuiz &copy; 2026</span></div>
       <div class="footer-links">
         <a href="https://github.com/minifoxie/EasyQuiz" target="_blank">GitHub</a>
         <a href="https://github.com/minifoxie/EasyQuiz/blob/main/README.md" target="_blank">Documentacao</a>
@@ -347,6 +356,6 @@ AIzaSy9876543210ZYXWVUTSRQPONMLKJIabcd</pre>
 </footer>
 
 <div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Copiado!</span></div>
-<script src="js/app.js?v=4.3"></script>
+<script src="js/app.js?v=4.4"></script>
 </body>
 </html>
