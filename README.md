@@ -112,18 +112,27 @@ Injeta uma interface de usuário complexa, arrastável e de altíssima qualidade
 **100% invisível por padrão.** Toda a operação é governada silenciosamente via atalhos de teclado e as respostas são aplicadas simulando a sua própria digitação física.
 Quando a IA resolve injetar um texto, a ferramenta aguarda você pressionar qualquer tecla real. A cada tecla física pressionada, o sistema libera *um caractere* da resposta da IA, imitando a sua digitação e burlando detectores!
 
-#### ⌨️ Tabela de Atalhos Ninja (Modo Discreto):
+#### ⌨️ Categorias de Atalhos Ninja (Modo Discreto):
 
-| Atalho | Ação Executada |
+**🎯 Ações de Resolução e Fluxo**
+| Atalho | Descrição da Ação |
 | :--- | :--- |
-| **`Shift + Q`** ou **`Alt + Q`** | Inicia a análise da questão atual ativamente de forma furtiva. |
-| **`Shift + Z`** | 🚨 *Panic Button*: Aborta a análise imediatamente ou para a digitação pela metade. |
-| **`Shift + R`** | Re-analisa a questão do zero (útil caso a rede oscile). |
-| **`Shift + A`** | Abre o modal minúsculo no canto para inserir/trocar a Chave API. |
-| **`Shift + M`** | Permite trocar de modelo Gemini/Claude em tempo real. |
-| **`Shift + C`** | Abre o Menu de Comandos Rápidos (para ligar "Auto Aplicar"). |
-| **`Shift + V`** | Exibe rapidamente o que a visão computacional enxergou da tela. |
-| **`Shift + H`** | Abre o painel flutuante de Auditoria para debugar falhas do site. |
+| **`Shift + Q`** / **`Alt + Q`** | 🚀 **Iniciar Análise**: Foca na questão atual e inicia a resolução ativamente. |
+| **`Shift + R`** | 🔄 **Forçar Re-análise**: Útil se a internet falhar ou a resposta da IA não for satisfatória. |
+| **`Shift + Z`** | 🚨 **Panic Button (Abortar)**: Cancela qualquer análise em andamento ou interrompe a digitação automática no meio da frase. |
+
+**⚙️ Configurações e Modelos**
+| Atalho | Descrição da Ação |
+| :--- | :--- |
+| **`Shift + A`** | 🔑 **Gerenciador de Chaves**: Abre a interface minimalista para colar sua Key da API do Google. |
+| **`Shift + M`** | 🧠 **Troca de Modelos**: Cicla instantaneamente entre os modelos disponíveis (Gemini Flash, Pro, etc). |
+| **`Shift + C`** | ⚡ **Comandos Rápidos**: Ativa funções como *Auto Aplicar* ou *Avanço Automático de Páginas*. |
+
+**🛠️ Depuração e Inspeção Visual**
+| Atalho | Descrição da Ação |
+| :--- | :--- |
+| **`Shift + V`** | 👁️ **Visão Computacional**: Exibe um popup revelando a imagem exata capturada da prova que foi enviada pra IA. |
+| **`Shift + H`** | 💻 **Modo Auditoria**: Abre um DevTools flutuante com logs completos para investigar erros e fluxos complexos. |
 
 ---
 
