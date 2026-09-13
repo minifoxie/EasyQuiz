@@ -7,20 +7,20 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
-  <!-- Sistema de Partículas (Background) -->
   <canvas id="particle-canvas"></canvas>
 
   <nav class="navbar">
     <div class="nav-content">
-      <div class="logo">EasyQuiz <span>Pro</span> <span id="site-version" class="version-badge">v1.7.9</span></div>
+      <div class="logo">EasyQuiz <span>Pro</span> <span id="site-version" class="version-badge">v?.?.?</span></div>
       <div class="nav-links">
-        <a href="#home" class="nav-btn active" data-target="home">Início</a>
-        <a href="#install" class="nav-btn" data-target="install">Instalação</a>
-        <a href="#legacy" class="nav-btn" data-target="legacy">Modo Legacy</a>
-        <a href="#discrete" class="nav-btn" data-target="discrete">Modo Discreto</a>
+        <a href="#home" class="nav-btn active" data-target="home"><i data-lucide="home"></i> Início</a>
+        <a href="#legacy" class="nav-btn" data-target="legacy"><i data-lucide="layout-dashboard"></i> Modo Legacy</a>
+        <a href="#discrete" class="nav-btn" data-target="discrete"><i data-lucide="ghost"></i> Modo Discreto</a>
       </div>
     </div>
   </nav>
@@ -30,88 +30,65 @@
     <!-- ABA: INÍCIO -->
     <section id="home" class="tab-pane active fade-in">
       <header class="hero">
-        <div class="hero-badge">Zero Servidor. 100% Client-Side.</div>
+        <div class="hero-badge"><i data-lucide="server-off"></i> Zero Servidor. 100% Client-Side.</div>
         <h1 class="hero-title">A evolução invisível<br>do <span>Auxílio Cognitivo</span>.</h1>
         <p class="hero-subtitle">Mapeamento semântico de DOM. Visão computacional de baixo nível. Evasão de Anti-Cheats com PointerEvents. Tudo processado na sua GPU local e na API do Google.</p>
         
         <div class="hero-actions">
-          <button class="btn btn-primary" onclick="switchTab('install')">Obter Bookmarklets</button>
-          <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" class="btn btn-secondary">Ver no GitHub</a>
+          <button class="btn btn-secondary" onclick="switchTab('legacy')"><i data-lucide="layout-dashboard"></i> Explorar Modo Legacy</button>
+          <button class="btn btn-primary" onclick="switchTab('discrete')"><i data-lucide="ghost"></i> Explorar Modo Discreto</button>
         </div>
       </header>
 
       <div class="features-grid">
         <div class="feature-card">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-          </div>
+          <div class="feature-icon"><i data-lucide="scan-eye"></i></div>
           <h3>Detecção Cega</h3>
           <p>O algoritmo lê a semântica da página em tempo real. Não dependemos de seletores CSS fixos.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-9 12H7v-2h4v2zm-2-4H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z"></path></svg>
-          </div>
+          <div class="feature-icon"><i data-lucide="keyboard"></i></div>
           <h3>Digitação Humana</h3>
           <p>Burlamos detectores do React e Angular injetando respostas caractere por caractere via eventos nativos.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
-          </div>
+          <div class="feature-icon"><i data-lucide="key-round"></i></div>
           <h3>Sistema Multi-Key</h3>
           <p>Adicione 4 ou mais chaves da API do Google para obter Balanceamento de Carga instantâneo sem limites de uso.</p>
         </div>
       </div>
     </section>
 
-    <!-- ABA: INSTALAÇÃO -->
-    <section id="install" class="tab-pane fade-in">
-      <div class="section-header">
-        <h2>Início Rápido e Instalação</h2>
-        <p>O EasyQuiz é injetado via Bookmarklets. Sem downloads suspeitos, sem extensões bloqueadas. Apenas JavaScript puro salvo nos seus favoritos.</p>
-      </div>
-
-      <div class="install-steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div class="step-content">Exiba a Barra de Favoritos (<code>Ctrl + Shift + B</code>)</div>
-        </div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <div class="step-content">Clique com o Botão Direito na barra e selecione <strong>Adicionar Página</strong>.</div>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div class="step-content">Copie um dos blocos de código abaixo e cole na caixa de "URL".</div>
-        </div>
-      </div>
-
-      <div class="code-boxes">
-        <div class="code-card">
-          <div class="code-header">
-            <span class="code-title">Modo Legacy (Painel Completo)</span>
-            <button class="copy-btn" data-type="legacy">Copiar Código</button>
-          </div>
-          <pre><code id="code-legacy">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();</code></pre>
-          <p class="code-desc">Traz uma UI embutida (Shadow DOM) para auditoria profunda de fluxo e configuração via cliques.</p>
-        </div>
-
-        <div class="code-card solid-blue">
-          <div class="code-header">
-            <span class="code-title">Modo Discreto (Invisível)</span>
-            <button class="copy-btn primary" data-type="discrete">Copiar Código</button>
-          </div>
-          <pre><code id="code-discrete">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();</code></pre>
-          <p class="code-desc">Oculto, opera via atalhos do teclado. Aguarda cliques físicos nas suas teclas para digitar respostas furtivamente.</p>
-        </div>
-      </div>
-    </section>
-
     <!-- ABA: LEGACY -->
     <section id="legacy" class="tab-pane fade-in">
-  <div class="content-block manual-block">
-    <h2>💻 Modo Legacy: Auditoria Visual Completa</h2>
+      
+      <!-- Instalação no Topo -->
+      <div class="install-banner">
+        <div class="install-header">
+          <div class="install-title">
+            <i data-lucide="download"></i>
+            <div>
+              <h2>Instalar: Modo Legacy</h2>
+              <p>O painel de auditoria visual arrastável.</p>
+            </div>
+          </div>
+          <div class="install-steps-inline">
+            <span><strong>1.</strong> Exiba os Favoritos (Ctrl+Shift+B)</span>
+            <span><strong>2.</strong> Clique direito > Adicionar Página</span>
+            <span><strong>3.</strong> Cole o código abaixo na URL</span>
+          </div>
+        </div>
+        <div class="code-card">
+          <div class="code-header">
+            <span class="code-title">Bookmarklet (Painel HUD)</span>
+            <button class="copy-btn" data-type="legacy"><i data-lucide="copy"></i> Copiar Código</button>
+          </div>
+          <pre><code id="code-legacy">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@4a289c9/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();</code></pre>
+        </div>
+      </div>
+
+      <div class="content-block manual-block">
+        <h2><i data-lucide="terminal"></i> Modo Legacy: Auditoria Visual Completa</h2>
 
 <p>O <strong>Modo Legacy</strong> (ou Modo Painel) é o "Laboratório de Desenvolvedor" do EasyQuiz. Ele foi construído utilizando um <strong>Shadow DOM</strong> hiper-avançado. Isso significa que ele injeta uma janela flutuante completa, arrastável e de altíssima definição dentro da sua aba, mas o código dessa janela fica isolado e encriptografado, impedindo que o site hospedeiro veja o que ela contém.</p>
 
@@ -119,7 +96,7 @@
 
 <hr>
 
-<h3>🛠️ A Anatomia do Painel</h3>
+<h3><i data-lucide="wrench"></i> A Anatomia do Painel</h3>
 
 <p>Quando você clica no Bookmarklet do Modo Legacy, nada acontece inicialmente. A mágica só começa quando você pressiona <strong><code>Alt + Q</code></strong>. Um painel HUD deslizará elegantemente para dentro da sua tela.</p>
 
@@ -153,7 +130,7 @@
 
 <hr>
 
-<h3>🚀 Como Iniciar</h3>
+<h3><i data-lucide="rocket"></i> Como Iniciar</h3>
 
 <p>1. Vá para a seção de Instalação na página principal.</p>
 <p>2. Copie o código do "Modo Legacy" e crie um Favorito.</p>
@@ -163,13 +140,39 @@
 <p>6. Clique na <strong>Engrenagem</strong> para configurar a sua API Key.</p>
 <p>7. Clique na Aba Principal e dê <strong>RESOLVER</strong>!</p>
 
-  </div>
-</section>
+      </div>
+    </section>
 
     <!-- ABA: DISCRETO -->
     <section id="discrete" class="tab-pane fade-in">
-  <div class="content-block manual-block">
-    <h2>🕵️ Modo Discreto: O Guia Furtivo Supremo</h2>
+
+      <!-- Instalação no Topo -->
+      <div class="install-banner solid-blue">
+        <div class="install-header">
+          <div class="install-title">
+            <i data-lucide="ghost"></i>
+            <div>
+              <h2>Instalar: Modo Discreto</h2>
+              <p>A verdadeira ferramenta furtiva operada por atalhos.</p>
+            </div>
+          </div>
+          <div class="install-steps-inline">
+            <span><strong>1.</strong> Exiba os Favoritos (Ctrl+Shift+B)</span>
+            <span><strong>2.</strong> Clique direito > Adicionar Página</span>
+            <span><strong>3.</strong> Cole o código abaixo na URL</span>
+          </div>
+        </div>
+        <div class="code-card solid-blue">
+          <div class="code-header">
+            <span class="code-title">Bookmarklet (Invisível)</span>
+            <button class="copy-btn primary" data-type="discrete"><i data-lucide="copy"></i> Copiar Código</button>
+          </div>
+          <pre><code id="code-discrete">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@4a289c9/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();</code></pre>
+        </div>
+      </div>
+
+      <div class="content-block manual-block">
+        <h2><i data-lucide="ghost"></i> Modo Discreto: O Guia Furtivo Supremo</h2>
 
 <p>O <strong>Modo Discreto</strong> (Stealth) do EasyQuiz foi arquitetado do zero para contornar qualquer tipo de inspeção visual, análise de rede superficial e detecção de automação por DOM.</p>
 
@@ -177,7 +180,7 @@
 
 <hr>
 
-<h3>⚡ A Arquitetura de "Hooking" (Como burlamos os Anti-Cheats)</h3>
+<h3><i data-lucide="zap"></i> A Arquitetura de "Hooking" (Como burlamos os Anti-Cheats)</h3>
 
 <p>Se um script apenas muda o valor de uma caixa de texto (<code>input.value = "Resposta"</code>), plataformas modernas (React/Angular) detectam a injeção mecânica instantaneamente e anulam a submissão, enviando a prova em branco.</p>
 
@@ -189,7 +192,7 @@
 
 <hr>
 
-<h3>⌨️ Tabela de Comandos de Batalha (Atalhos)</h3>
+<h3><i data-lucide="keyboard"></i> Tabela de Comandos de Batalha (Atalhos)</h3>
 
 <p>Estes atalhos governam o sistema. Memorize-os:</p>
 
@@ -204,7 +207,7 @@
 
 <hr>
 
-<h3>🚀 Como Iniciar</h3>
+<h3><i data-lucide="rocket"></i> Como Iniciar</h3>
 
 <p>1. Vá para a seção de Instalação na página principal.</p>
 <p>2. Copie o código do "Modo Discreto" e crie um Favorito.</p>
@@ -215,12 +218,12 @@
 
 <blockquote><strong>Importante:</strong> Não aperte <code>Shift + Q</code> 20 vezes na mesma prova ao mesmo tempo. Dê tempo para a inteligência computar e preencher a resposta atual antes de pular para a próxima.</blockquote>
 
-  </div>
-</section>
+      </div>
+    </section>
 
   </main>
 
-  <div id="toast" class="toast">Código copiado com sucesso!</div>
+  <div id="toast" class="toast"><i data-lucide="check-circle-2"></i> <span>Código copiado com sucesso!</span></div>
 
   <script src="js/app.js"></script>
 </body>

@@ -25,10 +25,12 @@ function switchTab(targetId) {
   // Update URL Hash without scrolling
   history.replaceState(null, null, '#' + targetId);
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  lucide.createIcons();
 }
 
 // Initial Tab Load
 window.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
   const hash = window.location.hash.replace('#', '');
   if (hash && document.getElementById(hash)) {
     switchTab(hash);
