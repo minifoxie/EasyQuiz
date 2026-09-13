@@ -24,6 +24,16 @@ Com um único clique de teclado, ele lê a tela, enxerga os gráficos, processa 
 
 ---
 
+## 📑 Tabela de Conteúdos
+1. [Por que o EasyQuiz é diferente?](#-por-que-o-easyquiz-é-diferente)
+2. [Instalação Rápida e Códigos Oficiais (Bookmarklets)](#-início-rápido-e-códigos-de-instalação-bookmarklets)
+3. [Como Obter Sua Chave da API](#-como-obter-sua-chave-da-api-totalmente-gratuita)
+4. [Modos de Operação (Legacy vs Discreto)](#-modos-de-operação-do-easyquiz)
+5. [Mecânicas Internas e Tecnologias](#-mecânicas-internas-e-tecnologias)
+6. [Suporte e Compatibilidade](#-suporte-e-compatibilidade-tecnológica)
+
+---
+
 ## 🎯 Por que o EasyQuiz é diferente?
 - **Zero Hospedagem:** A maioria das extensões requer que o criador pague milhares de reais em servidores. O EasyQuiz funciona de "Cliente-Para-IA". Seu navegador conversa de forma privada com o Google, usando a sua própria chave gratuita.
 - **Detecção Computacional Cega:** Ele não usa seletores duros como "ache o input X". Ele mapeia a semântica da página. Se você abrir um Google Forms ou a plataforma Canvas, o algoritmo escaneia, dá nota e marca a área da sua tela com destaques Neon para confirmar o que vai resolver.
@@ -34,11 +44,12 @@ Com um único clique de teclado, ele lê a tela, enxerga os gráficos, processa 
 <br>
 
 <div align="center">
-  <h2>🚀 INÍCIO RÁPIDO E CÓDIGOS DE INSTALAÇÃO (IMPORTANTE)</h2>
-  <p><em>Preste bastante atenção aqui: o EasyQuiz é um Bookmarklet! Isso significa que não existe botão de "Baixar".<br>Você o instala como se fosse adicionar uma página aos seus favoritos.</em></p>
+  <h2>🚀 INÍCIO RÁPIDO E CÓDIGOS DE INSTALAÇÃO (BOOKMARKLETS)</h2>
+  <p><em>Preste bastante atenção aqui: o EasyQuiz é um Bookmarklet! Isso significa que não existe botão de "Baixar".<br>Você o instala como se fosse adicionar uma página aos seus favoritos em apenas 10 segundos.</em></p>
 </div>
 
 > [!IMPORTANT]
+> **O Passo a Passo da Instalação:**
 > 1. Pressione **`Ctrl + Shift + B`** no seu navegador para exibir a Barra de Favoritos abaixo da barra de endereço.
 > 2. Clique com o botão direito na barra, e depois em **"Adicionar Página"** (ou Adicionar Favorito).
 > 3. Escolha um **Nome** legal (Ex: "🌟 EasyQuiz Ninja").
@@ -58,27 +69,88 @@ javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@mai
 ```javascript
 javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();
 ```
-*(Clique no botão mágico de **Copy/Copiar** que aparece ao passar o mouse por cima do código)*
+*(Dica: Ao passar o mouse por cima do bloco de código, um botão nativo de Copiar aparecerá no canto direito)*
 
 ---
 
-## 📚 Manuais Avançados e Detalhados
+## 🔑 Como Obter Sua Chave da API (Totalmente Gratuita)
 
-Construímos guias expansivos caso você queira dominar 100% da plataforma. Escolha o guia que atende a sua necessidade de exploração:
+O EasyQuiz não possui servidores ou banco de dados próprios para processamento. Toda a mágica acontece diretamente entre o seu computador e os servidores do **Google Gemini**. Para isso, você precisa de uma "chave" de acesso.
 
-### 📖 [1. Guia Detalhado de Instalação (E como pegar a API Key)](docs/INSTALACAO.md)
-Tudo sobre como instalar, dúvidas comuns, compatibilidade em Desktop, e um **passo-a-passo detalhado com o link oficial para você gerar a sua Chave de API do Gemini no Google AI Studio (Totalmente Grátis).** Se for sua primeira vez, *você deve ler este guia*.
+1. Acesse o portal para desenvolvedores do Google: **[Google AI Studio](https://aistudio.google.com/app/apikey)**.
+2. Faça login com sua conta do Google (a mesma que você já usa no Gmail ou YouTube).
+3. Clique no botão azul gigante **"Create API Key"** (Criar chave de API).
+4. O sistema irá gerar um texto longo (algo como `AIzaSyBw...`). **Copie esse texto**.
+5. No **EasyQuiz**, clique na engrenagem de configurações ⚙️ (no Modo Legacy) ou pressione `Shift + A` (no Modo Discreto).
+6. Cole a sua chave e salve!
 
-### 📖 [2. Lista de Comandos e os Modos de Uso](docs/MODOS_DE_USO.md)
-Como usar o poder total de forma silenciosa? Aprenda *literalmente* tudo. Desde o atalho **`Shift + Z`** de emergência para abortar fluxos furtivamente, até como configurar auto-aplicadores de cliques e transição de IAs. Detalhamento integral da UI e dos Atalhos Ninja!
+> 🛡️ **Segurança em Primeiro Lugar:** Sua chave é salva exclusivamente no armazenamento local (`localStorage`) do seu navegador. Ela nunca é enviada para os criadores do EasyQuiz ou para terceiros.
 
-### 📖 [3. Mecânicas, Motores de Detecção e Tecnologias](docs/MECANICAS.md)
-Leitura obrigatória para curiosos de tecnologia! Explicamos detalhadamente as artimanhas por trás dos panos: simulação de PointerEvents, evasões de React e Angular DOM Hijacking, e as capturas multimodais para visão computacional de baixo nível usando a sua placa de vídeo!
+---
+
+<br>
+
+<div align="center">
+  <h2>🎛️ Modos de Operação do EasyQuiz</h2>
+</div>
+
+O EasyQuiz foi projetado para se adaptar a diferentes estilos de uso. A plataforma entrega dois modos completos, que variam apenas na interface, mas compartilham do mesmo "cérebro" IA.
+
+### 1️⃣ Modo Legacy (Painel Flutuante)
+Injeta uma interface de usuário complexa, arrastável e de altíssima qualidade (Shadow DOM), inspirada fortemente em IDEs como o VS Code. Para quem gosta de controle absoluto.
+
+- 🚀 **Resolver**: Executa a IA, exibe as opções detectadas e permite Injeção Automática das respostas.
+- 🧠 **Cérebro da IA**: Mostra como a inteligência está mapeando o DOM passo-a-passo.
+- 🖼️ **Mídias & Imagens**: Exibe exatamente como a Visão Computacional está enxergando os gráficos da sua prova.
+- 💻 **Terminal**: Um console embutido com logs de telemetria e erros silenciosos.
+- **`Alt + Q`** — Abre/Fecha o painel e **dispara a análise automaticamente**. 
+
+### 2️⃣ Modo Discreto (Stealth/Ninja)
+**100% invisível por padrão.** Toda a operação é governada silenciosamente via atalhos de teclado e as respostas são aplicadas simulando a sua própria digitação física.
+Quando a IA resolve injetar um texto, a ferramenta aguarda você pressionar qualquer tecla real. A cada tecla física pressionada, o sistema libera *um caractere* da resposta da IA, imitando a sua digitação e burlando detectores!
+
+#### ⌨️ Tabela de Atalhos Ninja (Modo Discreto):
+
+| Atalho | Ação Executada |
+| :--- | :--- |
+| **`Shift + Q`** ou **`Alt + Q`** | Inicia a análise da questão atual ativamente de forma furtiva. |
+| **`Shift + Z`** | 🚨 *Panic Button*: Aborta a análise imediatamente ou para a digitação pela metade. |
+| **`Shift + R`** | Re-analisa a questão do zero (útil caso a rede oscile). |
+| **`Shift + A`** | Abre o modal minúsculo no canto para inserir/trocar a Chave API. |
+| **`Shift + M`** | Permite trocar de modelo Gemini/Claude em tempo real. |
+| **`Shift + C`** | Abre o Menu de Comandos Rápidos (para ligar "Auto Aplicar"). |
+| **`Shift + V`** | Exibe rapidamente o que a visão computacional enxergou da tela. |
+| **`Shift + H`** | Abre o painel flutuante de Auditoria para debugar falhas do site. |
+
+---
+
+<br>
+
+<div align="center">
+  <h2>🛠️ Mecânicas Internas e Tecnologias</h2>
+</div>
+
+O EasyQuiz é desenhado sob o lema *"Transparência Total"*. A integração com os frameworks ocorre utilizando as mais avançadas estratégias de engenharia reversa de DOM (Document Object Model).
+
+### 🧩 O Motor de Detecção Semântica
+Ao invés de programar o EasyQuiz para entender "site por site" (o que o deixaria obsoleto rapidamente), ele possui um **Algoritmo Classificador de DOM Genérico**.
+Ele escaneia a árvore da página em busca de agrupamentos suspeitos e atribui uma **pontuação de relevância**. O bloco com mais cara de "Questão de Prova" é classificado como a "Questão Ativa" do momento.
+
+### 👁️ Visão Computacional de Baixo Nível
+Para interpretar fórmulas matemáticas complexas renderizadas na tela usando HTML bizarro ou Canvas, o EasyQuiz usa a **Media Capture Strategy**:
+- O robô tira um screenshot vetorial em milissegundos puramente do retângulo da pergunta detectada.
+- A imagem é convertida em *Data URI* e enviada de forma multimodal para a IA ler a foto e o código cru juntos.
+
+### 🧬 Event Dispatcher & Framework Hijacking
+Formulários em **React, Vue ou Angular** não aceitam simples cliques via código. Se um robô alterar o HTML, a interface muda, mas o React não registra a mudança e envia a prova em branco.
+O EasyQuiz burla isso redefinindo os `_valueTracker` do React nativamente e disparando `PointerEvents` sintéticos orquestrados (`pointerdown`, `mouseup`, `click`), com delays realistas e coordenadas (x, y) humanizadas.
+
+> **Zero Rastros**: Todos os estilos e lógicas pesadas são aplicadas isoladas dentro de um `Shadow DOM`, o que impede que scripts de terceiros da página consigam bisbilhotar as variáveis da extensão.
 
 ---
 
 ## 🌎 Suporte e Compatibilidade Tecnológica
-A tecnologia embarcada requer o motor **Chromium**. Se você for do ecossistema Apple, não utilize o Safari.
+A tecnologia embarcada requer nativamente o motor **Chromium**. O ecossistema Apple (Safari) ou o Firefox possuem bloqueios nas APIs de captura de tela web e não são suportados.
 
 | <img src="https://img.shields.io/badge/Google_Chrome-4285F4?style=flat-square&logo=googlechrome&logoColor=white" /> | <img src="https://img.shields.io/badge/Microsoft_Edge-0078D7?style=flat-square&logo=microsoftedge&logoColor=white" /> | <img src="https://img.shields.io/badge/Brave-FF2000?style=flat-square&logo=brave&logoColor=white" /> | <img src="https://img.shields.io/badge/Opera-FF1B2D?style=flat-square&logo=opera&logoColor=white" /> |
 | :---: | :---: | :---: | :---: |
@@ -86,7 +158,9 @@ A tecnologia embarcada requer o motor **Chromium**. Se você for do ecossistema 
 
 ### 🛠️ Sites Comportados pelo Algoritmo:
 * **Google Forms, Canvas (Instructure), Moodle, Blackboard**
-* Quizzes HTML5 clássicos, e dezenas de plataformas customizadas, já que as injeções semânticas detectam padrões de inputs globais, independente da formatação customizada da escola/empresa.
+* Plataformas experimentais (Kahoot!, Quizizz)
+* Quizzes HTML5 clássicos e dezenas de plataformas customizadas, independentemente da formatação da escola/empresa, contanto que usem inputs da web moderna.
 
 ---
-> *Este é um projeto de código aberto, focado puramente em estudos de inteligência artificial, dom hacking e expansão cognitiva automatizada. Use com responsabilidade e excelência!* ⚡
+
+> *Este é um projeto de código aberto, focado puramente em estudos de inteligência artificial, manipulação segura de DOM e expansão cognitiva automatizada. Use com responsabilidade e excelência!* ⚡
