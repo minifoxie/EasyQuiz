@@ -1,175 +1,210 @@
 /* =============================================
-   EasyQuiz — App Script v2.0
-   Interactive BG, Sliding Nav, Staggered Anim
-   Accordion Code Blocks, Dropdown, Toast
+   EasyQuiz — App Script v2.2
+   Interactive Grid, Sliding Nav, Staggered Anim,
+   Accordion Code Blocks, Dropdown, Copy Toast
    ============================================= */
 
 // ─────────────────────────────────────────────
 //  INTERACTIVE GRID BACKGROUND
 // ─────────────────────────────────────────────
-const canvas = document.getElementById('bg-canvas');
-const ctx = canvas.getContext('2d');
-const CELL = 60;
-let cols, rows, mouse = { x: -9999, y: -9999 };
+(function initCanvas() {
+  const canvas = document.getElementById('bg-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const CELL = 54;
+  let cols = 0, rows = 0;
+  let mouse = { x: -9999, y: -9999 };
+  let animId = null;
 
-function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  cols = Math.ceil(canvas.width / CELL) + 1;
-  rows = Math.ceil(canvas.height / CELL) + 1;
-}
-
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-
-window.addEventListener('mousemove', e => {
-  mouse.x = e.clientX;
-  mouse.y = e.clientY;
-});
-
-function drawGrid() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const cx = c * CELL;
-      const cy = r * CELL;
-      const dx = cx - mouse.x;
-      const dy = cy - mouse.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const maxDist = 180;
-      const intensity = Math.max(0, 1 - dist / maxDist);
-
-      // Grid dot
-      const dotR = 1 + intensity * 3;
-      const alpha = 0.12 + intensity * 0.6;
-      ctx.beginPath();
-      ctx.arc(cx, cy, dotR, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-      ctx.fill();
-
-      // Grid lines (subtle)
-      ctx.strokeStyle = `rgba(255,255,255,${0.03 + intensity * 0.1})`;
-      ctx.lineWidth = 0.5;
-      if (c < cols - 1) {
-        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + CELL, cy); ctx.stroke();
-      }
-      if (r < rows - 1) {
-        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + CELL); ctx.stroke();
-      }
-    }
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    ctx.scale(dpr, dpr);
+    cols = Math.ceil(window.innerWidth / CELL) + 1;
+    rows = Math.ceil(window.innerHeight / CELL) + 1;
   }
 
-  requestAnimationFrame(drawGrid);
-}
-drawGrid();
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  window.addEventListener('mousemove', e => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+  });
+
+  window.addEventListener('mouseleave', () => {
+    mouse.x = -9999;
+    mouse.y = -9999;
+  });
+
+  function drawGrid() {
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cx = c * CELL;
+        const cy = r * CELL;
+        const dx = cx - mouse.x;
+        const dy = cy - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const maxDist = 160;
+        const intensity = Math.max(0, 1 - dist / maxDist);
+
+        // Dot
+        const dotR = 1 + intensity * 2.5;
+        const alpha = 0.08 + intensity * 0.55;
+        ctx.beginPath();
+        ctx.arc(cx, cy, dotR, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.fill();
+
+        // Subtle connecting lines
+        if (intensity > 0.05) {
+          ctx.strokeStyle = `rgba(14, 165, 233, ${intensity * 0.15})`;
+          ctx.lineWidth = 0.5;
+          if (c < cols - 1) {
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + CELL, cy); ctx.stroke();
+          }
+          if (r < rows - 1) {
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + CELL); ctx.stroke();
+          }
+        }
+      }
+    }
+
+    animId = requestAnimationFrame(drawGrid);
+  }
+
+  drawGrid();
+})();
 
 
 // ─────────────────────────────────────────────
 //  SLIDING NAV PILL
 // ─────────────────────────────────────────────
-let pill = null;
+let navPill = null;
 
 function initNavPill() {
-  pill = document.createElement('div');
-  pill.className = 'nav-pill';
-  document.querySelector('.nav-links').prepend(pill);
-  movePillToActive();
+  const navLinks = document.querySelector('.nav-links');
+  if (!navLinks) return;
+
+  navPill = document.createElement('div');
+  navPill.className = 'nav-pill';
+  navLinks.prepend(navPill);
+
+  // Position pill after DOM layout
+  requestAnimationFrame(movePillToActive);
 }
 
 function movePillToActive() {
-  if (!pill) return;
-  const active = document.querySelector('.nav-btn.active');
-  if (!active) return;
-  const rect = active.getBoundingClientRect();
-  const navRect = document.querySelector('.nav-links').getBoundingClientRect();
-  pill.style.width = rect.width + 'px';
-  pill.style.height = rect.height + 'px';
-  pill.style.left = (rect.left - navRect.left) + 'px';
+  if (!navPill) return;
+  const activeBtn = document.querySelector('.nav-btn.active');
+  if (!activeBtn) {
+    navPill.style.opacity = '0';
+    return;
+  }
+  navPill.style.opacity = '1';
+  navPill.style.left = activeBtn.offsetLeft + 'px';
+  navPill.style.top = activeBtn.offsetTop + 'px';
+  navPill.style.width = activeBtn.offsetWidth + 'px';
+  navPill.style.height = activeBtn.offsetHeight + 'px';
 }
 
 
 // ─────────────────────────────────────────────
-//  TAB SWITCHING WITH STAGGERED ANIMATION
+//  TAB SWITCHING WITH STAGGERED ANIMATIONS
 // ─────────────────────────────────────────────
 function switchTab(targetId) {
-  // Fade out current
-  document.querySelectorAll('.tab-pane.active').forEach(p => {
-    p.classList.add('leaving');
-    setTimeout(() => { p.classList.remove('active', 'leaving'); }, 280);
-  });
+  const targetPane = document.getElementById(targetId);
+  if (!targetPane) return;
 
-  // Update nav
+  // Update tabs UI
   document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.classList.remove('active');
-    if (btn.dataset.target === targetId) btn.classList.add('active');
+    btn.classList.toggle('active', btn.dataset.target === targetId);
   });
 
   movePillToActive();
 
-  // Activate new pane with stagger
-  setTimeout(() => {
-    const pane = document.getElementById(targetId);
-    if (!pane) return;
-    pane.classList.add('active');
+  // Hide current active pane
+  document.querySelectorAll('.tab-pane.active').forEach(pane => {
+    if (pane.id !== targetId) {
+      pane.classList.remove('active');
+    }
+  });
 
-    // Stagger children
-    const children = pane.querySelectorAll('.stagger-child');
-    children.forEach((el, i) => {
-      el.style.animationDelay = `${i * 60}ms`;
-      el.classList.remove('stagger-done');
-      void el.offsetWidth; // reflow
-      el.classList.add('stagger-done');
-    });
+  // Activate target pane
+  targetPane.classList.add('active');
 
+  // Trigger staggered animations
+  const children = targetPane.querySelectorAll('.stagger-child');
+  children.forEach((el, index) => {
+    el.classList.remove('stagger-done');
+    el.style.animationDelay = `${index * 55}ms`;
+    void el.offsetWidth; // force reflow
+    el.classList.add('stagger-done');
+  });
+
+  if (window.lucide) {
     lucide.createIcons();
-    history.replaceState(null, null, '#' + targetId);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, 100);
+  }
+
+  // Update URL hash smoothly
+  history.replaceState(null, null, '#' + targetId);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 
 // ─────────────────────────────────────────────
-//  DROPDOWN CONTEXT MENU  (Spring animation)
+//  DROPDOWN MENU
 // ─────────────────────────────────────────────
 function initDropdown() {
   const btn = document.getElementById('installDropdownBtn');
-  const dropdown = btn ? btn.closest('.dropdown') : null;
-  if (!btn || !dropdown) return;
+  const menu = document.getElementById('installDropdownMenu');
+  if (!btn || !menu) return;
+  const dropdown = btn.closest('.dropdown');
+
+  function openMenu() {
+    dropdown.classList.add('active');
+    btn.setAttribute('aria-expanded', 'true');
+    menu.style.display = 'block';
+    requestAnimationFrame(() => menu.classList.add('open'));
+  }
+
+  function closeMenu() {
+    dropdown.classList.remove('active');
+    btn.setAttribute('aria-expanded', 'false');
+    menu.classList.remove('open');
+    setTimeout(() => {
+      if (!dropdown.classList.contains('active')) {
+        menu.style.display = 'none';
+      }
+    }, 220);
+  }
 
   btn.addEventListener('click', e => {
     e.stopPropagation();
-    e.preventDefault();
-    const isOpen = dropdown.classList.toggle('active');
-    const menu = dropdown.querySelector('.dropdown-menu');
-    if (isOpen) {
-      menu.style.display = 'block';
-      requestAnimationFrame(() => menu.classList.add('open'));
-    } else {
-      menu.classList.remove('open');
-      setTimeout(() => { menu.style.display = ''; }, 300);
-    }
+    dropdown.classList.contains('active') ? closeMenu() : openMenu();
   });
 
   document.addEventListener('click', e => {
     if (!dropdown.contains(e.target)) {
-      dropdown.classList.remove('active');
-      const menu = dropdown.querySelector('.dropdown-menu');
-      if (menu) {
-        menu.classList.remove('open');
-        setTimeout(() => { menu.style.display = ''; }, 300);
-      }
+      closeMenu();
     }
   });
 
-  // Dropdown items → navigate tab
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && dropdown.classList.contains('active')) {
+      closeMenu();
+    }
+  });
+
+  // Items click
   dropdown.querySelectorAll('.dropdown-item[data-tab]').forEach(item => {
     item.addEventListener('click', () => {
-      switchTab(item.dataset.tab);
-      dropdown.classList.remove('active');
-      const menu = dropdown.querySelector('.dropdown-menu');
-      menu.classList.remove('open');
-      setTimeout(() => { menu.style.display = ''; }, 300);
+      const tab = item.dataset.tab;
+      closeMenu();
+      switchTab(tab);
     });
   });
 }
@@ -180,19 +215,37 @@ function initDropdown() {
 // ─────────────────────────────────────────────
 function initAccordions() {
   document.querySelectorAll('.accordion-toggle').forEach(toggle => {
-    toggle.addEventListener('click', () => {
-      const block = toggle.closest('.code-accordion');
-      const content = block.querySelector('.accordion-content');
+    const block = toggle.closest('.code-accordion');
+    const content = block.querySelector('.accordion-content');
+
+    function toggleAccordion() {
       const isOpen = block.classList.toggle('open');
-      content.style.maxHeight = isOpen ? content.scrollHeight + 'px' : '0';
-      toggle.querySelector('.acc-chevron').style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0)';
+      toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      if (isOpen) {
+        content.style.maxHeight = content.scrollHeight + 40 + 'px';
+      } else {
+        content.style.maxHeight = '0';
+      }
+    }
+
+    toggle.addEventListener('click', e => {
+      // Ignore clicks on copy button
+      if (e.target.closest('.copy-btn')) return;
+      toggleAccordion();
+    });
+
+    toggle.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleAccordion();
+      }
     });
   });
 }
 
 
 // ─────────────────────────────────────────────
-//  COPY BUTTONS
+//  COPY BUTTONS & TOAST
 // ─────────────────────────────────────────────
 function initCopyButtons() {
   document.querySelectorAll('.copy-btn').forEach(btn => {
@@ -201,66 +254,78 @@ function initCopyButtons() {
       const codeId = btn.dataset.code;
       const el = document.getElementById(codeId);
       if (!el) return;
-      navigator.clipboard.writeText(el.innerText.trim()).then(() => {
+
+      const text = el.innerText.trim();
+      copyToClipboard(text, () => {
         showToast('Código copiado! Cole como URL do favorito.');
         btn.classList.add('copied');
-        const orig = btn.innerHTML;
-        btn.innerHTML = '<i data-lucide="check"></i> Copiado!';
-        lucide.createIcons();
-        setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('copied'); lucide.createIcons(); }, 2500);
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="check"></i> <span>Copiado!</span>';
+        if (window.lucide) lucide.createIcons();
+
+        setTimeout(() => {
+          btn.innerHTML = originalHTML;
+          btn.classList.remove('copied');
+          if (window.lucide) lucide.createIcons();
+        }, 2400);
       });
     });
   });
 }
 
+function copyToClipboard(text, onSuccess) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(onSuccess).catch(() => fallbackCopy(text, onSuccess));
+  } else {
+    fallbackCopy(text, onSuccess);
+  }
+}
 
-// ─────────────────────────────────────────────
-//  TOAST
-// ─────────────────────────────────────────────
+function fallbackCopy(text, onSuccess) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    if (onSuccess) onSuccess();
+  } catch (err) {
+    alert('Por favor copie o código manualmente.');
+  }
+  document.body.removeChild(ta);
+}
+
+let toastTimer = null;
 function showToast(message) {
   const toast = document.getElementById('toast');
-  toast.querySelector('.toast-msg').textContent = message;
+  if (!toast) return;
+  const msgEl = toast.querySelector('.toast-msg');
+  if (msgEl) msgEl.textContent = message;
+
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3200);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 3000);
 }
 
 
 // ─────────────────────────────────────────────
-//  BETA TOOLTIP
-// ─────────────────────────────────────────────
-function initBetaTooltip() {
-  const badge = document.getElementById('beta-badge');
-  if (!badge) return;
-  badge.addEventListener('mouseenter', () => badge.querySelector('.beta-tooltip').classList.add('visible'));
-  badge.addEventListener('mouseleave', () => badge.querySelector('.beta-tooltip').classList.remove('visible'));
-}
-
-
-// ─────────────────────────────────────────────
-//  INIT
+//  INITIALIZATION ON DOM READY
 // ─────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  lucide.createIcons();
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+
   initNavPill();
   initDropdown();
   initAccordions();
   initCopyButtons();
-  initBetaTooltip();
 
-  // Load tab from hash
-  const hash = window.location.hash.replace('#', '');
-  if (hash && document.getElementById(hash)) {
-    switchTab(hash);
-  } else {
-    // Stagger home children on load
-    const pane = document.getElementById('home');
-    pane.querySelectorAll('.stagger-child').forEach((el, i) => {
-      el.style.animationDelay = `${i * 80}ms`;
-      el.classList.add('stagger-done');
-    });
-  }
-
-  // Nav click
+  // Handle Tab navigation buttons
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.preventDefault();
@@ -268,6 +333,23 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Resize pill
-  window.addEventListener('resize', movePillToActive);
+  // Resize listener for sliding nav pill
+  window.addEventListener('resize', () => {
+    requestAnimationFrame(movePillToActive);
+  });
+
+  // Handle initial URL hash or default to home
+  const initialHash = window.location.hash.replace('#', '');
+  if (initialHash && document.getElementById(initialHash)) {
+    switchTab(initialHash);
+  } else {
+    // Animate home pane children
+    const homePane = document.getElementById('home');
+    if (homePane) {
+      homePane.querySelectorAll('.stagger-child').forEach((el, i) => {
+        el.style.animationDelay = `${i * 55}ms`;
+        el.classList.add('stagger-done');
+      });
+    }
+  }
 });
