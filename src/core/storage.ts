@@ -28,6 +28,17 @@ export function loadSettings(): EasyQuizSettings {
     if (apiKeys.length === 0 && singleKey) {
       apiKeys = [singleKey]
     }
+    if (apiKeys.length === 0) {
+      try {
+        const alt = localStorage.getItem('easyquiz_api_keys')
+        if (alt) {
+          const parsedAlt = JSON.parse(alt)
+          if (Array.isArray(parsedAlt)) {
+            apiKeys = parsedAlt.filter((k) => typeof k === 'string' && k.trim().length > 5)
+          }
+        }
+      } catch {}
+    }
 
     const primaryKey = apiKeys[0] || singleKey || DEFAULT_SETTINGS.apiKey
 
@@ -132,6 +143,7 @@ export function saveSettings(settings: Partial<EasyQuizSettings>): EasyQuizSetti
   const updated: EasyQuizSettings = { ...current, ...settings, apiKey, apiKeys }
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+    localStorage.setItem('easyquiz_api_keys', JSON.stringify(apiKeys))
   } catch (error) {
     console.warn('[EasyQuiz] Falha ao persistir configurações no localStorage:', error)
   }

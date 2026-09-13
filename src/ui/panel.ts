@@ -1070,11 +1070,11 @@ export class EasyQuizPanel {
     this.shadow.querySelector('#eq-min-btn')?.addEventListener('click', () => this.toggle(false))
     this.shadow.querySelector('#eq-close-btn')?.addEventListener('click', () => this.toggle(false))
 
-    // Atalho de Teclado Alt+Q para recolher/expandir
+    // Atalho de Teclado Alt+Q ou Alt+A para recolher/expandir
     window.addEventListener(
       'keydown',
       (e) => {
-        if (e.altKey && (e.key === 'q' || e.key === 'Q')) {
+        if (e.altKey && (e.key === 'q' || e.key === 'Q' || e.key === 'a' || e.key === 'A')) {
           e.preventDefault()
           this.toggle()
         }

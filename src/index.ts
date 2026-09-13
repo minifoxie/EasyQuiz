@@ -101,9 +101,9 @@ async function initEasyQuiz(): Promise<void> {
     },
   }
 
-  // Atalho global de teclado: Alt + Q para analisar a questão imediatamente
+  // Atalho global de teclado: Alt + Q ou Alt + A para abrir/fechar o painel
   window.addEventListener('keydown', (event: KeyboardEvent) => {
-    if (event.altKey && (event.key === 'q' || event.key === 'Q')) {
+    if (event.altKey && (event.key === 'q' || event.key === 'Q' || event.key === 'a' || event.key === 'A')) {
       event.preventDefault()
       if (!panel) return
       panel.toggle(true)
