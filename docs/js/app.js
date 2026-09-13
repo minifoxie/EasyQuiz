@@ -162,19 +162,24 @@ function animateParticles() {
 initParticles();
 animateParticles();
 
+
 // Dropdown Logic
 document.addEventListener('DOMContentLoaded', () => {
   const dropdownBtn = document.getElementById('installDropdownBtn');
   const dropdown = document.querySelector('.dropdown');
   
-  if(dropdownBtn && dropdown) {
+  if (dropdownBtn && dropdown) {
     dropdownBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      e.preventDefault();
       dropdown.classList.toggle('active');
+      console.log('Dropdown toggled');
     });
 
-    document.addEventListener('click', () => {
-      dropdown.classList.remove('active');
+    document.addEventListener('click', (e) => {
+      if (!dropdown.contains(e.target)) {
+        dropdown.classList.remove('active');
+      }
     });
   }
 });

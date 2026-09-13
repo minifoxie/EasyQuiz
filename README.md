@@ -1,14 +1,19 @@
 <div align="center">
   <img src="dist/Canvas.png" alt="EasyQuiz Logo" width="200" />
-  <h1>EasyQuiz ⚡ <img src="https://img.shields.io/badge/Build-v1.7.9-00e5ff?style=flat-square" id="eq-version-badge" /></h1>
+  <h1>EasyQuiz ⚡ <span style="color:#00e5ff; font-family:monospace; font-size:0.7em;">v1.8.4</span></h1>
   <p><b>A Evolução Invisível do Auxílio Cognitivo via IA</b></p>
-
-  <a href="https://minifoxie.github.io/EasyQuiz/" target="_blank">
-    <img src="https://img.shields.io/badge/ACESSAR_SITE_OFICIAL_COM_OS_CÓDIGOS-2B2D31?style=for-the-badge&logo=codeigniter&logoColor=white" width="400" alt="Site Oficial" />
-  </a>
 </div>
 
 <br>
+
+<a id="site-oficial" href="#site-oficial">
+  <img src="https://img.shields.io/badge/Acesso_ao_Site_Oficial-222222?style=for-the-badge&logo=codeigniter&logoColor=white" />
+</a>
+
+O modo mais amigável de instalar, obter os códigos atualizados e ler a documentação rica com interface gráfica é pelo nosso Site Oficial:
+👉 **[ACESSAR SITE OFICIAL (https://minifoxie.github.io/EasyQuiz/)](https://minifoxie.github.io/EasyQuiz/)**
+
+---
 
 O **EasyQuiz** nasceu da necessidade de modernizar e revolucionar o auxílio aos estudos virtuais. Ao invés de você perder tempo copiando textos longos, cortando e colando perguntas ou lutando para extrair dados de tabelas no Canvas ou Moodle, o EasyQuiz **se acopla diretamente na sua aba e faz todo o trabalho braçal**.
 

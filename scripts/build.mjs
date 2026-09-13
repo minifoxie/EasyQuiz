@@ -342,7 +342,7 @@ const bundleSize = Buffer.byteLength(bundleContent, 'utf-8')
 // ============================================================
 try {
   let readme = await readFile(path.join(root, 'README.md'), 'utf-8');
-  readme = readme.replace(/badge\/Build-v[\d\.]+-00e5ff/g, `badge/Build-${versionLabel}-00e5ff`);
+  readme = readme.replace(/<span style="color:#00e5ff; font-family:monospace; font-size:0.7em;">v.*?<\/span>/g, `<span style="color:#00e5ff; font-family:monospace; font-size:0.7em;">${versionLabel}</span>`);
   await writeFile(path.join(root, 'README.md'), readme);
   console.log(`[EasyQuiz] README.md atualizado com a versão ${versionLabel}`);
 
