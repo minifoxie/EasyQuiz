@@ -515,7 +515,10 @@ export function createContextSignature(context: CapturedContext): string {
  */
 export function createContentSignature(context: CapturedContext): string {
   const controlStructure = context.controls
-    .map((c) => `${c.role}:${c.id}:${c.type}`)
+    .map((c) => {
+      const opts = c.options ? c.options.length : 0
+      return `${c.role}:${c.id}:${c.type}:${opts}`
+    })
     .join('|')
   return [
     window.location.href,

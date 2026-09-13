@@ -22,7 +22,7 @@ export class PageWatcher {
   private debounceTimer: number | null = null
   private cooldownUntil = 0
   private readonly POLL_MS     = 180
-  private readonly DEBOUNCE_MS = 60
+  private readonly DEBOUNCE_MS = 600
   private readonly COOLDOWN_MS = 150
 
   private origPush    = typeof history !== 'undefined' ? history.pushState.bind(history) : null

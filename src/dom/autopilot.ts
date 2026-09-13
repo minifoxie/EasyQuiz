@@ -2,6 +2,7 @@ import type { AnalysisPlan } from '../core/types'
 import { loadDomainCache } from '../core/storage'
 import { captureCurrentContext, captureFullPageText, createContextSignature, createContentSignature, isQuestionContent } from './detector'
 import { findElementExt, simulatePointerClick, findBestNavigationButton, buildDragFallbackJs } from './executor'
+import { highlightScope, clearHighlights } from './highlighter'
 
 export type AutopilotStatus = 'idle' | 'waiting' | 'analyzing' | 'advancing' | 'error'
 
@@ -231,10 +232,22 @@ export class Autopilot {
 
       // NOVA QUESTÃO DETECTADA ou primeira execução
       const isNewPage = contentSig !== this.lastContentSig
-      if (isNewPage && this.lastContentSig !== '') {
-        this.callbacks.onStatusChange('waiting', '> [SYS] Nova questão detectada! Analisando...', 'text-green')
-        this.callbacks.onPageAdvance?.()
-        this.errorCount = 0  // reset contador de erros em nova página
+      if (isNewPage) {
+        this.callbacks.onStatusChange('waiting', '> [SYS] Aguardando estabilização da página...', 'text-yellow')
+        await this.sleep(600)
+        if (!this.active) return
+        const reContext = captureCurrentContext(false) || captureFullPageText()
+        const newSig = reContext ? createContentSignature(reContext) : ''
+        if (newSig !== contentSig) {
+          // DOM sofreu mutação durante a estabilização! Aborta para deixar a próxima mutação assumir.
+          this.isProcessing = false
+          return
+        }
+        if (this.lastContentSig !== '') {
+          this.callbacks.onStatusChange('waiting', '> [SYS] Nova questão detectada! Analisando...', 'text-green')
+          this.callbacks.onPageAdvance?.()
+          this.errorCount = 0  // reset contador de erros em nova página
+        }
       }
       this.lastContentSig = contentSig
       this.lastAttemptSig = contentSig
@@ -263,6 +276,10 @@ export class Autopilot {
       if (answerControls.length > 0 || isQuestion) {
         // QUESTÃO DETECTADA (com controles nativos ou via texto)
         this.callbacks.onStatusChange('analyzing', '> [IA] Questão detectada. Consultando IA...', 'text-blue')
+        
+        clearHighlights()
+        if (context?.scope) highlightScope(context.scope)
+
         if (!this.active) return
 
         this.abortController = new AbortController()

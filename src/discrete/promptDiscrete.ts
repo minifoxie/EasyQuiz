@@ -185,7 +185,38 @@ export function normalizeFlow(raw: unknown, actions: unknown[]): InteractionStep
   }
 
   // ── Auto-reparação de problemas comuns na saída da IA ────────────────────────
-  return repairFlow(result, actions as Record<string, unknown>[])
+  const repaired = repairFlow(result, actions as Record<string, unknown>[])
+
+  // FRAGMENTAÇÃO DE INPUT (Val):
+  // Expande ações 'val' em múltiplos steps progressivos (ex: "2", "28", "282")
+  // para que cada keystroke do usuário em Modo Discreto avance 1 caractere,
+  // substituindo o conteúdo atual pelo slice incremental (como pedido: "fragmentar corretamente o conteudo")
+  const fragmentedFlow: InteractionStep[] = []
+  let stepCounter = 1
+  for (const step of repaired) {
+    if (step.action.t === 'val') {
+      const fullVal = String(step.action.v ?? '')
+      if (fullVal.length > 0) {
+        for (let i = 1; i <= fullVal.length; i++) {
+          fragmentedFlow.push({
+            ...step,
+            step: stepCounter++,
+            chars: 1,
+            action: { ...step.action, v: fullVal.slice(0, i) },
+            customMsg: i === fullVal.length ? 'Preenchido' : null
+          })
+        }
+      } else {
+        step.step = stepCounter++
+        fragmentedFlow.push(step)
+      }
+    } else {
+      step.step = stepCounter++
+      fragmentedFlow.push(step)
+    }
+  }
+
+  return fragmentedFlow
 }
 
 /**
