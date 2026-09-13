@@ -1,4 +1,4 @@
-/* EasyQuiz App v5.9 */
+/* EasyQuiz App v6.0 */
 'use strict';
 
 const bkd = document.getElementById('global-backdrop');
@@ -99,7 +99,6 @@ function initReveal() {
   const obs = new IntersectionObserver(entries => entries.forEach(e => {
     if (e.isIntersecting) {
       e.target.classList.add('revealed');
-      // JS fix for blur: remove animation properties when done so they dont create stacking contexts that block nested blurs
       setTimeout(() => e.target.classList.add('revealed-done'), 1000);
       obs.unobserve(e.target);
     }
@@ -245,6 +244,43 @@ function showToast(msg) {
   clearTimeout(_tt); _tt = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function osAnimLoop() {
+  const wraps = document.querySelectorAll('.os-anim-wrapper');
+  if (wraps.length === 0) return;
+  
+  while (true) {
+    wraps.forEach(w => {
+      w.className = 'os-anim-wrapper';
+      w.querySelector('.eq-dropzone').style.background = 'transparent';
+      w.querySelector('.os-ghost').style.transition = 'none';
+    });
+    await sleep(800);
+    
+    wraps.forEach(w => w.classList.add('s-keys'));
+    await sleep(600);
+    wraps.forEach(w => w.classList.add('s-keys-press'));
+    await sleep(400);
+    wraps.forEach(w => {
+      w.classList.remove('s-keys-press');
+      w.classList.add('s-bms');
+    });
+    await sleep(800);
+    
+    wraps.forEach(w => w.classList.add('s-hover'));
+    await sleep(1000);
+    
+    wraps.forEach(w => w.classList.add('s-down'));
+    await sleep(400);
+    
+    wraps.forEach(w => w.classList.add('s-drag'));
+    await sleep(1000);
+    
+    wraps.forEach(w => w.classList.add('s-drop'));
+    await sleep(1200);
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   if (window.lucide) lucide.createIcons();
   initDropdown('installDropdownBtn','installDropdownMenu');
@@ -256,4 +292,5 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('hashchange', () => { switchTab(window.location.hash.replace('#','') || 'home'); });
   switchTab(window.location.hash.replace('#','') || 'home');
   fetchLatestCommit();
+  osAnimLoop(); // Start OS Animation
 });

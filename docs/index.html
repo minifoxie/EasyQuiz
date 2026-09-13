@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="EasyQuiz - Sistema inteligente de auto resposta a quizzes 100% no navegador.">
   <title>EasyQuiz - Bookmarklet IA</title>
-  <link rel="icon" type="image/png" href="logo.png?v=5.9">
-  <link rel="stylesheet" href="css/style.css?v=5.9">
+  <link rel="icon" type="image/png" href="logo.png?v=6.0">
+  <link rel="stylesheet" href="css/style.css?v=6.0">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
@@ -18,7 +18,7 @@
   <div class="nav-content">
     <div class="nav-brand-group">
       <a href="#home" class="nav-brand" onclick="switchTab('home');return false;">
-        <img src="logo.png?v=5.9" alt="EasyQuiz" class="nav-logo-img">
+        <img src="logo.png?v=6.0" alt="EasyQuiz" class="nav-logo-img">
         <span class="brand-title">EasyQuiz</span>
       </a>
       <span class="badge-beta">BETA</span>
@@ -51,14 +51,12 @@
 <main class="container">
   <section id="home" class="tab-pane active">
     <header class="hero-layout">
-      <div data-anim="pop-in" style="--delay: 0.1s"><img src="logo.png?v=5.9" alt="EasyQuiz" class="hero-logo"></div>
+      <div data-anim="pop-in" style="--delay: 0.1s"><img src="logo.png?v=6.0" alt="EasyQuiz" class="hero-logo"></div>
       <div>
         <div class="hero-meta-row" data-anim="slide-down" style="--delay: 0.2s"><span class="hero-name">EasyQuiz</span><span class="badge-beta">BETA</span><span class="version-plain" id="home-version">v1.0.0</span></div>
         <h1 class="hero-title" data-anim="slide-right" style="--delay: 0.3s">O motor autonomo definitivo para quizzes.</h1>
         <p class="hero-subtitle" data-anim="slide-right" style="--delay: 0.4s">Script de Bookmarklet <strong>100% client-side</strong> direto no navegador. Sem servidores. Resolva provas, gere respostas e analise imagens com cliques minimos.</p>
         
-        <!-- FIX: Removed data-anim from wrapper so it doesn't create a stacking context! -->
-        <!-- Placed data-anim ON the individual elements inside instead. -->
         <div class="hero-actions">
           
           <div class="dropdown install-dropdown" data-anim="slide-up" style="--delay: 0.5s">
@@ -93,23 +91,35 @@
 
   <section id="discrete" class="tab-pane">
     <div class="mode-page-hero">
-      <div class="mode-id-card" data-anim="pop-in" style="--delay: 0.1s"><img src="logo.png?v=5.9" alt="EasyQuiz" class="mode-card-logo"><div class="mode-card-label"><span>Modo Discreto</span><i data-lucide="eye-off"></i></div></div>
+      
+    <div class="os-anim-wrapper" data-anim="pop-in" style="--delay: 0.1s">
+      <div class="os-anim-camera">
+        <div class="os-window">
+          <div class="os-header"><div class="os-dots"><span></span><span></span><span></span></div><div class="os-url"><span></span></div></div>
+          <div class="os-bookmarks"><div class="os-bm-item fake-bm"></div><div class="os-bm-item eq-dropzone"></div></div>
+          <div class="os-body">
+            <div class="os-keyboard"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>B</kbd></div>
+            <div class="os-eq-btn">EQ Bookmarklet</div>
+            <div class="os-ghost">EQ Bookmarklet</div>
+          </div>
+          <div class="os-cursor">
+            <svg viewBox="0 0 24 24"><polygon points="5.5,3.5 18.5,12 11.5,13.5 15,20 12,21.5 8.5,15 4,18"></polygon></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  
       <div class="mode-page-info">
         <h1 class="mode-page-title" data-anim="slide-right" style="--delay: 0.2s">Modo Discreto</h1>
         <p class="mode-page-desc" data-anim="slide-right" style="--delay: 0.3s">Invisivel. Sem paineis. Apenas atalhos de teclado rapidos para leitura e auto-preenchimento ninja. Zero interfaces na prova.</p>
         
-        <!-- Removed data-anim wrapper to fix blur -->
         <div class="mode-install-actions">
-          
           <div class="code-btn-group" data-anim="slide-up" style="--delay: 0.4s">
             <button type="button" class="code-copy-btn" data-code="discrete"><i data-lucide="copy"></i><span>Copiar Codigo</span></button>
             <div class="dropdown code-dropdown"><button type="button" class="code-show-btn" id="codeMenuBtnDiscrete" title="Ver codigo"><i data-lucide="chevron-down" class="chevron-icon"></i></button><div class="dropdown-menu code-menu" id="codeMenuDiscrete"><div class="code-menu-header"><span>Codigo de Injecao</span><i data-lucide="terminal" style="width:14px;height:14px"></i></div><div class="code-menu-body">javascript:(<span class="hl-keyword">function</span>(){<span class="hl-func">fetch</span>(<span class="hl-string">'https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@latest/dist/discrete.js?v='</span>+<span class="hl-func">Date</span>.now(),{cache:<span class="hl-string">'no-store'</span>}).then(<span class="hl-keyword">function</span>(r){<span class="hl-keyword">if</span>(!r.ok)<span class="hl-keyword">throw</span> <span class="hl-keyword">new</span> <span class="hl-func">Error</span>(<span class="hl-string">'HTTP '</span>+r.status);<span class="hl-keyword">return</span> r.text()}).then(<span class="hl-keyword">function</span>(c){<span class="hl-keyword">if</span>(!c||c.trim().charAt(0)===<span class="hl-string">'&lt;'</span>)<span class="hl-keyword">throw</span> <span class="hl-keyword">new</span> <span class="hl-func">Error</span>(<span class="hl-string">'Indisponivel'</span>);<span class="hl-keyword">try</span>{<span class="hl-keyword">if</span>(<span class="hl-var">window</span>.__eqdiscrete&amp;&amp;typeof <span class="hl-var">window</span>.__eqdiscrete.destroy===<span class="hl-string">'<span class="hl-keyword">function</span>'</span>){<span class="hl-var">window</span>.__eqdiscrete.destroy()}(0,eval)(c)}<span class="hl-keyword">catch</span>(e){<span class="hl-func">alert</span>(<span class="hl-string">'EQ: '</span>+e)}}).<span class="hl-keyword">catch</span>(<span class="hl-keyword">function</span>(e){<span class="hl-func">alert</span>(<span class="hl-string">'EQ falha: '</span>+e)})})();</div></div></div>
           </div>
-          
           <div data-anim="slide-up" style="--delay: 0.5s"><a href="javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@latest/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='&lt;')throw new Error('Indisponivel');try{if(window.__eqdiscrete&amp;&amp;typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EQ: '+e)}}).catch(function(e){alert('EQ falha: '+e)})})();" class="drag-bm-btn" draggable="true" title="EQ Discret" id="bm-discrete"><span class="drag-dots"><span></span><span></span><span></span><span></span><span></span><span></span></span><span>EQ Discret</span></a></div>
-          
           <button type="button" class="hint-btn" data-anim="slide-up" style="--delay: 0.6s" data-hint="hint-discrete" title="Como usar">?</button>
-          
         </div>
         
         <div class="mode-commit-info" data-anim="fade-in" style="--delay: 0.7s"><i data-lucide="git-commit-horizontal"></i> commit: <span class="mode-commit-sha" id="discrete-sha" style="color:#0ea5e9">...</span></div>
@@ -140,23 +150,35 @@
 
   <section id="legacy" class="tab-pane">
     <div class="mode-page-hero">
-      <div class="mode-id-card" data-anim="pop-in" style="--delay: 0.1s"><img src="logo.png?v=5.9" alt="EasyQuiz" class="mode-card-logo"><div class="mode-card-label"><span>Modo Legacy</span><i data-lucide="panel-top"></i></div></div>
+      
+    <div class="os-anim-wrapper" data-anim="pop-in" style="--delay: 0.1s">
+      <div class="os-anim-camera">
+        <div class="os-window">
+          <div class="os-header"><div class="os-dots"><span></span><span></span><span></span></div><div class="os-url"><span></span></div></div>
+          <div class="os-bookmarks"><div class="os-bm-item fake-bm"></div><div class="os-bm-item eq-dropzone"></div></div>
+          <div class="os-body">
+            <div class="os-keyboard"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>B</kbd></div>
+            <div class="os-eq-btn">EQ Bookmarklet</div>
+            <div class="os-ghost">EQ Bookmarklet</div>
+          </div>
+          <div class="os-cursor">
+            <svg viewBox="0 0 24 24"><polygon points="5.5,3.5 18.5,12 11.5,13.5 15,20 12,21.5 8.5,15 4,18"></polygon></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  
       <div class="mode-page-info">
         <h1 class="mode-page-title" data-anim="slide-right" style="--delay: 0.2s">Modo Legacy</h1>
         <p class="mode-page-desc" data-anim="slide-right" style="--delay: 0.3s">Laboratorio Visual Completo. Painel HUD flutuante com Shadow DOM isolado. Audite o raciocinio da IA, logs e controle chaves visualmente.</p>
         
-        <!-- Removed data-anim wrapper to fix blur -->
         <div class="mode-install-actions">
-          
           <div class="code-btn-group" data-anim="slide-up" style="--delay: 0.4s">
             <button type="button" class="code-copy-btn" data-code="legacy"><i data-lucide="copy"></i><span>Copiar Codigo</span></button>
             <div class="dropdown code-dropdown"><button type="button" class="code-show-btn" id="codeMenuBtnLegacy" title="Ver codigo"><i data-lucide="chevron-down" class="chevron-icon"></i></button><div class="dropdown-menu code-menu" id="codeMenuLegacy"><div class="code-menu-header"><span>Codigo de Injecao</span><i data-lucide="terminal" style="width:14px;height:14px"></i></div><div class="code-menu-body">javascript:(<span class="hl-keyword">function</span>(){<span class="hl-func">fetch</span>(<span class="hl-string">'https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@latest/dist/easyquiz.js?v='</span>+<span class="hl-func">Date</span>.now(),{cache:<span class="hl-string">'no-store'</span>}).then(<span class="hl-keyword">function</span>(r){<span class="hl-keyword">if</span>(!r.ok)<span class="hl-keyword">throw</span> <span class="hl-keyword">new</span> <span class="hl-func">Error</span>(<span class="hl-string">'HTTP '</span>+r.status);<span class="hl-keyword">return</span> r.text()}).then(<span class="hl-keyword">function</span>(c){<span class="hl-keyword">if</span>(!c||c.trim().charAt(0)===<span class="hl-string">'&lt;'</span>)<span class="hl-keyword">throw</span> <span class="hl-keyword">new</span> <span class="hl-func">Error</span>(<span class="hl-string">'Indisponivel'</span>);<span class="hl-keyword">try</span>{<span class="hl-keyword">if</span>(<span class="hl-var">window</span>.__easyquiz&amp;&amp;typeof <span class="hl-var">window</span>.__easyquiz.destroy===<span class="hl-string">'<span class="hl-keyword">function</span>'</span>){<span class="hl-var">window</span>.__easyquiz.destroy()}<span class="hl-keyword">var</span> h=<span class="hl-var">document</span>.getElementById(<span class="hl-string">'easyquiz-shadow-root'</span>);<span class="hl-keyword">if</span>(h)h.remove();(0,eval)(c)}<span class="hl-keyword">catch</span>(e){<span class="hl-func">alert</span>(<span class="hl-string">'EQ: '</span>+e)}}).<span class="hl-keyword">catch</span>(<span class="hl-keyword">function</span>(e){<span class="hl-func">alert</span>(<span class="hl-string">'EQ falha: '</span>+e)})})();</div></div></div>
           </div>
-          
           <div data-anim="slide-up" style="--delay: 0.5s"><a href="javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@latest/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='&lt;')throw new Error('Indisponivel');try{if(window.__easyquiz&amp;&amp;typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EQ: '+e)}}).catch(function(e){alert('EQ falha: '+e)})})();" class="drag-bm-btn" draggable="true" title="EQ Legacy" id="bm-legacy"><span class="drag-dots"><span></span><span></span><span></span><span></span><span></span><span></span></span><span>EQ Legacy</span></a></div>
-          
           <button type="button" class="hint-btn" data-anim="slide-up" style="--delay: 0.6s" data-hint="hint-legacy" title="Como usar">?</button>
-          
         </div>
         
         <div class="mode-commit-info" data-anim="fade-in" style="--delay: 0.7s"><i data-lucide="git-commit-horizontal"></i> commit: <span class="mode-commit-sha" id="legacy-sha" style="color:#fbbf24">...</span></div>
@@ -179,7 +201,6 @@
     </div>
   </section>
 
-  <!-- API KEY -->
   <section id="api-key" class="tab-pane">
     <div class="api-guide-wrap">
       <div class="api-guide-header">
@@ -195,7 +216,6 @@
     </div>
   </section>
 
-  <!-- UPDATES -->
   <section id="updates" class="tab-pane">
     <div class="updates-header">
       <h1 data-anim="slide-down" style="--delay: 0.1s">Atualizacoes</h1>
@@ -212,11 +232,9 @@
   </section>
 </main>
 
-<!-- DATA STORE -->
 <div id="code-discrete-data" style="display:none">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@latest/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Indisponivel');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EQ: '+e)}}).catch(function(e){alert('EQ falha: '+e)})})();</div>
 <div id="code-legacy-data" style="display:none">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@latest/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Indisponivel');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EQ: '+e)}}).catch(function(e){alert('EQ falha: '+e)})})();</div>
 
-<!-- HINT POPUPS -->
 <div class="hint-popup-wrapper" id="hint-discrete">
   <div class="hint-popup anim-el">
     <button class="hint-close"><i data-lucide="x"></i></button>
@@ -255,12 +273,12 @@
   <div class="footer-inner">
     <div class="footer-divider"></div>
     <div class="footer-row">
-      <div class="footer-brand"><img src="logo.png?v=5.9" width="20" height="20" alt="EasyQuiz"><span>EasyQuiz &copy; 2026</span></div>
+      <div class="footer-brand"><img src="logo.png?v=6.0" width="20" height="20" alt="EasyQuiz"><span>EasyQuiz &copy; 2026</span></div>
       <div class="footer-links"><a href="https://github.com/minifoxie/EasyQuiz" target="_blank">GitHub</a><a href="https://github.com/minifoxie/EasyQuiz/blob/main/README.md" target="_blank">Docs</a><span>MIT License</span></div>
     </div>
   </div>
 </footer>
 <div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Copiado!</span></div>
-<script src="js/app.js?v=5.9"></script>
+<script src="js/app.js?v=6.0"></script>
 </body>
 </html>
