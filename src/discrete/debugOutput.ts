@@ -746,7 +746,7 @@ export class DebugOutput {
 
     const pillText = this.pillEl.querySelector('.__eq_pill_text__')
     if (pillText) {
-      pillText.textContent = `EQ Debug: ${cur} ${errors > 0 ? `(${errors} err)` : '• OK'}`
+      pillText.textContent = `EQ ${BUILD_VERSION}: ${cur} ${errors > 0 ? `(${errors} err)` : '• OK'}`
     }
   }
 
@@ -799,7 +799,7 @@ export class DebugOutput {
     this.pillEl.style.display = 'none'
     this.pillEl.innerHTML = `
       <span class="__eq_pill_dot__"></span>
-      <span class="__eq_pill_text__">EQ Debug: Pronto</span>
+      <span class="__eq_pill_text__">EQ ${BUILD_VERSION}: Pronto</span>
       <span style="font-size:11px;opacity:0.7;margin-left:4px;">[Shift+H]</span>
     `
     this.pillEl.addEventListener('click', () => this.restore())

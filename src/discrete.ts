@@ -9,6 +9,7 @@ import { captureCurrentContext, captureFullPageText } from './dom/detector'
 import { captureImages } from './media/capture'
 import { setupSmartOptionInterceptors, buildDragFallbackJs } from './dom/executor'
 import { SYSTEM_PROMPT } from './core/prompt'
+import { BUILD_VERSION } from './core/version'
 
 import { CoinCursor } from './discrete/coinCursor'
 import { CornerToast } from './discrete/cornerToast'
@@ -97,7 +98,7 @@ async function initDiscrete(): Promise<void> {
   const s0 = loadSettings()
   if (s0.apiKey) fetchAvailableModels(s0.apiKey).catch(() => {})
 
-  toast.flash('EQ Ativo')
+  toast.flash(`EQ ${BUILD_VERSION} Ativo`)
 
   // ── Análise com retry persistente ────────────────────────────────────────
 

@@ -251,9 +251,9 @@ export class EasyQuizPanel {
       <style>${PANEL_STYLES}</style>
 
       <!-- Botão Flutuante Inferior Renovado (Cápsula com Status ao Vivo) -->
-      <button class="eq-launcher" type="button" title="Abrir / Recolher EasyQuiz \${BUILD_VERSION} (Alt+Q)">
-        <span class="eq-launcher-icon">\${ICONS.logo}</span>
-        <span>EasyQuiz \${BUILD_VERSION}</span>
+      <button class="eq-launcher" type="button" title="Abrir / Recolher EasyQuiz ${BUILD_VERSION} (Alt+Q)">
+        <span class="eq-launcher-icon">${ICONS.logo}</span>
+        <span>EasyQuiz ${BUILD_VERSION}</span>
         <span class="eq-launcher-dot" id="eq-launcher-dot"></span>
       </button>
 
@@ -772,7 +772,7 @@ export class EasyQuizPanel {
                   </button>
                 </div>
 
-                <div class="eq-footer-note" style="margin-top: auto;">Configurações salvas localmente no navegador • \${BUILD_VERSION}</div>
+                <div class="eq-footer-note" style="margin-top: auto;">Configurações salvas localmente no navegador • ${BUILD_VERSION}</div>
               </div>
             </div>
           </main>
