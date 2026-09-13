@@ -1,16 +1,20 @@
-/* EasyQuiz App v4.6 */
+/* EasyQuiz App v4.7 */
 'use strict';
 
-// ─── Overlay management (blurs canvas) ─────────────────────────────
-function openOverlay() { document.body.classList.add('overlay-open'); }
-function closeOverlay() {
-  // Only remove if no overlays are open
-  const anyOpen =
-    document.getElementById('global-code-modal').classList.contains('open') ||
-    document.getElementById('commit-modal').classList.contains('open') ||
-    document.querySelectorAll('.hint-popup.open').length > 0;
-  if (!anyOpen) document.body.classList.remove('overlay-open');
+// ─── OVERLAY BACKDROP MANAGER ──────────────────────────────────────
+const bkd = document.getElementById('global-backdrop');
+function openOverlay(modalId) {
+  bkd.classList.add('open');
+  if (modalId) {
+    const el = document.getElementById(modalId);
+    if (el) el.classList.add('open');
+  }
 }
+function closeOverlay() {
+  bkd.classList.remove('open');
+  document.querySelectorAll('.hint-popup.open, .code-modal-wrap.open, .commit-modal-wrap.open').forEach(el => el.classList.remove('open'));
+}
+bkd.onclick = closeOverlay;
 
 // ─── Canvas Background ──────────────────────────────────────────────
 (function initCanvas() {
@@ -132,7 +136,6 @@ function initCodeButtons() {
       const code = codeEl ? codeEl.textContent.trim() : '';
       if (!code) return;
       navigator.clipboard.writeText(code).then(() => {
-        // Simple: show check icon only
         const icon = btn.querySelector('i[data-lucide]');
         const label = btn.querySelector('span');
         const origLabel = label ? label.textContent : '';
@@ -159,19 +162,12 @@ function initCodeButtons() {
       const title = codeKey === 'discrete' ? 'EQ Discret — Codigo de Injecao' : 'EQ Legacy — Codigo de Injecao';
       document.getElementById('code-modal-title').textContent = title;
       document.getElementById('global-code-content').textContent = code;
-      document.getElementById('global-code-modal').classList.add('open');
-      openOverlay();
+      openOverlay('global-code-modal');
       if (window.lucide) lucide.createIcons();
     };
   });
 
-  function closeCodeModal() {
-    document.getElementById('global-code-modal').classList.remove('open');
-    closeOverlay();
-  }
-
-  document.getElementById('global-code-modal').onclick = e => { if (e.target.id === 'global-code-modal') closeCodeModal(); };
-  document.getElementById('code-modal-close-btn').onclick = closeCodeModal;
+  document.getElementById('code-modal-close-btn').onclick = closeOverlay;
 
   document.getElementById('modal-copy-btn').onclick = () => {
     const code = document.getElementById('global-code-content').textContent;
@@ -184,33 +180,24 @@ function initHints() {
   document.querySelectorAll('.hint-btn').forEach(btn => {
     btn.onclick = e => {
       e.stopPropagation();
-      const h = document.getElementById(btn.dataset.hint);
-      if (h) {
-        document.querySelectorAll('.hint-popup').forEach(p => p.classList.remove('open'));
-        h.classList.add('open');
-        openOverlay();
-        if (window.lucide) lucide.createIcons();
-      }
+      openOverlay(btn.dataset.hint);
+      if (window.lucide) lucide.createIcons();
     };
   });
   document.querySelectorAll('.hint-close').forEach(btn => {
-    btn.onclick = () => { btn.closest('.hint-popup').classList.remove('open'); closeOverlay(); };
-  });
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.hint-popup') && !e.target.closest('.hint-btn')) {
-      document.querySelectorAll('.hint-popup').forEach(p => p.classList.remove('open'));
-      closeOverlay();
-    }
+    btn.onclick = closeOverlay;
   });
 }
 
 // ─── GitHub API ──────────────────────────────────────────────────────
-let _latestSha = '';
 let _totalCommits = 0;
+
+function toVersionString(num) {
+  return 'v' + Math.floor(num/100) + '.' + Math.floor((num%100)/10) + '.' + (num%10);
+}
 
 async function fetchLatestCommit() {
   try {
-    // Get total commit count via link header
     const headRes = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
     if (!headRes.ok) return;
     const linkHeader = headRes.headers.get('link');
@@ -221,20 +208,16 @@ async function fetchLatestCommit() {
     const data = await headRes.json();
     if (!data || !data[0]) return;
 
-    _latestSha = data[0].sha.slice(0, 7);
-    const date = new Date(data[0].commit.author.date);
-    const dateStr = date.toLocaleDateString('pt-BR');
+    const sha = data[0].sha.slice(0, 7);
+    const dateStr = new Date(data[0].commit.author.date).toLocaleDateString('pt-BR');
 
-    // Update version displays with real commit number
-    const versionStr = _totalCommits > 0
-      ? 'v1.8.7 #' + _totalCommits
-      : 'v1.8.7 @' + _latestSha;
+    // Update real version formatting
+    const finalVer = _totalCommits > 0 ? toVersionString(_totalCommits) : 'v1.0.0';
     document.querySelectorAll('#site-version, #home-version').forEach(el => {
-      el.textContent = versionStr;
+      el.textContent = finalVer;
     });
 
-    // Update mode-specific SHA display
-    const shaLabel = _latestSha + ' · ' + dateStr;
+    const shaLabel = sha + ' · ' + dateStr;
     const discreteSha = document.getElementById('discrete-sha');
     const legacySha = document.getElementById('legacy-sha');
     if (discreteSha) discreteSha.textContent = shaLabel;
@@ -252,7 +235,6 @@ async function loadChangelog(page) {
   container.innerHTML = '<div class="commits-loading"><i data-lucide="loader-2" class="spin-icon"></i> Carregando historico...</div>';
   if (window.lucide) lucide.createIcons();
   try {
-    // Fetch total count + page
     const [res, totalRes] = await Promise.all([
       fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=20&page=' + page),
       fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1')
@@ -267,7 +249,7 @@ async function loadChangelog(page) {
     container.innerHTML = '';
     commits.forEach((commit, idx) => {
       const globalIdx = totalCommits - ((page - 1) * 20 + idx);
-      const vStr = '#' + globalIdx;
+      const vStr = toVersionString(globalIdx);
       const msgLines = commit.commit.message.split('\n');
       const title = msgLines[0];
       const body = msgLines.slice(1).join('\n').trim();
@@ -294,8 +276,7 @@ async function loadChangelog(page) {
         document.getElementById('cm-github-link').href = commit.html_url;
         document.getElementById('cm-sha-link').href = 'https://github.com/minifoxie/EasyQuiz/commit/' + commit.sha;
         document.getElementById('cm-details-acc').classList.remove('open');
-        document.getElementById('commit-modal').classList.add('open');
-        openOverlay();
+        openOverlay('commit-modal');
         if (window.lucide) lucide.createIcons();
       };
       container.appendChild(el);
@@ -335,12 +316,7 @@ window.addEventListener('DOMContentLoaded', () => {
     b.onclick = e => { e.preventDefault(); switchTab(b.dataset.target); };
   });
 
-  function closeCommitModal() {
-    document.getElementById('commit-modal').classList.remove('open');
-    closeOverlay();
-  }
-  document.getElementById('cm-backdrop').onclick = closeCommitModal;
-  document.getElementById('cm-close').onclick = closeCommitModal;
+  document.getElementById('cm-close').onclick = closeOverlay;
   document.getElementById('prev-page').onclick = () => loadChangelog(_currentPage - 1);
   document.getElementById('next-page').onclick = () => loadChangelog(_currentPage + 1);
 
