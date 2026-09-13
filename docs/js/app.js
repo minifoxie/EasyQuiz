@@ -1,4 +1,4 @@
-/* EasyQuiz App v6.1 */
+/* EasyQuiz App v5.9 */
 'use strict';
 
 const bkd = document.getElementById('global-backdrop');
@@ -99,6 +99,7 @@ function initReveal() {
   const obs = new IntersectionObserver(entries => entries.forEach(e => {
     if (e.isIntersecting) {
       e.target.classList.add('revealed');
+      // JS fix for blur: remove animation properties when done so they dont create stacking contexts that block nested blurs
       setTimeout(() => e.target.classList.add('revealed-done'), 1000);
       obs.unobserve(e.target);
     }
@@ -130,6 +131,7 @@ function switchTab(id) {
     else { ddBtn.classList.remove('active'); ddText.textContent = 'Setup Modos'; ddIcon.setAttribute('data-lucide', 'layers'); }
   }
   if (window.lucide) lucide.createIcons();
+  osAnimLoop();
   initReveal();
   if (id === 'updates' && !window._commitsLoaded) loadChangelog(1);
 }
@@ -145,7 +147,124 @@ function initDropdown(btnId, menuId) {
     menu.classList.toggle('open', open);
   };
   btn.onclick = e => { e.stopPropagation(); toggle(!dd.classList.contains('active')); };
-  document.addEventListener('click', e => { if (!dd.contains(e.target)) toggle(false); });
+  
+async function osAnimLoop() {
+  const wraps = document.querySelectorAll('.os-anim-wrapper');
+  if (wraps.length === 0) return;
+  
+  while (true) {
+    let isVisible = false;
+    wraps.forEach(w => { if (w.offsetWidth > 0) isVisible = true; });
+    if (!isVisible) {
+      await sleep(1000);
+      continue;
+    }
+    
+    for (const wrap of wraps) {
+      if (wrap.offsetWidth === 0) continue;
+      const camera = wrap.querySelector('.os-anim-camera');
+      const cursor = wrap.querySelector('.os-cursor');
+      const ghost = wrap.querySelector('.os-ghost');
+      const dropzone = wrap.querySelector('.eq-dropzone');
+      const btn = wrap.querySelector('.os-eq-btn');
+      const kb = wrap.querySelector('.os-keyboard-hint');
+      const keys = kb.querySelectorAll('kbd');
+      const indicator = wrap.querySelector('.os-click-indicator');
+      
+      wrap.className = 'os-anim-wrapper';
+      camera.style.transform = 'scale(1) translate(0, 0)';
+      cursor.className = 'os-cursor';
+      cursor.style.transition = 'none';
+      cursor.style.top = '80%';
+      cursor.style.left = '80%';
+      ghost.style.opacity = '0';
+      ghost.style.transition = 'none';
+      dropzone.innerHTML = '';
+      btn.style.opacity = '1';
+      btn.style.transform = 'scale(1)';
+      keys.forEach(k => k.className = '');
+      
+      if (indicator) {
+        indicator.style.transition = 'none';
+        indicator.style.opacity = '0';
+        indicator.style.transform = 'scale(1.5)';
+      }
+      
+      await sleep(800);
+      wrap.classList.add('s-keys');
+      await sleep(600);
+      
+      if (keys[0]) { keys[0].classList.add('pressed'); await sleep(150); }
+      if (keys[1]) { keys[1].classList.add('pressed'); await sleep(150); }
+      if (keys[2]) { keys[2].classList.add('pressed'); await sleep(150); }
+      
+      wrap.classList.add('s-bms');
+      await sleep(400);
+      
+      keys.forEach(k => k.classList.remove('pressed'));
+      await sleep(200);
+      wrap.classList.remove('s-keys');
+      
+      cursor.style.transition = 'all 0.8s cubic-bezier(0.16,1,0.3,1)';
+      camera.style.transition = 'transform 0.8s cubic-bezier(0.16,1,0.3,1)';
+      camera.style.transform = 'scale(1.4) translate(-10%, -20%)';
+      cursor.style.top = '70%'; 
+      cursor.style.left = '50%';
+      
+      await sleep(800);
+      cursor.classList.add('holding');
+      btn.style.transform = 'scale(0.95)';
+      btn.style.opacity = '0.5';
+      
+      if (indicator) {
+        indicator.style.transition = 'transform 0.2s cubic-bezier(0.16,1,0.3,1), opacity 0.2s';
+        indicator.style.opacity = '1';
+        indicator.style.transform = 'scale(0.6)';
+      }
+      
+      ghost.style.opacity = '1';
+      ghost.style.top = '70%';
+      ghost.style.left = '50%';
+      
+      await sleep(500);
+      cursor.style.transition = 'all 1.2s cubic-bezier(0.16,1,0.3,1)';
+      ghost.style.transition = 'all 1.2s cubic-bezier(0.16,1,0.3,1)';
+      camera.style.transition = 'transform 1.2s cubic-bezier(0.16,1,0.3,1)';
+      
+      cursor.style.top = '60px';
+      cursor.style.left = '160px';
+      ghost.style.top = '60px';
+      ghost.style.left = '160px';
+      camera.style.transform = 'scale(1.4) translate(0%, 0%)';
+      
+      wrap.classList.add('s-drag');
+      await sleep(1200);
+      
+      cursor.classList.remove('holding');
+      wrap.classList.add('s-drop');
+      dropzone.innerHTML = ghost.innerHTML;
+      ghost.style.opacity = '0';
+      
+      if (indicator) {
+        indicator.style.transform = 'scale(1.5)';
+        indicator.style.opacity = '0';
+      }
+      
+      cursor.style.transition = 'all 0.4s ease-out';
+      cursor.style.top = '100px';
+      cursor.style.left = '220px';
+      
+      await sleep(500);
+      camera.style.transition = 'transform 0.8s cubic-bezier(0.16,1,0.3,1)';
+      camera.style.transform = 'scale(1) translate(0, 0)';
+      
+      await sleep(1500);
+    }
+  }
+}
+
+
+document.addEventListener('click', e => { if (!dd.contains(e.target)) toggle(false); });
   menu.querySelectorAll('.dropdown-item[data-tab]').forEach(i => { i.onclick = () => { toggle(false); switchTab(i.dataset.tab); }; });
 }
 
@@ -215,12 +334,15 @@ async function loadChangelog(page) {
       const dt = new Date(c.commit.author.date).toLocaleString('pt-BR');
       
       const el = document.createElement('div'); el.className = 'commit-row glass';
+      
       const animDir = (i % 2 === 0) ? 'slide-right' : 'slide-left';
       el.setAttribute('data-anim', animDir);
       el.style.setProperty('--delay', `${0.05 * i}s`);
+      
       const desc = body ? '<div class="commit-full-desc">'+escH(body)+'</div>' : '<div class="commit-full-desc" style="color:var(--gray-3);font-style:italic">Sem descricao adicional.</div>';
       
       el.innerHTML = '<div class="commit-main"><div class="commit-version">'+escH(vs)+'</div><div class="commit-content"><div class="commit-title">'+escH(title)+'</div>'+(body?'<div class="commit-body">'+escH(body.length>200?body.slice(0,200)+'...':body)+'</div>':'')+'<div class="commit-meta">por <strong>'+escH(c.commit.author.name)+'</strong> — '+escH(dt)+'</div></div><div class="commit-right-icon"><i data-lucide="chevron-down"></i></div></div><div class="commit-details-inline">'+desc+'<div class="commit-actions"><a href="'+c.html_url+'" target="_blank" class="btn btn-outline sm" onclick="event.stopPropagation()">Ver no GitHub <i data-lucide="external-link"></i></a><a href="https://github.com/minifoxie/EasyQuiz/commit/'+c.sha+'" target="_blank" class="btn btn-secondary sm" onclick="event.stopPropagation()"><i data-lucide="git-commit-horizontal"></i> Diff</a></div></div>';
+      
       el.onclick = () => { const o = el.classList.contains('open'); document.querySelectorAll('.commit-row').forEach(r => r.classList.remove('open')); if(!o){el.classList.add('open');setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'nearest'}),300);} };
       ctr.appendChild(el);
     });
@@ -241,144 +363,6 @@ function showToast(msg) {
   clearTimeout(_tt); _tt = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-async function osAnimLoop() {
-  const wraps = document.querySelectorAll('.os-anim-wrapper');
-  if (wraps.length === 0) return;
-  
-  while (true) {
-    let isVisible = false;
-    wraps.forEach(w => { if (w.offsetWidth > 0) isVisible = true; });
-    if (!isVisible) {
-      await sleep(1000);
-      continue;
-    }
-    
-    for (const wrap of wraps) {
-      if (wrap.offsetWidth === 0) continue;
-      const camera = wrap.querySelector('.os-anim-camera');
-      const cursor = wrap.querySelector('.os-cursor');
-      const ghost = wrap.querySelector('.os-ghost');
-      const dropzone = wrap.querySelector('.eq-dropzone');
-      const btn = wrap.querySelector('.os-eq-btn');
-      const kb = wrap.querySelector('.os-keyboard-hint');
-      const keys = kb.querySelectorAll('kbd');
-      const indicator = wrap.querySelector('.os-click-indicator');
-      
-      // Reset State
-      wrap.className = 'os-anim-wrapper';
-      camera.style.transform = 'scale(1) translate(0, 0)';
-      cursor.className = 'os-cursor';
-      cursor.style.transition = 'none';
-      cursor.style.top = '80%';
-      cursor.style.left = '80%';
-      ghost.style.opacity = '0';
-      ghost.style.transition = 'none';
-      dropzone.innerHTML = '';
-      btn.style.opacity = '1';
-      btn.style.transform = 'scale(1)';
-      keys.forEach(k => k.className = '');
-      
-      if (indicator) {
-        indicator.style.transition = 'none';
-        indicator.style.opacity = '0';
-        indicator.style.transform = 'scale(1.5)';
-      }
-      
-      await sleep(800);
-      
-      // 1. Show Keyboard Hint
-      wrap.classList.add('s-keys');
-      await sleep(600);
-      
-      // 2. Press keys sequentially (quickly)
-      if (keys[0]) { keys[0].classList.add('pressed'); await sleep(150); }
-      if (keys[1]) { keys[1].classList.add('pressed'); await sleep(150); }
-      if (keys[2]) { keys[2].classList.add('pressed'); await sleep(150); }
-      
-      // 3. Show Bookmarks bar
-      wrap.classList.add('s-bms');
-      await sleep(400);
-      
-      // Release keys and hide hint
-      keys.forEach(k => k.classList.remove('pressed'));
-      await sleep(200);
-      wrap.classList.remove('s-keys');
-      
-      // 4. Move cursor to button and zoom in on cursor
-      cursor.style.transition = 'all 0.8s cubic-bezier(0.16,1,0.3,1)';
-      camera.style.transition = 'transform 0.8s cubic-bezier(0.16,1,0.3,1)';
-      
-      // Zoom into the bottom area where button is
-      camera.style.transform = 'scale(1.4) translate(-10%, -20%)';
-      
-      cursor.style.top = '70%'; // Approx button pos
-      cursor.style.left = '50%';
-      
-      await sleep(800);
-      
-      // 5. Click and hold
-      cursor.classList.add('holding');
-      btn.style.transform = 'scale(0.95)';
-      btn.style.opacity = '0.5';
-      
-      if (indicator) {
-        indicator.style.transition = 'transform 0.2s cubic-bezier(0.16,1,0.3,1), opacity 0.2s';
-        indicator.style.opacity = '1';
-        indicator.style.transform = 'scale(0.6)';
-      }
-      
-      // Show ghost attached to cursor
-      ghost.style.opacity = '1';
-      ghost.style.top = '70%';
-      ghost.style.left = '50%';
-      
-      await sleep(500);
-      
-      // 6. Drag to dropzone, camera follows
-      cursor.style.transition = 'all 1.2s cubic-bezier(0.16,1,0.3,1)';
-      ghost.style.transition = 'all 1.2s cubic-bezier(0.16,1,0.3,1)';
-      camera.style.transition = 'transform 1.2s cubic-bezier(0.16,1,0.3,1)';
-      
-      // Dropzone is in bookmarks bar
-      cursor.style.top = '60px'; // Approx bookmarks bar Y
-      cursor.style.left = '160px'; // Approx bookmarks dropzone X
-      ghost.style.top = '60px';
-      ghost.style.left = '160px';
-      
-      // Camera zooms to top area following mouse
-      camera.style.transform = 'scale(1.4) translate(0%, 0%)';
-      
-      wrap.classList.add('s-drag');
-      await sleep(1200);
-      
-      // 7. Drop
-      cursor.classList.remove('holding');
-      wrap.classList.add('s-drop');
-      dropzone.innerHTML = ghost.innerHTML;
-      ghost.style.opacity = '0';
-      
-      if (indicator) {
-        indicator.style.transform = 'scale(1.5)';
-        indicator.style.opacity = '0';
-      }
-      
-      // Cursor moves slightly away
-      cursor.style.transition = 'all 0.4s ease-out';
-      cursor.style.top = '100px';
-      cursor.style.left = '220px';
-      
-      await sleep(500);
-      
-      // 8. Zoom out
-      camera.style.transition = 'transform 0.8s cubic-bezier(0.16,1,0.3,1)';
-      camera.style.transform = 'scale(1) translate(0, 0)';
-      
-      await sleep(1500);
-    }
-  }
-}
-
 window.addEventListener('DOMContentLoaded', () => {
   if (window.lucide) lucide.createIcons();
   initDropdown('installDropdownBtn','installDropdownMenu');
@@ -390,5 +374,4 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('hashchange', () => { switchTab(window.location.hash.replace('#','') || 'home'); });
   switchTab(window.location.hash.replace('#','') || 'home');
   fetchLatestCommit();
-  osAnimLoop();
-});\
+});
