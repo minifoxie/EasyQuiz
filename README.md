@@ -1,6 +1,6 @@
 <div align="center">
   <img src="dist/Canvas.png" alt="EasyQuiz Logo" width="200" />
-  <h1>EasyQuiz ⚡ <img src="https://img.shields.io/badge/Build-v1.7.3-00e5ff?style=flat-square" id="eq-version-badge" /></h1>
+  <h1>EasyQuiz ⚡ <img src="https://img.shields.io/badge/Build-v1.7.9-00e5ff?style=flat-square" id="eq-version-badge" /></h1>
   <p><b>A Evolução Invisível do Auxílio Cognitivo via IA</b></p>
 
   <a href="https://minifoxie.github.io/EasyQuiz/" target="_blank">

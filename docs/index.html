@@ -15,7 +15,7 @@
 
   <nav class="navbar">
     <div class="nav-content">
-      <div class="logo">EasyQuiz <span>Pro</span></div>
+      <div class="logo">EasyQuiz <span>Pro</span> <span id="site-version" class="version-badge">v1.7.9</span></div>
       <div class="nav-links">
         <a href="#home" class="nav-btn active" data-target="home">Início</a>
         <a href="#install" class="nav-btn" data-target="install">Instalação</a>
@@ -110,56 +110,113 @@
 
     <!-- ABA: LEGACY -->
     <section id="legacy" class="tab-pane fade-in">
-      <div class="section-header">
-        <h2>Manual: Modo Legacy</h2>
-        <p>A interface completa de desenvolvedor embutida na sua prova.</p>
-      </div>
-      <div class="content-block">
-        <h3>Como operar o painel?</h3>
-        <p>O Modo Legacy é chamado apertando <code>Alt + Q</code>. Isso abrirá um HUD (Heads-Up Display) super sofisticado desenhado com Shadow DOM. Como ele vive isolado, os sites não conseguem ver ou remover os seus botões.</p>
-        <ul class="feature-list">
-          <li><strong>Aba "Cérebro"</strong>: Exibe o "Chain of Thought" da Inteligência Artificial em tempo real. Assista a ela debatendo as respostas de matemática antes de decidir.</li>
-          <li><strong>Aba "Mídias"</strong>: Mostra a imagem cortada perfeitamente que o script roubou do HTML Canvas ou SVG. Útil para verificar se a IA viu sua tabela inteira.</li>
-          <li><strong>Terminal</strong>: Um painel de comandos integrado que cospe logs de erro cru para debuggers.</li>
-        </ul>
-        <a href="https://github.com/minifoxie/EasyQuiz/blob/main/manuais/MODO_LEGACY.md" target="_blank" class="btn btn-secondary">Ler Dossiê Completo no GitHub</a>
-      </div>
-    </section>
+  <div class="content-block manual-block">
+    <h2>💻 Modo Legacy: Auditoria Visual Completa</h2>
+
+<p>O <strong>Modo Legacy</strong> (ou Modo Painel) é o "Laboratório de Desenvolvedor" do EasyQuiz. Ele foi construído utilizando um <strong>Shadow DOM</strong> hiper-avançado. Isso significa que ele injeta uma janela flutuante completa, arrastável e de altíssima definição dentro da sua aba, mas o código dessa janela fica isolado e encriptografado, impedindo que o site hospedeiro veja o que ela contém.</p>
+
+<p>Se você gosta de ter transparência absoluta, controlar a IA visualmente e ver as engrenagens girando, este é o seu modo.</p>
+
+<hr>
+
+<h3>🛠️ A Anatomia do Painel</h3>
+
+<p>Quando você clica no Bookmarklet do Modo Legacy, nada acontece inicialmente. A mágica só começa quando você pressiona <strong><code>Alt + Q</code></strong>. Um painel HUD deslizará elegantemente para dentro da sua tela.</p>
+
+<p>O painel é dividido em seções cruciais:</p>
+
+<h4>1. Botão Gigante "RESOLVER QUESTÃO ATUAL"</h4>
+<p>Este botão é o coração do sistema. Ao clicar nele, o EasyQuiz procurará o "Ponto de Foco" mais provável (a div que parece conter a pergunta e as opções) e iniciará o <strong>Scrape Semântico</strong>.</p>
+<ul class="feature-list">
+<li>Em verde, ele demarcará na sua tela o que ele está lendo, criando uma "Caixa de Contenção" ao redor do texto e da imagem, se houver.</li>
+<li>Logo depois, ele enviará tudo de forma segura para os datacenters do Google Gemini.</li>
+</ul>
+
+<h4>2. Aba de Controle Principal</h4>
+<p>Aqui a IA cospe o resultado do processamento dela em uma interface limpa.</p>
+<ul class="feature-list">
+<li><strong>Botão "Injetar Resposta":</strong> Ao ser clicado, força os PointerEvents no DOM para preencher a resposta detectada.</li>
+<li><strong>Botão "Limpar":</strong> Destrói as memórias locais daquela execução, liberando a rede para uma nova análise.</li>
+</ul>
+
+<h4>3. Aba "Cérebro" (Chain of Thought)</h4>
+<p>A aba mais interessante tecnicamente. O EasyQuiz exige que a IA crie um planejamento detalhado, debata consigo mesma e argumente a resposta *antes* de afirmar que a "Letra B" está certa. Todo esse monólogo interno em texto cru aparece nesta aba para você ler e ter certeza de que a Inteligência Artificial não teve uma "alucinação".</p>
+
+<h4>4. Aba "Mídia"</h4>
+<p>Se a questão for muito visual (Ex: uma fórmula matemática complexa de engenharia no Canvas, ou gráficos interativos), o sistema usa <strong>Visão Computacional</strong> e tira um Screenshot automático dessa área. A imagem crua que o seu navegador envia para a Inteligência Artificial fica amostrada nesta aba, para você conferir se a foto foi tirada perfeitamente.</p>
+
+<h4>5. Aba "Terminal"</h4>
+<p>O painel de telemetria. É onde o motor JavaScript registra <code>DOM Injections</code>, <code>PointerEvent Overrides</code> e <code>React Hook Bypasses</code>. Um deleite para programadores, e essencial se a ferramenta não estiver conseguindo clicar num botão específico.</p>
+
+<h4>6. Aba de Engrenagem (Configurações)</h4>
+<p>Onde você insere as suas <strong>Múltiplas API Keys</strong>. Permite gerenciar as chaves, mudar as versões dos modelos e configurar o limiar de sensibilidade do detector de blocos.</p>
+
+<hr>
+
+<h3>🚀 Como Iniciar</h3>
+
+<p>1. Vá para a seção de Instalação na página principal.</p>
+<p>2. Copie o código do "Modo Legacy" e crie um Favorito.</p>
+<p>3. Entre na página da sua prova.</p>
+<p>4. Clique no Favorito. A tela <strong>NÃO VAI MUDAR NADA</strong>.</p>
+<p>5. Pressione <code>Alt + Q</code>. A janela flutuante vai aparecer!</p>
+<p>6. Clique na <strong>Engrenagem</strong> para configurar a sua API Key.</p>
+<p>7. Clique na Aba Principal e dê <strong>RESOLVER</strong>!</p>
+
+  </div>
+</section>
 
     <!-- ABA: DISCRETO -->
     <section id="discrete" class="tab-pane fade-in">
-      <div class="section-header">
-        <h2>Manual: Modo Discreto</h2>
-        <p>A verdadeira ferramenta furtiva.</p>
-      </div>
-      <div class="content-block">
-        <h3>A Arte da Invisibilidade</h3>
-        <p>Zero janelas enormes. No modo discreto, a mágica é governada pelos seus dedos.</p>
-        <div class="shortcut-grid">
-          <div class="shortcut">
-            <kbd>Shift + Q</kbd>
-            <span>Inicia a Extração Silenciosa</span>
-          </div>
-          <div class="shortcut">
-            <kbd>Shift + Z</kbd>
-            <span>Abortar Emergência</span>
-          </div>
-          <div class="shortcut">
-            <kbd>Shift + A</kbd>
-            <span>Gerenciar API Keys (UI Minimalista)</span>
-          </div>
-          <div class="shortcut">
-            <kbd>Shift + M</kbd>
-            <span>Ciclar Modelos Neurais</span>
-          </div>
-          <div class="shortcut">
-            <kbd>Qualquer Tecla</kbd>
-            <span>Digitar o próximo caractere da resposta automaticamente.</span>
-          </div>
-        </div>
-        <a href="https://github.com/minifoxie/EasyQuiz/blob/main/manuais/MODO_DISCRETO.md" target="_blank" class="btn btn-secondary" style="margin-top: 2rem;">Ler Dossiê Completo no GitHub</a>
-      </div>
-    </section>
+  <div class="content-block manual-block">
+    <h2>🕵️ Modo Discreto: O Guia Furtivo Supremo</h2>
+
+<p>O <strong>Modo Discreto</strong> (Stealth) do EasyQuiz foi arquitetado do zero para contornar qualquer tipo de inspeção visual, análise de rede superficial e detecção de automação por DOM.</p>
+
+<p>Ele <strong>não injeta NENHUMA interface na sua prova</strong>. Zero botões, zero janelas. Todo o processamento lógico ocorre via atalhos silenciosos de teclado, e os feedbacks acontecem por meio de um sistema de "Micro-Toasts" que desaparecem em frações de segundo.</p>
+
+<hr>
+
+<h3>⚡ A Arquitetura de "Hooking" (Como burlamos os Anti-Cheats)</h3>
+
+<p>Se um script apenas muda o valor de uma caixa de texto (<code>input.value = "Resposta"</code>), plataformas modernas (React/Angular) detectam a injeção mecânica instantaneamente e anulam a submissão, enviando a prova em branco.</p>
+
+<p>O Modo Discreto aplica um <strong>Event Hooking</strong> avançado:</p>
+<p>1. Quando a IA decide o que responder, ela salva a *String* na memória isolada.</p>
+<p>2. O EasyQuiz escuta o seu teclado físico.</p>
+<p>3. Ao apertar <strong>qualquer tecla</strong>, o sistema anula a letra original que você apertou e injeta a letra correspondente da resposta certa (disparando os eventos <code>keydown</code>, <code>keypress</code>, <code>input</code> e <code>keyup</code> com as marcações de <code>isTrusted: true</code> via Prototype Override).</p>
+<p>4. O resultado: Para o site, você é apenas um humano normal digitando muito rápido a resposta perfeitamente correta.</p>
+
+<hr>
+
+<h3>⌨️ Tabela de Comandos de Batalha (Atalhos)</h3>
+
+<p>Estes atalhos governam o sistema. Memorize-os:</p>
+
+<div class="table-container"><table><thead><tr><th>Atalho</th><th>Ação</th></tr></thead><tbody>
+<tr><td><kbd><code>Shift + Q</code></kbd></td><td><strong>Escanear:</strong> Ativa o robô. Ele lê o DOM da questão focada (ou a última que você clicou) e dispara silenciosamente para a nuvem.</td></tr>
+<tr><td><kbd><code>Shift + Z</code></kbd></td><td><strong>Abort / Panic:</strong> Cancela qualquer digitação em andamento e mata a requisição pendente.</td></tr>
+<tr><td><kbd><code>Shift + R</code></kbd></td><td><strong>Recarregar IA:</strong> Força a IA a ler a questão de novo se ela der timeout.</td></tr>
+<tr><td><kbd><code>Shift + A</code></kbd></td><td><strong>Menu de API:</strong> Um mini-popup translúcido no rodapé para você colar suas chaves do Gemini. Suporta Múltiplas Chaves para balanceamento!</td></tr>
+<tr><td><kbd><code>Shift + M</code></kbd></td><td><strong>Trocar de Cérebro:</strong> Alterna internamente entre Gemini Flash, Pro e outras variantes.</td></tr>
+<tr><td><kbd><code>Shift + V</code></kbd></td><td><strong>Auditoria de Visão:</strong> Pisca rapidamente na tela um screenshot bruto de como a IA está enxergando suas fórmulas matemáticas, sumindo logo em seguida.</td></tr>
+</tbody></table></div>
+
+<hr>
+
+<h3>🚀 Como Iniciar</h3>
+
+<p>1. Vá para a seção de Instalação na página principal.</p>
+<p>2. Copie o código do "Modo Discreto" e crie um Favorito.</p>
+<p>3. Entre na página da sua prova.</p>
+<p>4. Clique no Favorito. A tela <strong>NÃO VAI MUDAR NADA</strong>, mas o script já está vivo!</p>
+<p>5. Pressione <code>Shift + A</code> e adicione sua chave de acesso.</p>
+<p>6. Pronto! Agora é só apertar <code>Shift + Q</code> em cima de cada questão.</p>
+
+<blockquote><strong>Importante:</strong> Não aperte <code>Shift + Q</code> 20 vezes na mesma prova ao mesmo tempo. Dê tempo para a inteligência computar e preencher a resposta atual antes de pular para a próxima.</blockquote>
+
+  </div>
+</section>
 
   </main>
 

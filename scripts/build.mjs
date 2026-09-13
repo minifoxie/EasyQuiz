@@ -345,6 +345,17 @@ try {
   readme = readme.replace(/badge\/Build-v[\d\.]+-00e5ff/g, `badge/Build-${versionLabel}-00e5ff`);
   await writeFile(path.join(root, 'README.md'), readme);
   console.log(`[EasyQuiz] README.md atualizado com a versão ${versionLabel}`);
+
+  // Update site index.html
+  try {
+    let indexHtml = await readFile(path.join(root, 'docs', 'index.html'), 'utf-8');
+    indexHtml = indexHtml.replace(/<span id="site-version" class="version-badge">.*?<\/span>/g, `<span id="site-version" class="version-badge">${versionLabel}</span>`);
+    await writeFile(path.join(root, 'docs', 'index.html'), indexHtml);
+    console.log(`[EasyQuiz] docs/index.html atualizado com a versão ${versionLabel}`);
+  } catch (e) {
+    console.log('[EasyQuiz] docs/index.html não encontrado ou erro ao atualizar', e);
+  }
+
 } catch (e) {
   console.log('[EasyQuiz] Aviso: Não foi possível atualizar a versão no README.md', e);
 }
