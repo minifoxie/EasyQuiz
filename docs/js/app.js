@@ -247,7 +247,6 @@ async function osAnimLoop() {
   if (wraps.length === 0) return;
   
   while (true) {
-    // Check visibility
     let isVisible = false;
     wraps.forEach(w => { if (w.offsetWidth > 0) isVisible = true; });
     if (!isVisible) {
@@ -264,6 +263,7 @@ async function osAnimLoop() {
       const btn = wrap.querySelector('.os-eq-btn');
       const kb = wrap.querySelector('.os-keyboard-hint');
       const keys = kb.querySelectorAll('kbd');
+      const indicator = wrap.querySelector('.os-click-indicator');
       
       // Reset State
       wrap.className = 'os-anim-wrapper';
@@ -279,13 +279,19 @@ async function osAnimLoop() {
       btn.style.transform = 'scale(1)';
       keys.forEach(k => k.className = '');
       
-      await sleep(500);
+      if (indicator) {
+        indicator.style.transition = 'none';
+        indicator.style.opacity = '0';
+        indicator.style.transform = 'scale(1.5)';
+      }
+      
+      await sleep(800);
       
       // 1. Show Keyboard Hint
       wrap.classList.add('s-keys');
       await sleep(600);
       
-      // 2. Press keys sequentially
+      // 2. Press keys sequentially (quickly)
       if (keys[0]) { keys[0].classList.add('pressed'); await sleep(150); }
       if (keys[1]) { keys[1].classList.add('pressed'); await sleep(150); }
       if (keys[2]) { keys[2].classList.add('pressed'); await sleep(150); }
@@ -299,14 +305,16 @@ async function osAnimLoop() {
       await sleep(200);
       wrap.classList.remove('s-keys');
       
-      // 4. Move cursor to button and zoom in
+      // 4. Move cursor to button and zoom in on cursor
       cursor.style.transition = 'all 0.8s cubic-bezier(0.16,1,0.3,1)';
+      camera.style.transition = 'transform 0.8s cubic-bezier(0.16,1,0.3,1)';
       
       // Zoom into the bottom area where button is
       camera.style.transform = 'scale(1.4) translate(-10%, -20%)';
       
-      cursor.style.top = (btn.offsetTop + 10) + 'px';
-      cursor.style.left = (btn.offsetLeft + 50) + 'px';
+      cursor.style.top = '70%'; // Approx button pos
+      cursor.style.left = '50%';
+      
       await sleep(800);
       
       // 5. Click and hold
@@ -314,28 +322,35 @@ async function osAnimLoop() {
       btn.style.transform = 'scale(0.95)';
       btn.style.opacity = '0.5';
       
+      if (indicator) {
+        indicator.style.transition = 'transform 0.2s cubic-bezier(0.16,1,0.3,1), opacity 0.2s';
+        indicator.style.opacity = '1';
+        indicator.style.transform = 'scale(0.6)';
+      }
+      
       // Show ghost attached to cursor
       ghost.style.opacity = '1';
-      ghost.style.top = (btn.offsetTop + 10) + 'px';
-      ghost.style.left = (btn.offsetLeft + 50) + 'px';
+      ghost.style.top = '70%';
+      ghost.style.left = '50%';
       
       await sleep(500);
       
       // 6. Drag to dropzone, camera follows
-      cursor.style.transition = 'all 1s cubic-bezier(0.16,1,0.3,1)';
-      ghost.style.transition = 'all 1s cubic-bezier(0.16,1,0.3,1)';
+      cursor.style.transition = 'all 1.2s cubic-bezier(0.16,1,0.3,1)';
+      ghost.style.transition = 'all 1.2s cubic-bezier(0.16,1,0.3,1)';
+      camera.style.transition = 'transform 1.2s cubic-bezier(0.16,1,0.3,1)';
       
       // Dropzone is in bookmarks bar
-      cursor.style.top = '72px'; // approx height of url bar + tabs
-      cursor.style.left = '200px'; // approx position of dropzone
-      ghost.style.top = '58px';
+      cursor.style.top = '60px'; // Approx bookmarks bar Y
+      cursor.style.left = '160px'; // Approx bookmarks dropzone X
+      ghost.style.top = '60px';
       ghost.style.left = '160px';
       
-      // Camera zooms to top area
+      // Camera zooms to top area following mouse
       camera.style.transform = 'scale(1.4) translate(0%, 0%)';
       
       wrap.classList.add('s-drag');
-      await sleep(1000);
+      await sleep(1200);
       
       // 7. Drop
       cursor.classList.remove('holding');
@@ -343,13 +358,20 @@ async function osAnimLoop() {
       dropzone.innerHTML = ghost.innerHTML;
       ghost.style.opacity = '0';
       
+      if (indicator) {
+        indicator.style.transform = 'scale(1.5)';
+        indicator.style.opacity = '0';
+      }
+      
       // Cursor moves slightly away
-      cursor.style.top = '120px';
-      cursor.style.left = '250px';
+      cursor.style.transition = 'all 0.4s ease-out';
+      cursor.style.top = '100px';
+      cursor.style.left = '220px';
       
       await sleep(500);
       
       // 8. Zoom out
+      camera.style.transition = 'transform 0.8s cubic-bezier(0.16,1,0.3,1)';
       camera.style.transform = 'scale(1) translate(0, 0)';
       
       await sleep(1500);
