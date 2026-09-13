@@ -1,4 +1,4 @@
-/* EasyQuiz v4.0 — Ultra App-Store Design & Extreme Animations */
+/* EasyQuiz v4.1 — Ultra App-Store Design & Extreme Animations */
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
 
 :root {
@@ -28,7 +28,7 @@ a { text-decoration: none; color: inherit; }
 img { display: block; max-width: 100%; }
 
 /* Canvas */
-#bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; mix-blend-mode: screen; opacity: 0.8; }
+#bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; mix-blend-mode: screen; opacity: 1; }
 
 /* ─── NAVBAR ─── */
 .navbar { position: sticky; top: 0; z-index: 1000; height: var(--nav-h); width: 100%; }
@@ -97,13 +97,13 @@ img { display: block; max-width: 100%; }
 
 .btn.sm { height: 38px; padding: 0 16px; font-size: 0.82rem; border-width: 1px; }
 
-/* ─── DRAG BTN (WHITE OUTLINE) ─── */
-.drag-bm-btn { border-color: var(--white) !important; color: var(--white) !important; padding: 0 !important; cursor: grab; }
+/* ─── DRAG BTN (BLACK BACKGROUND) ─── */
+.drag-bm-btn { background: var(--black) !important; border-color: var(--white) !important; color: var(--white) !important; padding: 0 !important; cursor: grab; }
 .drag-dots { width: 44px; height: 48px; display: flex; align-items: center; justify-content: center; border-right: 2px solid var(--white); flex-shrink: 0; }
 .drag-bm-btn span:last-child { padding: 0 20px; }
 .drag-bm-btn:active { cursor: grabbing; }
 
-/* ─── DROPDOWN ─── */
+/* ─── DROPDOWN & FLOATING CODE ─── */
 .dropdown { position: relative; display: inline-block; }
 .dropdown-menu {
   display: none; position: absolute; top: calc(100% + 8px); left: 0;
@@ -129,6 +129,18 @@ img { display: block; max-width: 100%; }
 .dropdown-text span { font-size: 0.75rem; color: var(--gray-2); }
 .chevron-icon { transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1); }
 .dropdown.active .chevron-icon { transform: rotate(180deg); }
+.float-code-btn.active .chevron-icon { transform: rotate(180deg); }
+
+.floating-code-wrapper { position: relative; display: inline-block; }
+.floating-code-box {
+  display: none; position: absolute; top: calc(100% + 12px); left: 0;
+  width: 500px; max-width: 90vw; background: var(--bg-1); border: 1px solid var(--border-hi);
+  box-shadow: 0 40px 80px rgba(0,0,0,0.95); z-index: 1000;
+}
+.floating-code-box.open { display: block; animation: dropAnim 0.4s cubic-bezier(0.34,1.56,0.64,1) both; }
+.fc-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border-2); background: var(--bg-2); }
+.fc-header span { font-size: 0.75rem; font-weight: 900; color: var(--gray-2); text-transform: uppercase; letter-spacing: 0.05em; }
+.code-inner { background: #000; padding: 16px; font-family: var(--mono); font-size: 0.78rem; color: var(--accent); line-height: 1.6; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
 
 /* ─── HOME HERO ─── */
 .hero-layout { display: flex; align-items: center; gap: 60px; padding: 20px 0 60px; }
@@ -192,43 +204,23 @@ img { display: block; max-width: 100%; }
 .app-store-info { flex: 1; }
 .app-store-title { font-size: 2.5rem; font-weight: 900; color: var(--white); letter-spacing: -0.04em; margin-bottom: 12px; }
 .app-store-desc { font-size: 1.05rem; color: var(--gray-2); line-height: 1.5; margin-bottom: 32px; max-width: 640px; }
-.app-store-actions { display: flex; gap: 16px; flex-wrap: wrap; }
+.app-store-actions { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
 
-/* ─── INSTALL ACCORDION & GUIDE ─── */
-.install-accordion-wrap { margin-bottom: 60px; }
-.accordion-toggle-btn {
-  display: flex; align-items: center; justify-content: space-between;
-  width: 100%; height: 60px; padding: 0 24px;
-  background: var(--bg-1); border: 1px solid var(--border);
-  font-family: var(--font); font-size: 1rem; font-weight: 900; color: var(--white);
-  cursor: pointer; transition: background 0.3s, padding-left 0.4s;
-}
-.accordion-toggle-btn:hover { background: var(--bg-2); padding-left: 32px; border-color: var(--border-hi); }
-.accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.8s cubic-bezier(0.16,1,0.3,1); }
-.accordion-content.expanded { max-height: 800px; }
-
-.install-guide-steps { display: grid; grid-template-columns: repeat(2,1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-top: none; }
-.guide-step { background: var(--bg-1); padding: 32px; display: flex; align-items: flex-start; gap: 20px; transition: background 0.3s, transform 0.4s; }
-.guide-step:hover { background: var(--bg-2); transform: scale(1.02); z-index: 1; border: 1px solid var(--border-hi); }
-.guide-num { font-family: var(--mono); font-size: 2rem; font-weight: 900; color: var(--border-2); transition: color 0.3s; line-height: 1; }
-.guide-step:hover .guide-num { color: var(--white); }
-.guide-step p { color: var(--gray-1); font-size: 0.95rem; line-height: 1.5; }
-
-.code-box-wrap { padding: 32px; border: 1px solid var(--border); border-top: none; background: var(--bg); }
-.code-box-wrap label { display: block; font-size: 0.75rem; font-weight: 900; color: var(--gray-3); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.05em; }
-.code-inner {
-  background: #000; border: 1px solid var(--border-2); padding: 24px;
-  font-family: var(--mono); font-size: 0.8rem; color: var(--accent); line-height: 1.6;
-  white-space: pre-wrap; word-break: break-all;
-}
+/* ─── INFO CARDS ─── */
+.info-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); margin-bottom: 60px; }
+.info-card { background: var(--bg-1); padding: 32px; }
+.info-icon { width: 40px; height: 40px; border: 1px solid var(--border-2); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+.info-icon i[data-lucide] { width: 18px; height: 18px; color: var(--white); }
+.info-card h3 { font-size: 1.1rem; font-weight: 900; color: var(--white); margin-bottom: 12px; }
+.info-card p { font-size: 0.9rem; color: var(--gray-2); line-height: 1.6; margin-bottom: 12px; }
 
 /* ─── SHORTCUTS ─── */
 .shortcuts-card { background: var(--bg-1); border: 1px solid var(--border); padding: 32px; }
 .shortcuts-card h3 { font-size: 1.1rem; font-weight: 900; color: var(--white); margin-bottom: 24px; text-transform: uppercase; letter-spacing: 0.05em; }
 .shortcut-list { display: flex; flex-direction: column; gap: 8px; }
-.shortcut-row { display: flex; align-items: center; gap: 20px; padding: 16px 20px; background: var(--bg); border: 1px solid var(--border); transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), border-color 0.3s; }
+.shortcut-row { display: flex; align-items: center; gap: 24px; padding: 16px 20px; background: var(--bg); border: 1px solid var(--border); transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), border-color 0.3s; }
 .shortcut-row:hover { transform: translateX(12px); border-color: var(--white); background: var(--bg-2); }
-.key-combo { display: flex; align-items: center; gap: 6px; flex-shrink: 0; min-width: 140px; }
+.key-combo { display: flex; align-items: center; gap: 6px; flex-shrink: 0; min-width: 120px; }
 kbd { background: var(--white); color: var(--black); font-family: var(--mono); font-weight: 900; font-size: 0.8rem; padding: 4px 10px; }
 
 /* ─── API KEY PAGE ─── */
@@ -281,7 +273,7 @@ kbd { background: var(--white); color: var(--black); font-family: var(--mono); f
 /* RESPONSIVE */
 @media(max-width: 860px) {
   .hero-layout, .app-store-hero { flex-direction: column; align-items: flex-start; gap: 32px; }
-  .install-guide-steps { grid-template-columns: 1fr; }
+  .info-layout { grid-template-columns: 1fr; }
   .api-step-row { flex-direction: column; gap: 12px; }
   .credits-grid { flex-direction: column; }
 }
