@@ -342,3 +342,17 @@ img { display: block; max-width: 100%; }
 .os-anim-wrapper.s-down .os-eq-btn { transform: scale(0.95); opacity: 0.5; }
 .os-anim-wrapper.s-drag .eq-dropzone { border-color: var(--mode-accent); background: rgba(255,255,255,0.1); }
 .os-anim-wrapper.s-drop .eq-dropzone { background: var(--mode-accent); border-color: transparent; color: #000; font-weight: 900; font-family: var(--font); justify-content: center; }
+
+/* Mobile adjustments */
+@media (max-width:900px) {
+  .hero-layout, .mode-page-hero { flex-direction:column; text-align:center; }
+  .hero-actions, .mode-install-actions { justify-content:center; }
+  .features-grid { grid-template-columns:1fr; }
+  .api-cards-grid { grid-template-columns:1fr; }
+  .info-layout { grid-template-columns:1fr; }
+  .nav-links { display:none; }
+  .code-dropdown .dropdown-menu { width: 300px; }
+  .hint-popup-wrapper { flex-direction: column; overflow-y: auto; height: 90vh; }
+  .hint-popup-right { width: 100%; height: 300px; flex-shrink: 0; }
+  .hint-popup-left { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.1); flex: none; }
+}
