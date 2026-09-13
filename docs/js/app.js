@@ -1,12 +1,11 @@
-/* EasyQuiz App v5.5 */
+/* EasyQuiz App v5.6 */
 'use strict';
 
 const bkd = document.getElementById('global-backdrop');
-function openOverlay(id) { bkd.classList.add('open'); const el = document.getElementById(id); if(el) el.classList.add('open'); }
+function openOverlay(id) { bkd.classList.add('open'); const el = document.getElementById(id); if(el) { el.classList.add('open'); } }
 function closeOverlay() { bkd.classList.remove('open'); document.querySelectorAll('.hint-popup.open').forEach(el => el.classList.remove('open')); }
 bkd.onclick = closeOverlay;
 
-// ─── DOM Background: Squares + Invisible Ghost Mice (Effect Trails only) ──────────────
 (function() {
   const bg = document.getElementById('bg-dom');
   if (!bg) return;
@@ -106,10 +105,8 @@ function switchTab(id) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   pane.classList.add('active');
   
-  // Reset all animations in the newly active tab so they play again
   pane.querySelectorAll('[data-anim]').forEach(el => {
     el.classList.remove('revealed');
-    // small timeout to allow display:block to apply before re-observing
     setTimeout(() => {
       const rect = el.getBoundingClientRect();
       if (rect.top < window.innerHeight && rect.bottom > 0) el.classList.add('revealed');
@@ -210,7 +207,6 @@ async function loadChangelog(page) {
       
       const el = document.createElement('div'); el.className = 'commit-row glass';
       
-      // Extreme alternating animations on commits
       const animDir = (i % 2 === 0) ? 'slide-right' : 'slide-left';
       el.setAttribute('data-anim', animDir);
       el.style.setProperty('--delay', `${0.05 * i}s`);

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="EasyQuiz - Sistema inteligente de auto resposta a quizzes 100% no navegador.">
   <title>EasyQuiz - Bookmarklet IA</title>
-  <link rel="icon" type="image/png" href="logo.png?v=5.5">
-  <link rel="stylesheet" href="css/style.css?v=5.5">
+  <link rel="icon" type="image/png" href="logo.png?v=5.6">
+  <link rel="stylesheet" href="css/style.css?v=5.6">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
@@ -18,7 +18,7 @@
   <div class="nav-content">
     <div class="nav-brand-group">
       <a href="#home" class="nav-brand" onclick="switchTab('home');return false;">
-        <img src="logo.png?v=5.5" alt="EasyQuiz" class="nav-logo-img">
+        <img src="logo.png?v=5.6" alt="EasyQuiz" class="nav-logo-img">
         <span class="brand-title">EasyQuiz</span>
       </a>
       <span class="badge-beta">BETA</span>
@@ -41,7 +41,7 @@
     </nav>
     <div class="nav-right">
       <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" class="nav-icon-btn" title="GitHub">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.185 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844a9.59 9.59 0 012.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0022 12.021C22 6.484 17.522 2 12 2z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.185 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844a9.59 9.59 0 012.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0022 12.021C22 6.484 17.522 2 12 2z"/></svg>
       </a>
       <a href="https://github.com/minifoxie/EasyQuiz/blob/main/README.md" target="_blank" class="nav-icon-btn" title="Documentacao"><i data-lucide="file-text"></i></a>
     </div>
@@ -52,7 +52,7 @@
   <!-- HOME -->
   <section id="home" class="tab-pane active">
     <header class="hero-layout">
-      <div data-anim="pop-in" style="--delay: 0.1s"><img src="logo.png?v=5.5" alt="EasyQuiz" class="hero-logo"></div>
+      <div data-anim="pop-in" style="--delay: 0.1s"><img src="logo.png?v=5.6" alt="EasyQuiz" class="hero-logo"></div>
       <div>
         <div class="hero-meta-row" data-anim="slide-down" style="--delay: 0.2s"><span class="hero-name">EasyQuiz</span><span class="badge-beta">BETA</span><span class="version-plain" id="home-version">v1.0.0</span></div>
         <h1 class="hero-title" data-anim="slide-right" style="--delay: 0.3s">O motor autonomo definitivo para quizzes.</h1>
@@ -67,7 +67,7 @@
             </div>
           </div>
           <button type="button" class="btn btn-outline" onclick="switchTab('updates')"><i data-lucide="git-commit-horizontal"></i> Ver atualizacoes</button>
-          <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" class="btn btn-outline btn-icon-only" title="Repositorio GitHub"><i data-lucide="github"></i></a>
+          <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" class="btn btn-outline btn-icon-only" title="Repositorio GitHub"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.185 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844a9.59 9.59 0 012.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0022 12.021C22 6.484 17.522 2 12 2z"/></svg></a>
         </div>
       </div>
     </header>
@@ -112,7 +112,7 @@
   <section id="discrete" class="tab-pane">
     <div class="mode-page-hero">
       <div class="mode-id-card" data-anim="pop-in" style="--delay: 0.1s">
-        <img src="logo.png?v=5.5" alt="EasyQuiz" class="mode-card-logo">
+        <img src="logo.png?v=5.6" alt="EasyQuiz" class="mode-card-logo">
         <div class="mode-card-label"><span>Modo Discreto</span><i data-lucide="eye-off"></i></div>
       </div>
       <div class="mode-page-info">
@@ -174,7 +174,7 @@
   <section id="legacy" class="tab-pane">
     <div class="mode-page-hero">
       <div class="mode-id-card" data-anim="pop-in" style="--delay: 0.1s">
-        <img src="logo.png?v=5.5" alt="EasyQuiz" class="mode-card-logo">
+        <img src="logo.png?v=5.6" alt="EasyQuiz" class="mode-card-logo">
         <div class="mode-card-label"><span>Modo Legacy</span><i data-lucide="panel-top"></i></div>
       </div>
       <div class="mode-page-info">
@@ -287,53 +287,57 @@
 
 <!-- HINT POPUPS -->
 <div class="hint-popup" id="hint-discrete">
-  <button class="hint-close"><i data-lucide="x"></i></button>
-  <h4>Modo Discreto — Como Usar</h4>
-  <div class="hint-disclaimer">Os exemplos de chave abaixo sao ficticios. Nao sao chaves reais.</div>
-  <div class="hint-mode-title hint-mode-d"><i data-lucide="eye-off"></i> Passo a Passo</div>
-  <div class="hint-steps-small">
-    <div class="hint-step"><kbd>1</kbd><span>Salve o bookmarklet arrastando <strong>EQ Discret</strong> para a barra de favoritos (<kbd>Ctrl+Shift+B</kbd>).</span></div>
-    <div class="hint-step"><kbd>2</kbd><span>Abra a pagina da prova e clique em <strong>EQ Discret</strong>. A tela nao mudara — e normal.</span></div>
-    <div class="hint-step"><kbd>3</kbd><span>Pressione <kbd>Shift+A</kbd> para abrir o gerenciador de chaves. Cole sua chave e confirme.</span></div>
-    <div class="hint-step"><kbd>4</kbd><span>Use <kbd>Shift+Q</kbd> para escanear a questao e buscar a resposta via IA.</span></div>
-  </div>
-  <div class="hint-rules">
-    <div class="hint-ok"><i data-lucide="check"></i> Formato: uma chave por linha, comecando com <code>AIzaSy</code></div>
-    <div class="hint-no"><i data-lucide="x"></i> Nao use virgulas, aspas ou comentarios</div>
-  </div>
-  <pre class="hint-code" style="margin-top:12px;margin-bottom:0">AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ123456
+  <div class="hint-popup-inner">
+    <button class="hint-close"><i data-lucide="x"></i></button>
+    <h4>Modo Discreto — Como Usar</h4>
+    <div class="hint-disclaimer">Os exemplos de chave abaixo sao ficticios. Nao sao chaves reais.</div>
+    <div class="hint-mode-title hint-mode-d"><i data-lucide="eye-off"></i> Passo a Passo</div>
+    <div class="hint-steps-small">
+      <div class="hint-step"><kbd>1</kbd><span>Salve o bookmarklet arrastando <strong>EQ Discret</strong> para a barra de favoritos (<kbd>Ctrl+Shift+B</kbd>).</span></div>
+      <div class="hint-step"><kbd>2</kbd><span>Abra a pagina da prova e clique em <strong>EQ Discret</strong>. A tela nao mudara — e normal.</span></div>
+      <div class="hint-step"><kbd>3</kbd><span>Pressione <kbd>Shift+A</kbd> para abrir o gerenciador de chaves. Cole sua chave e confirme.</span></div>
+      <div class="hint-step"><kbd>4</kbd><span>Use <kbd>Shift+Q</kbd> para escanear a questao e buscar a resposta via IA.</span></div>
+    </div>
+    <div class="hint-rules">
+      <div class="hint-ok"><i data-lucide="check"></i> Formato: uma chave por linha, comecando com <code>AIzaSy</code></div>
+      <div class="hint-no"><i data-lucide="x"></i> Nao use virgulas, aspas ou comentarios</div>
+    </div>
+    <pre class="hint-code" style="margin-top:12px;margin-bottom:0">AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ123456
 AIzaSy9876543210ZYXWVUTSRQPONMLKJIabcd</pre>
+  </div>
 </div>
 
 <div class="hint-popup" id="hint-legacy">
-  <button class="hint-close"><i data-lucide="x"></i></button>
-  <h4>Modo Legacy — Como Usar</h4>
-  <div class="hint-disclaimer">Os exemplos de chave abaixo sao ficticios. Nao sao chaves reais.</div>
-  <div class="hint-mode-title hint-mode-l"><i data-lucide="panel-top"></i> Passo a Passo</div>
-  <div class="hint-steps-small">
-    <div class="hint-step"><kbd>1</kbd><span>Salve o bookmarklet arrastando <strong>EQ Legacy</strong> para a barra de favoritos (<kbd>Ctrl+Shift+B</kbd>).</span></div>
-    <div class="hint-step"><kbd>2</kbd><span>Abra a pagina da prova e clique em <strong>EQ Legacy</strong>.</span></div>
-    <div class="hint-step"><kbd>3</kbd><span>Pressione <kbd>Alt+Q</kbd> para o painel HUD flutuante aparecer.</span></div>
-    <div class="hint-step"><kbd>4</kbd><span>Va na aba <strong>Engrenagem</strong>, cole suas chaves e salve. Clique em <strong>Resolver Questao Atual</strong>.</span></div>
-  </div>
-  <div class="hint-rules">
-    <div class="hint-ok"><i data-lucide="check"></i> Formato: uma chave por linha, comecando com <code>AIzaSy</code></div>
-    <div class="hint-no"><i data-lucide="x"></i> Nao use virgulas, aspas ou comentarios</div>
-  </div>
-  <pre class="hint-code" style="margin-top:12px;margin-bottom:0">AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ123456
+  <div class="hint-popup-inner">
+    <button class="hint-close"><i data-lucide="x"></i></button>
+    <h4>Modo Legacy — Como Usar</h4>
+    <div class="hint-disclaimer">Os exemplos de chave abaixo sao ficticios. Nao sao chaves reais.</div>
+    <div class="hint-mode-title hint-mode-l"><i data-lucide="panel-top"></i> Passo a Passo</div>
+    <div class="hint-steps-small">
+      <div class="hint-step"><kbd>1</kbd><span>Salve o bookmarklet arrastando <strong>EQ Legacy</strong> para a barra de favoritos (<kbd>Ctrl+Shift+B</kbd>).</span></div>
+      <div class="hint-step"><kbd>2</kbd><span>Abra a pagina da prova e clique em <strong>EQ Legacy</strong>.</span></div>
+      <div class="hint-step"><kbd>3</kbd><span>Pressione <kbd>Alt+Q</kbd> para o painel HUD flutuante aparecer.</span></div>
+      <div class="hint-step"><kbd>4</kbd><span>Va na aba <strong>Engrenagem</strong>, cole suas chaves e salve. Clique em <strong>Resolver Questao Atual</strong>.</span></div>
+    </div>
+    <div class="hint-rules">
+      <div class="hint-ok"><i data-lucide="check"></i> Formato: uma chave por linha, comecando com <code>AIzaSy</code></div>
+      <div class="hint-no"><i data-lucide="x"></i> Nao use virgulas, aspas ou comentarios</div>
+    </div>
+    <pre class="hint-code" style="margin-top:12px;margin-bottom:0">AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ123456
 AIzaSy9876543210ZYXWVUTSRQPONMLKJIabcd</pre>
+  </div>
 </div>
 
 <footer class="site-footer">
   <div class="footer-inner">
     <div class="footer-divider"></div>
     <div class="footer-row">
-      <div class="footer-brand"><img src="logo.png?v=5.5" width="20" height="20" alt="EasyQuiz"><span>EasyQuiz &copy; 2026</span></div>
+      <div class="footer-brand"><img src="logo.png?v=5.6" width="20" height="20" alt="EasyQuiz"><span>EasyQuiz &copy; 2026</span></div>
       <div class="footer-links"><a href="https://github.com/minifoxie/EasyQuiz" target="_blank">GitHub</a><a href="https://github.com/minifoxie/EasyQuiz/blob/main/README.md" target="_blank">Docs</a><span>MIT License</span></div>
     </div>
   </div>
 </footer>
 <div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Copiado!</span></div>
-<script src="js/app.js?v=5.5"></script>
+<script src="js/app.js?v=5.6"></script>
 </body>
 </html>
