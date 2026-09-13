@@ -144,37 +144,49 @@ img, svg {
 }
 
 /* Navigation Tabs (Sharp, Clean, Technical) */
+
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 2px;
-  background: var(--bg-1);
-  border: 1px solid var(--border);
-  padding: 3px;
+  gap: 16px;
+  background: transparent;
+  border: none;
+  padding: 0;
 }
+
+
 
 .nav-btn {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 8px 16px;
+  padding: 8px 0;
   font-family: var(--font);
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 800;
   cursor: pointer;
-  border: 1px solid transparent;
   background: transparent;
   color: var(--gray-2);
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  border: none;
+  border-bottom: 2px solid transparent;
+  transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
+  position: relative;
 }
-.nav-btn:hover {}
+
+
+.nav-btn:hover {
+  color: var(--white);
+  border-color: var(--border-light);
+}
+
+
 .nav-btn.active {
-  background: var(--white);
-  color: var(--black);
-  font-weight: 900;
+  background: transparent;
+  color: var(--white);
   border-color: var(--white);
 }
+
 .nav-btn i[data-lucide] { width: 15px; height: 15px; }
 
 /* Right External Links */
@@ -539,18 +551,21 @@ img, svg {
 }
 .install-step:last-child { border-right: none; }
 
+
 .step-num {
-  width: 26px;
-  height: 26px;
+  width: auto;
+  min-width: 20px;
   flex-shrink: 0;
-  background: var(--white);
-  color: var(--black);
+  background: transparent;
+  color: var(--white);
+  border-left: 2px solid var(--white);
+  padding-left: 8px;
+  font-size: 1.1rem;
+  font-weight: 900;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 0.82rem;
-  font-weight: 900;
 }
+
 .install-step p { font-size: 0.84rem; color: var(--gray-2); line-height: 1.4; }
 .install-step strong { color: var(--white); }
 
@@ -656,18 +671,21 @@ img, svg {
   border: 1px solid var(--border);
   padding: 16px 18px;
 }
+
 .howto-step-num {
-  width: 28px;
-  height: 28px;
+  width: auto;
+  min-width: 20px;
   flex-shrink: 0;
-  background: var(--white);
-  color: var(--black);
+  background: transparent;
+  color: var(--white);
+  border-left: 2px solid var(--white);
+  padding-left: 8px;
+  font-size: 1.1rem;
+  font-weight: 900;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-weight: 900;
-  font-size: 0.85rem;
 }
+
 .howto-step h4 { font-size: 0.95rem; font-weight: 800; color: var(--white); margin-bottom: 4px; }
 .howto-step p { color: var(--gray-2); font-size: 0.86rem; line-height: 1.5; }
 
@@ -1000,4 +1018,151 @@ kbd {
   .install-action-buttons { flex-direction: column; width: 100%; }
   .install-action-buttons .btn { width: 100%; justify-content: center; }
   .accordion-toggle-btn { width: 100%; justify-content: center; }
+}
+
+.nav-icon-link {
+  color: var(--gray-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  transition: color 0.3s, transform 0.3s;
+}
+.nav-icon-link:hover {
+  color: var(--white);
+  transform: rotate(10deg) scale(1.1);
+}
+
+.hero-logo-massive {
+  width: 220px;
+  height: 220px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 30px rgba(255, 255, 255, 0.1));
+  animation: pulse-glow 4s infinite alternate;
+}
+@keyframes pulse-glow {
+  from { filter: drop-shadow(0 0 20px rgba(255,255,255,0.05)); }
+  to { filter: drop-shadow(0 0 40px rgba(255,255,255,0.15)); }
+}
+
+.btn-drag-grip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: #111;
+  color: #fff;
+  border: 1px dashed var(--border-light);
+  font-weight: 800;
+  font-family: var(--font);
+  text-decoration: none;
+  cursor: grab;
+  position: relative;
+  transition: all 0.3s;
+}
+.btn-drag-grip::before {
+  content: '';
+  position: absolute;
+  left: 0; bottom: 0; width: 100%; height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-drag-grip:hover {
+  background: #1a1a1a;
+  border-color: var(--white);
+}
+.btn-drag-grip:hover::before {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+.btn-drag-grip:active { cursor: grabbing; }
+
+.credits-grid-centered {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 24px;
+}
+.credit-brand-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  padding: 16px 24px;
+  width: 200px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--white);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.3s, border-color 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.credit-brand-item::after {
+  content: '';
+  position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255,255,255,0.05), transparent);
+  transform: rotate(45deg) translateY(-100%);
+  transition: transform 0.6s;
+}
+.credit-brand-item:hover {
+  transform: translateY(-4px);
+  background: var(--bg-2);
+  border-color: var(--border-light);
+}
+.credit-brand-item:hover::after {
+  transform: rotate(45deg) translateY(100%);
+}
+
+.site-footer-clean {
+  margin-top: 80px;
+  padding-bottom: 40px;
+}
+.footer-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-2), transparent);
+  margin-bottom: 24px;
+}
+.footer-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--gray-3);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.footer-right {
+  display: flex;
+  gap: 24px;
+}
+.footer-right a {
+  color: var(--gray-3);
+  text-decoration: none;
+  transition: color 0.3s;
+}
+.footer-right a:hover {
+  color: var(--white);
+}
+
+.tab-pane {
+  display: none;
+  opacity: 0;
+  transform: translateY(10px);
+}
+.tab-pane.active {
+  display: block;
+  animation: slideFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes slideFadeIn {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
 }
