@@ -1,4 +1,4 @@
-/* EasyQuiz App v5.3 */
+/* EasyQuiz App v5.4 */
 'use strict';
 
 const bkd = document.getElementById('global-backdrop');
@@ -6,7 +6,7 @@ function openOverlay(id) { bkd.classList.add('open'); const el = document.getEle
 function closeOverlay() { bkd.classList.remove('open'); document.querySelectorAll('.hint-popup.open').forEach(el => el.classList.remove('open')); }
 bkd.onclick = closeOverlay;
 
-// ─── DOM Background: Squares + Ghost Mice (Worm Trails) ──────────────
+// ─── DOM Background: Squares + Invisible Ghost Mice (Effect Trails only) ──────────────
 (function() {
   const bg = document.getElementById('bg-dom');
   if (!bg) return;
@@ -14,18 +14,12 @@ bkd.onclick = closeOverlay;
   let cols = 0, rows = 0, dots = [];
   let mouse = {x:-9999,y:-9999}, target = {x:-9999,y:-9999};
 
-  // Ghost mice — persistent cursors that wander the screen leaving trails
+  // 4 Invisible Ghost mice that pull dots — 30% smaller range than mouse
   const NUM_GHOSTS = 4;
   const ghosts = Array.from({length: NUM_GHOSTS}, () => {
-    const tEl = document.createElement('div');
-    const hEl = document.createElement('div');
-    tEl.className = 'bg-worm-tail';
-    hEl.className = 'bg-worm-head';
-    bg.appendChild(tEl);
-    bg.appendChild(hEl);
     return { x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
              tx: Math.random() * window.innerWidth, ty: Math.random() * window.innerHeight,
-             vx: 0, vy: 0, tEl, hEl };
+             vx: 0, vy: 0 };
   });
 
   function buildGrid() {
@@ -61,39 +55,32 @@ bkd.onclick = closeOverlay;
       if (dist < 60) { g.tx = Math.random() * window.innerWidth; g.ty = Math.random() * window.innerHeight; }
       g.vx = (g.vx + (dx / dist) * 0.5) * 0.91;
       g.vy = (g.vy + (dy / dist) * 0.5) * 0.91;
-      const prevX = g.x, prevY = g.y;
       g.x += g.vx; g.y += g.vy;
-      const speed = Math.sqrt(g.vx*g.vx + g.vy*g.vy);
-      const ang = Math.atan2(g.vy, g.vx);
-      // Tail: drawn from previous position, length proportional to speed
-      g.tEl.style.width = (speed * 5 + 2) + 'px';
-      g.tEl.style.transform = `translate3d(${prevX}px,${prevY}px,0) rotate(${ang}rad)`;
-      g.hEl.style.transform = `translate3d(${g.x}px,${g.y}px,0)`;
     });
 
     // Update dots
     dots.forEach(d => {
       let pullX = 0, pullY = 0, isNear = false;
 
-      // Main mouse
+      // Main mouse: 160000 dist2 (400px range)
       let dx = d.cx - mouse.x, dy = d.cy - mouse.y;
       let dist2 = dx*dx + dy*dy;
       if (dist2 < 160000) {
         const dist = Math.sqrt(dist2) || 1;
-        const force = Math.max(0, 1 - dist / 380);
+        const force = Math.max(0, 1 - dist / 400);
         const p = force * 42;
         pullX += (dx / dist) * p; pullY += (dy / dist) * p;
         isNear = true;
       }
 
-      // Ghost mice
+      // Ghost mice: 30% smaller range -> 78400 dist2 (~280px range)
       ghosts.forEach(g => {
         const gx = d.cx - g.x, gy = d.cy - g.y;
         const gd2 = gx*gx + gy*gy;
-        if (gd2 < 90000) {
+        if (gd2 < 78400) {
           const gd = Math.sqrt(gd2) || 1;
-          const gf = Math.max(0, 1 - gd / 300);
-          const gp = gf * 22;
+          const gf = Math.max(0, 1 - gd / 280);
+          const gp = gf * 22; // pull force slightly smaller
           pullX += (gx / gd) * gp; pullY += (gy / gd) * gp;
           isNear = true;
         }
@@ -106,7 +93,7 @@ bkd.onclick = closeOverlay;
       d.idle = false;
       const totalPull = Math.sqrt(pullX*pullX + pullY*pullY);
       const scale = 1 + (totalPull / 42) * 15;
-      const alpha = 0.06 + (totalPull / 42) * 0.92;
+      const alpha = 0.06 + (totalPull / 42) * 0.94;
       d.el.style.transform = `translate3d(${d.cx - pullX}px,${d.cy - pullY}px,0) scale(${scale / 2})`;
       d.el.style.backgroundColor = totalPull > 10 ? `hsla(${(time + totalPull * 10) % 360},100%,65%,${alpha})` : `rgba(255,255,255,${alpha})`;
     });
@@ -218,7 +205,10 @@ async function loadChangelog(page) {
       const dt = new Date(c.commit.author.date).toLocaleString('pt-BR');
       const el = document.createElement('div'); el.className = 'commit-row glass';
       const desc = body ? '<div class="commit-full-desc">'+escH(body)+'</div>' : '<div class="commit-full-desc" style="color:var(--gray-3);font-style:italic">Sem descricao adicional.</div>';
-      el.innerHTML = '<div class="commit-main"><div class="commit-version">'+escH(vs)+'</div><div class="commit-content"><div class="commit-title">'+escH(title)+'</div>'+(body?'<div class="commit-body">'+escH(body.length>200?body.slice(0,200)+'...':body)+'</div>':'')+'<div class="commit-meta">por <strong>'+escH(c.commit.author.name)+'</strong> — '+escH(dt)+'</div></div></div><div class="commit-details-inline">'+desc+'<div class="commit-actions"><a href="'+c.html_url+'" target="_blank" class="btn btn-outline sm" onclick="event.stopPropagation()">Ver no GitHub <i data-lucide="external-link"></i></a><a href="https://github.com/minifoxie/EasyQuiz/commit/'+c.sha+'" target="_blank" class="btn btn-secondary sm" onclick="event.stopPropagation()"><i data-lucide="git-commit-horizontal"></i> Diff</a></div></div>';
+      
+      // Included right-chevron for hover feedback
+      el.innerHTML = '<div class="commit-main"><div class="commit-version">'+escH(vs)+'</div><div class="commit-content"><div class="commit-title">'+escH(title)+'</div>'+(body?'<div class="commit-body">'+escH(body.length>200?body.slice(0,200)+'...':body)+'</div>':'')+'<div class="commit-meta">por <strong>'+escH(c.commit.author.name)+'</strong> — '+escH(dt)+'</div></div><div class="commit-right-icon"><i data-lucide="chevron-down"></i></div></div><div class="commit-details-inline">'+desc+'<div class="commit-actions"><a href="'+c.html_url+'" target="_blank" class="btn btn-outline sm" onclick="event.stopPropagation()">Ver no GitHub <i data-lucide="external-link"></i></a><a href="https://github.com/minifoxie/EasyQuiz/commit/'+c.sha+'" target="_blank" class="btn btn-secondary sm" onclick="event.stopPropagation()"><i data-lucide="git-commit-horizontal"></i> Diff</a></div></div>';
+      
       el.onclick = () => { const o = el.classList.contains('open'); document.querySelectorAll('.commit-row').forEach(r => r.classList.remove('open')); if(!o){el.classList.add('open');setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'nearest'}),300);} };
       ctr.appendChild(el);
     });
