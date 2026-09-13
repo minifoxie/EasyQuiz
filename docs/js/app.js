@@ -1,4 +1,4 @@
-/* EasyQuiz App v5.7 */
+/* EasyQuiz App v5.8 */
 'use strict';
 
 const bkd = document.getElementById('global-backdrop');
