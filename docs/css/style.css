@@ -1,4 +1,4 @@
-/* EasyQuiz v5.8 - Lighter Backgrounds & Chromium Blur Fix */
+/* EasyQuiz v5.9 - Ultimate Blur Fix & White Disclaimer */
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
 
 :root {
@@ -28,8 +28,9 @@ img { display: block; max-width: 100%; }
 /* ─── MEGA ANIMATIONS SYSTEM ─── */
 [data-anim] { animation-fill-mode: both; animation-play-state: paused; animation-duration: 0.8s; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); animation-delay: var(--delay, 0s); }
 [data-anim].revealed { animation-play-state: running; }
+/* Clear animations after they finish so they don't break backdrop-filter */
+[data-anim].revealed-done { animation: none !important; transform: none !important; opacity: 1 !important; }
 
-/* FIX CHROMIUM BLUR BUG: 100% must have transform: none! */
 @keyframes blurUp {
   0% { backdrop-filter: blur(4px) saturate(100%); -webkit-backdrop-filter: blur(4px) saturate(100%); transform: translateY(40px); background: rgba(40,42,50,0); border-color: rgba(255,255,255,0); }
   100% { backdrop-filter: blur(40px) saturate(180%); -webkit-backdrop-filter: blur(40px) saturate(180%); transform: none; background: rgba(40,42,50,0.65); border-color: rgba(255,255,255,0.06); }
@@ -49,7 +50,7 @@ img { display: block; max-width: 100%; }
 [data-anim="pop-in"] { animation-name: popIn; }
 [data-anim="fade-in"] { animation-name: fadeIn; }
 
-/* ─── GLASS & BLUR (Lightened by 15%, grayish) ─── */
+/* ─── GLASS & BLUR ─── */
 .glass { background: rgba(40,42,50,0.65); backdrop-filter: blur(40px) saturate(180%) !important; -webkit-backdrop-filter: blur(40px) saturate(180%) !important; border: 1px solid rgba(255,255,255,0.06); }
 .mega-container { padding: 40px; margin-bottom: 40px; border-top: 3px solid rgba(255,255,255,0.1); }
 
@@ -115,13 +116,16 @@ img { display: block; max-width: 100%; }
 
 /* ─── DROPDOWNS ─── */
 .dropdown { position: relative; display: inline-block; z-index: 100; }
-.dropdown-menu { display:none; position:absolute; top:calc(100%+10px); left:0; background: rgba(35,37,45,0.9); backdrop-filter: blur(40px) saturate(180%) !important; -webkit-backdrop-filter: blur(40px) saturate(180%) !important; border: 1px solid rgba(255,255,255,0.12); width:220px; box-shadow: 0 32px 80px rgba(0,0,0,0.8); padding:6px; z-index:99999; }
-.nav-dropdown .dropdown-menu { width: 200px; left: 50%; transform: translateX(-50%); top: calc(100% + 5px); }
-.install-dropdown .dropdown-menu { left: 50%; transform: translateX(-50%); width: 260px; }
+/* Essential structural changes: NO transforms on 100% to save backdrop-filter! */
+.dropdown-menu { display:none; position:absolute; top:calc(100% + 10px); left:50%; margin-left:-110px; background: rgba(35,37,45,0.9); backdrop-filter: blur(40px) saturate(180%) !important; -webkit-backdrop-filter: blur(40px) saturate(180%) !important; border: 1px solid rgba(255,255,255,0.12); width:220px; box-shadow: 0 32px 80px rgba(0,0,0,0.8); padding:6px; z-index:99999; }
+.nav-dropdown .dropdown-menu { width: 200px; margin-left:-100px; top: calc(100% + 5px); }
+.install-dropdown .dropdown-menu { margin-left:-130px; width: 260px; }
 .dropdown-menu.open { display:block; animation: dropAnim 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-@keyframes dropAnim { from{opacity:0;transform:scale(0.9) translateY(-15px) translateX(-50%)} to{opacity:1;transform:scale(1) translateY(0) translateX(-50%)} }
+@keyframes dropAnim { from{opacity:0;transform:translateY(-15px)} to{opacity:1;transform:none;} }
 .code-dropdown .dropdown-menu.open { animation: dropAnimRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-@keyframes dropAnimRight { from{opacity:0;transform:scale(0.9) translateY(-15px)} to{opacity:1;transform:scale(1) translateY(0)} }
+@keyframes dropAnimRight { from{opacity:0;transform:translateY(-15px)} to{opacity:1;transform:none;} }
+.code-dropdown .dropdown-menu { left: auto; right: 0; margin-left: 0; }
+
 .dropdown-label { font-size:0.6rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--gray-2); padding:8px 10px; font-weight:900; }
 .dropdown-item { display:flex; align-items:center; gap:10px; padding:12px; cursor:pointer; position:relative; overflow:hidden; transition:background 0.2s, padding-left 0.3s; }
 .dropdown-item::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--white); transform:scaleY(0); transition:transform 0.3s; }
@@ -192,11 +196,12 @@ img { display: block; max-width: 100%; }
 .hint-popup-wrapper.open { display: flex; opacity: 1; }
 
 .hint-popup { background: rgba(40,42,50,0.9); backdrop-filter: blur(40px) saturate(180%) !important; -webkit-backdrop-filter: blur(40px) saturate(180%) !important; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 40px 120px rgba(0,0,0,0.8); padding: 36px; overflow-y: auto; max-height: 70vh; position: relative; }
-.hint-disclaimer-card { background: rgba(251,191,36,0.12); border-left: 3px solid #fbbf24; border: 1px solid rgba(251,191,36,0.4); border-left-width: 4px; padding: 12px 20px; backdrop-filter: blur(40px) saturate(180%) !important; -webkit-backdrop-filter: blur(40px) saturate(180%) !important; color: #fbbf24; font-size: 0.85rem; font-weight: 800; display: flex; align-items: center; gap: 12px; }
+/* USER REQUESTED: solid white background, black text, no colored borders */
+.hint-disclaimer-card { background: #ffffff; color: #000000; border: none; padding: 14px 20px; font-size: 0.88rem; font-weight: 900; display: flex; align-items: center; gap: 12px; }
 
 /* Inner smart animations for popup */
 .hint-popup-wrapper .anim-el { opacity: 0; transform: translateY(15px); transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-.hint-popup-wrapper.open .anim-el { opacity: 1; transform: translateY(0); }
+.hint-popup-wrapper.open .anim-el { opacity: 1; transform: none; }
 .hint-popup-wrapper.open .anim-el:nth-child(1) { transition-delay: 0.1s; }
 .hint-popup-wrapper.open .anim-el:nth-child(2) { transition-delay: 0.15s; }
 .hint-popup-wrapper.open .anim-el:nth-child(3) { transition-delay: 0.2s; }

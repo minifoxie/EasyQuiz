@@ -1,4 +1,4 @@
-/* EasyQuiz App v5.8 */
+/* EasyQuiz App v5.9 */
 'use strict';
 
 const bkd = document.getElementById('global-backdrop');
@@ -96,8 +96,15 @@ bkd.onclick = closeOverlay;
 })();
 
 function initReveal() {
-  const obs = new IntersectionObserver(entries => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('revealed'); obs.unobserve(e.target); } }), { threshold: 0.05 });
-  document.querySelectorAll('[data-anim]').forEach(el => { el.classList.remove('revealed'); obs.observe(el); });
+  const obs = new IntersectionObserver(entries => entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('revealed');
+      // JS fix for blur: remove animation properties when done so they dont create stacking contexts that block nested blurs
+      setTimeout(() => e.target.classList.add('revealed-done'), 1000);
+      obs.unobserve(e.target);
+    }
+  }), { threshold: 0.05 });
+  document.querySelectorAll('[data-anim]').forEach(el => { el.classList.remove('revealed', 'revealed-done'); obs.observe(el); });
 }
 
 function switchTab(id) {
@@ -106,10 +113,13 @@ function switchTab(id) {
   pane.classList.add('active');
   
   pane.querySelectorAll('[data-anim]').forEach(el => {
-    el.classList.remove('revealed');
+    el.classList.remove('revealed', 'revealed-done');
     setTimeout(() => {
       const rect = el.getBoundingClientRect();
-      if (rect.top < window.innerHeight && rect.bottom > 0) el.classList.add('revealed');
+      if (rect.top < window.innerHeight && rect.bottom > 0) {
+        el.classList.add('revealed');
+        setTimeout(() => el.classList.add('revealed-done'), 1000);
+      }
     }, 50);
   });
 
