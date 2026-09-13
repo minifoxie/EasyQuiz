@@ -1,127 +1,126 @@
-# EasyQuiz ⚡
+<div align="center">
+  <img src="dist/Canvas.png" alt="EasyQuiz Canvas Logo" width="200" />
+  <h1>EasyQuiz ⚡</h1>
+  <p><b>Assistente Inteligente de Auto-Resposta para Quizzes com IA (100% Serverless)</b></p>
 
-> **Assistente Inteligente de Auto-Resposta para Formulários e Quizzes com IA (100% Serverless)**  
-> Sem dependência de servidor, sem hospedagens extras, com chave própria do Google Gemini e interface estritamente sólida.
+  [![Licença MIT](https://img.shields.io/badge/License-MIT-00e5ff?style=flat-square)](#)
+  [![Zero Servidor](https://img.shields.io/badge/Arquitetura-100%25%20Serverless-00ff9d?style=flat-square)](#)
+  [![Suporte](https://img.shields.io/badge/Navegadores-Chromium_Only-blue?style=flat-square)](#)
 
-[![Licença MIT](https://img.shields.io/badge/License-MIT-00e5ff?style=flat-square)](LICENSE)
-[![Zero Servidor](https://img.shields.io/badge/Arquitetura-100%25%20Serverless-00ff9d?style=flat-square)](#)
-[![Modelo Gemini](https://img.shields.io/badge/IA-Google%20Gemini%203.8%20Flash-7aa2f7?style=flat-square)](#)
-
----
-
-## ■ Destaques do Projeto
-
-- **Zero Servidor (100% Client-Side)**: Não necessita de servidores Node.js, Vercel ou bancos de dados. Todo o processamento e as requisições para a IA ocorrem diretamente no navegador do usuário.
-- **Chave de API pessoal**: Cada usuário insere sua própria chave da API Gemini (obtida no [Google AI Studio](https://aistudio.google.com/app/apikey)). A chave fica no navegador; `localStorage` não deve ser tratado como cofre em máquinas compartilhadas.
-- **Design discreto**: Painel escuro, compacto e orientado a estados de análise, aplicação e verificação, sem estética neon.
-- **Detecção Inteligente de Questões**: Algoritmo que detecta automaticamente a pergunta ativa em plataformas como **Google Forms**, **Moodle**, **Canvas**, **Blackboard**, **Kahoot**, **Quizizz** e formulários HTML5 padrão.
-- **Destaques Geométricos na Tela**: A questão ativa é destacada em **ciano elétrico** e as opções escolhidas pela IA são realçadas em **verde neon** antes da confirmação.
-- **Suporte a Imagens e Gráficos**: Compacta e analisa imagens e elementos visuais presentes na questão quando o contexto DOM não é suficiente.
-- **Atalho de Teclado**: Pressione `Alt + Q` a qualquer momento para abrir ou analisar a questão ativa.
+  *Código aberto. Pareado, projetado e desenvolvido utilizando as IAs mais avançadas da atualidade.*  
+  <br>
+  <img src="https://img.shields.io/badge/Gemini_3.1_Pro-1A73E8?style=flat-square&logo=googlebard&logoColor=white" /> 
+  <img src="https://img.shields.io/badge/Claude_Sonnet_4.6-D97757?style=flat-square&logo=anthropic&logoColor=white" /> 
+  <img src="https://img.shields.io/badge/Antigravity_IDE-000000?style=flat-square&logo=google&logoColor=white" />
+</div>
 
 ---
 
-## ■ Como Usar via Bookmarklet (Favoritos)
+## 📑 Tabela de Conteúdos
+- [O que é o EasyQuiz?](#-o-que-é-o-easyquiz)
+- [Navegadores Suportados](#-navegadores-suportados)
+- [Como Funciona (Mecânicas e Lógica)](#-como-funciona-mecânicas-e-lógica)
+- [Modos de Operação e Comandos](#-modos-de-operação-e-comandos)
+  - [Modo Legacy (Painel Flutuante)](#1-modo-legacy-painel-flutuante)
+  - [Modo Discreto (Stealth)](#2-modo-discreto-stealth)
+- [Instalação e Bookmarklets (Códigos Recentes)](#-instalação-e-bookmarklets-códigos-recentes)
+- [Como obter sua Chave da API](#-como-obter-sua-chave-da-api)
+- [Plataformas Compatíveis](#-plataformas-compatíveis)
 
-Você não precisa instalar nenhuma extensão. Basta adicionar um favorito no seu navegador:
+---
 
-1. Exiba a barra de favoritos do seu navegador (`Ctrl + Shift + B`).
-2. Clique com o botão direito na barra de favoritos e selecione **Adicionar página** (ou **Novo favorito**).
-3. No campo **Nome**, digite: `EasyQuiz`.
-4. No campo **URL**, cole o código abaixo:
+## 💡 O que é o EasyQuiz?
+O **EasyQuiz** é uma ferramenta de injeção direta (Bookmarklet script) que acopla uma Inteligência Artificial nativamente no seu navegador. Ele lê, compreende, localiza e preenche as respostas corretas de quizzes e formulários estudantis de forma totalmente autônoma. 
 
+Sem depender de servidores ou de mensalidades. O processamento é **100% Client-Side** via requisições diretas à API REST do Google Gemini.
+
+---
+
+## 🌐 Navegadores Suportados
+O EasyQuiz faz uso massivo das APIs modernas de Shadow DOM, Eye-Dropping e Image Capture, sendo compatível e testado **estritamente em navegadores baseados no motor Chromium**.
+
+| <img src="https://img.shields.io/badge/Google_Chrome-4285F4?style=flat-square&logo=googlechrome&logoColor=white" /> | <img src="https://img.shields.io/badge/Microsoft_Edge-0078D7?style=flat-square&logo=microsoftedge&logoColor=white" /> | <img src="https://img.shields.io/badge/Brave-FF2000?style=flat-square&logo=brave&logoColor=white" /> | <img src="https://img.shields.io/badge/Opera-FF1B2D?style=flat-square&logo=opera&logoColor=white" /> |
+| :---: | :---: | :---: | :---: |
+| Suporte Total | Suporte Total | Suporte Total | Suporte Total |
+
+> **Nota:** Não há suporte planejado para Mozilla Firefox ou Safari.
+
+---
+
+## ⚙️ Como Funciona (Mecânicas e Lógica)
+O sistema opera através de **três pilares lógicos**:
+1. **Rastreamento Automático**: Ao invés de você selecionar a questão, o EasyQuiz varre a árvore do site e pontua todos os elementos (baseado em classes, estrutura de inputs e labels). Aquele com a maior pontuação é classificado como a "Questão Ativa".
+2. **Contexto Visual e Textual**: Se a questão possuir imagens, tabelas ou SVGs complexos, o EasyQuiz tira "prints" vetoriais em tempo real, comprime e envia para a IA ter o contexto perfeito (Visão Computacional).
+3. **Injeção de Eventos (Event Dispatcher)**: Quando a IA responde, o sistema não altera o HTML bruto (o que seria facilmente detectável e quebraria sites modernos). Ele simula cliques físicos (`PointerEvents`), digitação caractere por caractere (simulando teclado físico humano), e dispatch de eventos do React/Angular/Vue para que a página valide sua resposta naturalmente.
+
+---
+
+## 🎮 Modos de Operação e Comandos
+
+O EasyQuiz possui duas variantes, dependendo da sua necessidade de interface:
+
+### 1. Modo Legacy (Painel Flutuante)
+Apresenta um painel visual flutuante completo, robusto e cyberpunk (estilo VS Code). 
+Ideal para debugar a IA, gerenciar configurações facilmente e visualizar logs e miniaturas.
+- **`Alt + Q`** — Abre/Fecha o painel principal e automaticamente analisa a questão focada.
+- Possui Abas para: *Resolver, Cérebro (Contexto), Mídias (Fotos capturadas), Cronômetro, Terminal e Configurações*.
+
+### 2. Modo Discreto (Stealth)
+Opera 100% invisível em background. Não existe painel fixo ou janelas óbvias, apenas minúsculas notificações no canto da tela (Toasts) e uma injeção automatizada baseada em atalhos.
+- **`Alt + Q`** ou **`Shift + Q`** — Dispara a análise da questão atual silenciosamente.
+- **`Shift + V`** — Abre o popup de Mídias (para visualizar o que a IA está enxergando).
+- **`Shift + H`** — Abre o DevTools Flutuante (Terminal de fluxo, auditoria e debug).
+- **`Shift + M`** — Cicla entre os modelos de IA disponíveis em tempo real.
+- **`Shift + A`** — Abre o menu para adicionar/trocar sua Chave de API de forma furtiva.
+- **`Shift + C`** — Abre o menu de comandos rápidos (Ativar Autopilot, Auto-Avançar, etc).
+- **`Shift + Z`** — Aborta/Cancela a análise ou fluxo atual de injeção imediatamente.
+- **`Shift + R`** — Re-analisa a mesma questão (útil se a internet piscou ou algo falhou).
+
+---
+
+## 🚀 Instalação e Bookmarklets (Códigos Recentes)
+O **Bookmarklet script** é um código de uma linha que você salva como "Favorito" no seu navegador. Clicar nesse favorito "injeta" o EasyQuiz na página que você está.
+
+### Passo a Passo de Instalação:
+1. Deixe a barra de favoritos visível no seu navegador (Geralmente `Ctrl + Shift + B`).
+2. Clique com o botão direito na barra e vá em **Adicionar página** ou **Novo favorito**.
+3. No campo **Nome**, digite `EasyQuiz` (ou `EasyQuiz Discreto`).
+4. No campo **URL**, copie e cole UM dos blocos de código abaixo (o código todo).
+5. Salve. Em qualquer prova ou formulário, clique no favorito que você criou para iniciar!
+
+> **Dica**: Use o botão de copiar no canto direito superior das caixas de código abaixo.
+
+#### Código para o Modo Legacy (Painel Completo)
 ```javascript
-javascript:(function(){document.head.appendChild(document.createElement('script')).src='https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/easyquiz.js'})();
+javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();
 ```
 
-5. Salve o favorito!
-6. Pronto! Em qualquer formulário ou quiz, basta clicar no favorito **EasyQuiz** para abrir o painel.
-
-> **Dica**: Na primeira vez, insira sua chave gratuita da API Gemini (criada no [Google AI Studio](https://aistudio.google.com/app/apikey)) e clique em **Testar**. Ela fica salva automaticamente para usos futuros.
-
----
-
-## ■ Como Usar via Userscript (Tampermonkey / Violentmonkey)
-
-Se você utiliza gerenciadores de scripts de usuário como **Tampermonkey** ou **Violentmonkey**, você pode instalar o script diretamente:
-
-- Arquivo: [`dist/easyquiz.user.js`](dist/easyquiz.user.js)
-
----
-
-## ■ Recursos do Painel
-
-- **Analisar Bloco da Questão**: Detecta a questão atual, envia o contexto para o Gemini e gera a justificativa e o plano de ação.
-- **Aplicar Respostas na Página**: Marca os botões de opção/caixas de seleção, seleciona itens de listas ou digita a resposta em campos de texto.
-- **Apenas Simular**: Permite ver a análise da IA e as respostas destacadas sem modificar nenhum campo na página.
-- **Auto Aplicar**: Preenche as respostas instantaneamente após a resposta da IA.
-- **Avançar Questão**: Se ativado e a confiança da IA for alta, clica automaticamente no botão de avançar para a próxima pergunta.
-- **Seletor de Modelos**: Descobre modelos autorizados pela chave em runtime, priorizando modelos estáveis atuais como `gemini-3.8-flash`, `gemini-3.5-flash-lite` e `gemini-2.5-flash`.
-
-> O EasyQuiz valida o plano da IA antes de executar, confirma respostas no DOM e bloqueia o avanço quando a aplicação é parcial. A compatibilidade genérica não substitui testes no site específico.
-
----
-
-## ■ Estrutura do Código
-
-```
-EasyQuiz/
-├── src/
-│   ├── core/
-│   │   ├── gemini.ts       # Chamadas diretas à API REST do Google Gemini
-│   │   ├── prompt.ts       # Engenharia de prompt otimizada para provas e questões
-│   │   ├── types.ts        # Tipagens TypeScript completas
-│   │   └── storage.ts      # Gerenciamento de configurações em localStorage
-│   ├── dom/
-│   │   ├── detector.ts     # Algoritmo de pontuação e detecção de blocos de perguntas
-│   │   ├── controls.ts     # Mapeamento de inputs, radios, checkboxes e selects
-│   │   ├── highlighter.ts  # Realce visual sólido e quadrado na página
-│   │   └── executor.ts     # Execução nativa de ações e disparo de eventos sintéticos
-│   ├── media/
-│   │   └── capture.ts      # Captura e compressão de imagens/canvas no navegador
-│   ├── ui/
-│   │   ├── icons.ts        # Ícones SVG 100% geométricos e sólidos (sem emojis)
-│   │   ├── styles.ts       # Estilos cyberpunk, sombras sólidas e cantos 0px
-│   │   └── panel.ts        # Painel Shadow DOM interativo
-│   └── index.ts            # Ponto de entrada do script
-├── scripts/
-│   └── build.mjs           # Script de bundling com esbuild
-├── dist/
-│   ├── easyquiz.js         # Bundle standalone minificado
-│   ├── easyquiz.user.js    # Versão Userscript (Tampermonkey)
-│   └── bookmarklet.txt     # Código Bookmarklet pronto para copiar
-├── package.json
-└── tsconfig.json
+#### Código para o Modo Discreto (Invisível)
+```javascript
+javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();
 ```
 
 ---
 
-## ■ Desenvolvimento e Compilação
-
-Para compilar o projeto do zero:
-
-```bash
-# 1. Instalar dependências
-npm install
-
-# 2. Compilar o bundle
-npm run build
-
-# 3. Modo observador (watch) durante desenvolvimento
-npm run watch
-
-# 4. Verificação de tipos
-npm run typecheck
-
-# 5. Smoke tests do executor
-npm run test:smoke
-
-# 6. Invariantes de segurança e política de execução
-npm run test:security
-```
+## 🔑 Como obter sua Chave da API
+Para o sistema funcionar sem mensalidades, ele roda diretamente pela sua chave do Google Gemini.
+1. Acesse o [Google AI Studio](https://aistudio.google.com/app/apikey).
+2. Faça login com sua conta Google (é 100% gratuito).
+3. Clique em **"Create API Key"**.
+4. Copie a chave (começa com `AIzaSy...`).
+5. Ao executar o EasyQuiz pela primeira vez via Bookmarklet, clique na engrenagem de configurações (ou use `Shift + A` no Modo Discreto) e cole sua chave.
+6. A chave fica salva no `localStorage` do seu navegador (seu computador). Não usamos servidores!
 
 ---
 
-## ■ Licença
+## 🏫 Plataformas Compatíveis
+O EasyQuiz usa um algoritmo genérico de detecção semântica que permite funcionar em quase tudo, mas possui tratamentos especiais (Framework Injection) para lidar com os bloqueios de segurança das seguintes plataformas:
 
-Este projeto está sob a licença MIT. Consulte o arquivo [LICENSE](LICENSE) para mais informações.
+* **Google Forms** (Apoio total)
+* **Canvas Instructure** (Apoio total)
+* **Moodle** (Apoio total)
+* **Blackboard** (Apoio total)
+* **Kahoot! / Quizizz / Blooket** (Suporte parcial e experimental)
+* Qualquer site que utilize `<input type="radio">`, `<input type="checkbox">`, `<select>` ou formulários HTML5 padrão.
+
+> **Importante:** Apesar do suporte robusto, sempre revise a resposta fornecida pela IA antes de enviar o formulário definitivo. A precisão do sistema é pautada pelos limites dos Modelos Gemini da Google.

@@ -14,6 +14,7 @@
 import type { InteractionStep } from './promptDiscrete'
 import type { CapturedImage } from '../core/types'
 import { BUILD_VERSION } from '../core/version'
+import { ICONS } from '../ui/icons'
 
 export type LogCategory = 'SYS' | 'AI' | 'FLOW' | 'DOM' | 'ACTION' | 'KEY' | 'CLICK' | 'WARN' | 'ERROR' | 'REPLAN'
 
@@ -746,7 +747,7 @@ export class DebugOutput {
 
     const pillText = this.pillEl.querySelector('.__eq_pill_text__')
     if (pillText) {
-      pillText.textContent = `EQ ${BUILD_VERSION}: ${cur} ${errors > 0 ? `(${errors} err)` : '• OK'}`
+      pillText.innerHTML = `<img src="${ICONS.canvasLogo}" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;object-fit:contain;"/>EQ ${BUILD_VERSION}: ${cur} ${errors > 0 ? `(${errors} err)` : '• OK'}`
     }
   }
 
@@ -799,7 +800,7 @@ export class DebugOutput {
     this.pillEl.style.display = 'none'
     this.pillEl.innerHTML = `
       <span class="__eq_pill_dot__"></span>
-      <span class="__eq_pill_text__">EQ ${BUILD_VERSION}: Pronto</span>
+      <span class="__eq_pill_text__"><img src="${ICONS.canvasLogo}" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;object-fit:contain;"/>EQ ${BUILD_VERSION}: Pronto</span>
       <span style="font-size:11px;opacity:0.7;margin-left:4px;">[Shift+H]</span>
     `
     this.pillEl.addEventListener('click', () => this.restore())

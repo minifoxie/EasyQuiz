@@ -252,7 +252,7 @@ export class EasyQuizPanel {
 
       <!-- Botão Flutuante Inferior Renovado (Cápsula com Status ao Vivo) -->
       <button class="eq-launcher" type="button" title="Abrir / Recolher EasyQuiz ${BUILD_VERSION} (Alt+Q)">
-        <span class="eq-launcher-icon">${ICONS.logo}</span>
+        <span class="eq-launcher-icon"><img src="${ICONS.canvasLogo}" style="width:100%;height:100%;object-fit:contain;" /></span>
         <span>EasyQuiz ${BUILD_VERSION}</span>
         <span class="eq-launcher-dot" id="eq-launcher-dot"></span>
       </button>
@@ -306,7 +306,7 @@ export class EasyQuizPanel {
             <!-- Cabeçalho VS Code -->
             <header class="eq-header">
               <div class="eq-brand">
-                <span class="eq-brand-icon">${ICONS.logo}</span>
+                <span class="eq-brand-icon"><img src="${ICONS.canvasLogo}" style="width:100%;height:100%;object-fit:contain;" /></span>
                 <span class="eq-brand-name">EasyQuiz</span>
                 <span class="eq-brand-badge">SUPREME</span>
                 <span id="eq-active-model-badge" style="display:none; font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; background:rgba(88,101,242,0.2); border:1px solid rgba(88,101,242,0.4); color:#7983f5; letter-spacing:0.04em; white-space:nowrap;"></span>
