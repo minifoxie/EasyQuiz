@@ -1,5 +1,16 @@
-/* EasyQuiz App v4.5 */
+/* EasyQuiz App v4.6 */
 'use strict';
+
+// ─── Overlay management (blurs canvas) ─────────────────────────────
+function openOverlay() { document.body.classList.add('overlay-open'); }
+function closeOverlay() {
+  // Only remove if no overlays are open
+  const anyOpen =
+    document.getElementById('global-code-modal').classList.contains('open') ||
+    document.getElementById('commit-modal').classList.contains('open') ||
+    document.querySelectorAll('.hint-popup.open').length > 0;
+  if (!anyOpen) document.body.classList.remove('overlay-open');
+}
 
 // ─── Canvas Background ──────────────────────────────────────────────
 (function initCanvas() {
@@ -93,7 +104,6 @@ function switchTab(id) {
   initReveal();
   if (id === 'updates' && !window._commitsLoaded) loadChangelog(1);
 }
-function switchTabReturn(id) { switchTab(id); return false; }
 
 // ─── Dropdown ───────────────────────────────────────────────────────
 function initDropdown() {
@@ -113,7 +123,7 @@ function initDropdown() {
   });
 }
 
-// ─── Code Buttons (Copy + Show Modal) ───────────────────────────────
+// ─── Code Buttons ───────────────────────────────────────────────────
 function initCodeButtons() {
   document.querySelectorAll('.code-copy-btn').forEach(btn => {
     btn.onclick = e => {
@@ -122,26 +132,19 @@ function initCodeButtons() {
       const code = codeEl ? codeEl.textContent.trim() : '';
       if (!code) return;
       navigator.clipboard.writeText(code).then(() => {
-        btn.classList.add('copied');
-        const label = btn.querySelector('.copy-btn-label');
-        const originalLabel = label ? label.textContent : '';
-        if (label) {
-          // Alternating text animation
-          const texts = ['Copiado!', 'Injetando...', 'Pronto!'];
-          let i = 0;
-          label.textContent = texts[i];
-          const interval = setInterval(() => {
-            i++;
-            if (i < texts.length) {
-              label.textContent = texts[i];
-            } else {
-              clearInterval(interval);
-              btn.classList.remove('copied');
-              label.textContent = originalLabel;
-            }
-          }, 550);
-        }
+        // Simple: show check icon only
+        const icon = btn.querySelector('i[data-lucide]');
+        const label = btn.querySelector('span');
+        const origLabel = label ? label.textContent : '';
+        if (icon) { icon.setAttribute('data-lucide', 'check-circle-2'); lucide.createIcons(); }
+        if (label) label.textContent = 'Copiado!';
+        btn.disabled = true;
         showToast('Codigo copiado!');
+        setTimeout(() => {
+          if (icon) { icon.setAttribute('data-lucide', 'copy'); lucide.createIcons(); }
+          if (label) label.textContent = origLabel;
+          btn.disabled = false;
+        }, 2000);
       }).catch(() => showToast('Erro ao copiar'));
     };
   });
@@ -157,19 +160,24 @@ function initCodeButtons() {
       document.getElementById('code-modal-title').textContent = title;
       document.getElementById('global-code-content').textContent = code;
       document.getElementById('global-code-modal').classList.add('open');
+      openOverlay();
       if (window.lucide) lucide.createIcons();
     };
   });
 
-  document.getElementById('global-code-modal').onclick = e => {
-    if (e.target.id === 'global-code-modal') e.target.classList.remove('open');
+  function closeCodeModal() {
+    document.getElementById('global-code-modal').classList.remove('open');
+    closeOverlay();
+  }
+
+  document.getElementById('global-code-modal').onclick = e => { if (e.target.id === 'global-code-modal') closeCodeModal(); };
+  document.getElementById('code-modal-close-btn').onclick = closeCodeModal;
+
+  document.getElementById('modal-copy-btn').onclick = () => {
+    const code = document.getElementById('global-code-content').textContent;
+    navigator.clipboard.writeText(code).then(() => showToast('Codigo copiado!'));
   };
 }
-
-window.copyModalCode = function() {
-  const code = document.getElementById('global-code-content').textContent;
-  navigator.clipboard.writeText(code).then(() => showToast('Codigo copiado!'));
-};
 
 // ─── Hints ──────────────────────────────────────────────────────────
 function initHints() {
@@ -177,36 +185,65 @@ function initHints() {
     btn.onclick = e => {
       e.stopPropagation();
       const h = document.getElementById(btn.dataset.hint);
-      if (h) { document.querySelectorAll('.hint-popup').forEach(p => p.classList.remove('open')); h.classList.add('open'); if(window.lucide) lucide.createIcons(); }
+      if (h) {
+        document.querySelectorAll('.hint-popup').forEach(p => p.classList.remove('open'));
+        h.classList.add('open');
+        openOverlay();
+        if (window.lucide) lucide.createIcons();
+      }
     };
   });
-  document.querySelectorAll('.hint-close').forEach(btn => { btn.onclick = () => btn.closest('.hint-popup').classList.remove('open'); });
+  document.querySelectorAll('.hint-close').forEach(btn => {
+    btn.onclick = () => { btn.closest('.hint-popup').classList.remove('open'); closeOverlay(); };
+  });
   document.addEventListener('click', e => {
     if (!e.target.closest('.hint-popup') && !e.target.closest('.hint-btn')) {
       document.querySelectorAll('.hint-popup').forEach(p => p.classList.remove('open'));
+      closeOverlay();
     }
   });
 }
 
-// ─── GitHub Commits + Version ────────────────────────────────────────
-let _currentPage = 1;
-function escapeHtml(u) { return u.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
+// ─── GitHub API ──────────────────────────────────────────────────────
+let _latestSha = '';
+let _totalCommits = 0;
 
 async function fetchLatestCommit() {
   try {
-    const res = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
-    if (!res.ok) return;
-    const data = await res.json();
+    // Get total commit count via link header
+    const headRes = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
+    if (!headRes.ok) return;
+    const linkHeader = headRes.headers.get('link');
+    if (linkHeader) {
+      const m = linkHeader.match(/page=(\d+)>; rel="last"/);
+      if (m) _totalCommits = parseInt(m[1]);
+    }
+    const data = await headRes.json();
     if (!data || !data[0]) return;
-    const sha = data[0].sha.slice(0, 7);
+
+    _latestSha = data[0].sha.slice(0, 7);
     const date = new Date(data[0].commit.author.date);
-    const label = sha + ' (' + date.toLocaleDateString('pt-BR') + ')';
-    // Update all version displays
-    document.querySelectorAll('.mode-commit-hash').forEach(el => { el.textContent = label; });
-    // Also update site version badge with short sha
-    document.querySelectorAll('#site-version, #home-version').forEach(el => { el.textContent = 'v1.8.7 @' + sha; });
+    const dateStr = date.toLocaleDateString('pt-BR');
+
+    // Update version displays with real commit number
+    const versionStr = _totalCommits > 0
+      ? 'v1.8.7 #' + _totalCommits
+      : 'v1.8.7 @' + _latestSha;
+    document.querySelectorAll('#site-version, #home-version').forEach(el => {
+      el.textContent = versionStr;
+    });
+
+    // Update mode-specific SHA display
+    const shaLabel = _latestSha + ' · ' + dateStr;
+    const discreteSha = document.getElementById('discrete-sha');
+    const legacySha = document.getElementById('legacy-sha');
+    if (discreteSha) discreteSha.textContent = shaLabel;
+    if (legacySha) legacySha.textContent = shaLabel;
   } catch(_) {}
 }
+
+let _currentPage = 1;
+function escapeHtml(u) { return u.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
 
 async function loadChangelog(page) {
   _currentPage = page;
@@ -215,17 +252,22 @@ async function loadChangelog(page) {
   container.innerHTML = '<div class="commits-loading"><i data-lucide="loader-2" class="spin-icon"></i> Carregando historico...</div>';
   if (window.lucide) lucide.createIcons();
   try {
-    const res = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=20&page=' + page);
+    // Fetch total count + page
+    const [res, totalRes] = await Promise.all([
+      fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=20&page=' + page),
+      fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1')
+    ]);
     if (!res.ok) throw new Error('API Error');
     const commits = await res.json();
-    const totalRes = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
     const linkHeader = totalRes.headers.get('link');
-    let totalCommits = 200;
+    let totalCommits = _totalCommits || 200;
     if (linkHeader) { const m = linkHeader.match(/page=(\d+)>; rel="last"/); if (m) totalCommits = parseInt(m[1]); }
+    _totalCommits = totalCommits;
+
     container.innerHTML = '';
     commits.forEach((commit, idx) => {
       const globalIdx = totalCommits - ((page - 1) * 20 + idx);
-      const vStr = globalIdx > 0 ? 'v' + Math.floor(globalIdx/100) + '.' + Math.floor((globalIdx%100)/10) + '.' + globalIdx%10 : 'v0.0.1';
+      const vStr = '#' + globalIdx;
       const msgLines = commit.commit.message.split('\n');
       const title = msgLines[0];
       const body = msgLines.slice(1).join('\n').trim();
@@ -253,16 +295,19 @@ async function loadChangelog(page) {
         document.getElementById('cm-sha-link').href = 'https://github.com/minifoxie/EasyQuiz/commit/' + commit.sha;
         document.getElementById('cm-details-acc').classList.remove('open');
         document.getElementById('commit-modal').classList.add('open');
+        openOverlay();
         if (window.lucide) lucide.createIcons();
       };
       container.appendChild(el);
     });
     document.getElementById('pagination-row').style.display = 'flex';
-    document.getElementById('page-info').textContent = 'Pagina ' + page;
+    document.getElementById('page-info').textContent = 'Pagina ' + page + ' de ' + Math.ceil(totalCommits/20);
     document.getElementById('prev-page').disabled = (page === 1);
+    document.getElementById('next-page').disabled = (page >= Math.ceil(totalCommits/20));
     window._commitsLoaded = true;
+    if (window.lucide) lucide.createIcons();
   } catch (err) {
-    container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-weight:800">Erro ao carregar commits. Tente novamente.</div>';
+    container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-weight:800">Erro ao carregar commits.</div>';
   }
 }
 
@@ -290,8 +335,12 @@ window.addEventListener('DOMContentLoaded', () => {
     b.onclick = e => { e.preventDefault(); switchTab(b.dataset.target); };
   });
 
-  document.getElementById('cm-backdrop').onclick = () => document.getElementById('commit-modal').classList.remove('open');
-  document.getElementById('cm-close').onclick = () => document.getElementById('commit-modal').classList.remove('open');
+  function closeCommitModal() {
+    document.getElementById('commit-modal').classList.remove('open');
+    closeOverlay();
+  }
+  document.getElementById('cm-backdrop').onclick = closeCommitModal;
+  document.getElementById('cm-close').onclick = closeCommitModal;
   document.getElementById('prev-page').onclick = () => loadChangelog(_currentPage - 1);
   document.getElementById('next-page').onclick = () => loadChangelog(_currentPage + 1);
 
@@ -299,10 +348,9 @@ window.addEventListener('DOMContentLoaded', () => {
     const h = window.location.hash.replace('#', '') || 'home';
     switchTab(h);
   });
-
   const initialHash = window.location.hash.replace('#', '') || 'home';
   switchTab(initialHash);
 
-  // Fetch latest commit for live versioning
+  // Fetch real version
   fetchLatestCommit();
 });
