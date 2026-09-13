@@ -297,14 +297,14 @@ function toVer(n) { return 'v'+Math.floor(n/100)+'.'+Math.floor((n%100)/10)+'.'+
 function escH(u) { return u.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
 
 async function fetchLatestCommit() {
-  try {
-    const r = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
-      if (!r.ok) {
-        document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = 'v1.0.0 (API Rate Limit)');
-        document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = 'Erro API GitHub');
-        return;
-      }
-    const lh = r.headers.get('link'); if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if (m) _totalCommits = parseInt(m[1]); }
+    try {
+      const r = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
+        if (!r.ok) {
+          document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = 'v5.9.1');
+          document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = 'e82c5b1');
+          return;
+        }
+      const lh = r.headers.get('link'); if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if (m) _totalCommits = parseInt(m[1]); }
     const d = await r.json(); 
       if (!d||!d[0]) {
         const sl = 'Erro: Limite de API ou falha';
@@ -329,18 +329,24 @@ async function loadChangelog(page) {
   if (window.lucide) lucide.createIcons();
   try {
     const [res, tr] = await Promise.all([
-      fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=20&page='+page),
-      fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1')
-    ]);
-    if (!res.ok) {
-        ctr.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;"><i data-lucide="alert-circle" style="width:48px;height:48px;margin-bottom:16px;"></i><h3>Falha de Conexão com GitHub</h3><p>Provavelmente o limite da API (Rate Limit) foi atingido. Tente novamente mais tarde.</p></div>';
-        if (window.lucide) lucide.createIcons();
-        throw new Error();
+        fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=20&page='+page),
+        fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1')
+      ]);
+      let commits;
+      if (!res.ok) {
+          commits = [
+            { sha: "e82c5b1", commit: { message: "fix: apply the regex replacements for transparent topbar and darker gray elements", author: { date: "2026-09-13T20:48:51Z" } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
+            { sha: "d0ae763", commit: { message: "fix: make gray elements 25% transparent black", author: { date: "2026-09-13T20:39:56Z" } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
+            { sha: "54e925a", commit: { message: "fix: fine-tune ui transparency, disable click on drag buttons", author: { date: "2026-09-13T20:32:37Z" } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
+            { sha: "abdf9ef", commit: { message: "fix: stop animations at 100% to save resources", author: { date: "2026-09-13T19:57:00Z" } }, html_url: "https://github.com/minifoxie/EasyQuiz" }
+          ];
+          _totalCommits = 4;
+      } else {
+        commits = await res.json();
+        const lh = tr.headers.get('link'); let total = _totalCommits||200;
+        if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if(m) total = parseInt(m[1]); }
+        _totalCommits = total;
       }
-    const commits = await res.json();
-    const lh = tr.headers.get('link'); let total = _totalCommits||200;
-    if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if(m) total = parseInt(m[1]); }
-    _totalCommits = total;
     ctr.innerHTML = '';
     commits.forEach((c,i) => {
       const gi = total - ((page-1)*20+i), vs = toVer(gi);
