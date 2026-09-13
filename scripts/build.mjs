@@ -22,7 +22,7 @@ let gitHash = 'main'
 try {
   gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim()
   const count = execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim()
-  versionLabel = `v2.3.7 (Commit ${count} - ${gitHash})`
+  versionLabel = `v${count.split('').join('.')}`
 } catch {}
 
 console.log(`[EasyQuiz] Version: ${versionLabel}`)

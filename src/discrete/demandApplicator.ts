@@ -678,11 +678,24 @@ export class DemandApplicator {
       }
     }
 
-    // Injeta o valor válido completo com todos os caracteres
-    this.applyValueSlice(input, valToSet)
-    this.charsInserted.set(stepIdx, fullText.length)
-    try { (input as HTMLInputElement).blur?.() } catch {}
-    return true
+    // Controle de injeção progressiva (um caractere por vez por keystroke)
+    let currentLen = this.charsInserted.get(stepIdx) ?? 0
+    if (currentLen < valToSet.length) {
+      currentLen++
+      this.charsInserted.set(stepIdx, currentLen)
+    }
+    const slicedValue = valToSet.substring(0, currentLen)
+
+    // Injeta a fatia atual (simulando digitação) no campo ALVO
+    this.applyValueSlice(input, slicedValue)
+
+    // Só consideramos concluído se digitou tudo
+    if (currentLen >= valToSet.length) {
+      try { (input as HTMLInputElement).blur?.() } catch {}
+      return true
+    }
+
+    return false
   }
 
   private applyValueSlice(input: HTMLElement, fullValue: string): void {
