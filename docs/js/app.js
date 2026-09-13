@@ -1,4 +1,4 @@
-/* EasyQuiz App v5.4 */
+/* EasyQuiz App v5.5 */
 'use strict';
 
 const bkd = document.getElementById('global-backdrop');
@@ -14,7 +14,6 @@ bkd.onclick = closeOverlay;
   let cols = 0, rows = 0, dots = [];
   let mouse = {x:-9999,y:-9999}, target = {x:-9999,y:-9999};
 
-  // 4 Invisible Ghost mice that pull dots — 30% smaller range than mouse
   const NUM_GHOSTS = 4;
   const ghosts = Array.from({length: NUM_GHOSTS}, () => {
     return { x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
@@ -48,7 +47,6 @@ bkd.onclick = closeOverlay;
     mouse.y += (target.y - mouse.y) * 0.1;
     const time = Date.now() / 3;
 
-    // Update ghost mice
     ghosts.forEach(g => {
       const dx = g.tx - g.x, dy = g.ty - g.y;
       const dist = Math.sqrt(dx*dx + dy*dy) || 1;
@@ -58,11 +56,8 @@ bkd.onclick = closeOverlay;
       g.x += g.vx; g.y += g.vy;
     });
 
-    // Update dots
     dots.forEach(d => {
       let pullX = 0, pullY = 0, isNear = false;
-
-      // Main mouse: 160000 dist2 (400px range)
       let dx = d.cx - mouse.x, dy = d.cy - mouse.y;
       let dist2 = dx*dx + dy*dy;
       if (dist2 < 160000) {
@@ -72,15 +67,13 @@ bkd.onclick = closeOverlay;
         pullX += (dx / dist) * p; pullY += (dy / dist) * p;
         isNear = true;
       }
-
-      // Ghost mice: 30% smaller range -> 78400 dist2 (~280px range)
       ghosts.forEach(g => {
         const gx = d.cx - g.x, gy = d.cy - g.y;
         const gd2 = gx*gx + gy*gy;
         if (gd2 < 78400) {
           const gd = Math.sqrt(gd2) || 1;
           const gf = Math.max(0, 1 - gd / 280);
-          const gp = gf * 22; // pull force slightly smaller
+          const gp = gf * 22; 
           pullX += (gx / gd) * gp; pullY += (gy / gd) * gp;
           isNear = true;
         }
@@ -104,14 +97,25 @@ bkd.onclick = closeOverlay;
 })();
 
 function initReveal() {
-  const obs = new IntersectionObserver(entries => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('revealed'); obs.unobserve(e.target); } }), { threshold: 0.04 });
-  document.querySelectorAll('[data-reveal]').forEach(el => { el.classList.remove('revealed'); obs.observe(el); });
+  const obs = new IntersectionObserver(entries => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('revealed'); obs.unobserve(e.target); } }), { threshold: 0.05 });
+  document.querySelectorAll('[data-anim]').forEach(el => { el.classList.remove('revealed'); obs.observe(el); });
 }
 
 function switchTab(id) {
   const pane = document.getElementById(id); if (!pane) return;
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   pane.classList.add('active');
+  
+  // Reset all animations in the newly active tab so they play again
+  pane.querySelectorAll('[data-anim]').forEach(el => {
+    el.classList.remove('revealed');
+    // small timeout to allow display:block to apply before re-observing
+    setTimeout(() => {
+      const rect = el.getBoundingClientRect();
+      if (rect.top < window.innerHeight && rect.bottom > 0) el.classList.add('revealed');
+    }, 50);
+  });
+
   document.querySelectorAll('.nav-links .nav-btn[data-target]').forEach(b => b.classList.toggle('active', b.dataset.target === id));
   const ddBtn = document.getElementById('navModeBtn'), ddText = document.getElementById('navModeText'), ddIcon = document.getElementById('navModeIcon');
   if (ddBtn && ddText && ddIcon) {
@@ -203,10 +207,16 @@ async function loadChangelog(page) {
       const gi = total - ((page-1)*20+i), vs = toVer(gi);
       const lines = c.commit.message.split('\n'), title = lines[0], body = lines.slice(1).join('\n').trim();
       const dt = new Date(c.commit.author.date).toLocaleString('pt-BR');
+      
       const el = document.createElement('div'); el.className = 'commit-row glass';
+      
+      // Extreme alternating animations on commits
+      const animDir = (i % 2 === 0) ? 'slide-right' : 'slide-left';
+      el.setAttribute('data-anim', animDir);
+      el.style.setProperty('--delay', `${0.05 * i}s`);
+      
       const desc = body ? '<div class="commit-full-desc">'+escH(body)+'</div>' : '<div class="commit-full-desc" style="color:var(--gray-3);font-style:italic">Sem descricao adicional.</div>';
       
-      // Included right-chevron for hover feedback
       el.innerHTML = '<div class="commit-main"><div class="commit-version">'+escH(vs)+'</div><div class="commit-content"><div class="commit-title">'+escH(title)+'</div>'+(body?'<div class="commit-body">'+escH(body.length>200?body.slice(0,200)+'...':body)+'</div>':'')+'<div class="commit-meta">por <strong>'+escH(c.commit.author.name)+'</strong> — '+escH(dt)+'</div></div><div class="commit-right-icon"><i data-lucide="chevron-down"></i></div></div><div class="commit-details-inline">'+desc+'<div class="commit-actions"><a href="'+c.html_url+'" target="_blank" class="btn btn-outline sm" onclick="event.stopPropagation()">Ver no GitHub <i data-lucide="external-link"></i></a><a href="https://github.com/minifoxie/EasyQuiz/commit/'+c.sha+'" target="_blank" class="btn btn-secondary sm" onclick="event.stopPropagation()"><i data-lucide="git-commit-horizontal"></i> Diff</a></div></div>';
       
       el.onclick = () => { const o = el.classList.contains('open'); document.querySelectorAll('.commit-row').forEach(r => r.classList.remove('open')); if(!o){el.classList.add('open');setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'nearest'}),300);} };
@@ -218,6 +228,7 @@ async function loadChangelog(page) {
     document.getElementById('next-page').disabled = (page>=Math.ceil(total/20));
     window._commitsLoaded = true;
     if (window.lucide) lucide.createIcons();
+    initReveal();
   } catch(_){ ctr.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-weight:800">Erro ao carregar commits.</div>'; }
 }
 
