@@ -102,7 +102,7 @@ export class PageWatcher {
   // ── Debounce Resiliente (Não descarta eventos durante cooldown) ───────────
 
   private debounce(): void {
-    if (this.debounceTimer) clearTimeout(this.debounceTimer)
+    if (this.debounceTimer) return // Throttle: não reseta o timer, garante a execução após o primeiro delay
 
     const now = Date.now()
     const waitMs = now < this.cooldownUntil
@@ -110,6 +110,7 @@ export class PageWatcher {
       : this.DEBOUNCE_MS
 
     this.debounceTimer = window.setTimeout(() => {
+      this.debounceTimer = null
       const curSig = this.getSignature()
       if (curSig && curSig !== this.lastSignature) {
         const ok = this.opts.onPageAdvance()

@@ -213,8 +213,7 @@ export class Autopilot {
         return
       }
 
-      // Assinatura de CONTEÚDO (sem valores preenchidos)
-      const contentSig = createContentSignature(context)
+      let contentSig = createContentSignature(context)
 
       // REGRA PRINCIPAL: só pular se já foi resolvido com SUCESSO
       // NÃO bloquear retries após falha — a condição anterior era incorreta
@@ -236,13 +235,13 @@ export class Autopilot {
         this.callbacks.onStatusChange('waiting', '> [SYS] Aguardando estabilização da página...', 'text-yellow')
         await this.sleep(600)
         if (!this.active) return
+        
         const reContext = captureCurrentContext(false) || captureFullPageText()
-        const newSig = reContext ? createContentSignature(reContext) : ''
-        if (newSig !== contentSig) {
-          // DOM sofreu mutação durante a estabilização! Aborta para deixar a próxima mutação assumir.
-          this.isProcessing = false
-          return
+        if (reContext) {
+          context = reContext
+          contentSig = createContentSignature(context)
         }
+        
         if (this.lastContentSig !== '') {
           this.callbacks.onStatusChange('waiting', '> [SYS] Nova questão detectada! Analisando...', 'text-green')
           this.callbacks.onPageAdvance?.()
