@@ -6,6 +6,7 @@ import { Autopilot } from '../dom/autopilot'
 import { FloatingAnswersHud } from './floatingHud'
 import { ICONS } from './icons'
 import { PANEL_STYLES } from './styles'
+import { BUILD_VERSION } from '../core/version'
 
 // ====================================================================
 // TRUSTED TYPES SAFE INNERHTML
@@ -386,7 +387,7 @@ export class EasyQuizPanel {
                 <div class="eq-terminal" id="eq-ap-console" style="display: none;"></div>
                 <div class="eq-terminal eq-terminal-execution" id="eq-execution-console" style="display: none;"></div>
                 
-                <div class="eq-footer-note" style="margin-top: auto;">Híbrido 4.0 • RAG + AST + Vision (Opt-in)</div>
+                <div class="eq-footer-note" style="margin-top: auto;">${BUILD_VERSION} • Híbrido 4.0 (RAG + AST + Vision)</div>
               </div>
 
               <!-- TAB 2: CÉREBRO DA IA -->

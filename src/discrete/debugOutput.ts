@@ -13,6 +13,7 @@
 
 import type { InteractionStep } from './promptDiscrete'
 import type { CapturedImage } from '../core/types'
+import { BUILD_VERSION } from '../core/version'
 
 export type LogCategory = 'SYS' | 'AI' | 'FLOW' | 'DOM' | 'ACTION' | 'KEY' | 'CLICK' | 'WARN' | 'ERROR' | 'REPLAN'
 
@@ -698,6 +699,7 @@ export class DebugOutput {
         <div>
           <div style="font-size:11px;font-weight:700;color:#9aa0a6;margin-bottom:6px;text-transform:uppercase;">Diagnóstico do Modo Discreto:</div>
           <div style="background:#1e1f22;border:1px solid #3c4043;border-radius:6px;padding:10px;font-size:11.5px;color:#bdc1c6;line-height:1.5;">
+            • Versão: <span style="color:#f28b82;font-weight:600;">${BUILD_VERSION}</span><br>
             • Interceptores de Opções: <span style="color:#81c995;font-weight:600;">Ativos</span><br>
             • Concorrência Guard: <span style="color:#81c995;font-weight:600;">Protegido</span><br>
             • Mapeamento V/F em Tabela: <span style="color:#8ab4f8;font-weight:600;">Direcionado (name, value, label)</span><br>

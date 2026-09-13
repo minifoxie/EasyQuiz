@@ -15,6 +15,22 @@ const bannerText = `/* EasyQuiz v1.0.0 — Resolução inteligente de quizzes se
 
 console.log('[EasyQuiz] Compilando bundle...')
 
+import { execSync } from 'child_process'
+
+let versionLabel = 'v2.3.7'
+let gitHash = 'main'
+try {
+  gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim()
+  const count = execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim()
+  versionLabel = `v2.3.7 (Commit ${count} - ${gitHash})`
+} catch {}
+
+console.log(`[EasyQuiz] Version: ${versionLabel}`)
+
+const defineOptions = {
+  'process.env.EASYQUIZ_VERSION': JSON.stringify(versionLabel)
+}
+
 const buildOptions = {
   entryPoints: [path.join(root, 'src', 'index.ts')],
   outfile: path.join(dist, 'easyquiz.js'),
@@ -25,6 +41,7 @@ const buildOptions = {
   minify: true,
   legalComments: 'none',
   sourcemap: false,
+  define: defineOptions,
   banner: { js: bannerText },
 }
 
@@ -45,6 +62,7 @@ const discreteBuildOptions = {
   minify: true,
   legalComments: 'none',
   sourcemap: false,
+  define: defineOptions,
   banner: { js: `/* EasyQuiz Discreto v1.0.0 — Modo Stealth sem interface\n * 100% Client-side. Direct Google Gemini REST API.\n */` },
 }
 
@@ -82,8 +100,8 @@ const discreteBookmarkletCode = `javascript:(function(){${discreteClean}})();voi
 
 // Bookmarklets Resilientes com jsDelivr CDN Primário e Proteção Total contra Erro 503/HTML
 const githubRepo = 'minifoxie/EasyQuiz'
-const cdnBase = `https://cdn.jsdelivr.net/gh/${githubRepo}@main/dist`
-const fastlyBase = `https://fastly.jsdelivr.net/gh/${githubRepo}@main/dist`
+const cdnBase = `https://cdn.jsdelivr.net/gh/${githubRepo}@${gitHash}/dist`
+const fastlyBase = `https://fastly.jsdelivr.net/gh/${githubRepo}@${gitHash}/dist`
 const rawBase = `https://raw.githubusercontent.com/${githubRepo}/main/dist`
 
 // 1. jsDelivr CDN Direto (RECOMENDADO — Ultra-Curto, Alta Disponibilidade e 100% Imune a Erros 503 do GitHub)
