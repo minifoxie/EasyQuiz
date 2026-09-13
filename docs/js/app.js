@@ -1,4 +1,4 @@
-/* EasyQuiz App v4.2 */
+/* EasyQuiz App v4.3 */
 'use strict';
 
 // ─── Canvas Background (Extreme Gravity + Click Explosion) ─────────────────
@@ -134,7 +134,6 @@ function initDropdown() {
 
 // ─── Code Dropdown (below button) ──────────────────────────────────────────────
 function initCodeDropdowns() {
-  // Copy buttons (direct copy, no overlay)
   document.querySelectorAll('.copy-direct-btn[data-code]').forEach(btn => {
     btn.onclick = e => {
       e.stopPropagation();
@@ -151,7 +150,6 @@ function initCodeDropdowns() {
     };
   });
 
-  // Chevron triggers: open code dropdown below button
   document.querySelectorAll('.code-dd-trigger').forEach(btn => {
     btn.onclick = e => {
       e.stopPropagation();
@@ -173,6 +171,105 @@ function initCodeDropdowns() {
       document.querySelectorAll('.code-dd-trigger.active').forEach(b => b.classList.remove('active'));
     }
   });
+}
+
+// ─── Hints ────────────────────────────────────────────────────────────────────
+function initHints() {
+  document.querySelectorAll('.hint-btn').forEach(btn => {
+    btn.onclick = e => {
+      e.stopPropagation();
+      const h = document.getElementById(btn.dataset.hint);
+      if (h) {
+        document.querySelectorAll('.hint-popup').forEach(p => p.classList.remove('open'));
+        h.classList.add('open');
+      }
+    };
+  });
+  document.querySelectorAll('.hint-close').forEach(btn => {
+    btn.onclick = () => btn.closest('.hint-popup').classList.remove('open');
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.hint-popup') && !e.target.closest('.hint-btn')) {
+      document.querySelectorAll('.hint-popup').forEach(p => p.classList.remove('open'));
+    }
+  });
+}
+
+// ─── Github Commits ───────────────────────────────────────────────────────────
+let _currentPage = 1;
+function escapeHtml(u) { return u.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
+
+async function loadChangelog(page) {
+  _currentPage = page;
+  const container = document.getElementById('commits-container');
+  if (!container) return;
+  container.innerHTML = '<div class="commits-loading"><i data-lucide="loader-2" class="spin-icon"></i> Carregando pagina ' + page + '...</div>';
+  if (window.lucide) lucide.createIcons();
+  
+  try {
+    const res = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=20&page=' + page);
+    if (!res.ok) throw new Error('API Error');
+    const commits = await res.json();
+    
+    // Attempt to get total count to format version correctly (assuming ~200 commits total for reverse calculation)
+    const totalCommitsRes = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
+    const linkHeader = totalCommitsRes.headers.get('link');
+    let totalCommits = 200; 
+    if (linkHeader) {
+      const match = linkHeader.match(/page=(\d+)>; rel="last"/);
+      if (match) totalCommits = parseInt(match[1]);
+    }
+
+    container.innerHTML = '';
+    
+    commits.forEach((commit, idx) => {
+      const globalIdx = totalCommits - ((page - 1) * 20 + idx);
+      const vStr = globalIdx > 0 ? \`v\${Math.floor(globalIdx/100)}.\${Math.floor((globalIdx%100)/10)}.\${globalIdx%10}\` : 'v0.0.1';
+      
+      const msgLines = commit.commit.message.split('\\n');
+      const title = msgLines[0];
+      const body = msgLines.slice(1).join('\\n').trim();
+      const dateStr = new Date(commit.commit.author.date).toLocaleString('pt-BR');
+      
+      const el = document.createElement('div');
+      el.className = 'commit-row glass';
+      el.innerHTML = 
+        '<div class="commit-version">' + escapeHtml(vStr) + '</div>' +
+        '<div class="commit-content">' +
+        '<div class="commit-title">' + escapeHtml(title) + '</div>' +
+        (body ? '<div class="commit-body">' + escapeHtml(body.length > 180 ? body.slice(0,180)+'...' : body) + '</div>' : '') +
+        '<div class="commit-meta">por <strong>' + escapeHtml(commit.commit.author.name) + '</strong> em ' + escapeHtml(dateStr) + '</div>' +
+        '</div>';
+        
+      el.onclick = () => {
+        document.getElementById('cm-version').textContent = vStr;
+        document.getElementById('cm-meta').innerHTML = 'por <strong>' + escapeHtml(commit.commit.author.name) + '</strong><br>' + escapeHtml(dateStr);
+        document.getElementById('cm-title').textContent = title;
+        document.getElementById('cm-desc').textContent = body || 'Sem descricao adicional.';
+        
+        let details = '<div class="detail-row"><span>SHA:</span> ' + commit.sha + '</div>';
+        if(commit.commit.verification && commit.commit.verification.verified) {
+          details += '<div class="detail-row"><span>Assinatura:</span> Verificada <i data-lucide="badge-check" style="color:var(--accent);width:14px;height:14px;vertical-align:middle"></i></div>';
+        }
+        document.getElementById('cm-details').innerHTML = details;
+        document.getElementById('cm-github-link').href = commit.html_url;
+        document.getElementById('cm-sha-link').href = 'https://github.com/minifoxie/EasyQuiz/commit/' + commit.sha;
+        
+        document.getElementById('commit-overlay').style.display = 'flex';
+        if (window.lucide) lucide.createIcons();
+      };
+      
+      container.appendChild(el);
+    });
+    
+    document.getElementById('pagination-row').style.display = 'flex';
+    document.getElementById('page-info').textContent = 'Pagina ' + page;
+    document.getElementById('prev-page').disabled = (page === 1);
+    window._commitsLoaded = true;
+    
+  } catch (err) {
+    container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444">Erro ao carregar commits. Tente novamente mais tarde.</div>';
+  }
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
