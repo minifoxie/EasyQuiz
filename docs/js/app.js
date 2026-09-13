@@ -301,7 +301,13 @@ async function fetchLatestCommit() {
     const r = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
     if (!r.ok) return;
     const lh = r.headers.get('link'); if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if (m) _totalCommits = parseInt(m[1]); }
-    const d = await r.json(); if (!d||!d[0]) return;
+    const d = await r.json(); 
+      if (!d||!d[0]) {
+        const sl = 'Erro: Limite de API ou falha';
+        const ds = document.getElementById('discrete-sha'), ls = document.getElementById('legacy-sha');
+        if (ds) ds.textContent = sl; if (ls) ls.textContent = sl;
+        return;
+      }
     const sha = d[0].sha.slice(0,7), dt = new Date(d[0].commit.author.date).toLocaleDateString('pt-BR');
     const ver = _totalCommits > 0 ? toVer(_totalCommits) : 'v1.0.0';
     document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = ver);
@@ -322,7 +328,11 @@ async function loadChangelog(page) {
       fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=20&page='+page),
       fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1')
     ]);
-    if (!res.ok) throw new Error();
+    if (!res.ok) {
+        ctr.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;"><i data-lucide="alert-circle" style="width:48px;height:48px;margin-bottom:16px;"></i><h3>Falha de Conexão com GitHub</h3><p>Provavelmente o limite da API (Rate Limit) foi atingido. Tente novamente mais tarde.</p></div>';
+        if (window.lucide) lucide.createIcons();
+        throw new Error();
+      }
     const commits = await res.json();
     const lh = tr.headers.get('link'); let total = _totalCommits||200;
     if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if(m) total = parseInt(m[1]); }
