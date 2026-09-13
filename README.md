@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Claude_Sonnet-D97757?style=for-the-badge&logo=anthropic&logoColor=white" /> 
   <img src="https://img.shields.io/badge/Antigravity_IDE-000000?style=for-the-badge&logo=google&logoColor=white" />
   <br><br>
-  <a href="#inicio-rapido"><img src="https://img.shields.io/badge/🚀_PEGAR_CÓDIGOS_BOOKMARKLET-ff0055?style=for-the-badge" alt="Pegar Códigos" /></a>
+  <br><a href="#inicio-rapido"><img src="https://img.shields.io/badge/PEGAR_CÓDIGOS_DE_INSTALAÇÃO-ff0055?style=for-the-badge&logo=codeigniter&logoColor=white" width="350" alt="Pegar Códigos" /></a>
 </div>
 
 <br>
@@ -27,8 +27,8 @@ Com um único clique de teclado, ele lê a tela, enxerga os gráficos, processa 
 ---
 
 ## 📑 Tabela de Conteúdos
-1. [Por que o EasyQuiz é diferente?](#-por-que-o-easyquiz-é-diferente)
-2. [Instalação Rápida e Códigos Oficiais (Bookmarklets)](#inicio-rapido)
+1. [Por que o EasyQuiz é diferente?](#por-que-diferente)
+2. [Instalação Rápida e Códigos Oficiais](#inicio-rapido)
 3. [Como Obter Sua Chave da API](#sistema-multi-key)
 4. [Modos de Operação (Legacy vs Discreto)](#modos-operacao)
 5. [Mecânicas Internas e Tecnologias](#mecanicas)
@@ -36,7 +36,7 @@ Com um único clique de teclado, ele lê a tela, enxerga os gráficos, processa 
 
 ---
 
-## <img src="https://img.shields.io/badge/-Por_que_o_EasyQuiz_é_diferente?-000000?style=for-the-badge&logo=google-gemini&logoColor=white" />
+## <a id="por-que-diferente" href="#por-que-diferente"><img src="https://img.shields.io/badge/-Por_que_o_EasyQuiz_é_diferente?-000000?style=for-the-badge&logo=google-gemini&logoColor=white" /></a>
 - **Zero Hospedagem:** A maioria das extensões requer que o criador pague milhares de reais em servidores. O EasyQuiz funciona de "Cliente-Para-IA". Seu navegador conversa de forma privada com o Google, usando a sua própria chave gratuita.
 - **Detecção Computacional Cega:** Ele não usa seletores duros como "ache o input X". Ele mapeia a semântica da página. Se você abrir um Google Forms ou a plataforma Canvas, o algoritmo escaneia, dá nota e marca a área da sua tela com destaques Neon para confirmar o que vai resolver.
 - **Digitação Humanizada:** Anti-cheats geralmente percebem ferramentas automáticas. O EasyQuiz injeta e digita as respostas *caractere por caractere*, imitando o ritmo que um humano levaria pressionando as teclas do teclado real.
@@ -47,7 +47,9 @@ Com um único clique de teclado, ele lê a tela, enxerga os gráficos, processa 
 
 <a id="inicio-rapido"></a>
 <div align="center">
-  <img src="https://img.shields.io/badge/🚀_INÍCIO_RÁPIDO_E_CÓDIGOS-FF0055?style=for-the-badge" />
+  ---
+
+<a id="inicio-rapido" href="#inicio-rapido"><img src="https://img.shields.io/badge/INÍCIO_RÁPIDO_E_CÓDIGOS-FF0055?style=for-the-badge&logo=rocket&logoColor=white" /></a>
   <br>
   <p><em>Preste bastante atenção aqui: o EasyQuiz é um Bookmarklet! Isso significa que não existe botão de "Baixar".<br>Você o instala como se fosse adicionar uma página aos seus favoritos em apenas 10 segundos.</em></p>
 </div>
@@ -80,7 +82,7 @@ javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@mai
 ---
 
 <a id="sistema-multi-key"></a>
-## <img src="https://img.shields.io/badge/Sistema_Multi--Key-0052CC?style=for-the-badge&logo=google-cloud&logoColor=white" />
+## <a id="sistema-multi-key" href="#sistema-multi-key"><img src="https://img.shields.io/badge/Sistema_Multi--Key-0052CC?style=for-the-badge&logo=google-cloud&logoColor=white" /></a>
 
 O EasyQuiz foi projetado com uma **Arquitetura Multi-Key** avançada. Como não cobramos mensalidades, toda a mágica ocorre diretamente entre sua máquina e os servidores do **Google Gemini**.
 
@@ -102,12 +104,12 @@ Para o sistema atingir sua velocidade e estabilidade máximas, **recomendamos fo
 
 <a id="modos-operacao"></a>
 <div align="center">
-  <img src="https://img.shields.io/badge/Modos_de_Operação-111111?style=for-the-badge&logo=slider&logoColor=white" />
+  <a id="modos-operacao" href="#modos-operacao"><img src="https://img.shields.io/badge/Modos_de_Operação-111111?style=for-the-badge&logo=slider&logoColor=white" /></a>
 </div>
 
 O EasyQuiz foi projetado para se adaptar a diferentes estilos de uso. A plataforma entrega dois modos completos, que variam apenas na interface, mas compartilham do mesmo "cérebro" IA.
 
-### <img src="https://img.shields.io/badge/Modo_Legacy-444444?style=flat-square&logo=windowsterminal&logoColor=white" />
+### <a href="#modo-legacy"><img src="https://img.shields.io/badge/Modo_Legacy-444444?style=flat-square&logo=windowsterminal&logoColor=white" /></a>
 Injeta uma interface de usuário complexa, arrastável e de altíssima qualidade (Shadow DOM), inspirada fortemente em IDEs como o VS Code. Para quem gosta de controle absoluto.
 
 - **Resolver**: Executa a IA, exibe as opções detectadas e permite Injeção Automática das respostas.
@@ -116,7 +118,7 @@ Injeta uma interface de usuário complexa, arrastável e de altíssima qualidade
 - **Terminal**: Um console embutido com logs de telemetria e erros silenciosos.
 - **`Alt + Q`** — Abre/Fecha o painel e **dispara a análise automaticamente**. 
 
-### <img src="https://img.shields.io/badge/Modo_Discreto-111111?style=flat-square&logo=ninja&logoColor=white" />
+### <a href="#modo-discreto"><img src="https://img.shields.io/badge/Modo_Discreto-111111?style=flat-square&logo=ninja&logoColor=white" /></a>
 **100% invisível por padrão.** Toda a operação é governada silenciosamente via atalhos de teclado e as respostas são aplicadas simulando a sua própria digitação física.
 Quando a IA resolve injetar um texto, a ferramenta aguarda você pressionar qualquer tecla real. A cada tecla física pressionada, o sistema libera *um caractere* da resposta da IA, imitando a sua digitação e burlando detectores!
 
@@ -148,7 +150,7 @@ Quando a IA resolve injetar um texto, a ferramenta aguarda você pressionar qual
 
 <a id="mecanicas"></a>
 <div align="center">
-  <img src="https://img.shields.io/badge/Tecnologias_&_Mecânicas-444444?style=for-the-badge&logo=code-igniter&logoColor=white" />
+  <a id="mecanicas" href="#mecanicas"><img src="https://img.shields.io/badge/Tecnologias_&_Mecânicas-444444?style=for-the-badge&logo=code-igniter&logoColor=white" /></a>
 </div>
 
 O EasyQuiz é desenhado sob o lema *"Transparência Total"*. A integração com os frameworks ocorre utilizando as mais avançadas estratégias de engenharia reversa de DOM (Document Object Model).
@@ -170,7 +172,7 @@ O EasyQuiz burla isso redefinindo os `_valueTracker` do React nativamente e disp
 
 ---
 
-## <img src="https://img.shields.io/badge/Deep_Dive_da_IA-1A73E8?style=for-the-badge&logo=google-bard&logoColor=white" />
+## <a id="deep-dive" href="#deep-dive"><img src="https://img.shields.io/badge/Deep_Dive_da_IA-1A73E8?style=for-the-badge&logo=google-bard&logoColor=white" /></a>
 O EasyQuiz não simplesmente "joga" a pergunta no Gemini e espera um milagre. Ele emprega técnicas avançadas de **Chain of Thought (CoT)** e **Agentic Prompting** divididas em micro-etapas de execução rigorosas que você pode acompanhar pelo "Cérebro" ou "Auditoria" da ferramenta.
 
 ### <img src="https://img.shields.io/badge/1._Contextualização_(Scanning)-111?style=flat-square" />
@@ -190,7 +192,7 @@ O script do EasyQuiz recebe o payload e atua como validador. Ele vasculha o seu 
 ---
 
 <a id="suporte"></a>
-## <img src="https://img.shields.io/badge/Navegadores_Suportados-000000?style=for-the-badge&logo=google-chrome&logoColor=white" />
+## <a id="suporte" href="#suporte"><img src="https://img.shields.io/badge/Navegadores_Suportados-000000?style=for-the-badge&logo=google-chrome&logoColor=white" /></a>
 A tecnologia embarcada requer nativamente o motor **Chromium**. O ecossistema Apple (Safari) ou o Firefox possuem bloqueios nas APIs de captura de tela web e não são suportados.
 
 | <img src="https://img.shields.io/badge/Google_Chrome-4285F4?style=flat-square&logo=googlechrome&logoColor=white" /> | <img src="https://img.shields.io/badge/Microsoft_Edge-0078D7?style=flat-square&logo=microsoftedge&logoColor=white" /> | <img src="https://img.shields.io/badge/Brave-FF2000?style=flat-square&logo=brave&logoColor=white" /> | <img src="https://img.shields.io/badge/Opera-FF1B2D?style=flat-square&logo=opera&logoColor=white" /> |
