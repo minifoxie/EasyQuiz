@@ -3,59 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="EasyQuiz — Sistema de auto adaptação e auto resposta para sites com autonomia completa. Versão Beta.">
+  <meta name="description" content="EasyQuiz — Sistema inteligente de auto resposta a quizzes 100% no navegador.">
   <title>EasyQuiz — Script de Bookmarklet IA</title>
-  <link rel="icon" type="image/png" href="logo.png?v=2.5">
-  <link rel="stylesheet" href="css/style.css?v=2.3">
+  <link rel="icon" type="image/png" href="logo.png?v=3.0">
+  <link rel="stylesheet" href="css/style.css?v=3.0">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
   <canvas id="bg-canvas"></canvas>
 
-  <!-- TOPBAR / NAVBAR -->
+  <!-- TOPBAR -->
   <header class="navbar">
+    <div class="navbar-blur"></div>
     <div class="nav-content">
-      <!-- Brand on Left -->
       <div class="nav-brand-group">
         <a href="#home" class="nav-brand" onclick="switchTab('home'); return false;">
-          <img src="logo.png?v=2.5" alt="EasyQuiz Logo" width="32" height="32" class="nav-logo-img">
+          <img src="logo.png?v=3.0" alt="EasyQuiz" class="nav-logo-img">
           <span class="brand-title">EasyQuiz</span>
         </a>
-        <span class="badge-beta-solid" title=" Vers�o de testes constante\>BETA PRECISA</span>
-        <span id="site-version" class="version-plain">v1.8.7</span>
+        <span class="badge-beta">BETA</span>
+        <span class="version-plain" id="site-version">v1.8.7</span>
       </div>
 
-      <!-- Navigation Tabs -->
-      <nav class="nav-links" aria-label="Abas de Navegação">
+      <nav class="nav-links" aria-label="Navegação">
         <button type="button" class="nav-btn active" data-target="home">
           <i data-lucide="layout-grid"></i>
           <span>Início</span>
+          <span class="nav-indicator"></span>
         </button>
         <button type="button" class="nav-btn" data-target="discrete">
           <i data-lucide="eye-off"></i>
           <span>Modo Discreto</span>
+          <span class="nav-indicator"></span>
         </button>
         <button type="button" class="nav-btn" data-target="legacy">
           <i data-lucide="panel-top"></i>
           <span>Modo Legacy</span>
+          <span class="nav-indicator"></span>
         </button>
         <button type="button" class="nav-btn" data-target="api-key">
           <i data-lucide="key"></i>
           <span>Como pegar chave de API</span>
+          <span class="nav-indicator"></span>
         </button>
       </nav>
 
-      <!-- Right Links -->
       <div class="nav-right">
-        <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" rel="noopener noreferrer" class="nav-link-external" title="Código Fonte no GitHub">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.185 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.021C22 6.484 17.522 2 12 2z"/>
-          </svg>
-          <span>GitHub</span>
+        <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" rel="noopener noreferrer" class="nav-icon-only" title="GitHub">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.185 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.021C22 6.484 17.522 2 12 2z"/></svg>
         </a>
-        <a href="https://github.com/minifoxie/EasyQuiz/blob/main/README.md" target="_blank" rel="noopener noreferrer" class="nav-link-external" title="Documentação Oficial">
+        <a href="https://github.com/minifoxie/EasyQuiz/blob/main/README.md" target="_blank" rel="noopener noreferrer" class="nav-icon-only" title="Documentação">
           <i data-lucide="file-text"></i>
-          <span>Docs</span>
         </a>
       </div>
     </div>
@@ -63,34 +61,26 @@
 
   <main class="container">
 
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- ABA: INÍCIO                                 -->
-    <!-- ═══════════════════════════════════════════ -->
+    <!-- ═══ ABA: INÍCIO ═══════════════════════════════════════ -->
     <section id="home" class="tab-pane active">
-      
-      <!-- HERO: 2-COLUMN LAYOUT (Logo on Left, Text on Right) -->
+
+      <!-- HERO -->
       <header class="hero-layout">
         <div class="hero-logo-col">
-          <img src="logo.png?v=2.5" alt="EasyQuiz Logo" class="hero-logo-massive">
+          <img src="logo.png?v=3.0" alt="EasyQuiz Logo" class="hero-logo">
         </div>
-
         <div class="hero-content-col">
           <div class="hero-meta-row">
-            <span class="hero-script-label">EasyQuiz</span>
-            <span class="badge-beta-solid" title=" Vers�o de testes constante\>BETA PRECISA</span>
+            <span class="hero-name">EasyQuiz</span>
+            <span class="badge-beta">BETA</span>
             <span class="version-plain">v1.8.7</span>
           </div>
-
-          <h1 class="hero-title">
-            Sistema de auto adaptação e auto resposta a sites com autonomia completa.
-          </h1>
-
+          <h1 class="hero-title">Sistema de auto adaptação e auto resposta a sites com autonomia completa.</h1>
           <p class="hero-subtitle">
-            Script de Bookmarklet <strong>100% client-side</strong> direto no navegador. Funciona sem servidores ou dependências externas, oferecendo operação autônoma nos modos <strong>Discreto</strong> e <strong>Legacy</strong>.
+            Script de Bookmarklet <strong>100% client-side</strong> direto no navegador.
+            Funciona sem servidores ou dependências externas nos modos <strong>Discreto</strong> e <strong>Legacy</strong>.
           </p>
-
           <div class="hero-actions">
-            <!-- Dropdown Context Menu -->
             <div class="dropdown">
               <button type="button" class="btn btn-primary dropdown-toggle" id="installDropdownBtn" aria-expanded="false">
                 <i data-lucide="download"></i>
@@ -103,7 +93,7 @@
                   <div class="dropdown-icon"><i data-lucide="eye-off"></i></div>
                   <div class="dropdown-text">
                     <strong>Modo Discreto</strong>
-                    <span>Operação silenciosa guiada por atalhos de teclado</span>
+                    <span>Operação silenciosa por atalhos de teclado</span>
                   </div>
                 </div>
                 <div class="dropdown-sep"></div>
@@ -111,25 +101,14 @@
                   <div class="dropdown-icon"><i data-lucide="panel-top"></i></div>
                   <div class="dropdown-text">
                     <strong>Modo Legacy</strong>
-                    <span>Painel visual flutuante completo com auditoria</span>
-                  </div>
-                </div>
-                <div class="dropdown-sep"></div>
-                <div class="dropdown-item" data-tab="api-key">
-                  <div class="dropdown-icon"><i data-lucide="key"></i></div>
-                  <div class="dropdown-text">
-                    <strong>Configurar API Key</strong>
-                    <span>Passo a passo gratuito no Google AI Studio</span>
+                    <span>Painel visual flutuante com auditoria</span>
                   </div>
                 </div>
               </div>
             </div>
-
             <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.185 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.021C22 6.484 17.522 2 12 2z"/>
-              </svg>
-              <span>Código Fonte</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.185 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.021C22 6.484 17.522 2 12 2z"/></svg>
+              <span>GitHub</span>
             </a>
           </div>
         </div>
@@ -137,124 +116,121 @@
 
       <div class="section-divider"></div>
 
-      <!-- Features Block -->
+      <!-- Features -->
       <section class="section-block">
         <div class="section-heading">
-          <h2>Recursos Principais do Sistema</h2>
+          <h2>Recursos Principais</h2>
           <p>Mecanismos projetados para funcionamento autônomo e confiável.</p>
         </div>
-
         <div class="features-grid">
           <div class="feature-card">
             <div class="feature-icon"><i data-lucide="scan"></i></div>
-            <h3>Detecção Semântica Universal</h3>
-            <p>Varredura da estrutura da página para localizar blocos de questões e enunciados de forma independente de classes CSS ou IDs.</p>
+            <h3>Detecção Semântica</h3>
+            <p>Varredura da estrutura da página para localizar questões de forma independente de classes CSS ou IDs.</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon"><i data-lucide="keyboard"></i></div>
-            <h3>Digitação Automatizada Natural</h3>
-            <p>Disparo de eventos nativos com cadência humana em campos dissertativos e marcação direta em opções de múltipla escolha.</p>
+            <h3>Digitação Automatizada</h3>
+            <p>Disparo de eventos nativos com cadência humana em campos dissertativos e múltipla escolha.</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon"><i data-lucide="layers"></i></div>
-            <h3>Gerenciamento Multi-Key</h3>
-            <p>Suporte a <strong>múltiplas chaves de API</strong> centralizadas entre os modos com chaveamento automático caso atinja limites de requisição.</p>
+            <h3>Multi-Key</h3>
+            <p>Múltiplas chaves de API com chaveamento automático para zero interrupções por limite de uso.</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon"><i data-lucide="shield"></i></div>
-            <h3>Isolamento Completo</h3>
-            <p>O Modo Legacy opera em Shadow DOM estritamente encapsulado, sem poluir o código-fonte da página onde você está.</p>
+            <h3>Isolamento Shadow DOM</h3>
+            <p>O Modo Legacy opera em Shadow DOM encapsulado sem poluir o código da página original.</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon"><i data-lucide="camera"></i></div>
-            <h3>Captura Visual para Mídia</h3>
-            <p>Análise de elementos gráficos, figuras geométricas e equações com envio direto para processamento multimodal.</p>
+            <h3>Visão Computacional</h3>
+            <p>Análise de imagens, gráficos e equações com envio direto para processamento multimodal.</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon"><i data-lucide="cpu"></i></div>
-            <h3>Processamento Estruturado</h3>
-            <p>Estruturação analítica de respostas para evitar respostas incorretas e garantir clareza na execução das alternativas.</p>
+            <h3>Motor Estruturado</h3>
+            <p>Raciocínio analítico antes de cada ação para garantir precisão máxima nas respostas.</p>
           </div>
         </div>
       </section>
 
       <div class="section-divider"></div>
 
-      <!-- Credits Block -->
-      <section class="credits-card">
-        <h2>Tecnologias Utilizadas na Criação</h2>
-        <p>Desenvolvido com o suporte de modelos avançados de inteligência artificial na Antigravity IDE.</p>
-        
-  <div class="credits-grid-centered">
-    <div class="credit-brand-item">
-      <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" width="24" height="24" alt="Gemini">
-      <span>Google Gemini</span>
-    </div>
-    <div class="credit-brand-item">
-      <img src="https://upload.wikimedia.org/wikipedia/commons/4/47/Claude_Ai.svg" width="24" height="24" alt="Claude">
-      <span>Claude Sonnet</span>
-    </div>
-    <div class="credit-brand-item">
-      <i data-lucide="cpu" style="color: #a855f7;"></i>
-      <span>Antigravity</span>
-    </div>
-  </div>
-</div>
-</section>
+      <!-- Credits -->
+      <section class="credits-section">
+        <div class="section-heading">
+          <h2>Tecnologias Utilizadas</h2>
+          <p>Desenvolvido com suporte de modelos avançados de inteligência artificial.</p>
+        </div>
+        <div class="credits-grid">
+          <div class="credit-card">
+            <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" width="36" height="36" alt="Gemini">
+            <span>Google Gemini</span>
+          </div>
+          <div class="credit-card">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/4/47/Claude_Ai.svg" width="36" height="36" alt="Claude" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+            <span style="display:none" class="fallback-icon"><i data-lucide="bot"></i></span>
+            <span>Claude Sonnet</span>
+          </div>
+          <div class="credit-card">
+            <div class="ag-icon"><i data-lucide="zap"></i></div>
+            <span>Antigravity IDE</span>
+          </div>
+          <div class="credit-card">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor" style="color:#fff"><path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.185 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.021C22 6.484 17.522 2 12 2z"/></svg>
+            <span>GitHub</span>
+          </div>
+        </div>
+      </section>
 
     </section>
 
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- ABA: MODO DISCRETO                          -->
-    <!-- ═══════════════════════════════════════════ -->
+    <!-- ═══ ABA: MODO DISCRETO ════════════════════════════════ -->
     <section id="discrete" class="tab-pane">
 
-      <!-- Installation Box -->
-      <div class="install-section">
-        <div class="install-header-main">
-          <div class="install-icon"><i data-lucide="eye-off"></i></div>
-          <div>
-            <h2>Modo Discreto — Instalação do Bookmarklet</h2>
-            <p>Script 100% invisível sem janelas abertas. Totalmente operado por atalhos de teclado.</p>
-          </div>
+      <div class="mode-hero">
+        <div class="mode-hero-icon"><i data-lucide="eye-off"></i></div>
+        <div>
+          <h1 class="mode-title">Modo Discreto</h1>
+          <p class="mode-subtitle">Script 100% invisível. Sem janelas abertas. Operado por atalhos de teclado.</p>
         </div>
+      </div>
 
+      <!-- Install Box -->
+      <div class="install-section">
         <div class="install-steps-row">
           <div class="install-step">
-            <span class="step-num">1</span>
+            <span class="step-num"><span class="step-line"></span>1</span>
             <p>Exiba a Barra de Favoritos com <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></p>
           </div>
           <div class="install-step">
-            <span class="step-num">2</span>
-            <p>Arraste o botão abaixo ou adicione manualmente uma página</p>
+            <span class="step-num"><span class="step-line"></span>2</span>
+            <p>Arraste o botão abaixo para a barra de favoritos</p>
           </div>
           <div class="install-step">
-            <span class="step-num">3</span>
-            <p>Defina o código como o campo <strong>URL</strong> do favorito</p>
+            <span class="step-num"><span class="step-line"></span>3</span>
+            <p>Cole o código no campo <strong>URL</strong> do favorito se preferir</p>
           </div>
           <div class="install-step">
-            <span class="step-num">4</span>
-            <p>Em qualquer teste, clique no favorito e tecle <kbd>Shift</kbd>+<kbd>A</kbd></p>
+            <span class="step-num"><span class="step-line"></span>4</span>
+            <p>Em qualquer quiz, clique no favorito e tecle <kbd>Shift</kbd>+<kbd>A</kbd></p>
           </div>
         </div>
 
-        <!-- Action Bar: Copy + Drag + Open Helper Page -->
         <div class="install-action-bar">
           <div class="install-action-buttons">
             <button type="button" class="btn btn-primary copy-btn" data-code="code-discrete">
               <i data-lucide="copy"></i>
               <span>Copiar Código</span>
             </button>
-            <a href="javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@c923b65/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();" class="btn btn-secondary btn-drag" draggable="true" title="Arraste e solte diretamente na sua barra de favoritos do navegador">
-              <i data-lucide="bookmark"></i>
-              <span> Arrastar para Favoritos</span>
-            </a>
-            <a href="instalar_discreto.html" target="_blank" rel="noopener noreferrer" class="btn btn-ghost" title="Abrir página dedicada para salvar como favorito com Ctrl+D">
-              <i data-lucide="external-link"></i>
-              <span>Abrir Página de Instalação</span>
+            <a href="javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@c923b65/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();" class="btn-drag-bookmarklet" draggable="true" title="Arraste para a barra de favoritos" id="bm-discrete">
+              <span class="drag-grip"><i data-lucide="grip-vertical"></i></span>
+              <span class="drag-label">EasyQuiz (Invisível)</span>
+              <i data-lucide="bookmark" class="drag-tail"></i>
             </a>
           </div>
-
           <button type="button" class="accordion-toggle-btn" id="toggle-discrete-code">
             <i data-lucide="code-2"></i>
             <span>Ver Código Fonte</span>
@@ -262,7 +238,6 @@
           </button>
         </div>
 
-        <!-- Collapsible Code View -->
         <div class="accordion-content" id="content-discrete-code">
           <pre class="code-inner" id="code-discrete">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@c923b65/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();</pre>
         </div>
@@ -274,7 +249,7 @@
           <div class="icon-wrap"><i data-lucide="play"></i></div>
           <div>
             <h2>Como usar o Modo Discreto</h2>
-            <p>Fluxo de execução direto através de atalhos rápidos.</p>
+            <p>Fluxo de execução direto por atalhos rápidos.</p>
           </div>
         </div>
         <div class="howto-steps">
@@ -282,128 +257,103 @@
             <span class="howto-step-num">1</span>
             <div>
               <h4>Ativação do Favorito</h4>
-              <p>Abra a página da prova ou quiz e clique no favorito instalado. O script inicia silenciosamente em segundo plano.</p>
+              <p>Abra a página da prova e clique no favorito instalado. O script inicia silenciosamente.</p>
             </div>
           </div>
           <div class="howto-step">
             <span class="howto-step-num">2</span>
             <div>
-              <h4>Configuração Central de Chaves: <kbd>Shift</kbd> + <kbd>A</kbd></h4>
-              <p>Pressione as teclas para abrir o menu rápido. Cole sua chave do Google AI Studio. As chaves ficam salvas centralizadamente no navegador e funcionam em ambos os modos.</p>
+              <h4>Configurar Chave: <kbd>Shift</kbd> + <kbd>A</kbd></h4>
+              <p>Abre o menu rápido. Cole sua chave do Google AI Studio. Fica salva centralmente no navegador.</p>
             </div>
           </div>
           <div class="howto-step">
             <span class="howto-step-num">3</span>
             <div>
               <h4>Resolver Questão: <kbd>Shift</kbd> + <kbd>Q</kbd></h4>
-              <p>Clique sobre a questão atual e dispare o atalho. O EasyQuiz realiza a leitura da pergunta e solicita a resolução.</p>
+              <p>Clique sobre a questão atual e dispare o atalho. O EasyQuiz lê e resolve a pergunta.</p>
             </div>
           </div>
           <div class="howto-step">
             <span class="howto-step-num">4</span>
             <div>
-              <h4>Preenchimento de Respostas</h4>
-              <p>Em questões escritas, toque qualquer tecla do teclado para que o script digite a resposta com cadência humana. Em múltipla escolha, a alternativa certa é marcada.</p>
+              <h4>Preenchimento Automático</h4>
+              <p>Em dissertativas, toque qualquer tecla para iniciar a digitação com cadência humana. Em múltipla escolha, marca automaticamente.</p>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Table of Shortcuts -->
+      <!-- Shortcuts Table -->
       <div class="manual-block">
-        <h2>Tabela de Comandos de Teclado (Modo Discreto)</h2>
-        <p>Atalhos padronizados para navegação em navegadores Chromium (Chrome e Edge):</p>
-
+        <h2>Atalhos de Teclado — Modo Discreto</h2>
+        <p>Padrão Chromium (Chrome e Edge):</p>
         <div class="table-container">
           <table>
             <thead>
               <tr>
-                <th style="width: 220px;">Atalho</th>
-                <th>Ação Executada</th>
+                <th style="width:200px">Atalho</th>
+                <th>Ação</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td><span class="key-combo"><kbd>Shift</kbd><span class="key-plus">+</span><kbd>Q</kbd></span></td>
-                <td><strong>Escanear & Resolver:</strong> Analisa a questão selecionada e obtém a resposta da IA.</td>
-              </tr>
-              <tr>
-                <td><span class="key-combo"><kbd>Shift</kbd><span class="key-plus">+</span><kbd>A</kbd></span></td>
-                <td><strong>Gerenciador de Chaves:</strong> Abre o menu para adicionar ou gerenciar chaves API.</td>
-              </tr>
-              <tr>
-                <td><span class="key-combo"><kbd>Shift</kbd><span class="key-plus">+</span><kbd>Z</kbd></span></td>
-                <td><strong>Abortar / Pânico:</strong> Interrompe qualquer digitação ou requisição de rede em andamento.</td>
-              </tr>
-              <tr>
-                <td><span class="key-combo"><kbd>Shift</kbd><span class="key-plus">+</span><kbd>R</kbd></span></td>
-                <td><strong>Recarregar IA:</strong> Repete a leitura e o envio caso haja instabilidade.</td>
-              </tr>
-              <tr>
-                <td><span class="key-combo"><kbd>Shift</kbd><span class="key-plus">+</span><kbd>M</kbd></span></td>
-                <td><strong>Alternar Modelo:</strong> Alterna entre as versões disponíveis (Gemini Flash / Pro).</td>
-              </tr>
-              <tr>
-                <td><span class="key-combo"><kbd>Shift</kbd><span class="key-plus">+</span><kbd>V</kbd></span></td>
-                <td><strong>Auditoria de Visão:</strong> Amostra a captura feita para fórmulas e imagens.</td>
-              </tr>
+              <tr><td><span class="key-combo"><kbd>Shift</kbd><span class="key-plus">+</span><kbd>Q</kbd></span></td><td><strong>Escanear e Resolver:</strong> Analisa a questão e obtém resposta da IA.</td></tr>
+              <tr><td><span class="key-combo"><kbd>Shift</kbd><span class="key-plus">+</span><kbd>A</kbd></span></td><td><strong>Gerenciador de Chaves:</strong> Adicionar ou gerenciar chaves API.</td></tr>
+              <tr><td><span class="key-combo"><kbd>Shift</kbd><span class="key-plus">+</span><kbd>Z</kbd></span></td><td><strong>Abortar:</strong> Interrompe qualquer digitação ou requisição.</td></tr>
+              <tr><td><span class="key-combo"><kbd>Shift</kbd><span class="key-plus">+</span><kbd>R</kbd></span></td><td><strong>Recarregar IA:</strong> Re-envia a questão em caso de instabilidade.</td></tr>
+              <tr><td><span class="key-combo"><kbd>Shift</kbd><span class="key-plus">+</span><kbd>M</kbd></span></td><td><strong>Alternar Modelo:</strong> Gemini Flash ou Pro.</td></tr>
+              <tr><td><span class="key-combo"><kbd>Shift</kbd><span class="key-plus">+</span><kbd>V</kbd></span></td><td><strong>Auditoria Visual:</strong> Exibe a captura de tela para fórmulas e imagens.</td></tr>
             </tbody>
           </table>
         </div>
       </div>
+
     </section>
 
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- ABA: MODO LEGACY                            -->
-    <!-- ═══════════════════════════════════════════ -->
+    <!-- ═══ ABA: MODO LEGACY ══════════════════════════════════ -->
     <section id="legacy" class="tab-pane">
-      
-      <!-- Installation Box -->
-      <div class="install-section">
-        <div class="install-header-main">
-          <div class="install-icon"><i data-lucide="panel-top"></i></div>
-          <div>
-            <h2>Modo Legacy — Painel HUD Flutuante</h2>
-            <p>Interface visual completa e arrastável em Shadow DOM para auditoria detalhada.</p>
-          </div>
-        </div>
 
+      <div class="mode-hero">
+        <div class="mode-hero-icon"><i data-lucide="panel-top"></i></div>
+        <div>
+          <h1 class="mode-title">Modo Legacy</h1>
+          <p class="mode-subtitle">Painel HUD flutuante completo em Shadow DOM para auditoria detalhada.</p>
+        </div>
+      </div>
+
+      <!-- Install Box -->
+      <div class="install-section">
         <div class="install-steps-row">
           <div class="install-step">
-            <span class="step-num">1</span>
+            <span class="step-num"><span class="step-line"></span>1</span>
             <p>Exiba a Barra de Favoritos com <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></p>
           </div>
           <div class="install-step">
-            <span class="step-num">2</span>
+            <span class="step-num"><span class="step-line"></span>2</span>
             <p>Arraste o botão abaixo para a barra de favoritos</p>
           </div>
           <div class="install-step">
-            <span class="step-num">3</span>
-            <p>Defina o código como o campo <strong>URL</strong> do favorito</p>
+            <span class="step-num"><span class="step-line"></span>3</span>
+            <p>Cole o código no campo <strong>URL</strong> do favorito se preferir</p>
           </div>
           <div class="install-step">
-            <span class="step-num">4</span>
+            <span class="step-num"><span class="step-line"></span>4</span>
             <p>Abra o painel com <kbd>Alt</kbd>+<kbd>A</kbd> ou <kbd>Alt</kbd>+<kbd>Q</kbd></p>
           </div>
         </div>
 
-        <!-- Action Bar: Copy + Drag + Open Helper Page -->
         <div class="install-action-bar">
           <div class="install-action-buttons">
             <button type="button" class="btn btn-primary copy-btn" data-code="code-legacy">
               <i data-lucide="copy"></i>
               <span>Copiar Código</span>
             </button>
-            <a href="javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@c923b65/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();" class="btn btn-secondary btn-drag" draggable="true" title="Arraste e solte diretamente na sua barra de favoritos do navegador">
-              <i data-lucide="bookmark"></i>
-              <span> Arrastar para Favoritos</span>
-            </a>
-            <a href="instalar_bookmarklet.html" target="_blank" rel="noopener noreferrer" class="btn btn-ghost" title="Abrir página dedicada para salvar como favorito com Ctrl+D">
-              <i data-lucide="external-link"></i>
-              <span>Abrir Página de Instalação</span>
+            <a href="javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@c923b65/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();" class="btn-drag-bookmarklet" draggable="true" title="Arraste para a barra de favoritos" id="bm-legacy">
+              <span class="drag-grip"><i data-lucide="grip-vertical"></i></span>
+              <span class="drag-label">EasyQuiz</span>
+              <i data-lucide="bookmark" class="drag-tail"></i>
             </a>
           </div>
-
           <button type="button" class="accordion-toggle-btn" id="toggle-legacy-code">
             <i data-lucide="code-2"></i>
             <span>Ver Código Fonte</span>
@@ -411,134 +361,118 @@
           </button>
         </div>
 
-        <!-- Collapsible Code View -->
         <div class="accordion-content" id="content-legacy-code">
           <pre class="code-inner" id="code-legacy">javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@c923b65/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();</pre>
         </div>
       </div>
 
-      <!-- How to Use Card -->
+      <!-- How to Use -->
       <div class="howto-card">
         <div class="howto-card-header">
           <div class="icon-wrap"><i data-lucide="play"></i></div>
           <div>
             <h2>Como usar o Modo Legacy</h2>
-            <p>O painel flutuante abre com os atalhos <strong><kbd>Alt</kbd> + <kbd>A</kbd></strong> ou <strong><kbd>Alt</kbd> + <kbd>Q</kbd></strong>.</p>
+            <p>Painel abre com <strong><kbd>Alt</kbd> + <kbd>A</kbd></strong> ou <strong><kbd>Alt</kbd> + <kbd>Q</kbd></strong>.</p>
           </div>
         </div>
         <div class="howto-steps">
           <div class="howto-step">
             <span class="howto-step-num">1</span>
             <div>
-              <h4>Execução inicial</h4>
-              <p>Na página da prova ou atividade, clique no favorito do Modo Legacy. O script será carregado em memória.</p>
+              <h4>Execução Inicial</h4>
+              <p>Na página da prova, clique no favorito do Modo Legacy. O script carrega em memória.</p>
             </div>
           </div>
           <div class="howto-step">
             <span class="howto-step-num">2</span>
             <div>
-              <h4>Abrir a Interface (<kbd>Alt</kbd> + <kbd>A</kbd> ou <kbd>Alt</kbd> + <kbd>Q</kbd>)</h4>
-              <p>O painel lateral HUD deslizará para a tela. Você pode arrastá-lo e fixá-lo na lateral desejada.</p>
+              <h4>Abrir Interface (<kbd>Alt</kbd> + <kbd>A</kbd> ou <kbd>Alt</kbd> + <kbd>Q</kbd>)</h4>
+              <p>O painel lateral HUD desliza para a tela. Pode ser arrastado e fixado em qualquer lateral.</p>
             </div>
           </div>
           <div class="howto-step">
             <span class="howto-step-num">3</span>
             <div>
-              <h4>Resolver Questão Atual</h4>
-              <p>Clique no botão principal de resolução. O sistema marca o bloco com maior pontuação e calcula a resposta.</p>
+              <h4>Resolver Questão</h4>
+              <p>Clique no botão principal de resolução. O sistema marca a opção com maior pontuação.</p>
             </div>
           </div>
           <div class="howto-step">
             <span class="howto-step-num">4</span>
             <div>
               <h4>Auditoria e Injeção</h4>
-              <p>Acompanhe o raciocínio na aba Cérebro, verifique imagens na aba Mídia e utilize o botão de injeção automática.</p>
+              <p>Acompanhe o raciocínio na aba Cérebro, imagens na aba Mídia e utilize a injeção automática.</p>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Details Block -->
+      <!-- Painel Details -->
       <div class="manual-block">
-        <h2>Painel Visual e Auditoria</h2>
-        <p>O Modo Legacy é indicado para quem deseja controle visual minucioso de cada etapa da resolução.</p>
-        <p>Ele inclui abas dedicadas para:</p>
+        <h2>Abas do Painel Legacy</h2>
+        <p>Controle visual completo de cada etapa da resolução:</p>
         <ul>
-          <li><strong>Principal:</strong> Resultado direto da questão e botão para aplicação automática.</li>
-          <li><strong>Cérebro:</strong> Leitura completa do passo a passo gerado pelo modelo antes da resposta final.</li>
-          <li><strong>Mídia:</strong> Visualização da foto/recorte da tela capturado para gráficos e matemática.</li>
-          <li><strong>Terminal:</strong> Telemetria detalhada de eventos despachados no navegador.</li>
-          <li><strong>Configurações:</strong> Gerenciamento das chaves de API unificadas e troca de modelos.</li>
+          <li><strong>Principal:</strong> Resultado direto e botão de aplicação automática.</li>
+          <li><strong>Cérebro:</strong> Raciocínio passo a passo gerado pelo modelo.</li>
+          <li><strong>Mídia:</strong> Visualização da captura de tela para gráficos e equações.</li>
+          <li><strong>Terminal:</strong> Telemetria detalhada de eventos.</li>
+          <li><strong>Configurações:</strong> Gerenciamento de chaves API e troca de modelos.</li>
         </ul>
       </div>
+
     </section>
 
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- ABA: API KEY                                -->
-    <!-- ═══════════════════════════════════════════ -->
+    <!-- ═══ ABA: API KEY ══════════════════════════════════════ -->
     <section id="api-key" class="tab-pane">
       <div class="api-guide-wrap">
-        <h2>Guia de Configuração de Chaves API</h2>
-        <p class="sub">As chaves de API conectam o EasyQuiz diretamente aos modelos do Google Gemini. O acesso inicial é <strong>gratuito</strong> e a configuração é feita uma única vez.</p>
+        <h2>Como obter sua chave de API</h2>
+        <p class="sub">As chaves conectam o EasyQuiz ao Google Gemini. O acesso inicial é <strong>gratuito</strong> e a configuração é feita uma única vez.</p>
 
         <div class="api-steps">
-          <!-- Passo 1 -->
           <div class="api-step-card">
             <span class="api-step-num">1</span>
             <div class="api-step-content">
               <h3>Acessar o Google AI Studio</h3>
-              <p>Acesse o portal oficial de desenvolvedores do Google para gerenciamento de chaves Gemini.</p>
+              <p>Acesse o portal de desenvolvedores para gerenciar chaves Gemini.</p>
               <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">
                 <span>Abrir Google AI Studio</span>
                 <i data-lucide="external-link"></i>
               </a>
             </div>
           </div>
-
-          <!-- Passo 2 -->
           <div class="api-step-card">
             <span class="api-step-num">2</span>
             <div class="api-step-content">
               <h3>Criar a Chave de Acesso</h3>
-              <p>Clique no botão <strong>Create API Key</strong> no canto superior. Selecione um projeto ou crie um novo projeto com um clique.</p>
+              <p>Clique em <strong>Create API Key</strong> no canto superior. Selecione ou crie um projeto.</p>
             </div>
           </div>
-
-          <!-- Passo 3 -->
           <div class="api-step-card">
             <span class="api-step-num">3</span>
             <div class="api-step-content">
               <h3>Copiar a Chave Gerada</h3>
-              <p>A chave começa com o prefixo <code>AIzaSy...</code>. Copie o código gerado para a sua área de transferência.</p>
+              <p>A chave começa com <code>AIzaSy...</code>. Copie para a sua área de transferência.</p>
             </div>
           </div>
-
-          <!-- Passo 4 -->
           <div class="api-step-card">
             <span class="api-step-num">4</span>
             <div class="api-step-content">
               <h3>Cadastrar no EasyQuiz</h3>
               <p>
-                • <strong>No Modo Discreto:</strong> Tecle <kbd>Shift</kbd> + <kbd>A</kbd> e cole a chave.<br>
-                • <strong>No Modo Legacy:</strong> Abra o painel com <kbd>Alt</kbd> + <kbd>A</kbd> ou <kbd>Alt</kbd> + <kbd>Q</kbd> e acerte na aba de engrenagem.
+                • <strong>Modo Discreto:</strong> Tecle <kbd>Shift</kbd> + <kbd>A</kbd> e cole a chave.<br>
+                • <strong>Modo Legacy:</strong> Abra com <kbd>Alt</kbd> + <kbd>A</kbd> e use a aba de engrenagem.
               </p>
-              <p style="margin-top: 6px; font-size: 0.84rem; color: #888;">
-                <strong>Importante:</strong> As chaves são <strong>centralizadas</strong>. Cadastrando em um modo, o outro modo reconhece instantaneamente.
+              <p style="margin-top:8px;font-size:0.84rem;color:#888">
+                As chaves são <strong>centralizadas</strong>. Cadastre em um modo e o outro reconhece automaticamente.
               </p>
             </div>
           </div>
-
-          <!-- Passo 5: INVERTED CARD (White background, black text) -->
-          <div class="api-step-card card-inverted">
-            <span class="api-step-num-inverted">5</span>
+          <div class="api-step-card card-highlight">
+            <span class="api-step-num">5</span>
             <div class="api-step-content">
-              <h3>RECOMENDAÇÃO: Cadastre Múltiplas Chaves de API</h3>
-              <p>
-                Para obter <strong>estabilidade máxima e zero pausas por limite de taxa</strong>, cadastre <strong>2 ou mais chaves de contas diferentes</strong> do Google. O EasyQuiz alterna e balanceia as chaves de forma 100% automática a cada questão.
-              </p>
-              <p style="margin-top: 6px; font-weight: 700;">
-                Basta colar uma chave por linha no gerenciador de chaves.
-              </p>
+              <h3>Recomendação: Múltiplas Chaves</h3>
+              <p>Cadastre <strong>2 ou mais chaves de contas diferentes</strong>. O EasyQuiz balancea automaticamente, garantindo velocidade máxima e zero bloqueios.</p>
+              <p style="margin-top:8px;font-weight:700">Basta colar uma chave por linha no gerenciador.</p>
             </div>
           </div>
         </div>
@@ -547,31 +481,31 @@
 
   </main>
 
-  <!-- RICH MULTI-CATEGORY FOOTER -->
-  
-<footer class="site-footer-clean">
-  <div class="footer-container">
-    <div class="footer-divider"></div>
-    <div class="footer-content">
-      <div class="footer-left">
-        <img src="logo.png?v=2.5" width="24" height="24" alt="Logo">
-        <span>EasyQuiz &copy; 2026. Feito para estudos rápidos.</span>
-      </div>
-      <div class="footer-right">
-        <a href="https://github.com/minifoxie/EasyQuiz">GitHub</a>
-        <a href="manuais/">Documentação</a>
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-divider"></div>
+      <div class="footer-row">
+        <div class="footer-brand">
+          <img src="logo.png?v=3.0" width="22" height="22" alt="EasyQuiz">
+          <span>EasyQuiz &copy; 2026</span>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://github.com/minifoxie/EasyQuiz/blob/main/README.md" target="_blank" rel="noopener noreferrer">Documentação</a>
+          <span class="footer-sep">|</span>
+          <span>MIT License</span>
+        </div>
       </div>
     </div>
-  </div>
-</footer>
+  </footer>
 
-
-  <!-- Toast Notification -->
+  <!-- Toast -->
   <div id="toast" role="alert" aria-live="polite">
     <i data-lucide="check-circle-2"></i>
-    <span class="toast-msg">Código copiado com sucesso!</span>
+    <span class="toast-msg">Código copiado!</span>
   </div>
 
-  <script src="js/app.js?v=2.3"></script>
+  <script src="js/app.js?v=3.0"></script>
 </body>
 </html>
