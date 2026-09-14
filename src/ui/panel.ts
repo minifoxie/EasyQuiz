@@ -339,20 +339,17 @@ export class EasyQuizPanel {
                       <div class="eq-brand-subline">BETA • ${BUILD_VERSION}</div>
                     </div>
                   </div>
-                  <div class="eq-resolver-tools">
-                    <button class="eq-more-btn" id="eq-resolver-menu-btn" type="button" title="Mais ações" aria-label="Abrir menu de ações">${ICONS.moreVertical}</button>
-                    <div class="eq-resolver-menu" id="eq-resolver-menu" hidden>
-                      <button type="button" class="eq-menu-action" data-action="analyze">${ICONS.analyze} Analisar página</button>
-                      <button type="button" class="eq-menu-action" data-action="inject">${ICONS.apply} Injetar resposta</button>
-                    </div>
-                  </div>
                 </div>
 
                 <div class="eq-resolver-cta-row">
                   <button class="eq-resolve-primary" id="eq-analyze-btn" type="button">${ICONS.play} Iniciar Leitura</button>
                   <button class="eq-resolve-secondary" id="eq-ap-toggle-btn" type="button" title="Autopilot">${ICONS.play}</button>
                   <button class="eq-more-btn eq-more-btn-inline" id="eq-resolver-menu-btn" type="button" title="Mais ações" aria-label="Abrir menu de ações">${ICONS.moreVertical}</button>
-                  <button class="eq-btn-secondary" id="eq-apply-btn" type="button" style="display:none;" aria-hidden="true">Aplicar</button>
+                </div>
+
+                <div class="eq-resolver-menu" id="eq-resolver-menu" hidden>
+                  <button type="button" class="eq-menu-action" data-action="analyze">${ICONS.analyze} Analisar página</button>
+                  <button type="button" class="eq-menu-action" data-action="inject">${ICONS.apply} Injetar resposta</button>
                 </div>
 
                 <div class="eq-status-card eq-status-card-resolver is-collapsed" id="eq-status-card" aria-expanded="false">
