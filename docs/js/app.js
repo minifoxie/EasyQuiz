@@ -147,7 +147,10 @@ function initDropdown(btnId, menuId) {
     menu.classList.toggle('open', open);
   };
   btn.onclick = e => { e.stopPropagation(); toggle(!dd.classList.contains('active')); };
-  
+  document.addEventListener('click', e => { if (!dd.contains(e.target)) toggle(false); });
+  menu.querySelectorAll('.dropdown-item[data-tab]').forEach(i => { i.onclick = () => { toggle(false); switchTab(i.dataset.tab); }; });
+}
+
 async function osAnimLoop() {
   const wraps = document.querySelectorAll('.os-anim-wrapper');
   if (wraps.length === 0) return;
@@ -261,11 +264,6 @@ async function osAnimLoop() {
       await sleep(1500);
     }
   }
-}
-
-
-document.addEventListener('click', e => { if (!dd.contains(e.target)) toggle(false); });
-  menu.querySelectorAll('.dropdown-item[data-tab]').forEach(i => { i.onclick = () => { toggle(false); switchTab(i.dataset.tab); }; });
 }
 
 function initCodeButtons() {
