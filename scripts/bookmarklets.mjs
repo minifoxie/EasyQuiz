@@ -17,8 +17,9 @@ function multiCdnBookmarklet({ bundle, label, cdnBase, fastlyBase, rawBase }) {
 }
 
 export function createBookmarklets(gitHash = 'latest') {
-  const cdnBase = `https://cdn.jsdelivr.net/gh/${githubRepo}@${gitHash}/dist`
-  const fastlyBase = `https://fastly.jsdelivr.net/gh/${githubRepo}@${gitHash}/dist`
+  const resolvedHash = gitHash && gitHash !== 'latest' ? gitHash : 'main'
+  const cdnBase = `https://cdn.jsdelivr.net/gh/${githubRepo}@${resolvedHash}/dist`
+  const fastlyBase = `https://fastly.jsdelivr.net/gh/${githubRepo}@${resolvedHash}/dist`
   const rawBase = `https://raw.githubusercontent.com/${githubRepo}/main/dist`
   const discreteFallback = multiCdnBookmarklet({ bundle: 'discrete.js', label: 'Discreto', cdnBase, fastlyBase, rawBase })
   const legacyFallback = multiCdnBookmarklet({ bundle: 'easyquiz.js', label: 'Legacy', cdnBase, fastlyBase, rawBase })

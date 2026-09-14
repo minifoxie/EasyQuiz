@@ -26,6 +26,8 @@ try {
   versionLabel = `v${count.split('').join('.')}`
 } catch {}
 
+const canonicalGitHash = gitHash || 'main'
+
 console.log(`[EasyQuiz] Version: ${versionLabel}`)
 
 const defineOptions = {
@@ -100,7 +102,7 @@ const discreteClean = discreteRaw.replace(/^\/\*[\s\S]*?\*\/\s*/, '')
 const discreteBookmarkletCode = `javascript:(function(){${discreteClean}})();void 0`
 
 // Fonte única dos bookmarklets usados pelo site, README e artefatos de distribuição.
-const bookmarklets = createBookmarklets('latest')
+const bookmarklets = createBookmarklets(canonicalGitHash)
 const githubRepo = bookmarklets.repo
 const legacyJsdelivr = bookmarklets.legacy
 const discreteJsdelivr = bookmarklets.discrete
@@ -338,10 +340,15 @@ const bundleSize = Buffer.byteLength(bundleContent, 'utf-8')
 try {
   let readme = await readFile(path.join(root, 'README.md'), 'utf-8');
   readme = readme.replace(/<span style="color:#00e5ff; font-family:monospace; font-size:0.7em;">v.*?<\/span>/g, `<span style="color:#00e5ff; font-family:monospace; font-size:0.7em;">${versionLabel}</span>`);
+  const normalizeEasyQuizRepoVersion = (source) => source
+    .replace(/minifoxie\/EasyQuiz@latest/gi, `minifoxie/EasyQuiz@${canonicalGitHash}`)
+    .replace(/minifoxie\/EasyQuiz@main/gi, `minifoxie/EasyQuiz@${canonicalGitHash}`)
+    .replace(/minifoxie\/EasyQuiz@[A-Za-z0-9]+/gi, `minifoxie/EasyQuiz@${canonicalGitHash}`);
   const updateBookmarkletSection = (source, mode, code) => source.replace(
     new RegExp(`<!-- BOOKMARKLET:${mode}:START -->[\\s\\S]*?<!-- BOOKMARKLET:${mode}:END -->`),
     `<!-- BOOKMARKLET:${mode}:START -->\n\`\`\`javascript\n${code}\n\`\`\`\n<!-- BOOKMARKLET:${mode}:END -->`
   );
+  readme = normalizeEasyQuizRepoVersion(readme);
   readme = updateBookmarkletSection(readme, 'DISCRETE', bookmarklets.discrete);
   readme = updateBookmarkletSection(readme, 'LEGACY', bookmarklets.legacy);
   await writeFile(path.join(root, 'README.md'), readme);
@@ -351,6 +358,7 @@ try {
   try {
     let indexHtml = await readFile(path.join(root, 'docs', 'index.html'), 'utf-8');
     indexHtml = indexHtml.replace(/<span id="site-version" class="version-badge">.*?<\/span>/g, `<span id="site-version" class="version-badge">${versionLabel}</span>`);
+    indexHtml = normalizeEasyQuizRepoVersion(indexHtml);
     await writeFile(path.join(root, 'docs', 'index.html'), indexHtml);
     console.log(`[EasyQuiz] docs/index.html atualizado com a versão ${versionLabel}`);
   } catch (e) {

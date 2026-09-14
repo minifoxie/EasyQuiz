@@ -7,6 +7,17 @@ function escapeText(value) {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+const canonicalRepoVersion = bookmarklets.version && bookmarklets.version !== 'latest' && bookmarklets.version !== 'main'
+  ? bookmarklets.version
+  : 'main'
+
+const resolveRepoVersion = (source) => source
+  .replace(/minifoxie\/EasyQuiz@latest/gi, `minifoxie/EasyQuiz@${canonicalRepoVersion}`)
+  .replace(/minifoxie\/EasyQuiz@main/gi, `minifoxie/EasyQuiz@${canonicalRepoVersion}`)
+  .replace(/minifoxie\/EasyQuiz@\w+/gi, `minifoxie/EasyQuiz@${canonicalRepoVersion}`)
+
+html = resolveRepoVersion(html)
+
 for (const mode of ['discrete', 'legacy']) {
   const code = bookmarklets[mode]
   const hrefPattern = new RegExp(`(<a\\b(?=[^>]*\\bid="bm-${mode}"(?:\\s|>))[^>]*\\bhref=")[^"]*(")`)
