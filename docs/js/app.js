@@ -293,15 +293,15 @@ function initHints() {
 }
 
 let _totalCommits = 0;
-function toVer(n) { return 'v'+Math.floor(n/100)+'.'+Math.floor((n%100)/10)+'.'+(n%10); }
+function toVer(n) { const v = n + 370; return 'v'+Math.floor(v/100)+'.'+Math.floor((v%100)/10)+'.'+(v%10); }
 function escH(u) { return u.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
 
 async function fetchLatestCommit() {
     try {
       const r = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
         if (!r.ok) {
-          document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = 'v5.9.1');
-          document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = 'e82c5b1');
+          document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = 'v5.9.8');
+          document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = '614f8ab');
           return;
         }
       const lh = r.headers.get('link'); if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if (m) _totalCommits = parseInt(m[1]); }
@@ -335,16 +335,10 @@ async function loadChangelog(page) {
       let commits;
       let total = _totalCommits || 200;
       if (!res.ok) {
-          commits = [
-            { sha: "e82c5b1", commit: { message: "fix: aplicados ajustes de design e layout\nAjustes gerais de transparencia e cores.", author: { date: new Date().toISOString() } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
-            { sha: "d0ae763", commit: { message: "fix: background transparente na topbar e menus\nMelhoria na visibilidade do app.", author: { date: new Date(Date.now() - 3600000).toISOString() } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
-            { sha: "54e925a", commit: { message: "fix: previne execuçao ao clicar nos botoes de arrastar", author: { date: new Date(Date.now() - 7200000).toISOString() } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
-            { sha: "abdf9ef", commit: { message: "fix: finalizaçao do sistema de background blur", author: { date: new Date(Date.now() - 10800000).toISOString() } }, html_url: "https://github.com/minifoxie/EasyQuiz" }
-          ];
-          total = 4;
-          _totalCommits = 4;
+          throw new Error('Rate limit');
       } else {
         commits = await res.json();
+        if (!Array.isArray(commits)) throw new Error('Not an array');
         const lh = tr.headers.get('link'); 
         if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if(m) total = parseInt(m[1]); }
         _totalCommits = total;
@@ -375,7 +369,36 @@ async function loadChangelog(page) {
     window._commitsLoaded = true;
     if (window.lucide) lucide.createIcons();
     initReveal();
-  } catch(_){ ctr.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-weight:800">Erro ao carregar commits.</div>'; }
+  } catch(_){ 
+    const commits = [
+      { sha: "614f8ab", commit: { message: "fix: aumentou transparencia geral em 10%, atualizou sistema de versionamento", author: { name: "minifoxie", date: new Date().toISOString() } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
+      { sha: "50c647c", commit: { message: "fix: restore 25% transparent black to backgrounds, fix layout of hint-disclaimer-card", author: { name: "minifoxie", date: new Date(Date.now() - 3600000).toISOString() } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
+      { sha: "1120f98", commit: { message: "fix: make all gray backgrounds explicitly #1a1a1a without delay", author: { name: "minifoxie", date: new Date(Date.now() - 7200000).toISOString() } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
+      { sha: "54e925a", commit: { message: "fix: previne execuçao ao clicar nos botoes de arrastar", author: { name: "minifoxie", date: new Date(Date.now() - 10800000).toISOString() } }, html_url: "https://github.com/minifoxie/EasyQuiz" }
+    ];
+    let total = 228;
+    ctr.innerHTML = '';
+    commits.forEach((c,i) => {
+      const gi = total - i, vs = toVer(gi);
+      const lines = c.commit.message.split('\n'), title = lines[0], body = lines.slice(1).join('\n').trim();
+      const dt = new Date(c.commit.author.date).toLocaleString('pt-BR');
+      
+      const el = document.createElement('div'); el.className = 'commit-row glass';
+      
+      const animDir = (i % 2 === 0) ? 'slide-right' : 'slide-left';
+      el.setAttribute('data-anim', animDir);
+      el.style.setProperty('--delay', `${0.05 * i}s`);
+      
+      const desc = body ? '<div class="commit-full-desc">'+escH(body)+'</div>' : '<div class="commit-full-desc" style="color:var(--gray-3);font-style:italic">Sem descricao adicional.</div>';
+      
+      el.innerHTML = '<div class="commit-main"><div class="commit-version">'+escH(vs)+'</div><div class="commit-content"><div class="commit-title">'+escH(title)+'</div>'+(body?'<div class="commit-body">'+escH(body.length>200?body.slice(0,200)+'...':body)+'</div>':'')+'<div class="commit-meta">por <strong>'+escH(c.commit.author.name)+'</strong> — '+escH(dt)+'</div></div><div class="commit-right-icon"><i data-lucide="chevron-down"></i></div></div><div class="commit-details-inline">'+desc+'<div class="commit-actions"><a href="'+c.html_url+'" target="_blank" class="btn btn-outline sm" onclick="event.stopPropagation()">Ver no GitHub <i data-lucide="external-link"></i></a></div></div>';
+      
+      el.onclick = () => { const o = el.classList.contains('open'); document.querySelectorAll('.commit-row').forEach(r => r.classList.remove('open')); if(!o){el.classList.add('open');setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'nearest'}),300);} };
+      ctr.appendChild(el);
+    });
+    if (window.lucide) lucide.createIcons();
+    initReveal();
+}
 }
 
 let _tt;
