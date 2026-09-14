@@ -376,7 +376,7 @@ export class EasyQuizPanel {
                   </div>
                 </div>
 
-                <div class="eq-status-card eq-status-card-resolver is-collapsed" id="eq-status-card" aria-expanded="false">
+                <div class="eq-status-card eq-status-card-resolver" id="eq-status-card" aria-expanded="true">
                   <div class="eq-status-card-header">
                     <div class="eq-status-title-wrap">
                       <span class="eq-status-icon">${ICONS.info}</span>
@@ -2439,9 +2439,9 @@ export class EasyQuizPanel {
     this.stopStopwatch()
     this.stopQuestionTimer()
 
-    this.dotPulseAp.className = 'eq-dot-pulse stopped'
-    this.dotPulseAdv.className = 'eq-dot-pulse stopped'
-    this.launcherDot.className = 'eq-launcher-dot stopped'
+    if (this.dotPulseAp) this.dotPulseAp.className = 'eq-dot-pulse stopped'
+    if (this.dotPulseAdv) this.dotPulseAdv.className = 'eq-dot-pulse stopped'
+    if (this.launcherDot) this.launcherDot.className = 'eq-launcher-dot stopped'
 
     if (this.metricsLiveStatus) {
       this.metricsLiveStatus.textContent = 'Interrompido'
@@ -2461,19 +2461,21 @@ export class EasyQuizPanel {
       (e) => ((e as any).disabled = busy),
     )
 
-    const ctaRow = this.analyzeBtn.closest('.eq-resolver-cta-row')
+    const ctaRow = this.analyzeBtn?.closest('.eq-resolver-cta-row')
     if (busy) {
       if (ctaRow) ctaRow.classList.add('is-running')
-      this.analyzeBtn.disabled = false
-      this.analyzeBtn.classList.add('danger')
-      this.analyzeBtn.innerHTML = `<span class="eq-btn-icon">${ICONS.stop}</span><span class="eq-btn-label">Parar Autopilot</span>`
-      this.analyzeBtn.title = 'Interromper o Resolver Autopilot'
+      if (this.analyzeBtn) {
+        this.analyzeBtn.disabled = false
+        this.analyzeBtn.classList.add('danger')
+        this.analyzeBtn.innerHTML = `<span class="eq-btn-icon">${ICONS.stop}</span><span class="eq-btn-label">Parar Autopilot</span>`
+        this.analyzeBtn.title = 'Interromper o Resolver Autopilot'
+      }
       if (this.applyBtn) this.applyBtn.disabled = true
       this.startStopwatch()
       this.startQuestionTimer()
-      this.dotPulseAp.className = 'eq-dot-pulse busy'
-      this.dotPulseAdv.className = 'eq-dot-pulse busy'
-      this.launcherDot.className = 'eq-launcher-dot busy'
+      if (this.dotPulseAp) this.dotPulseAp.className = 'eq-dot-pulse busy'
+      if (this.dotPulseAdv) this.dotPulseAdv.className = 'eq-dot-pulse busy'
+      if (this.launcherDot) this.launcherDot.className = 'eq-launcher-dot busy'
       this.setOperationState('Analisando...', 'busy')
       if (this.metricsLiveStatus) {
         this.metricsLiveStatus.textContent = 'Calculando...'
@@ -2481,16 +2483,18 @@ export class EasyQuizPanel {
       }
       if (message) this.setStatus(message, 'info')
     } else {
-      this.analyzeBtn.disabled = false
-      this.analyzeBtn.classList.remove('danger')
-      this.analyzeBtn.innerHTML = `<span class="eq-btn-icon">${ICONS.sparkles}</span><span class="eq-btn-label">Resolver Autopilot</span>`
-      this.analyzeBtn.title = 'Ligar o Resolver Autopilot'
+      if (this.analyzeBtn) {
+        this.analyzeBtn.disabled = false
+        this.analyzeBtn.classList.remove('danger')
+        this.analyzeBtn.innerHTML = `<span class="eq-btn-icon">${ICONS.sparkles}</span><span class="eq-btn-label">Resolver Autopilot</span>`
+        this.analyzeBtn.title = 'Ligar o Resolver Autopilot'
+      }
       if (this.applyBtn) this.applyBtn.disabled = !this.latestPlan || !this.latestPlan.actions.length
       this.stopStopwatch()
       this.stopQuestionTimer()
-      this.dotPulseAp.className = 'eq-dot-pulse'
-      this.dotPulseAdv.className = 'eq-dot-pulse'
-      this.launcherDot.className = 'eq-launcher-dot'
+      if (this.dotPulseAp) this.dotPulseAp.className = 'eq-dot-pulse'
+      if (this.dotPulseAdv) this.dotPulseAdv.className = 'eq-dot-pulse'
+      if (this.launcherDot) this.launcherDot.className = 'eq-launcher-dot'
       this.setOperationState(this.autopilot.isActive() ? 'Monitorando' : 'Pronto', 'idle')
       if (this.metricsLiveStatus && this.metricsLiveStatus.textContent === 'Calculando...') {
         this.metricsLiveStatus.textContent = 'Em espera'
@@ -2502,35 +2506,35 @@ export class EasyQuizPanel {
   public setStatus(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info'): void {
     const summaryEl = this.shadow.querySelector('#eq-status-summary') as HTMLElement | null
     if (summaryEl) summaryEl.textContent = message
-    if (this.statusTextAp) this.statusTextAp.textContent = message
-    if (this.statusTextAdv) this.statusTextAdv.textContent = message
+    if (this.statusTextAp) if (this.statusTextAp) this.statusTextAp.textContent = message
+    if (this.statusTextAdv) if (this.statusTextAdv) this.statusTextAdv.textContent = message
 
     if (type === 'error') {
       this.setOperationState('Bloqueado', 'error')
-      this.dotPulseAp.className = 'eq-dot-pulse error'
-      this.dotPulseAdv.className = 'eq-dot-pulse error'
-      this.launcherDot.className = 'eq-launcher-dot error'
+      if (this.dotPulseAp) this.dotPulseAp.className = 'eq-dot-pulse error'
+      if (this.dotPulseAdv) this.dotPulseAdv.className = 'eq-dot-pulse error'
+      if (this.launcherDot) this.launcherDot.className = 'eq-launcher-dot error'
     } else if (type === 'warning') {
       this.setOperationState('Interrompido', 'warning')
-      this.dotPulseAp.className = 'eq-dot-pulse stopped'
-      this.dotPulseAdv.className = 'eq-dot-pulse stopped'
-      this.launcherDot.className = 'eq-launcher-dot stopped'
+      if (this.dotPulseAp) this.dotPulseAp.className = 'eq-dot-pulse stopped'
+      if (this.dotPulseAdv) this.dotPulseAdv.className = 'eq-dot-pulse stopped'
+      if (this.launcherDot) this.launcherDot.className = 'eq-launcher-dot stopped'
     } else if (type === 'success') {
       this.setOperationState('Confirmado', 'success')
-      this.dotPulseAp.className = 'eq-dot-pulse'
-      this.dotPulseAdv.className = 'eq-dot-pulse'
-      this.launcherDot.className = 'eq-launcher-dot'
+      if (this.dotPulseAp) this.dotPulseAp.className = 'eq-dot-pulse'
+      if (this.dotPulseAdv) this.dotPulseAdv.className = 'eq-dot-pulse'
+      if (this.launcherDot) this.launcherDot.className = 'eq-launcher-dot'
     } else {
       if (this.isBusy) {
         this.setOperationState('Analisando...', 'busy')
-        this.dotPulseAp.className = 'eq-dot-pulse busy'
-        this.dotPulseAdv.className = 'eq-dot-pulse busy'
-        this.launcherDot.className = 'eq-launcher-dot busy'
+        if (this.dotPulseAp) this.dotPulseAp.className = 'eq-dot-pulse busy'
+        if (this.dotPulseAdv) this.dotPulseAdv.className = 'eq-dot-pulse busy'
+        if (this.launcherDot) this.launcherDot.className = 'eq-launcher-dot busy'
       } else {
         this.setOperationState(this.autopilot.isActive() ? 'Monitorando' : 'Pronto', 'info')
-        this.dotPulseAp.className = 'eq-dot-pulse'
-        this.dotPulseAdv.className = 'eq-dot-pulse'
-        this.launcherDot.className = 'eq-launcher-dot'
+        if (this.dotPulseAp) this.dotPulseAp.className = 'eq-dot-pulse'
+        if (this.dotPulseAdv) this.dotPulseAdv.className = 'eq-dot-pulse'
+        if (this.launcherDot) this.launcherDot.className = 'eq-launcher-dot'
       }
     }
 

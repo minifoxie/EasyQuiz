@@ -452,21 +452,21 @@ export const PANEL_STYLES = `
 
   .eq-resolver-cta-row {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 0;
     margin: 0 0 16px;
     position: relative;
-    border: 1px solid rgba(160, 210, 255, 0.28);
-    background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(111, 168, 255, 0.06));
+    border: 1px solid rgba(120, 120, 140, 0.3);
+    background: rgba(28, 28, 30, 0.85);
     border-radius: 0;
-    box-shadow: 0 18px 32px rgba(24, 29, 35, 0.45), inset 0 1px 0 rgba(255,255,255,0.1);
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    overflow: visible;
   }
 
   .eq-resolver-cta-row:hover {
-    transform: translateY(-2px) scale(1.02);
-    border-color: rgba(175, 216, 255, 0.4);
-    box-shadow: 0 24px 42px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.18);
+    border-color: rgba(160, 160, 180, 0.5);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.1);
   }
 
   .eq-resolver-cta-row::before {
@@ -476,13 +476,21 @@ export const PANEL_STYLES = `
     left: -50%;
     width: 200%;
     height: 200%;
-    background: conic-gradient(from 0deg, transparent, transparent, transparent, #00ffcc, #38bdf8, transparent);
-    animation: eq-spin-gradient 2.5s linear infinite;
+    background: conic-gradient(from 0deg,
+      transparent 0deg,
+      transparent 200deg,
+      rgba(66, 133, 244, 0.9) 230deg,
+      rgba(155, 114, 203, 0.9) 260deg,
+      rgba(217, 101, 112, 0.9) 285deg,
+      transparent 310deg,
+      transparent 360deg
+    );
+    animation: eq-spin-gradient 2.8s linear infinite;
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.4s ease;
     pointer-events: none;
     z-index: 0;
-    clip-path: inset(25%);
+    clip-path: inset(30%);
   }
 
   @keyframes eq-spin-gradient {
@@ -495,7 +503,7 @@ export const PANEL_STYLES = `
     opacity: 1;
   }
 
-  /* Inner background to mask the spinning gradient, so it only shows on the border/edges */
+  /* Inner background mask so gradient only shows on border edge */
   .eq-resolver-cta-row::after {
     content: '';
     position: absolute;
@@ -503,7 +511,7 @@ export const PANEL_STYLES = `
     left: 2px;
     right: 2px;
     bottom: 2px;
-    background: rgba(17, 17, 17, 0.95);
+    background: rgba(22, 22, 24, 0.97);
     border-radius: 0;
     z-index: 1;
     pointer-events: none;
@@ -511,7 +519,7 @@ export const PANEL_STYLES = `
   }
   
   .eq-resolver-cta-row:hover::after {
-    background: rgba(22, 22, 22, 0.95);
+    background: rgba(26, 26, 28, 0.97);
   }
 
   .eq-resolve-primary {
@@ -547,14 +555,14 @@ export const PANEL_STYLES = `
     width: 18px;
     height: 18px;
     flex-shrink: 0;
-    filter: brightness(1.8) drop-shadow(0 0 10px rgba(160, 210, 255, 0.9));
+    filter: brightness(1.35) drop-shadow(0 0 6px rgba(180, 210, 255, 0.5));
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   /* Autopilot Primary Button Icon overrides */
   .eq-resolve-primary .eq-btn-icon {
-    width: 36px;
-    height: 36px;
+    width: 27px;
+    height: 27px;
   }
 
   .eq-resolve-primary .eq-btn-icon svg {
@@ -575,9 +583,10 @@ export const PANEL_STYLES = `
   .eq-resolve-menu-shell {
     position: relative;
     display: flex;
-    align-items: center;
-    z-index: 2;
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    align-items: stretch;
+    z-index: 100;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: visible;
   }
 
   .eq-resolve-menu {
@@ -607,36 +616,40 @@ export const PANEL_STYLES = `
 
   .eq-resolver-context-menu {
     position: absolute;
-    top: calc(100% + 14px);
+    top: calc(100% + 8px);
     right: 0;
-    min-width: 240px;
-    background: rgba(15, 15, 15, 0.96);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 0;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
-    padding: 8px 0;
-    z-index: 30;
+    min-width: 220px;
+    background: rgba(18, 18, 20, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+    padding: 6px;
+    z-index: 9999;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    backdrop-filter: blur(16px) saturate(180%);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
-    animation: eq-menu-appear 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    gap: 2px;
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    animation: eq-menu-appear 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     transform-origin: top right;
     opacity: 0;
   }
 
   @keyframes eq-menu-appear {
-    0% { opacity: 0; transform: translateY(-12px) scale(0.9); }
+    0% { opacity: 0; transform: translateY(-8px) scale(0.95); }
     100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .eq-resolver-context-menu[hidden] {
+    display: none !important;
   }
 
   .eq-menu-item {
     appearance: none;
     border: 1px solid transparent;
     background: transparent;
-    color: #eef3ff;
-    border-radius: 10px;
+    color: #d8dde8;
+    border-radius: 4px;
     padding: 9px 10px;
     display: flex;
     align-items: center;
