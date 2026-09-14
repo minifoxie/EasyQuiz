@@ -2577,20 +2577,15 @@ export class EasyQuizPanel {
       }
     }
 
-    // Atualiza Badges do Avançado
+    // Atualiza badge de contagem no toggle header
     const badgesEl = this.shadow.querySelector('#eq-badges') as HTMLElement
-    badgesEl.replaceChildren()
-    const badgeValues = [
-      plan.mode.replace('_', ' '),
-      `${Math.round(plan.confidence * 100)}% Confiança`,
-      `${plan.actions.length} ações`,
-      ...(plan.usedModel ? [plan.usedModel] : []),
-    ]
-    for (const value of badgeValues) {
-      const badge = document.createElement('span')
-      badge.className = 'eq-brand-badge'
-      badge.textContent = value
-      badgesEl.appendChild(badge)
+    if (badgesEl) {
+      badgesEl.replaceChildren()
+      const countBadge = document.createElement('span')
+      countBadge.className = 'eq-count-badge'
+      countBadge.textContent = String(plan.actions.length)
+      countBadge.title = `${plan.actions.length} ações · ${Math.round(plan.confidence * 100)}% confiança`
+      badgesEl.appendChild(countBadge)
     }
 
     const rationaleEl = this.shadow.querySelector('#eq-rationale-text') as HTMLElement
@@ -2611,7 +2606,7 @@ export class EasyQuizPanel {
       else if (act.t === 'drag') desc = `drag "${act.from}" -> "${act.to}"`
 
       const badge = document.createElement('span')
-      badge.className = 'eq-action-badge'
+      badge.className = `eq-action-badge t-${act.t}`
       badge.textContent = act.t.toUpperCase()
       const text = document.createElement('span')
       text.textContent = desc
