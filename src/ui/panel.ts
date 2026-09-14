@@ -331,24 +331,44 @@ export class EasyQuizPanel {
               
               <!-- TAB 1: RESOLVER -->
               <div class="eq-view-pane" id="eq-view-resolver">
-                <div class="eq-operation-header">
-                  <div>
-                    <div class="eq-eyebrow">OPERAÇÃO ATUAL</div>
-                    <h1 class="eq-operation-title">Resolver questão</h1>
-                    <p class="eq-operation-subtitle">Analise o contexto e aplique a resposta sugerida.</p>
+                <div class="eq-resolver-hero">
+                  <div class="eq-resolver-brand">
+                    <span class="eq-brand-mark"><img src="${ICONS.canvasLogo}" alt="EQ Legacy" /></span>
+                    <div class="eq-brand-copy">
+                      <div class="eq-brand-title">EQ Legacy</div>
+                      <div class="eq-brand-subline">BETA • ${BUILD_VERSION}</div>
+                    </div>
                   </div>
-                  <span class="eq-operation-state" id="eq-operation-state">Pronto</span>
+                  <div class="eq-resolver-tools">
+                    <button class="eq-more-btn" id="eq-resolver-menu-btn" type="button" title="Mais ações" aria-label="Abrir menu de ações">${ICONS.moreVertical}</button>
+                    <div class="eq-resolver-menu" id="eq-resolver-menu" hidden>
+                      <button type="button" class="eq-menu-action" data-action="analyze">${ICONS.analyze} Analisar página</button>
+                      <button type="button" class="eq-menu-action" data-action="inject">${ICONS.apply} Injetar resposta</button>
+                    </div>
+                  </div>
                 </div>
 
-                <div class="eq-operation-actions">
-                  <button class="eq-btn-primary" id="eq-analyze-btn" type="button">${ICONS.analyze} Analisar questão</button>
-                  <button class="eq-btn-secondary" id="eq-apply-btn" type="button">${ICONS.apply} Aplicar respostas</button>
-                </div>
-
-                <div style="display: flex; gap: 8px; width: 100%; align-items: center;">
-                  <button class="eq-btn-primary" id="eq-ap-toggle-btn" type="button" style="flex: 1;">
-                    ${ICONS.play} INICIAR AUTOPILOT
+                <div class="eq-resolver-cta-row">
+                  <button class="eq-resolve-primary" id="eq-analyze-btn" type="button">${ICONS.play} Iniciar Leitura</button>
+                  <button class="eq-resolve-secondary" id="eq-ap-toggle-btn" type="button" title="Autopilot">
+                    ${ICONS.play}
                   </button>
+                </div>
+
+                <div class="eq-status-card eq-status-card-resolver" id="eq-status-card">
+                  <div class="eq-status-card-header">
+                    <div class="eq-status-title-wrap">
+                      <span class="eq-status-dot"></span>
+                      <span class="eq-status-label">Status da IA</span>
+                    </div>
+                    <span class="eq-operation-state" id="eq-operation-state">Pronto</span>
+                  </div>
+                  <div class="eq-status-summary" id="eq-status-summary">Sistema aguardando leitura da página.</div>
+                  <div class="eq-status-metrics">
+                    <span class="eq-status-item"><strong>Modo</strong><em>Legacy</em></span>
+                    <span class="eq-status-item"><strong>Latência</strong><em>-- ms</em></span>
+                    <span class="eq-status-item"><strong>Contexto</strong><em>0 itens</em></span>
+                  </div>
                 </div>
 
                 <div id="eq-result" class="eq-operation-result" style="display: none; flex-direction: column; gap: 10px;">
@@ -970,6 +990,33 @@ export class EasyQuizPanel {
     this.shadow.querySelector('#eq-tab-debug')?.addEventListener('click', () => this.switchTab('debug'))
     this.shadow.querySelector('#eq-tab-settings')?.addEventListener('click', () => this.switchTab('settings'))
 
+    const resolverMenuBtn = this.shadow.querySelector('#eq-resolver-menu-btn') as HTMLButtonElement | null
+    const resolverMenu = this.shadow.querySelector('#eq-resolver-menu') as HTMLElement | null
+    resolverMenuBtn?.addEventListener('click', (event) => {
+      event.stopPropagation()
+      if (!resolverMenu) return
+      resolverMenu.hidden = !resolverMenu.hidden
+    })
+
+    this.shadow.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('#eq-resolver-menu') && !target.closest('#eq-resolver-menu-btn')) {
+        resolverMenu?.setAttribute('hidden', 'true')
+      }
+    })
+
+    resolverMenu?.querySelectorAll('[data-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = (button as HTMLElement).dataset.action
+        if (action === 'analyze') {
+          void this.callbacks.onAnalyze(1)
+        } else if (action === 'inject') {
+          this.callbacks.onApply(1)
+        }
+        resolverMenu.hidden = true
+      })
+    })
+
     // Ações de Métricas & Cronômetro
     this.metricsResetBtn?.addEventListener('click', () => {
       resetActivityMetrics()
@@ -1067,9 +1114,6 @@ export class EasyQuizPanel {
     // Toggle da Sidebar (Aba lateral e Launcher Flutuante)
     this.launcherBtn.addEventListener('click', () => this.toggle())
     this.dockToggleBtn.addEventListener('click', () => this.toggle())
-    this.shadow.querySelector('#eq-min-btn')?.addEventListener('click', () => this.toggle(false))
-    this.shadow.querySelector('#eq-close-btn')?.addEventListener('click', () => this.toggle(false))
-
     // Atalho de Teclado Alt+Q ou Alt+A para recolher/expandir
     window.addEventListener(
       'keydown',

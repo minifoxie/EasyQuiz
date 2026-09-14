@@ -4,8 +4,7 @@
 
 export class CornerToast {
   private container: HTMLDivElement | null = null
-  private currentEl: HTMLDivElement | null = null
-  private currentTimer: number | null = null
+  private items: Array<{ el: HTMLDivElement; timer: number | null; id: string; text: string }> = []
   private currentPersistId: string | null = null
   private lastText = ''
 
@@ -19,9 +18,9 @@ export class CornerToast {
     const s = document.createElement('style')
     s.id = '__eqdt_style__'
     s.textContent = `
-      @keyframes __eqdt_in__  { from{opacity:0} to{opacity:1} }
-      @keyframes __eqdt_out__ { from{opacity:1} to{opacity:0} }
-      .__eqdt_in__  { animation: __eqdt_in__  0.1s ease forwards; }
+      @keyframes __eqdt_in__  { from{opacity:0; transform:translateY(8px) scale(.98)} to{opacity:1; transform:translateY(0) scale(1)} }
+      @keyframes __eqdt_out__ { from{opacity:1; transform:translateY(0) scale(1)} to{opacity:0; transform:translateY(8px) scale(.98)} }
+      .__eqdt_in__  { animation: __eqdt_in__  0.18s ease forwards; }
       .__eqdt_out__ { animation: __eqdt_out__ 0.18s ease forwards; }
     `
     document.documentElement.appendChild(s)
@@ -32,10 +31,14 @@ export class CornerToast {
     this.container.id = '__eqdiscrete_toasts__'
     Object.assign(this.container.style, {
       position: 'fixed',
-      bottom: '0',      // colado no canto
-      right: '0',       // colado no canto
+      left: '16px',
+      bottom: '16px',
       zIndex: '2147483645',
       pointerEvents: 'none',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+      alignItems: 'flex-start',
     })
     document.documentElement.appendChild(this.container)
   }
@@ -44,88 +47,98 @@ export class CornerToast {
     const el = document.createElement('div')
     el.className = '__eqdt_in__'
     Object.assign(el.style, {
-      background: 'rgba(30,30,30,0.96)',
+      background: 'rgba(21,21,21,0.78)',
       color: '#ffffff',
-      borderRadius: '0',          // colado — sem bordas arredondadas no canto
-      borderTopLeftRadius: '3px', // só leve no canto oposto
-      padding: '2px 6px',         // 10% menor
-      fontSize: '9.5px',          // 10% menor
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: '0',
+      padding: '8px 10px',
+      fontSize: '11px',
       fontFamily: 'system-ui,-apple-system,"Segoe UI",sans-serif',
-      fontWeight: '400',
-      lineHeight: '1.4',
-      whiteSpace: 'nowrap',
-      maxWidth: '170px',
+      fontWeight: '600',
+      lineHeight: '1.35',
+      whiteSpace: 'normal',
+      maxWidth: '260px',
       overflow: 'hidden',
-      textOverflow: 'ellipsis',
       userSelect: 'none',
-      display: 'block',
-      boxShadow: 'none',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      boxShadow: '0 12px 28px rgba(0,0,0,0.25)',
+      backdropFilter: 'blur(18px) saturate(160%)',
+      WebkitBackdropFilter: 'blur(18px) saturate(160%)',
     })
     el.textContent = text
     return el
   }
 
-  /** Exibe texto (substitui o atual). Retorna ID para dismiss() */
   show(text: string, ms = 3000, persistent = false): string {
     this.lastText = text
-    this.clearCurrent(true) // remove imediatamente sem animação
-
     if (!this.container) return ''
-    const el = this.makeEl(text)
-    this.container.appendChild(el)
-    this.currentEl = el
 
-    const id = `t_${Date.now()}`
+    const id = `t_${Date.now()}_${Math.random().toString(16).slice(2)}`
+    const el = this.makeEl(text)
     el.setAttribute('data-tid', id)
 
+    const item = { el, timer: null as number | null, id, text }
+
     if (!persistent) {
-      this.currentTimer = window.setTimeout(() => this.clearCurrent(false), ms)
-      this.currentPersistId = null
+      item.timer = window.setTimeout(() => this.clearItem(id), ms)
     } else {
       this.currentPersistId = id
     }
+
+    this.items.push(item)
+    this.container.appendChild(el)
+    this.reflowStack()
     return id
   }
 
   flash(text: string, ms = 3000): void { this.show(text, ms) }
-
   persist(text: string): string { return this.show(text, 0, true) }
 
   dismiss(id: string): void {
-    if (this.currentPersistId !== id) return
-    this.clearCurrent(false)
-    this.currentPersistId = null
+    if (this.currentPersistId === id) this.currentPersistId = null
+    this.clearItem(id)
   }
 
-  dismissAll(): void { this.clearCurrent(true) }
+  dismissAll(): void { while (this.items.length) this.clearItem(this.items[0].id, true) }
 
   replace(id: string, newText: string): string {
     this.dismiss(id)
     return this.persist(newText)
   }
 
-  /** Re-exibe o último toast por 2s (Shift+I) */
   reshow(): void {
     if (this.lastText) this.show(this.lastText, 2000)
   }
 
-  private clearCurrent(immediate: boolean): void {
-    if (this.currentTimer !== null) { clearTimeout(this.currentTimer); this.currentTimer = null }
-    const el = this.currentEl
-    if (!el) return
-    this.currentEl = null
-    this.currentPersistId = null
+  private reflowStack(): void {
+    if (!this.container) return
+    const childNodes = Array.from(this.container.children) as HTMLDivElement[]
+    childNodes.forEach((node, index) => {
+      node.style.transform = `translateY(${index * 0}px)`
+      node.style.opacity = '1'
+    })
+  }
+
+  private clearItem(id: string, immediate = false): void {
+    const idx = this.items.findIndex((item) => item.id === id)
+    if (idx === -1) return
+    const item = this.items[idx]
+    if (item.timer !== null) { clearTimeout(item.timer); item.timer = null }
+    this.items.splice(idx, 1)
 
     if (immediate) {
-      el.remove()
-    } else {
-      el.className = '__eqdt_out__'
-      setTimeout(() => el.remove(), 200)
+      item.el.remove()
+      return
     }
+
+    item.el.className = '__eqdt_out__'
+    setTimeout(() => item.el.remove(), 180)
   }
 
   destroy(): void {
-    this.clearCurrent(true)
+    this.dismissAll()
     this.container?.remove()
     this.container = null
     document.getElementById('__eqdt_style__')?.remove()
