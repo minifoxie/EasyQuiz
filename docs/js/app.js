@@ -312,6 +312,16 @@ function initCodeButtons() {
   initDropdown('codeMenuBtnLegacy','codeMenuLegacy');
 }
 
+function highlightBookmarklet(code) {
+  const escaped = code.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+  return escaped.replace(/(https?:\/\/[^&<>"]+|javascript:|\b(?:fetch|then|catch|Date|Error|eval|alert)\b|\b(?:cache|no-store|function|if|throw|return|var|typeof)\b|\b(?:true|false|null)\b)/g, token => {
+    if (token.startsWith('http')) return `<span class="syntax-string">${token}</span>`;
+    if (/^(true|false|null)$/.test(token)) return `<span class="syntax-boolean">${token}</span>`;
+    if (/^(fetch|then|catch|Date|Error|eval|alert)$/.test(token)) return `<span class="syntax-function">${token}</span>`;
+    return `<span class="syntax-keyword">${token}</span>`;
+  });
+}
+
 async function loadCanonicalBookmarklets() {
   try {
     const response = await fetchNoCache('bookmarklets.json');
@@ -329,7 +339,7 @@ async function loadCanonicalBookmarklets() {
       if (link) link.setAttribute('href', code);
       const menuId = mode === 'discrete' ? 'codeMenuDiscrete' : 'codeMenuLegacy';
       const menu = document.getElementById(menuId);
-      menu?.querySelector('.code-menu-body') && (menu.querySelector('.code-menu-body').textContent = code);
+      menu?.querySelector('.code-menu-body') && (menu.querySelector('.code-menu-body').innerHTML = highlightBookmarklet(code));
     });
   } catch (_) {}
 }
