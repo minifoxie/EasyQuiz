@@ -112,7 +112,7 @@ async function initEasyQuiz(): Promise<void> {
   })
 
   async function runAnalysis(attemptCount = 1, externalSignal?: AbortSignal, isAutopilot = false): Promise<AnalysisPlan | void> {
-    if (!settings.apiKey) {
+    if (!settings.apiKey && (!Array.isArray(settings.apiKeys) || settings.apiKeys.length === 0)) {
       panel.setStatus('Configure sua chave de API Gemini acima para começar.', 'error')
       panel.toggle(true)
       return

@@ -8,20 +8,20 @@ export const PANEL_STYLES = `
     font-size: 13px;
     line-height: 1.5;
 
-    /* === Tema Discord 2026 === */
-    --eq-bg:             #1e1f22;  /* fundo principal */
-    --eq-surface:        #2b2d31;  /* painel / cards */
-    --eq-surface-raised: #313338;  /* elementos elevados */
-    --eq-surface-hover:  #383a40;  /* hover */
-    --eq-border:         #3f4147;  /* bordas */
-    --eq-text:           #b5bac1;  /* texto principal */
-    --eq-text-bright:    #f2f3f5;  /* texto destaque */
-    --eq-muted:          #6d6f78;  /* texto secundário */
-    --eq-accent:         #5865f2;  /* Blurple */
-    --eq-accent-hover:   #4752c4;
-    --eq-success:        #23a55a;  /* verde Discord */
-    --eq-warning:        #f0b232;  /* amarelo Discord */
-    --eq-danger:         #da373c;  /* vermelho Discord */
+    /* === Tema Legacy: preto, branco e acento dourado do modo === */
+    --eq-bg:             #070707;
+    --eq-surface:        #111111;
+    --eq-surface-raised: #181818;
+    --eq-surface-hover:  #242424;
+    --eq-border:         rgba(255,255,255,0.14);
+    --eq-text:           #bdbdbd;
+    --eq-text-bright:    #ffffff;
+    --eq-muted:          #777777;
+    --eq-accent:         #fbbf24;
+    --eq-accent-hover:   #f59e0b;
+    --eq-success:        #4ade80;
+    --eq-warning:        #fbbf24;
+    --eq-danger:         #f87171;
   }
 
   * {
@@ -84,11 +84,13 @@ export const PANEL_STYLES = `
     right: 20px;
     bottom: 20px;
     z-index: 2147483646;
-    height: 42px;
-    padding: 0 16px;
-    background: var(--eq-surface);
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+    background: rgba(17,17,17,0.82);
     border: 1px solid var(--eq-border);
-    border-radius: 21px;
+    border-radius: 50%;
     color: var(--eq-text-bright);
     display: flex;
     align-items: center;
@@ -100,6 +102,8 @@ export const PANEL_STYLES = `
     font-family: inherit;
     font-weight: 600;
     font-size: 13px;
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
   }
 
   .eq-launcher:hover {
@@ -120,12 +124,15 @@ export const PANEL_STYLES = `
     color: var(--eq-accent);
   }
 
+  .eq-launcher-icon img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    filter: sepia(1) saturate(5) hue-rotate(355deg) brightness(1.2);
+  }
+
   .eq-launcher-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--eq-success);
-    transition: background 0.2s;
+    display: none;
   }
 
   .eq-launcher-dot.busy {
@@ -180,8 +187,8 @@ export const PANEL_STYLES = `
 
   /* ===== ACTIVITY BAR VERTICAL (COLUNA EM PÉ ESTILO VS CODE) ===== */
   .eq-activity-bar {
-    width: 48px;
-    min-width: 48px;
+    width: 52px;
+    min-width: 52px;
     background: var(--eq-bg);
     border-right: 1px solid var(--eq-border);
     display: flex;
@@ -223,10 +230,17 @@ export const PANEL_STYLES = `
 
   .eq-activity-btn:hover {
     color: var(--eq-text-bright);
+    transform: translateX(2px);
   }
 
   .eq-activity-btn.active {
     color: var(--eq-text-bright);
+    animation: eq-activity-in 0.35s cubic-bezier(0.16,1,0.3,1);
+  }
+
+  @keyframes eq-activity-in {
+    0% { opacity: 0.35; transform: translateX(-5px) scale(0.92); }
+    100% { opacity: 1; transform: translateX(0) scale(1); }
   }
 
   .eq-activity-indicator {
@@ -267,11 +281,13 @@ export const PANEL_STYLES = `
 
   /* Cabeçalho */
   .eq-header {
-    background: var(--eq-surface);
+    background: rgba(17,17,17,0.78);
     border-bottom: 1px solid var(--eq-border);
-    height: 40px;
-    min-height: 40px;
-    padding: 0 14px;
+    height: 58px;
+    min-height: 58px;
+    padding: 0 18px;
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -285,28 +301,51 @@ export const PANEL_STYLES = `
   }
 
   .eq-brand-icon {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    overflow: hidden;
+    border: 1px solid rgba(251,191,36,0.55);
+    background: rgba(251,191,36,0.08);
+    padding: 4px;
+    border-radius: 8px;
     color: var(--eq-accent);
     display: flex;
     align-items: center;
   }
 
+  .eq-brand-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: sepia(1) saturate(5) hue-rotate(355deg) brightness(1.2);
+  }
+
   .eq-brand-name {
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 900;
     color: var(--eq-text-bright);
     letter-spacing: 0.02em;
   }
 
   .eq-brand-badge {
-    background: rgba(88, 101, 242, 0.15);
-    border: 1px solid rgba(88, 101, 242, 0.35);
-    color: var(--eq-accent);
+    background: #ffffff;
+    border: 1px solid #ffffff;
+    color: #050505;
     font-size: 9px;
     font-weight: 800;
     padding: 2px 6px;
     border-radius: 3px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
+  }
+
+  .eq-brand-version {
+    color: var(--eq-accent);
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
   }
 
   .eq-header-tools {
@@ -365,13 +404,21 @@ export const PANEL_STYLES = `
     display: flex;
     flex-direction: column;
     gap: 16px;
-    animation: eq-view-fade 0.2s ease-out;
+    animation: eq-view-fade 0.35s cubic-bezier(0.16,1,0.3,1);
   }
 
   @keyframes eq-view-fade {
     0% { opacity: 0; transform: translateY(4px); }
     100% { opacity: 1; transform: translateY(0); }
   }
+
+  .eq-views-wrapper > * {
+    animation: eq-view-fade 0.35s cubic-bezier(0.16,1,0.3,1) both;
+  }
+
+  .eq-views-wrapper > *:nth-child(2) { animation-delay: 0.04s; }
+  .eq-views-wrapper > *:nth-child(3) { animation-delay: 0.08s; }
+  .eq-views-wrapper > *:nth-child(4) { animation-delay: 0.12s; }
 
   /* ===== SEÇÕES E COMPONENTES ===== */
   /* Section headers estilo Discord Channel Categories */
@@ -453,16 +500,18 @@ export const PANEL_STYLES = `
     right: 0;
     top: calc(100% + 6px);
     width: 240px;
-    background: var(--eq-surface-raised);
+    background: rgba(18,18,18,0.94);
     border: 1px solid var(--eq-border);
-    border-radius: 6px;
+    border-radius: 10px;
     padding: 6px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     z-index: 100;
     display: flex;
     flex-direction: column;
     gap: 2px;
-    animation: eq-menu-pop 0.15s ease-out;
+    animation: eq-menu-pop 0.24s cubic-bezier(0.16,1,0.3,1);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
   }
 
   .eq-context-menu[hidden] {
@@ -484,12 +533,13 @@ export const PANEL_STYLES = `
     font-size: 12px;
     text-align: left;
     cursor: pointer;
-    transition: background 0.1s, color 0.1s;
+    transition: background 0.2s, color 0.2s, transform 0.2s;
   }
 
   .eq-context-item:hover {
-    background: var(--eq-accent);
+    background: rgba(251,191,36,0.16);
     color: var(--eq-text-bright);
+    transform: translateX(3px);
   }
 
   .eq-context-item.danger {
@@ -506,6 +556,8 @@ export const PANEL_STYLES = `
     align-items: center;
     justify-content: center;
     width: 16px;
+    color: var(--eq-accent);
+    background: transparent;
   }
 
   .eq-item-text {
@@ -1465,6 +1517,23 @@ export const PANEL_STYLES = `
     .eq-sidebar {
       width: 100vw;
       max-width: 100vw;
+    }
+    .eq-activity-bar {
+      width: 46px;
+      min-width: 46px;
+    }
+    .eq-header {
+      padding: 0 12px;
+    }
+    .eq-brand-name {
+      font-size: 12px;
+    }
+    .eq-brand-version {
+      font-size: 9px;
+    }
+    .eq-views-wrapper {
+      padding: 12px;
+      gap: 12px;
     }
     .eq-floating-hud {
       width: calc(100vw - 20px);

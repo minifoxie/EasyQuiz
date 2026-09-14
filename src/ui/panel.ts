@@ -250,10 +250,9 @@ export class EasyQuizPanel {
     setHTMLSafe(this.shadow, `
       <style>${PANEL_STYLES}</style>
 
-      <!-- Botão Flutuante Inferior Renovado (Cápsula com Status ao Vivo) -->
-      <button class="eq-launcher" type="button" title="Abrir / Recolher EasyQuiz ${BUILD_VERSION} (Alt+Q)">
-        <span class="eq-launcher-icon"><img src="${ICONS.canvasLogo}" style="width:100%;height:100%;object-fit:contain;" /></span>
-        <span>EasyQuiz ${BUILD_VERSION}</span>
+      <!-- Launcher mínimo: apenas o controle para abrir/recolher o painel. -->
+      <button class="eq-launcher" type="button" title="Abrir / Recolher painel EasyQuiz ${BUILD_VERSION} (Alt+Q)" aria-label="Abrir ou esconder painel EasyQuiz">
+        <span class="eq-launcher-icon"><img src="${ICONS.canvasLogo}" alt="" /></span>
         <span class="eq-launcher-dot" id="eq-launcher-dot"></span>
       </button>
 
@@ -303,13 +302,14 @@ export class EasyQuizPanel {
 
           <!-- Corpo Principal da Sidebar -->
           <main class="eq-sidebar-body">
-            <!-- Cabeçalho VS Code -->
+            <!-- Cabeçalho do painel Legacy -->
             <header class="eq-header">
               <div class="eq-brand">
-                <span class="eq-brand-icon"><img src="${ICONS.canvasLogo}" style="width:100%;height:100%;object-fit:contain;" /></span>
+                <span class="eq-brand-icon"><img src="${ICONS.canvasLogo}" alt="EasyQuiz" /></span>
                 <span class="eq-brand-name">EasyQuiz</span>
-                <span class="eq-brand-badge">SUPREME</span>
-                <span id="eq-active-model-badge" style="display:none; font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; background:rgba(88,101,242,0.2); border:1px solid rgba(88,101,242,0.4); color:#7983f5; letter-spacing:0.04em; white-space:nowrap;"></span>
+                <span class="eq-brand-badge">BETA</span>
+                <span class="eq-brand-version">${BUILD_VERSION}</span>
+                <span id="eq-active-model-badge" style="display:none; font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; background:rgba(251,191,36,0.14); border:1px solid rgba(251,191,36,0.4); color:#fbbf24; letter-spacing:0.04em; white-space:nowrap;"></span>
               </div>
               <div class="eq-header-tools">
                 <button class="eq-icon-btn" id="eq-min-btn" type="button" title="Minimizar (Alt+Q)">${ICONS.chevronRight}</button>
@@ -455,7 +455,7 @@ export class EasyQuizPanel {
                     <h1 class="eq-operation-title" style="font-size: 15px;">Mídias da IA</h1>
                     <p class="eq-operation-subtitle">Imagens capturadas e interpretação da IA para cada uma.</p>
                   </div>
-                  <span class="eq-brand-badge" id="eq-media-count-badge" style="background: rgba(88,101,242,0.2); color: #7983f5;">0 mídias</span>
+                  <span class="eq-brand-badge" id="eq-media-count-badge" style="background: rgba(251,191,36,0.14); color: #fbbf24;">0 mídias</span>
                 </div>
 
                 <div id="eq-media-grid" style="display: flex; flex-direction: column; gap: 12px; flex: 1; overflow-y: auto;">
@@ -900,6 +900,7 @@ export class EasyQuizPanel {
       ? initialSettings.apiKeys
       : (initialSettings.apiKey ? [initialSettings.apiKey] : [])
     keyManager.init(initialRawKeys)
+    this.apiKeyInput.value = keyManager.getBestKey() || initialSettings.apiKey || ''
     this.renderKeysList()
 
     // Atualização em tempo real do badge e status de cooldown a cada 1s quando nas configurações
@@ -2086,7 +2087,7 @@ export class EasyQuizPanel {
         'border: 1px solid rgba(255,255,255,0.08)',
         'border-radius: 8px',
         'overflow: hidden',
-        `border-left: 3px solid ${isRelevant ? '#5865f2' : '#666'}`,
+        `border-left: 3px solid ${isRelevant ? '#fbbf24' : '#666'}`,
       ].join(';')
 
       const dataUri = img.base64 ? `data:${img.mediaType || 'image/jpeg'};base64,${img.base64}` : ''
@@ -2115,7 +2116,7 @@ export class EasyQuizPanel {
 
       // Metadados e descrição da IA
       const relevanceBadge = isRelevant
-        ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(88,101,242,0.2);border:1px solid rgba(88,101,242,0.4);color:#7983f5;">RELEVANTE</span>'
+        ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(251,191,36,0.14);border:1px solid rgba(251,191,36,0.4);color:#fbbf24;">RELEVANTE</span>'
         : '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(255,85,85,0.2);border:1px solid rgba(255,85,85,0.4);color:#ff5555;">IGNORADA</span>'
 
       const metaHtml = `
@@ -2275,7 +2276,7 @@ export class EasyQuizPanel {
       this.sidebarEl.classList.add('eq-collapsed')
     } else {
       this.sidebarEl.classList.remove('eq-collapsed')
-      if (!this.apiKeyInput.value) {
+      if (keyManager.getAllKeys().length === 0) {
         this.switchTab('settings')
         this.apiKeyInput.focus()
       }

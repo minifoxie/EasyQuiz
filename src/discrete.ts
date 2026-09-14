@@ -125,7 +125,7 @@ async function initDiscrete(): Promise<void> {
     if (applicator.isActive()) applicator.abort()
 
     const settings = loadSettings()
-    if (!settings.apiKey) {
+    if (!settings.apiKey && (!Array.isArray(settings.apiKeys) || settings.apiKeys.length === 0)) {
       toast.flash('Config: Shift+A')
       coin.flashError(2000)
       return
