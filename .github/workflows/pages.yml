@@ -6,7 +6,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   deploy:
@@ -19,21 +21,19 @@ jobs:
 
       - name: Fetch Commits for Static API
         run: |
-          # Fetch the last 100 commits to completely bypass the browser API rate limit
           TOTAL=$(git rev-list --count HEAD)
           echo "{\"total\": $TOTAL}" > docs/meta.json
           curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/commits?per_page=100" > docs/commits.json
-          
-          # Add the generated file locally so it gets included in the subtree push
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/commits.json docs/meta.json
-          git commit -m "Auto-generate static commits API [skip ci]" || echo "No changes to commit"
 
-      - name: Deploy docs/ to gh-pages branch
-        run: |
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
-          
-          # Get the latest content from docs/ and force-push as gh-pages root
-          git subtree push --prefix docs origin gh-pages
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
