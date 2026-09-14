@@ -295,37 +295,71 @@ function initHints() {
 let _totalCommits = 0;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function toVer(n) { return 'v' + String(n).split('').join('.'); }
+function versionFromTotal(total) {
+  const value = Number(total);
+  if (!Number.isFinite(value) || value <= 0) return 'v0.0.0';
+  return toVer(value);
+}
 function escH(u) { return u.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
+function appendCacheBust(url) {
+  try {
+    const u = new URL(url, window.location.href);
+    u.searchParams.set('_', String(Date.now()));
+    return u.toString();
+  } catch {
+    return `${url}${url.includes('?') ? '&' : '?'}_=${Date.now()}`;
+  }
+}
+async function fetchNoCache(url, options = {}) {
+  const resource = appendCacheBust(url);
+  return fetch(resource, {
+    ...options,
+    cache: 'no-store',
+    credentials: 'omit',
+    headers: {
+      ...(options.headers || {}),
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    }
+  });
+}
 
 async function fetchLatestCommit() {
   try {
     let d, total = 0;
     try {
-      const r = await fetch('commits.json?t='+Date.now());
+      const r = await fetchNoCache('commits.json');
       if (r.ok) {
         d = await r.json();
-        total = d.length; try { const mr = await fetch('meta.json?t='+Date.now()); if(mr.ok) { const meta = await mr.json(); total = meta.total || d.length; } } catch(e){}
+        total = Array.isArray(d) ? d.length : 0;
+        try {
+          const mr = await fetchNoCache('meta.json');
+          if (mr.ok) {
+            const meta = await mr.json();
+            total = Number(meta.total) || total || 0;
+          }
+        } catch(e){}
       }
     } catch(e) {}
     
     if (!d || !d[0]) {
-      const r = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1', {cache: 'no-store'});
+      const r = await fetchNoCache('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
       if (!r.ok) throw new Error('Rate limit');
       const lh = r.headers.get('link'); if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if (m) total = parseInt(m[1]); }
       d = await r.json();
     }
     
     if (!d||!d[0]) throw new Error('Empty');
-    _totalCommits = total;
+    _totalCommits = total || d.length || 0;
     
     const sha = d[0].sha.slice(0,7), dt = new Date(d[0].commit.author.date).toLocaleDateString('pt-BR');
-    const ver = total > 0 ? toVer(total) : 'v1.0.0';
+    const ver = versionFromTotal(_totalCommits);
     document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = ver);
     const sl = sha+' · '+dt;
     document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = sl);
   } catch(_) {
-    document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = 'v5.9.9'); 
-    document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = '8511476');
+    document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = 'v0.0.0'); 
+    document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = 'GitHub indisponivel');
   }
 }
 
@@ -339,21 +373,28 @@ async function loadChangelog(page) {
     let commits = null, total = _totalCommits || 200;
     
     try {
-      const r = await fetch('commits.json?t='+Date.now());
+      const r = await fetchNoCache('commits.json');
       if (r.ok) {
         const allCommits = await r.json();
-        total = allCommits.length; try { const mr = await fetch('meta.json?t='+Date.now()); if(mr.ok) { const meta = await mr.json(); total = meta.total || allCommits.length; } } catch(e){}
+        total = Array.isArray(allCommits) ? allCommits.length : 0;
+        try {
+          const mr = await fetchNoCache('meta.json');
+          if (mr.ok) {
+            const meta = await mr.json();
+            total = Number(meta.total) || total || 0;
+          }
+        } catch(e){}
         _totalCommits = total;
         const start = (page - 1) * 20;
-        commits = allCommits.slice(start, start + 20);
-        if (commits.length === 0) commits = null;
+        commits = Array.isArray(allCommits) ? allCommits.slice(start, start + 20) : null;
+        if (commits && commits.length === 0) commits = null;
       }
     } catch(e) {}
 
     if (!commits) {
       const [res, tr] = await Promise.all([
-          fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=20&page='+page, {cache: 'no-store'}),
-          fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1', {cache: 'no-store'})
+          fetchNoCache('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=20&page=' + page),
+          fetchNoCache('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1')
       ]);
       if (!res.ok) throw new Error('Rate limit');
       commits = await res.json();
