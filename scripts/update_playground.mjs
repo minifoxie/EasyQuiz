@@ -49,12 +49,12 @@ const injectorPanel = `
     Escolha qual versão do EasyQuiz você deseja injetar nesta página de testes.
   </p>
   <div class="features-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
-    <div class="feature-card glass" style="padding: 15px; cursor: pointer;" onclick="injectScript('../dist/easyquiz.js')">
+    <div class="feature-card glass" style="padding: 15px; cursor: pointer;" onclick="injectScript('easyquiz.js')">
       <div class="feature-icon"><i data-lucide="panel-top"></i></div>
       <h3 style="font-size: 1rem; margin-top: 10px;">Injetar Legacy Mode</h3>
       <p style="font-size: 0.8rem;">Modo de interface completa</p>
     </div>
-    <div class="feature-card glass" style="padding: 15px; cursor: pointer;" onclick="injectScript('../dist/discrete.js')">
+    <div class="feature-card glass" style="padding: 15px; cursor: pointer;" onclick="injectScript('discrete.js')">
       <div class="feature-icon"><i data-lucide="eye-off"></i></div>
       <h3 style="font-size: 1rem; margin-top: 10px;">Injetar Discrete Mode</h3>
       <p style="font-size: 0.8rem;">Modo invisível / atalhos</p>
@@ -63,55 +63,44 @@ const injectorPanel = `
 </div>
 
 <script>
-  function injectScript(src) {
-    if (window.__easyquiz) {
-      try { window.__easyquiz.destroy(); } catch(e){}
-    }
-    if (window.__eqdiscrete) {
-      try { window.__eqdiscrete.destroy(); } catch(e){}
-    }
-    
-    const baseName = src.split('/').pop();
-    const tryPaths = [
-      './' + baseName + '?v=' + Date.now(),
-      '../dist/' + baseName + '?v=' + Date.now(),
-      '/dist/' + baseName + '?v=' + Date.now(),
-      'https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/' + baseName
-    ];
-    let currentIdx = 0;
-    
-    const loadNext = () => {
-      if (currentIdx >= tryPaths.length) {
-        showToast('Erro: Não foi possível carregar ' + baseName);
-        return;
-      }
-      const script = document.createElement('script');
-      script.src = tryPaths[currentIdx];
-      
-      script.onload = () => showToast('Injetado: ' + baseName);
-      script.onerror = () => {
-        document.body.removeChild(script);
-        currentIdx++;
-        loadNext();
-      };
-      
-      document.body.appendChild(script);
-    };
+  async function injectScript(baseName) {
+    if (window.__easyquiz)  { try { window.__easyquiz.destroy();  } catch(e){} }
+    if (window.__eqdiscrete){ try { window.__eqdiscrete.destroy(); } catch(e){} }
 
-    loadNext();
-    
-    function showToast(msg) {
-      const toast = document.getElementById('toast') || document.createElement('div');
-      if (!document.getElementById('toast')) {
-        toast.id = 'toast';
-        toast.innerHTML = '<i data-lucide="check-circle-2"></i><span class="toast-msg"></span>';
-        document.body.appendChild(toast);
-        if (window.lucide) window.lucide.createIcons();
-      }
-      toast.querySelector('.toast-msg').textContent = msg;
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 3000);
+    const urls = [
+      './'  + baseName,
+      'https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/docs/' + baseName,
+      'https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/' + baseName,
+    ];
+
+    showToast('Carregando ' + baseName + '...');
+
+    for (const base of urls) {
+      try {
+        const resp = await fetch(base + '?t=' + Date.now(), { cache: 'no-store' });
+        if (!resp.ok) continue;
+        const code = await resp.text();
+        if (!code || code.trim().startsWith('<')) continue;
+        ;(0, eval)(code);
+        showToast('✓ ' + baseName + ' injetado!');
+        return;
+      } catch(e) { /* try next */ }
     }
+    showToast('❌ Falha: ' + baseName);
+  }
+
+  function showToast(msg) {
+    let t = document.getElementById('toast');
+    if (!t) {
+      t = document.createElement('div'); t.id = 'toast';
+      t.innerHTML = '<i data-lucide="check-circle-2"></i><span class="toast-msg"></span>';
+      document.body.appendChild(t);
+      if (window.lucide) window.lucide.createIcons();
+    }
+    t.querySelector('.toast-msg').textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._ti);
+    t._ti = setTimeout(() => t.classList.remove('show'), 3500);
   }
 </script>
 `;

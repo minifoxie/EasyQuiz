@@ -823,8 +823,12 @@
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <link rel="stylesheet" href="css/style.css?v=5.9.9">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <link rel="stylesheet" href="css/style.css?v=5.9.9">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
+<div id="bg-dom"></div>
+<div class="global-backdrop" id="global-backdrop"></div>
 <div id="bg-dom"></div>
 <div class="global-backdrop" id="global-backdrop"></div>
 <div id="bg-dom"></div>
@@ -916,6 +920,9 @@
 
 
 
+
+
+
 <div class="mega-container glass" style="max-width: 900px; margin: 30px auto 10px; padding: 20px;">
   <div class="section-heading" style="margin-bottom: 15px;">
     <h2 style="font-size: 1.2rem; display: flex; align-items: center; gap: 8px;"><i data-lucide="flask-conical"></i> Modo de Injeção</h2>
@@ -924,12 +931,12 @@
     Escolha qual versão do EasyQuiz você deseja injetar nesta página de testes.
   </p>
   <div class="features-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
-    <div class="feature-card glass" style="padding: 15px; cursor: pointer;" onclick="injectScript('../dist/easyquiz.js')">
+    <div class="feature-card glass" style="padding: 15px; cursor: pointer;" onclick="injectScript('easyquiz.js')">
       <div class="feature-icon"><i data-lucide="panel-top"></i></div>
       <h3 style="font-size: 1rem; margin-top: 10px;">Injetar Legacy Mode</h3>
       <p style="font-size: 0.8rem;">Modo de interface completa</p>
     </div>
-    <div class="feature-card glass" style="padding: 15px; cursor: pointer;" onclick="injectScript('../dist/discrete.js')">
+    <div class="feature-card glass" style="padding: 15px; cursor: pointer;" onclick="injectScript('discrete.js')">
       <div class="feature-icon"><i data-lucide="eye-off"></i></div>
       <h3 style="font-size: 1rem; margin-top: 10px;">Injetar Discrete Mode</h3>
       <p style="font-size: 0.8rem;">Modo invisível / atalhos</p>
@@ -938,55 +945,44 @@
 </div>
 
 <script>
-  function injectScript(src) {
-    if (window.__easyquiz) {
-      try { window.__easyquiz.destroy(); } catch(e){}
-    }
-    if (window.__eqdiscrete) {
-      try { window.__eqdiscrete.destroy(); } catch(e){}
-    }
-    
-    const baseName = src.split('/').pop();
-    const tryPaths = [
-      './' + baseName + '?v=' + Date.now(),
-      '../dist/' + baseName + '?v=' + Date.now(),
-      '/dist/' + baseName + '?v=' + Date.now(),
-      'https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/' + baseName
-    ];
-    let currentIdx = 0;
-    
-    const loadNext = () => {
-      if (currentIdx >= tryPaths.length) {
-        showToast('Erro: Não foi possível carregar ' + baseName);
-        return;
-      }
-      const script = document.createElement('script');
-      script.src = tryPaths[currentIdx];
-      
-      script.onload = () => showToast('Injetado: ' + baseName);
-      script.onerror = () => {
-        document.body.removeChild(script);
-        currentIdx++;
-        loadNext();
-      };
-      
-      document.body.appendChild(script);
-    };
+  async function injectScript(baseName) {
+    if (window.__easyquiz)  { try { window.__easyquiz.destroy();  } catch(e){} }
+    if (window.__eqdiscrete){ try { window.__eqdiscrete.destroy(); } catch(e){} }
 
-    loadNext();
-    
-    function showToast(msg) {
-      const toast = document.getElementById('toast') || document.createElement('div');
-      if (!document.getElementById('toast')) {
-        toast.id = 'toast';
-        toast.innerHTML = '<i data-lucide="check-circle-2"></i><span class="toast-msg"></span>';
-        document.body.appendChild(toast);
-        if (window.lucide) window.lucide.createIcons();
-      }
-      toast.querySelector('.toast-msg').textContent = msg;
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 3000);
+    const urls = [
+      './'  + baseName,
+      'https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/docs/' + baseName,
+      'https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/' + baseName,
+    ];
+
+    showToast('Carregando ' + baseName + '...');
+
+    for (const base of urls) {
+      try {
+        const resp = await fetch(base + '?t=' + Date.now(), { cache: 'no-store' });
+        if (!resp.ok) continue;
+        const code = await resp.text();
+        if (!code || code.trim().startsWith('<')) continue;
+        ;(0, eval)(code);
+        showToast('✓ ' + baseName + ' injetado!');
+        return;
+      } catch(e) { /* try next */ }
     }
+    showToast('❌ Falha: ' + baseName);
+  }
+
+  function showToast(msg) {
+    let t = document.getElementById('toast');
+    if (!t) {
+      t = document.createElement('div'); t.id = 'toast';
+      t.innerHTML = '<i data-lucide="check-circle-2"></i><span class="toast-msg"></span>';
+      document.body.appendChild(t);
+      if (window.lucide) window.lucide.createIcons();
+    }
+    t.querySelector('.toast-msg').textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._ti);
+    t._ti = setTimeout(() => t.classList.remove('show'), 3500);
   }
 </script>
 
@@ -1995,6 +1991,8 @@
       loadScript();
     });
   </script>
+<div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>
+<script>lucide.createIcons();</script>
 <div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>
 <script>lucide.createIcons();</script>
 <div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>
