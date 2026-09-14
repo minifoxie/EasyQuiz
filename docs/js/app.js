@@ -294,7 +294,7 @@ function initHints() {
 
 let _totalCommits = 0;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-function toVer(n) { const v = n + 370; return 'v'+Math.floor(v/100)+'.'+Math.floor((v%100)/10)+'.'+(v%10); }
+function toVer(n) { return 'v' + String(n).split('').join('.'); }
 function escH(u) { return u.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
 
 async function fetchLatestCommit() {
@@ -344,9 +344,9 @@ async function loadChangelog(page) {
         const allCommits = await r.json();
         total = allCommits.length; try { const mr = await fetch('meta.json?t='+Date.now()); if(mr.ok) { const meta = await mr.json(); total = meta.total || allCommits.length; } } catch(e){}
         _totalCommits = total;
-        // Paginate local array
         const start = (page - 1) * 20;
         commits = allCommits.slice(start, start + 20);
+        if (commits.length === 0) commits = null;
       }
     } catch(e) {}
 
