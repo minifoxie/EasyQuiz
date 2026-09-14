@@ -68,10 +68,10 @@ const injectorPanel = `
     if (window.__eqdiscrete){ try { window.__eqdiscrete.destroy(); } catch(e){} }
 
     const urls = [
+      './' + baseName,
       'https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/docs/' + baseName,
       'https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/docs/' + baseName,
       'https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/' + baseName,
-      './'  + baseName,
     ];
 
     showToast('Carregando ' + baseName + '...');
