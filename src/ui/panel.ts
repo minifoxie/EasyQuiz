@@ -248,6 +248,15 @@ export class EasyQuizPanel {
     this.shadow = this.host.attachShadow({ mode: 'open' })
 
     setHTMLSafe(this.shadow, `
+      <svg width="0" height="0" style="position:absolute;">
+        <defs>
+          <linearGradient id="geminiGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#4285F4"/>
+            <stop offset="50%" stop-color="#9B72CB"/>
+            <stop offset="100%" stop-color="#D96570"/>
+          </linearGradient>
+        </defs>
+      </svg>
       <style>${PANEL_STYLES}</style>
 
       <!-- Launcher mínimo: apenas o controle para abrir/recolher o painel. -->

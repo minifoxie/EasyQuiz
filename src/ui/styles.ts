@@ -458,10 +458,9 @@ export const PANEL_STYLES = `
     position: relative;
     border: 1px solid rgba(160, 210, 255, 0.28);
     background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(111, 168, 255, 0.06));
-    border-radius: 16px;
+    border-radius: 0;
     box-shadow: 0 18px 32px rgba(24, 29, 35, 0.45), inset 0 1px 0 rgba(255,255,255,0.1);
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
-    overflow: hidden;
   }
 
   .eq-resolver-cta-row:hover {
@@ -483,6 +482,7 @@ export const PANEL_STYLES = `
     transition: opacity 0.3s ease;
     pointer-events: none;
     z-index: 0;
+    clip-path: inset(25%);
   }
 
   @keyframes eq-spin-gradient {
@@ -504,8 +504,9 @@ export const PANEL_STYLES = `
     right: 2px;
     bottom: 2px;
     background: rgba(17, 17, 17, 0.95);
-    border-radius: 14px;
+    border-radius: 0;
     z-index: 1;
+    pointer-events: none;
     transition: background 0.3s ease;
   }
   
@@ -550,6 +551,18 @@ export const PANEL_STYLES = `
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
+  /* Autopilot Primary Button Icon overrides */
+  .eq-resolve-primary .eq-btn-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .eq-resolve-primary .eq-btn-icon svg {
+    fill: url(#geminiGradient) !important;
+    width: 100%;
+    height: 100%;
+  }
+
   .eq-resolve-primary:hover .eq-btn-icon {
     transform: scale(1.15) rotate(-5deg);
   }
@@ -573,6 +586,7 @@ export const PANEL_STYLES = `
     height: 56px;
     background: transparent;
     border: none;
+    border-radius: 0;
     color: #edf3ff;
     display: inline-flex;
     align-items: center;
@@ -598,7 +612,7 @@ export const PANEL_STYLES = `
     min-width: 240px;
     background: rgba(15, 15, 15, 0.96);
     border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 14px;
+    border-radius: 0;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
     padding: 8px 0;
     z-index: 30;
