@@ -580,6 +580,14 @@ export const PANEL_STYLES = `
     100% { margin-left: auto; margin-right: 0;    }
   }
 
+  /* ── 3-DOT SHELL (wrapper: button + floating menu as siblings) ── */
+  .eq-menu-shell {
+    position: relative;
+    display: flex;
+    flex-shrink: 0;
+    overflow: visible;
+  }
+
   /* ── 3-DOT MENU BUTTON (white bg, standalone) ── */
   .eq-resolve-menu {
     width: 50px;

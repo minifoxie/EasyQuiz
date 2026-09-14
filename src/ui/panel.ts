@@ -355,12 +355,13 @@ export class EasyQuizPanel {
                   <button class="eq-resolve-primary" id="eq-analyze-btn" type="button">
                     <span class="eq-btn-icon">${ICONS.sparkles}</span>
                     <span class="eq-btn-label">Resolver Autopilot</span>
-                    <!-- shimmer overlay (visible only when running) -->
                     <span class="eq-btn-shimmer" aria-hidden="true"></span>
                   </button>
-                  <button class="eq-resolve-menu" id="eq-auto-menu-btn" type="button" aria-label="Mais opções" title="Mais opções">
-                    <span class="eq-btn-icon">${ICONS.moreVertical}</span>
-                    <!-- context menu anchor -->
+                  <!-- 3-dot shell: button + floating menu as siblings -->
+                  <div class="eq-menu-shell">
+                    <button class="eq-resolve-menu" id="eq-auto-menu-btn" type="button" aria-label="Mais opções" title="Mais opções">
+                      <span class="eq-btn-icon">${ICONS.moreVertical}</span>
+                    </button>
                     <div class="eq-resolver-context-menu" id="eq-auto-menu" hidden>
                       <button type="button" class="eq-menu-item" data-auto-action="toggle">
                         <span class="eq-menu-icon">${ICONS.sparkles}</span>
@@ -375,7 +376,7 @@ export class EasyQuizPanel {
                         <span>Mostrar status</span>
                       </button>
                     </div>
-                  </button>
+                  </div>
                   <!-- Animated ping-pong line (visible only when running) -->
                   <div class="eq-cta-progress-line" id="eq-cta-progress-line" aria-hidden="true"></div>
                 </div>
@@ -1163,8 +1164,8 @@ export class EasyQuizPanel {
     })
 
     const autoMenuBtn = this.shadow.querySelector('#eq-auto-menu-btn') as HTMLButtonElement | null
-    // autoMenu is now INSIDE autoMenuBtn in the new layout
-    const autoMenu = autoMenuBtn?.querySelector('#eq-auto-menu') as HTMLElement | null
+    // autoMenu is now a SIBLING of autoMenuBtn inside .eq-menu-shell
+    const autoMenu = this.shadow.querySelector('#eq-auto-menu') as HTMLElement | null
     if (autoMenu) autoMenu.hidden = true
     autoMenuBtn?.classList.remove('is-open')
 
@@ -1197,7 +1198,8 @@ export class EasyQuizPanel {
 
     this.shadow.addEventListener('click', (e) => {
       const target = e.target as HTMLElement
-      if (!target.closest('#eq-auto-menu-btn')) {
+      // close if click is outside the entire .eq-menu-shell
+      if (!target.closest('.eq-menu-shell')) {
         if (autoMenu) autoMenu.hidden = true
         autoMenuBtn?.classList.remove('is-open')
       }
