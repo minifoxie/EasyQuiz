@@ -777,7 +777,7 @@ export class EasyQuizPanel {
     this.launcherDot = this.shadow.querySelector('#eq-launcher-dot') as HTMLElement
     this.dockToggleBtn = this.shadow.querySelector('#eq-dock-toggle') as HTMLButtonElement
     this.sidebarEl = this.shadow.querySelector('.eq-sidebar') as HTMLElement
-    this.apToggleBtn = this.shadow.querySelector('#eq-ap-toggle-btn') as HTMLButtonElement
+    this.apToggleBtn = this.shadow.querySelector('#eq-ap-toggle-btn') as HTMLButtonElement | null
     this.apConsole = this.shadow.querySelector('#eq-ap-console') as HTMLElement
     this.executionConsole = this.shadow.querySelector('#eq-execution-console') as HTMLElement
 
@@ -1630,7 +1630,7 @@ export class EasyQuizPanel {
     this.shadow.querySelector('#eq-reset-all-btn')?.addEventListener('click', handleResetAll)
 
     // Botão Iniciar/Parar Autopilot
-    this.apToggleBtn.addEventListener('click', () => {
+    this.apToggleBtn?.addEventListener('click', () => {
       if (this.autopilot.isActive()) {
         this.autopilot.stop()
         this.callbacks.onCancel?.()
