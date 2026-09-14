@@ -971,22 +971,37 @@ Sa\xEDda em JSON v\xE1lido.`}var oo=new Set([&quot;question&quot;,&quot;info&quo
     border: 1px solid rgba(255,255,255,0.1);
   }
 
-  /* Shimmer overlay */
+  /* Shimmer + radial glow overlay */
   .eq-btn-shimmer {
     display: none;
     position: absolute;
     inset: 0;
     background: linear-gradient(
       110deg,
-      rgba(66,133,244,0.0) 20%,
-      rgba(155,114,203,0.4) 50%,
-      rgba(217,101,112,0.3) 70%,
-      rgba(66,133,244,0.0) 85%
+      rgba(66,133,244,0.0) 10%,
+      rgba(155,114,203,0.35) 45%,
+      rgba(217,101,112,0.25) 65%,
+      rgba(66,133,244,0.0) 90%
     );
-    background-size: 200% 100%;
-    animation: eq-shimmer-move 1.8s linear infinite;
+    background-size: 250% 100%;
+    animation: eq-shimmer-move 2s linear infinite;
     pointer-events: none;
     border-radius: inherit;
+  }
+
+  /* Radial glow that breathes while processing */
+  .eq-btn-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 120%, rgba(155,114,203,0.25) 0%, transparent 70%);
+    animation: eq-glow-breathe 2.2s ease-in-out infinite alternate;
+    border-radius: inherit;
+  }
+
+  @keyframes eq-glow-breathe {
+    0%   { opacity: 0.4; transform: scaleX(0.85); }
+    100% { opacity: 1;   transform: scaleX(1.1); }
   }
 
   .eq-resolve-primary.danger .eq-btn-shimmer {
@@ -994,43 +1009,53 @@ Sa\xEDda em JSON v\xE1lido.`}var oo=new Set([&quot;question&quot;,&quot;info&quo
   }
 
   @keyframes eq-shimmer-move {
-    0%   { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+    0%   { background-position: 250% 0; }
+    100% { background-position: -250% 0; }
   }
 
-  /* \u2500\u2500 PING-PONG LINE (below primary btn, shows when running) \u2500\u2500 */
+  /* \u2500\u2500 PING-PONG LINE (always visible, more lively when running) \u2500\u2500 */
   .eq-cta-progress-line {
     position: absolute;
-    bottom: -5px;
+    bottom: -6px;
     left: 0;
-    /* width stops before the 3-dot button; right = gap(8)+btn(50) */
     right: 58px;
     height: 2px;
-    background: transparent;
+    background: rgba(255,255,255,0.07);
     overflow: hidden;
-    opacity: 0;
-    transition: opacity 0.3s ease;
+    opacity: 1;
     border-radius: 2px;
     pointer-events: none;
-  }
-
-  .eq-cta-wrapper.is-running .eq-cta-progress-line {
-    opacity: 1;
+    transition: background 0.4s ease;
   }
 
   .eq-cta-progress-line::after {
     content: '';
-    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
     height: 100%;
-    width: 38%;
-    background: linear-gradient(90deg, #4285F4, #9B72CB, #D96570);
+    width: 30%;
+    background: linear-gradient(90deg, transparent, rgba(155,114,203,0.4), transparent);
     border-radius: 2px;
-    animation: eq-ping-pong 1.5s ease-in-out infinite alternate;
+    animation: eq-ping-pong 3s ease-in-out infinite alternate;
+    opacity: 0.5;
+    transition: opacity 0.4s ease, width 0.4s ease, background 0.4s ease;
+  }
+
+  .eq-cta-wrapper.is-running .eq-cta-progress-line {
+    background: rgba(255,255,255,0.04);
+  }
+
+  .eq-cta-wrapper.is-running .eq-cta-progress-line::after {
+    width: 40%;
+    opacity: 1;
+    background: linear-gradient(90deg, transparent, #9B72CB, #4285F4, transparent);
+    animation: eq-ping-pong 1.4s ease-in-out infinite alternate;
   }
 
   @keyframes eq-ping-pong {
-    0%   { margin-left: 0;    margin-right: auto; }
-    100% { margin-left: auto; margin-right: 0;    }
+    0%   { left: 0;   right: auto; }
+    100% { left: auto; right: 0;   }
   }
 
   /* \u2500\u2500 3-DOT SHELL (wrapper: button + floating menu as siblings) \u2500\u2500 */
@@ -1073,7 +1098,7 @@ Sa\xEDda em JSON v\xE1lido.`}var oo=new Set([&quot;question&quot;,&quot;info&quo
     top: calc(100% + 6px);
     right: 0;
     min-width: 210px;
-    background: rgba(14, 14, 16, 0.65);
+    background: rgba(14, 14, 16, 0.5);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 6px;
     box-shadow: 0 12px 36px rgba(0,0,0,0.55);
@@ -1082,8 +1107,8 @@ Sa\xEDda em JSON v\xE1lido.`}var oo=new Set([&quot;question&quot;,&quot;info&quo
     display: flex;
     flex-direction: column;
     gap: 2px;
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(32px) saturate(160%);
+    -webkit-backdrop-filter: blur(32px) saturate(160%);
     animation: eq-menu-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     transform-origin: top right;
     opacity: 0;
@@ -2770,7 +2795,7 @@ Sa\xEDda em JSON v\xE1lido.`}var oo=new Set([&quot;question&quot;,&quot;info&quo
     background: rgba(241, 76, 76, 0.15);
     color: var(--eq-danger);
   }
-`;var ze=&quot;v2.7.5&quot;;var Zt=(()=&gt;{try{if(typeof window.trustedTypes?.createPolicy==&quot;function&quot;)return window.trustedTypes.createPolicy(&quot;easyquiz-ui#html&quot;,{createHTML:o=&gt;o})}catch{}return null})();function Ho(o,e){try{if(Zt){o.innerHTML=Zt.createHTML(e);return}}catch{}try{if(typeof o.setHTMLUnsafe==&quot;function&quot;){o.setHTMLUnsafe(e);return}}catch{}o.innerHTML=e}var Po=[{value:&quot;&quot;,label:&quot;Detec\xE7\xE3o Autom\xE1tica&quot;},{value:&quot;escolha_unica&quot;,label:&quot;M\xFAltipla Escolha (\xDAnica)&quot;},{value:&quot;escolha_multipla&quot;,label:&quot;M\xFAltipla Escolha (V\xE1rias)&quot;},{value:&quot;categorizacao&quot;,label:&quot;Categoriza\xE7\xE3o / Grupos&quot;},{value:&quot;arrastar_soltar&quot;,label:&quot;Arrastar e Soltar (Drag &amp; Drop)&quot;},{value:&quot;ordenacao&quot;,label:&quot;Ordena\xE7\xE3o / Sequ\xEAncia&quot;},{value:&quot;verdadeiro_falso&quot;,label:&quot;Verdadeiro / Falso&quot;},{value:&quot;texto_livre&quot;,label:&quot;Texto Livre / Dissertativa&quot;},{value:&quot;preenchimento&quot;,label:&quot;Preenchimento de Lacunas&quot;}],zo=[{value:&quot;smart&quot;,label:&quot;Inteligente (Auto-H\xEDbrido)&quot;},{value:&quot;command&quot;,label:&quot;Apenas Comando (Seguro)&quot;},{value:&quot;javascript&quot;,label:&quot;Apenas JS Nativo (Avan\xE7ado)&quot;}],Ye=class{host;shadow;callbacks;autopilot;floatingAnswers;initialSettings;isCollapsed=!1;activeTab=&quot;resolver&quot;;isBusy=!1;stopwatchInterval=null;stopwatchStartTime=0;latestPlan=null;latestContext=null;latestImages=[];latestImageDescriptions=[];latestPromptText=&quot;&quot;;metricsLiveTime;metricsLiveStatus;metricsTotalBadge;metricTotalTime;metricAvgTime;metricTotalCount;metricsHistoryList;metricsHistoryCount;metricsCopyBtn;metricsResetBtn;currentQuestionStartTime=0;questionLiveTimerInterval=null;liveDebugTerminal;dbgModel;dbgLatency;dbgSplitTokens;dbgTotalTokens;dbgErrorCard;dbgErrorText;dbgPromptLen;dbgPromptView;dbgContextView;dbgRawRespView;dbgCountAll;dbgCountError;dbgCountAi;dbgCountDom;logEntries=[];activeLogFilter=&quot;all&quot;;autoScrollLogs=!0;lastErrorMsg=null;_autopilotAnalyzingShown=!1;progressContainer;progressBar;progressLabel;progressVal;contextTreeContainer;launcherBtn;launcherDot;dockToggleBtn;sidebarEl;apToggleBtn;apConsole;executionConsole;dotPulseAp;statusTextAp;stopwatchAp;dotPulseAdv;statusTextAdv;stopwatchAdv;inspModel;inspLatency;inspTokens;inspPrompt;inspRationale;inspActions;copyPromptBtn;apiKeyInput;keyContextMenu;keyMoreBtn;keysListEl;keysBadgeEl;modelSelect;modeSelect;engineSelect;dryRunCheckbox;autoApplyCheckbox;autoAdvanceCheckbox;hostDarkModeCheckbox;useVisionCheckbox;analyzeBtn;applyBtn;resultContainer;constructor(e,t){this.initialSettings=e,this.callbacks=t,this.autopilot=new Je({onStatusChange:(i,d,l)=&gt;{this.logToConsole(d,l),i===&quot;analyzing&quot;?this._autopilotAnalyzingShown||(this._autopilotAnalyzingShown=!0,this.setBusy(!0,&quot;Autopilot: IA analisando...&quot;)):i===&quot;advancing&quot;||i===&quot;waiting&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!0)):i===&quot;idle&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),d.includes(&quot;conclus\xE3o&quot;)||d.includes(&quot;finalizada&quot;)||d.includes(&quot;Parab\xE9ns&quot;)?this.setStatus(&quot;Atividade conclu\xEDda. Resolver Autopilot finalizado com sucesso.&quot;,&quot;success&quot;):this.setStatus(&quot;Resolver Autopilot pausado e aguardando nova a\xE7\xE3o.&quot;,&quot;info&quot;)):i===&quot;error&quot;&amp;&amp;(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),this.setStatus(&quot;Resolver Autopilot interrompido por erro.&quot;,&quot;error&quot;))},onRequestAnalysis:async(i,d)=&gt;{try{return await this.callbacks.onAnalyze(i,d,!0)||null}catch{return null}},isManualModeActive:()=&gt;this.floatingAnswers?.isOpen()??!1,onPageAdvance:()=&gt;{this.floatingAnswers?.hide()}}),this.host=document.createElement(&quot;div&quot;),this.host.id=&quot;easyquiz-shadow-root&quot;,this.host.style.position=&quot;fixed&quot;,this.host.style.top=&quot;0&quot;,this.host.style.left=&quot;0&quot;,this.host.style.width=&quot;100vw&quot;,this.host.style.height=&quot;100vh&quot;,this.host.style.zIndex=&quot;2147483647&quot;,this.host.style.pointerEvents=&quot;none&quot;,this.shadow=this.host.attachShadow({mode:&quot;open&quot;}),Ho(this.shadow,`
+`;var ze=&quot;v2.7.6&quot;;var Zt=(()=&gt;{try{if(typeof window.trustedTypes?.createPolicy==&quot;function&quot;)return window.trustedTypes.createPolicy(&quot;easyquiz-ui#html&quot;,{createHTML:o=&gt;o})}catch{}return null})();function Ho(o,e){try{if(Zt){o.innerHTML=Zt.createHTML(e);return}}catch{}try{if(typeof o.setHTMLUnsafe==&quot;function&quot;){o.setHTMLUnsafe(e);return}}catch{}o.innerHTML=e}var Po=[{value:&quot;&quot;,label:&quot;Detec\xE7\xE3o Autom\xE1tica&quot;},{value:&quot;escolha_unica&quot;,label:&quot;M\xFAltipla Escolha (\xDAnica)&quot;},{value:&quot;escolha_multipla&quot;,label:&quot;M\xFAltipla Escolha (V\xE1rias)&quot;},{value:&quot;categorizacao&quot;,label:&quot;Categoriza\xE7\xE3o / Grupos&quot;},{value:&quot;arrastar_soltar&quot;,label:&quot;Arrastar e Soltar (Drag &amp; Drop)&quot;},{value:&quot;ordenacao&quot;,label:&quot;Ordena\xE7\xE3o / Sequ\xEAncia&quot;},{value:&quot;verdadeiro_falso&quot;,label:&quot;Verdadeiro / Falso&quot;},{value:&quot;texto_livre&quot;,label:&quot;Texto Livre / Dissertativa&quot;},{value:&quot;preenchimento&quot;,label:&quot;Preenchimento de Lacunas&quot;}],zo=[{value:&quot;smart&quot;,label:&quot;Inteligente (Auto-H\xEDbrido)&quot;},{value:&quot;command&quot;,label:&quot;Apenas Comando (Seguro)&quot;},{value:&quot;javascript&quot;,label:&quot;Apenas JS Nativo (Avan\xE7ado)&quot;}],Ye=class{host;shadow;callbacks;autopilot;floatingAnswers;initialSettings;isCollapsed=!1;activeTab=&quot;resolver&quot;;isBusy=!1;stopwatchInterval=null;stopwatchStartTime=0;latestPlan=null;latestContext=null;latestImages=[];latestImageDescriptions=[];latestPromptText=&quot;&quot;;metricsLiveTime;metricsLiveStatus;metricsTotalBadge;metricTotalTime;metricAvgTime;metricTotalCount;metricsHistoryList;metricsHistoryCount;metricsCopyBtn;metricsResetBtn;currentQuestionStartTime=0;questionLiveTimerInterval=null;liveDebugTerminal;dbgModel;dbgLatency;dbgSplitTokens;dbgTotalTokens;dbgErrorCard;dbgErrorText;dbgPromptLen;dbgPromptView;dbgContextView;dbgRawRespView;dbgCountAll;dbgCountError;dbgCountAi;dbgCountDom;logEntries=[];activeLogFilter=&quot;all&quot;;autoScrollLogs=!0;lastErrorMsg=null;_autopilotAnalyzingShown=!1;progressContainer;progressBar;progressLabel;progressVal;contextTreeContainer;launcherBtn;launcherDot;dockToggleBtn;sidebarEl;apToggleBtn;apConsole;executionConsole;dotPulseAp;statusTextAp;stopwatchAp;dotPulseAdv;statusTextAdv;stopwatchAdv;inspModel;inspLatency;inspTokens;inspPrompt;inspRationale;inspActions;copyPromptBtn;apiKeyInput;keyContextMenu;keyMoreBtn;keysListEl;keysBadgeEl;modelSelect;modeSelect;engineSelect;dryRunCheckbox;autoApplyCheckbox;autoAdvanceCheckbox;hostDarkModeCheckbox;useVisionCheckbox;analyzeBtn;applyBtn;resultContainer;constructor(e,t){this.initialSettings=e,this.callbacks=t,this.autopilot=new Je({onStatusChange:(i,d,l)=&gt;{this.logToConsole(d,l),i===&quot;analyzing&quot;?this._autopilotAnalyzingShown||(this._autopilotAnalyzingShown=!0,this.setBusy(!0,&quot;Autopilot: IA analisando...&quot;)):i===&quot;advancing&quot;||i===&quot;waiting&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!0)):i===&quot;idle&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),d.includes(&quot;conclus\xE3o&quot;)||d.includes(&quot;finalizada&quot;)||d.includes(&quot;Parab\xE9ns&quot;)?this.setStatus(&quot;Atividade conclu\xEDda. Resolver Autopilot finalizado com sucesso.&quot;,&quot;success&quot;):this.setStatus(&quot;Resolver Autopilot pausado e aguardando nova a\xE7\xE3o.&quot;,&quot;info&quot;)):i===&quot;error&quot;&amp;&amp;(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),this.setStatus(&quot;Resolver Autopilot interrompido por erro.&quot;,&quot;error&quot;))},onRequestAnalysis:async(i,d)=&gt;{try{return await this.callbacks.onAnalyze(i,d,!0)||null}catch{return null}},isManualModeActive:()=&gt;this.floatingAnswers?.isOpen()??!1,onPageAdvance:()=&gt;{this.floatingAnswers?.hide()}}),this.host=document.createElement(&quot;div&quot;),this.host.id=&quot;easyquiz-shadow-root&quot;,this.host.style.position=&quot;fixed&quot;,this.host.style.top=&quot;0&quot;,this.host.style.left=&quot;0&quot;,this.host.style.width=&quot;100vw&quot;,this.host.style.height=&quot;100vh&quot;,this.host.style.zIndex=&quot;2147483647&quot;,this.host.style.pointerEvents=&quot;none&quot;,this.shadow=this.host.attachShadow({mode:&quot;open&quot;}),Ho(this.shadow,`
       &lt;svg width=&quot;0&quot; height=&quot;0&quot; style=&quot;position:absolute;&quot;&gt;
         &lt;defs&gt;
           &lt;linearGradient id=&quot;geminiGradient&quot; x1=&quot;0%&quot; y1=&quot;0%&quot; x2=&quot;100%&quot; y2=&quot;100%&quot;&gt;

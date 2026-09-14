@@ -518,22 +518,37 @@ export const PANEL_STYLES = `
     border: 1px solid rgba(255,255,255,0.1);
   }
 
-  /* Shimmer overlay */
+  /* Shimmer + radial glow overlay */
   .eq-btn-shimmer {
     display: none;
     position: absolute;
     inset: 0;
     background: linear-gradient(
       110deg,
-      rgba(66,133,244,0.0) 20%,
-      rgba(155,114,203,0.4) 50%,
-      rgba(217,101,112,0.3) 70%,
-      rgba(66,133,244,0.0) 85%
+      rgba(66,133,244,0.0) 10%,
+      rgba(155,114,203,0.35) 45%,
+      rgba(217,101,112,0.25) 65%,
+      rgba(66,133,244,0.0) 90%
     );
-    background-size: 200% 100%;
-    animation: eq-shimmer-move 1.8s linear infinite;
+    background-size: 250% 100%;
+    animation: eq-shimmer-move 2s linear infinite;
     pointer-events: none;
     border-radius: inherit;
+  }
+
+  /* Radial glow that breathes while processing */
+  .eq-btn-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 120%, rgba(155,114,203,0.25) 0%, transparent 70%);
+    animation: eq-glow-breathe 2.2s ease-in-out infinite alternate;
+    border-radius: inherit;
+  }
+
+  @keyframes eq-glow-breathe {
+    0%   { opacity: 0.4; transform: scaleX(0.85); }
+    100% { opacity: 1;   transform: scaleX(1.1); }
   }
 
   .eq-resolve-primary.danger .eq-btn-shimmer {
@@ -541,43 +556,53 @@ export const PANEL_STYLES = `
   }
 
   @keyframes eq-shimmer-move {
-    0%   { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+    0%   { background-position: 250% 0; }
+    100% { background-position: -250% 0; }
   }
 
-  /* ── PING-PONG LINE (below primary btn, shows when running) ── */
+  /* ── PING-PONG LINE (always visible, more lively when running) ── */
   .eq-cta-progress-line {
     position: absolute;
-    bottom: -5px;
+    bottom: -6px;
     left: 0;
-    /* width stops before the 3-dot button; right = gap(8)+btn(50) */
     right: 58px;
     height: 2px;
-    background: transparent;
+    background: rgba(255,255,255,0.07);
     overflow: hidden;
-    opacity: 0;
-    transition: opacity 0.3s ease;
+    opacity: 1;
     border-radius: 2px;
     pointer-events: none;
-  }
-
-  .eq-cta-wrapper.is-running .eq-cta-progress-line {
-    opacity: 1;
+    transition: background 0.4s ease;
   }
 
   .eq-cta-progress-line::after {
     content: '';
-    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
     height: 100%;
-    width: 38%;
-    background: linear-gradient(90deg, #4285F4, #9B72CB, #D96570);
+    width: 30%;
+    background: linear-gradient(90deg, transparent, rgba(155,114,203,0.4), transparent);
     border-radius: 2px;
-    animation: eq-ping-pong 1.5s ease-in-out infinite alternate;
+    animation: eq-ping-pong 3s ease-in-out infinite alternate;
+    opacity: 0.5;
+    transition: opacity 0.4s ease, width 0.4s ease, background 0.4s ease;
+  }
+
+  .eq-cta-wrapper.is-running .eq-cta-progress-line {
+    background: rgba(255,255,255,0.04);
+  }
+
+  .eq-cta-wrapper.is-running .eq-cta-progress-line::after {
+    width: 40%;
+    opacity: 1;
+    background: linear-gradient(90deg, transparent, #9B72CB, #4285F4, transparent);
+    animation: eq-ping-pong 1.4s ease-in-out infinite alternate;
   }
 
   @keyframes eq-ping-pong {
-    0%   { margin-left: 0;    margin-right: auto; }
-    100% { margin-left: auto; margin-right: 0;    }
+    0%   { left: 0;   right: auto; }
+    100% { left: auto; right: 0;   }
   }
 
   /* ── 3-DOT SHELL (wrapper: button + floating menu as siblings) ── */
@@ -620,7 +645,7 @@ export const PANEL_STYLES = `
     top: calc(100% + 6px);
     right: 0;
     min-width: 210px;
-    background: rgba(14, 14, 16, 0.65);
+    background: rgba(14, 14, 16, 0.5);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 6px;
     box-shadow: 0 12px 36px rgba(0,0,0,0.55);
@@ -629,8 +654,8 @@ export const PANEL_STYLES = `
     display: flex;
     flex-direction: column;
     gap: 2px;
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(32px) saturate(160%);
+    -webkit-backdrop-filter: blur(32px) saturate(160%);
     animation: eq-menu-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     transform-origin: top right;
     opacity: 0;
