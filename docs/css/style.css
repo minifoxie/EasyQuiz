@@ -72,6 +72,8 @@ img { display: block; max-width: 100%; }
 .nav-btn.active, .nav-btn:hover { color: var(--white); }
 .nav-btn.active .nav-indicator { transform: scaleX(1); }
 .nav-right { display: flex; align-items: center; gap: 4px; }
+.mobile-menu-toggle { display:none; width:44px; height:44px; align-items:center; justify-content:center; color:var(--white); background:transparent; border:1px solid rgba(255,255,255,0.12); cursor:pointer; }
+.mobile-menu-toggle i[data-lucide] { width:22px; height:22px; }
 .nav-icon-btn { width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; color: var(--gray-2); transition: transform 0.5s, color 0.3s; }
 .nav-icon-btn svg, .nav-icon-btn i[data-lucide] { width: 24px !important; height: 24px !important; display: block; }
 .nav-icon-btn:hover { color: var(--white); transform: scale(1.5) rotate(10deg); }
@@ -312,12 +314,46 @@ img { display: block; max-width: 100%; }
 .footer-links a:hover { color:var(--white); }
 
 @media (max-width:900px) {
+  .nav-content { padding:0 14px; }
+  .nav-brand-group { gap:6px; min-width:0; }
+  .brand-title { font-size:0.95rem; }
+  .version-plain { font-size:0.66rem; }
+  .mobile-menu-toggle { display:flex; }
+  .nav-right { gap:6px; }
+  .nav-right .nav-icon-btn { display:none; }
+  .nav-links { display:none; position:fixed; top:calc(var(--nav-h) - 1px); left:12px; right:12px; flex-direction:column; align-items:stretch; padding:8px; background:rgba(16,16,19,0.96); border:1px solid rgba(255,255,255,0.12); box-shadow:0 20px 50px rgba(0,0,0,0.55); backdrop-filter:blur(28px); -webkit-backdrop-filter:blur(28px); }
+  .nav-links.mobile-open { display:flex; }
+  .nav-links .nav-btn, .nav-dropdown, .nav-dropdown > .nav-btn { width:100%; height:50px; }
+  .nav-links .nav-btn { justify-content:flex-start; padding:0 14px; }
+  .nav-links .nav-btn .nav-indicator { bottom:0; left:14px; width:calc(100% - 28px); }
+  .nav-dropdown .dropdown-menu { position:static; display:none; width:100%; box-shadow:none; border:0; border-top:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); }
+  .nav-dropdown.active .dropdown-menu { display:block; }
+  .nav-dropdown .dropdown-item { min-height:44px; }
+  .container { padding:92px 16px 60px; }
   .hero-layout, .mode-page-hero { flex-direction:column; text-align:center; }
+  .hero-layout { gap:18px; padding:10px 0 42px; }
+  .hero-logo { width:min(62vw,300px); height:auto; }
+  .hero-title { font-size:clamp(2rem, 10vw, 3rem); letter-spacing:-0.025em; }
+  .hero-subtitle { font-size:0.95rem; margin-bottom:26px; }
   .hero-actions, .mode-install-actions { justify-content:center; }
+  .hero-actions .btn, .mode-install-actions .btn, .mode-install-actions .drag-bm-btn { max-width:100%; }
+  .mode-page-hero { gap:24px; padding:8px 0; }
+  .mode-id-card { width:190px; height:190px; }
+  .mode-page-title { font-size:clamp(2.2rem, 11vw, 3.2rem); }
+  .mode-page-desc { font-size:0.95rem; margin-bottom:24px; }
   .features-grid { grid-template-columns:1fr; }
   .api-cards-grid { grid-template-columns:1fr; }
   .info-layout { grid-template-columns:1fr; }
-  .nav-links { display:none; }
+  .mega-container { padding:20px; }
+  .updates-header h1 { font-size:2.2rem; }
+  .updates-header p { font-size:0.92rem; }
+  .commit-row { padding:16px; }
+  .commit-main { gap:10px; }
+  .commit-version { font-size:0.68rem; padding:4px 7px; }
+  .commit-title { font-size:0.88rem; overflow-wrap:anywhere; }
+  .commit-actions { flex-wrap:wrap; }
+  .pagination-row { gap:10px; }
+  .pagination-row .btn { padding:0 12px; }
   .code-dropdown .dropdown-menu { width: 300px; }
 }
 
