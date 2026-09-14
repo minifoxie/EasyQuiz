@@ -705,7 +705,7 @@ export const PANEL_STYLES = `
     top: calc(100% + 6px);
     right: 0;
     min-width: 210px;
-    background: rgba(14, 14, 16, 0.5);
+    background: rgba(12, 12, 14, 0.50);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 6px;
     box-shadow: 0 12px 36px rgba(0,0,0,0.55);
@@ -1601,6 +1601,248 @@ export const PANEL_STYLES = `
     padding: 2px 6px;
     border-radius: 4px;
   }
+
+
+  /* ══════════════════════════════════════════
+     VS CODE BRAIN EXPLORER
+  ══════════════════════════════════════════ */
+
+  .eq-brain-pane {
+    display: flex !important;
+    flex-direction: column;
+    padding: 0 !important;
+    gap: 0 !important;
+    overflow: hidden;
+  }
+
+  .eq-brain-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+    min-height: 32px;
+  }
+
+  .eq-brain-toolbar-title {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: rgba(234,240,248,0.45);
+    text-transform: uppercase;
+  }
+
+  .eq-brain-toolbar-actions { display: flex; gap: 2px; }
+
+  .eq-brain-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* ── FILE TREE ── */
+  .eq-brain-explorer {
+    width: 168px;
+    min-width: 120px;
+    flex-shrink: 0;
+    border-right: 1px solid rgba(255,255,255,0.06);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 0;
+    background: rgba(0,0,0,0.1);
+  }
+
+  .eq-brain-empty-tree {
+    padding: 10px 10px;
+    font-size: 11px;
+    color: rgba(234,240,248,0.3);
+    font-style: italic;
+  }
+
+  .eq-tree-folder {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    cursor: pointer;
+    font-size: 12px;
+    color: rgba(234,240,248,0.75);
+    user-select: none;
+    transition: background 0.1s;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .eq-tree-folder:hover { background: rgba(255,255,255,0.06); }
+
+  .eq-tree-arrow {
+    font-size: 9px;
+    width: 10px;
+    flex-shrink: 0;
+    color: rgba(234,240,248,0.45);
+  }
+
+  .eq-tree-folder-icon { font-size: 12px; flex-shrink: 0; }
+
+  .eq-tree-children { overflow: hidden; }
+
+  .eq-tree-file {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 6px 3px 22px;
+    cursor: pointer;
+    font-size: 11.5px;
+    color: rgba(234,240,248,0.6);
+    user-select: none;
+    transition: background 0.1s, color 0.1s;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .eq-tree-file:hover {
+    background: rgba(255,255,255,0.05);
+    color: rgba(234,240,248,0.88);
+  }
+
+  .eq-tree-file.is-selected {
+    background: rgba(66,133,244,0.15);
+    color: #b9d4ff;
+    border-left: 2px solid #4285F4;
+    padding-left: 20px;
+  }
+
+  .eq-tree-file-icon { font-size: 11px; flex-shrink: 0; }
+  .eq-tree-label { overflow: hidden; text-overflow: ellipsis; }
+
+  /* ── TAB CANVAS ── */
+  .eq-brain-canvas {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .eq-brain-tabbar {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: rgba(0,0,0,0.12);
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-shrink: 0;
+    min-height: 28px;
+    scrollbar-width: none;
+  }
+
+  .eq-brain-tabbar::-webkit-scrollbar { display: none; }
+
+  .eq-brain-tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 10px;
+    border-right: 1px solid rgba(255,255,255,0.05);
+    cursor: pointer;
+    font-size: 11px;
+    color: rgba(234,240,248,0.45);
+    white-space: nowrap;
+    user-select: none;
+    transition: background 0.12s, color 0.12s;
+    min-width: 70px;
+    max-width: 130px;
+  }
+
+  .eq-brain-tab:hover { background: rgba(255,255,255,0.04); color: rgba(234,240,248,0.8); }
+
+  .eq-brain-tab.is-active {
+    background: rgba(255,255,255,0.06);
+    color: rgba(234,240,248,0.95);
+    border-bottom: 2px solid #4285F4;
+  }
+
+  .eq-brain-tab-label { overflow: hidden; text-overflow: ellipsis; flex: 1; }
+
+  .eq-brain-tab-close {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 9px;
+    padding: 0 2px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s;
+    flex-shrink: 0;
+  }
+
+  .eq-brain-tab:hover .eq-brain-tab-close,
+  .eq-brain-tab.is-active .eq-brain-tab-close { opacity: 0.55; }
+  .eq-brain-tab-close:hover { opacity: 1 !important; }
+
+  .eq-brain-content {
+    flex: 1;
+    overflow: auto;
+    background: rgba(0,0,0,0.06);
+  }
+
+  .eq-brain-empty-canvas {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 80px;
+    gap: 5px;
+    color: rgba(234,240,248,0.25);
+    font-size: 11.5px;
+    text-align: center;
+  }
+
+  .eq-brain-empty-icon { font-size: 26px; margin-bottom: 2px; }
+  .eq-brain-empty-sub { font-size: 10px; color: rgba(234,240,248,0.18); }
+
+  .eq-brain-file-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .eq-brain-file-header {
+    display: flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    background: rgba(0,0,0,0.08);
+    flex-shrink: 0;
+  }
+
+  .eq-brain-file-lang {
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(234,240,248,0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .eq-brain-code {
+    margin: 0;
+    padding: 10px 12px;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: rgba(220,235,255,0.88);
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    flex: 1;
+    background: transparent;
+    border: none;
+    tab-size: 2;
+  }
+
 
   /* ===== BARRA DE FERRAMENTAS DO TERMINAL & DEBUG ===== */
   .eq-debug-toolbar {

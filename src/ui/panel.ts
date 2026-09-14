@@ -416,62 +416,42 @@ export class EasyQuizPanel {
                 <div class="eq-footer-note" style="margin-top: auto;">${BUILD_VERSION} • Híbrido 4.0 (RAG + AST + Vision)</div>
               </div>
 
-              <!-- TAB 2: CÉREBRO DA IA -->
-              <div class="eq-view-pane" id="eq-view-brain" style="display: none;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <div class="eq-section-title" style="margin: 0;">
-                    <span>Explorador de Contexto & RAG</span>
-                  </div>
-                  <div style="display: flex; gap: 4px;">
-                    <button class="eq-icon-btn" id="eq-refresh-context-btn" type="button" title="Atualizar Varredura em Tempo Real" style="width: 28px; height: 28px;">
-                      ${ICONS.refresh}
-                    </button>
-                    <button class="eq-icon-btn" id="eq-ap-clear-memory" type="button" title="Limpar Memória Contextual (RAG)" style="width: 28px; height: 28px; color: #ff5555;">
-                      ${ICONS.eraser}
-                    </button>
+              <!-- TAB 2: CÉREBRO DA IA — VS Code Explorer -->
+              <div class="eq-view-pane eq-brain-pane" id="eq-view-brain" style="display: none;">
+                <!-- Toolbar -->
+                <div class="eq-brain-toolbar">
+                  <span class="eq-brain-toolbar-title">EXPLORADOR</span>
+                  <div class="eq-brain-toolbar-actions">
+                    <button class="eq-icon-btn" id="eq-refresh-context-btn" type="button" title="Atualizar">${ICONS.refresh}</button>
+                    <button class="eq-icon-btn" id="eq-ap-clear-memory" type="button" title="Limpar memória RAG" style="color:#ff6b6b;">${ICONS.eraser}</button>
+                    <button class="eq-icon-btn" id="eq-copy-prompt-btn" type="button" title="Copiar prompt">${ICONS.copy}</button>
                   </div>
                 </div>
-
-                <div class="eq-tree-container" id="eq-tree-container">
-                  <div class="text-muted" style="padding: 8px 0;">Aguardando análise da questão...</div>
-                </div>
-
-                <div class="eq-inspector-meta">
-                  <div class="eq-meta-box">
-                    <div class="eq-meta-title">Modelo IA</div>
-                    <div class="eq-meta-val" id="eq-insp-model">--</div>
+                <!-- Main layout: explorer + canvas -->
+                <div class="eq-brain-layout">
+                  <!-- Left: File Tree -->
+                  <div class="eq-brain-explorer" id="eq-brain-explorer">
+                    <div class="eq-brain-empty-tree">Aguardando análise...</div>
                   </div>
-                  <div class="eq-meta-box">
-                    <div class="eq-meta-title">Latência</div>
-                    <div class="eq-meta-val" id="eq-insp-latency">--</div>
+                  <!-- Right: Tab Canvas -->
+                  <div class="eq-brain-canvas">
+                    <div class="eq-brain-tabbar" id="eq-brain-tabbar"></div>
+                    <div class="eq-brain-content" id="eq-brain-content">
+                      <div class="eq-brain-empty-canvas">
+                        <div class="eq-brain-empty-icon">📂</div>
+                        <div>Nada selecionado</div>
+                        <div class="eq-brain-empty-sub">Clique em um arquivo no explorador</div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="eq-meta-box">
-                    <div class="eq-meta-title">Tokens</div>
-                    <div class="eq-meta-val" id="eq-insp-tokens">--</div>
-                  </div>
                 </div>
-
-                <div class="eq-field-group">
-                  <div class="eq-section-title">
-                    <span>Prompt Enviado (Sistema)</span>
-                    <button class="eq-btn-secondary" id="eq-copy-prompt-btn" type="button" style="height: 26px; padding: 0 8px; font-size: 11px;">
-                      ${ICONS.copy} Copiar
-                    </button>
-                  </div>
-                  <div class="eq-code-block" id="eq-insp-prompt">Nenhuma consulta realizada.</div>
-                </div>
-
-                <div class="eq-field-group">
-                  <div class="eq-section-title">Raciocínio Bruto (Resposta)</div>
-                  <div class="eq-rationale-card" id="eq-insp-rationale">Aguardando resposta da IA...</div>
-                </div>
-                
-                <div class="eq-field-group" style="display: none;">
-                  <div class="eq-action-list" id="eq-insp-actions"></div>
-                </div>
-
-                <div class="eq-footer-note" style="margin-top: auto;">Inspetor em Tempo Real • 100% Transparente</div>
-              </div>
+                <!-- Hidden compat holders -->
+                <span id="eq-insp-model" style="display:none;"></span>
+                <span id="eq-insp-latency" style="display:none;"></span>
+                <span id="eq-insp-tokens" style="display:none;"></span>
+                <span id="eq-insp-prompt" style="display:none;"></span>
+                <span id="eq-insp-rationale" style="display:none;"></span>
+                <div id="eq-insp-actions" style="display:none;"></div>
 
               <!-- TAB 2.5: MÍDIAS E IMAGENS -->
               <div class="eq-view-pane" id="eq-view-media" style="display: none;">
@@ -1794,18 +1774,14 @@ export class EasyQuizPanel {
     })
 
     this.analyzeBtn?.addEventListener('click', async () => {
-      if (this.autopilot.isActive()) {
+      // If button is visually in 'stop' state, stop unconditionally regardless of internal flags
+      if (this.analyzeBtn.classList.contains('danger')) {
         this.autopilot.stop()
         this.callbacks.onCancel?.()
         this.setProgress(0)
         this.updateAutopilotUi(false)
+        this.setBusy(false)
         this.setInterrupted('Resolver Autopilot interrompido pelo usuário.')
-        return
-      }
-
-      if (this.isBusy) {
-        this.callbacks.onCancel?.()
-        this.setInterrupted('Análise cancelada. O Resolver Autopilot está pronto para outra tentativa.')
         return
       }
 
@@ -2693,27 +2669,169 @@ export class EasyQuizPanel {
 
   public refreshInspectorView(): void {
     const plan = this.latestPlan
-    if (plan) {
-      this.inspModel.textContent = plan.usedModel || this.initialSettings.model
-      this.inspLatency.textContent = plan.durationMs ? `${plan.durationMs}ms` : '--'
-      this.inspTokens.textContent = plan.tokensUsed ? `${plan.tokensUsed}` : '--'
-      this.inspPrompt.textContent = plan.promptSent || this.latestPromptText || 'Prompt não registrado para esta requisição.'
-      this.inspRationale.textContent = plan.rationale
+    // Update hidden compat holders (for backward compat)
+    if (this.inspModel) this.inspModel.textContent = plan?.usedModel || this.initialSettings.model
+    if (this.inspLatency) this.inspLatency.textContent = plan?.durationMs ? `${plan.durationMs}ms` : '--'
+    if (this.inspTokens) this.inspTokens.textContent = plan?.tokensUsed ? `${plan.tokensUsed}` : '--'
+    if (this.inspPrompt) this.inspPrompt.textContent = plan?.promptSent || this.latestPromptText || ''
+    if (this.inspRationale) this.inspRationale.textContent = plan?.rationale || ''
+    // Re-render VS Code-style explorer tree
+    this.renderBrainExplorer()
+  }
 
-      this.inspActions.innerHTML = ''
-      if (plan.actions.length > 0) {
-        for (const act of plan.actions) {
-          const item = document.createElement('div')
-          item.className = 'eq-action-item'
-          item.textContent = JSON.stringify(act)
-          this.inspActions.appendChild(item)
-        }
-      } else {
-        this.inspActions.innerHTML = '<div class="text-muted" style="padding: 4px;">Nenhuma ação prescrita pela IA.</div>'
-      }
-    } else if (this.latestPromptText) {
-      this.inspPrompt.textContent = this.latestPromptText
+  // ── VS Code Brain Explorer State ──────────────────────────────
+  private brainOpenTabs: { id: string; label: string }[] = []
+  private brainActiveTab: string | null = null
+  private brainOpenFolders: Set<string> = new Set(['folder-ia', 'folder-ctx', 'folder-meta'])
+
+  private renderBrainExplorer(): void {
+    const explorerEl = this.shadow.querySelector('#eq-brain-explorer') as HTMLElement | null
+    if (!explorerEl) return
+
+    const plan = this.latestPlan
+
+    type BrainFile = { id: string; label: string; ext: string }
+    type BrainFolder = { id: string; label: string; files: BrainFile[] }
+
+    const folders: BrainFolder[] = [
+      {
+        id: 'folder-ia',
+        label: 'Resposta da IA',
+        files: [
+          { id: 'rationale', label: 'rationale.md', ext: 'md' },
+          { id: 'actions', label: 'actions.json', ext: 'json' },
+          { id: 'summary', label: 'resumo.txt', ext: 'txt' },
+        ],
+      },
+      {
+        id: 'folder-ctx',
+        label: 'Contexto & Prompt',
+        files: [
+          { id: 'prompt', label: 'prompt-enviado.txt', ext: 'txt' },
+          { id: 'rag', label: 'rag-context.txt', ext: 'txt' },
+        ],
+      },
+      {
+        id: 'folder-meta',
+        label: 'Metadados',
+        files: [
+          { id: 'meta-model', label: 'modelo.info', ext: 'info' },
+          { id: 'meta-latency', label: 'latencia.info', ext: 'info' },
+          { id: 'meta-tokens', label: 'tokens.info', ext: 'info' },
+        ],
+      },
+    ]
+
+    if ((plan as any)?.executionResult) {
+      folders.push({
+        id: 'folder-exec',
+        label: 'Execução',
+        files: [
+          { id: 'exec-steps', label: 'steps.log', ext: 'log' },
+          { id: 'exec-result', label: 'resultado.log', ext: 'log' },
+        ],
+      })
     }
+
+    const FILE_ICONS: Record<string, string> = {
+      md: '📝', json: '⚙️', txt: '📄', info: 'ℹ️', log: '📋',
+    }
+
+    explorerEl.innerHTML = ''
+
+    for (const folder of folders) {
+      const isOpen = this.brainOpenFolders.has(folder.id)
+
+      const folderRow = document.createElement('div')
+      folderRow.className = 'eq-tree-folder' + (isOpen ? ' is-open' : '')
+      folderRow.innerHTML = `<span class="eq-tree-arrow">${isOpen ? '▾' : '▸'}</span><span class="eq-tree-folder-icon">📁</span><span class="eq-tree-label">${folder.label}</span>`
+      folderRow.addEventListener('click', () => {
+        if (this.brainOpenFolders.has(folder.id)) this.brainOpenFolders.delete(folder.id)
+        else this.brainOpenFolders.add(folder.id)
+        this.renderBrainExplorer()
+      })
+      explorerEl.appendChild(folderRow)
+
+      if (isOpen) {
+        const wrap = document.createElement('div')
+        wrap.className = 'eq-tree-children'
+        for (const file of folder.files) {
+          const fileRow = document.createElement('div')
+          fileRow.className = 'eq-tree-file' + (this.brainActiveTab === file.id ? ' is-selected' : '')
+          fileRow.innerHTML = `<span class="eq-tree-file-icon">${FILE_ICONS[file.ext] || '📄'}</span><span class="eq-tree-label">${file.label}</span>`
+          fileRow.addEventListener('click', () => this.openBrainFile(file.id, file.label))
+          wrap.appendChild(fileRow)
+        }
+        explorerEl.appendChild(wrap)
+      }
+    }
+  }
+
+  private openBrainFile(fileId: string, label: string): void {
+    if (!this.brainOpenTabs.find(t => t.id === fileId)) {
+      this.brainOpenTabs.push({ id: fileId, label })
+    }
+    this.brainActiveTab = fileId
+    this.renderBrainExplorer()
+    this.renderBrainTabs()
+    this.renderBrainFileContent(fileId)
+  }
+
+  private closeBrainTab(fileId: string): void {
+    const idx = this.brainOpenTabs.findIndex(t => t.id === fileId)
+    if (idx === -1) return
+    this.brainOpenTabs.splice(idx, 1)
+    if (this.brainActiveTab === fileId) {
+      this.brainActiveTab = this.brainOpenTabs[idx - 1]?.id || this.brainOpenTabs[0]?.id || null
+    }
+    this.renderBrainExplorer()
+    this.renderBrainTabs()
+    if (this.brainActiveTab) {
+      this.renderBrainFileContent(this.brainActiveTab)
+    } else {
+      const c = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
+      if (c) c.innerHTML = '<div class="eq-brain-empty-canvas"><div class="eq-brain-empty-icon">📂</div><div>Nada selecionado</div><div class="eq-brain-empty-sub">Clique em um arquivo no explorador</div></div>'
+    }
+  }
+
+  private renderBrainTabs(): void {
+    const tabbar = this.shadow.querySelector('#eq-brain-tabbar') as HTMLElement | null
+    if (!tabbar) return
+    tabbar.innerHTML = ''
+    for (const tab of this.brainOpenTabs) {
+      const tabEl = document.createElement('div')
+      tabEl.className = 'eq-brain-tab' + (this.brainActiveTab === tab.id ? ' is-active' : '')
+      tabEl.innerHTML = `<span class="eq-brain-tab-label">${tab.label}</span><button class="eq-brain-tab-close" data-tab-id="${tab.id}" type="button" title="Fechar">✕</button>`
+      tabEl.addEventListener('click', (e) => {
+        const close = (e.target as HTMLElement).closest<HTMLElement>('.eq-brain-tab-close')
+        if (close) this.closeBrainTab(close.dataset.tabId!)
+        else { this.brainActiveTab = tab.id; this.renderBrainExplorer(); this.renderBrainTabs(); this.renderBrainFileContent(tab.id) }
+      })
+      tabbar.appendChild(tabEl)
+    }
+  }
+
+  private renderBrainFileContent(fileId: string): void {
+    const contentEl = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
+    if (!contentEl) return
+    const plan = this.latestPlan
+    const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+
+    const DATA: Record<string, { lang: string; content: string }> = {
+      rationale: { lang: 'markdown', content: plan?.rationale || 'Aguardando resposta da IA...' },
+      actions:   { lang: 'json',     content: plan?.actions?.length ? JSON.stringify(plan.actions, null, 2) : '// Nenhuma ação.' },
+      summary:   { lang: 'text',     content: plan ? `Modo: ${plan.mode || 'auto'}\nConfiança: ${Math.round((plan.confidence||0)*100)}%\nAções: ${plan.actions?.length||0}\nModelo: ${plan.usedModel||'--'}` : 'Aguardando análise...' },
+      prompt:    { lang: 'text',     content: plan?.promptSent || this.latestPromptText || 'Nenhum prompt registrado.' },
+      rag:       { lang: 'text',     content: (plan as any)?.ragContext || 'Contexto RAG não disponível.' },
+      'meta-model':   { lang: 'text', content: `Modelo: ${plan?.usedModel || this.initialSettings.model || '--'}` },
+      'meta-latency': { lang: 'text', content: plan?.durationMs ? `Latência: ${plan.durationMs}ms` : 'Latência: --' },
+      'meta-tokens':  { lang: 'text', content: plan?.tokensUsed ? `Tokens: ${plan.tokensUsed}` : 'Tokens: --' },
+      'exec-steps':   { lang: 'log',  content: (plan as any)?.executionResult?.steps?.map((s: unknown) => JSON.stringify(s)).join('\n') || 'Sem passos.' },
+      'exec-result':  { lang: 'log',  content: (plan as any)?.executionResult ? JSON.stringify((plan as any).executionResult, null, 2) : 'Sem resultado.' },
+    }
+
+    const d = DATA[fileId] || { lang: 'text', content: 'Conteúdo não disponível.' }
+    contentEl.innerHTML = `<div class="eq-brain-file-view"><div class="eq-brain-file-header"><span class="eq-brain-file-lang">${d.lang}</span></div><pre class="eq-brain-code"><code>${esc(d.content)}</code></pre></div>`
   }
 
   public showFloatingAnswers(plan?: AnalysisPlan | null): void {
