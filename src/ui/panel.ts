@@ -342,12 +342,35 @@ export class EasyQuizPanel {
                 </div>
 
                 <div class="eq-resolver-cta-row">
-                  <button class="eq-resolve-primary" id="eq-analyze-btn" type="button">${ICONS.play} Iniciar Auto-Resposta</button>
+                  <button class="eq-resolve-primary" id="eq-analyze-btn" type="button">
+                    <span class="eq-btn-icon">${ICONS.play}</span>
+                    <span class="eq-btn-label">Iniciar Auto-Resposta</span>
+                  </button>
+                  <div class="eq-resolve-menu-shell">
+                    <button class="eq-resolve-menu" id="eq-auto-menu-btn" type="button" aria-label="Mais opções da IA" title="Mais opções da IA">
+                      <span class="eq-btn-icon">${ICONS.moreVertical}</span>
+                    </button>
+                    <div class="eq-resolver-context-menu" id="eq-auto-menu" hidden>
+                      <button type="button" class="eq-menu-item" data-auto-action="toggle">
+                        <span class="eq-menu-icon">${ICONS.play}</span>
+                        <span>Iniciar Auto-Resposta</span>
+                      </button>
+                      <button type="button" class="eq-menu-item" data-auto-action="memory">
+                        <span class="eq-menu-icon">${ICONS.eraser}</span>
+                        <span>Limpar memória</span>
+                      </button>
+                      <button type="button" class="eq-menu-item" data-auto-action="status">
+                        <span class="eq-menu-icon">${ICONS.info}</span>
+                        <span>Mostrar status</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="eq-status-card eq-status-card-resolver is-collapsed" id="eq-status-card" aria-expanded="false">
                   <div class="eq-status-card-header">
                     <div class="eq-status-title-wrap">
+                      <span class="eq-status-icon">${ICONS.info}</span>
                       <span class="eq-status-dot"></span>
                       <span class="eq-status-label">Status da IA</span>
                     </div>
@@ -1128,6 +1151,45 @@ export class EasyQuizPanel {
       const isNowCollapsed = keysCollapsible?.style.display === 'none'
       applyCollapseState(!isNowCollapsed)
       try { localStorage.setItem('easyquiz_keys_collapsed', (!isNowCollapsed) ? 'true' : 'false') } catch {}
+    })
+
+    const autoMenuBtn = this.shadow.querySelector('#eq-auto-menu-btn') as HTMLButtonElement | null
+    const autoMenu = this.shadow.querySelector('#eq-auto-menu') as HTMLElement | null
+
+    autoMenuBtn?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      if (!autoMenu) return
+      const wasHidden = autoMenu.hidden
+      autoMenu.hidden = !wasHidden
+      autoMenuBtn.classList.toggle('is-open', !autoMenu.hidden)
+    })
+
+    autoMenu?.querySelectorAll('[data-auto-action]').forEach((item) => {
+      item.addEventListener('click', () => {
+        const action = (item as HTMLElement).dataset.autoAction
+        if (action === 'toggle') {
+          this.analyzeBtn?.click()
+        } else if (action === 'memory') {
+          clearSessionMemories()
+          this.logToConsole('> [SYS] Memória contextual limpa com sucesso.', 'text-green')
+          this.setStatus('Memória contextual da sessão limpa.', 'success')
+        } else if (action === 'status') {
+          const statusCard = this.shadow.querySelector('#eq-status-card') as HTMLElement | null
+          statusCard?.classList.remove('is-collapsed')
+          statusCard?.setAttribute('aria-expanded', 'true')
+          statusCard?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+        autoMenu.hidden = true
+        autoMenuBtn?.classList.remove('is-open')
+      })
+    })
+
+    this.shadow.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('#eq-auto-menu') && !target.closest('#eq-auto-menu-btn')) {
+        autoMenu?.setAttribute('hidden', 'true')
+        autoMenuBtn?.classList.remove('is-open')
+      }
     })
 
     // Botão Adicionar Nova Chave
@@ -2306,10 +2368,13 @@ export class EasyQuizPanel {
   public updateAutopilotUi(active: boolean): void {
     const primary = this.analyzeBtn
     if (primary) {
+      const label = active ? 'Parar Auto-Resposta' : 'Iniciar Auto-Resposta'
+      const icon = active ? ICONS.stop : ICONS.play
       primary.classList.toggle('is-running', active)
-      primary.innerHTML = `${active ? ICONS.stop : ICONS.play} ${active ? 'Parar Auto-Resposta' : 'Iniciar Auto-Resposta'}`
-      primary.title = active ? 'Interromper a Auto-Resposta ativa' : 'Iniciar Auto-Resposta automática'
+      primary.classList.toggle('is-idle', !active)
       primary.classList.toggle('danger', active)
+      primary.innerHTML = `<span class="eq-btn-icon">${icon}</span><span class="eq-btn-label">${label}</span>`
+      primary.title = active ? 'Interromper a Auto-Resposta ativa' : 'Iniciar Auto-Resposta automática'
     }
     if (this.apToggleBtn) {
       this.apToggleBtn.innerHTML = `${active ? ICONS.stop : ICONS.play} ${active ? 'Parar Auto-Resposta' : 'Iniciar Auto-Resposta'}`
@@ -2320,9 +2385,19 @@ export class EasyQuizPanel {
 
   public setOperationState(label: string, type: 'idle' | 'busy' | 'success' | 'error' | 'warning' | 'info'): void {
     const operationState = this.shadow.querySelector('#eq-operation-state') as HTMLElement | null
+    const statusCard = this.shadow.querySelector('#eq-status-card') as HTMLElement | null
     if (operationState) {
-      operationState.textContent = label
+      operationState.innerHTML = `${ICONS.info} <span>${label}</span>`
       operationState.className = `eq-operation-state is-${type}`
+    }
+    if (statusCard) {
+      statusCard.classList.remove('is-busy', 'is-success', 'is-error', 'is-warning', 'is-info')
+      statusCard.classList.add(`is-${type}`)
+    }
+    const primary = this.analyzeBtn
+    if (primary) {
+      primary.classList.remove('status-busy', 'status-success', 'status-error', 'status-warning', 'status-info')
+      primary.classList.add(`status-${type}`)
     }
   }
 
