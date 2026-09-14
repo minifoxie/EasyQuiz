@@ -2370,8 +2370,13 @@ export class EasyQuizPanel {
   public updateAutopilotUi(active: boolean): void {
     const primary = this.analyzeBtn
     if (primary) {
+      const ctaRow = primary.closest('.eq-resolver-cta-row')
       const label = active ? 'Parar Autopilot' : 'Resolver Autopilot'
       const icon = active ? ICONS.stop : ICONS.sparkles
+      if (ctaRow) {
+        ctaRow.classList.toggle('is-running', active)
+        ctaRow.classList.toggle('is-idle', !active)
+      }
       primary.classList.toggle('is-running', active)
       primary.classList.toggle('is-idle', !active)
       primary.classList.toggle('danger', active)
@@ -2398,6 +2403,11 @@ export class EasyQuizPanel {
     }
     const primary = this.analyzeBtn
     if (primary) {
+      const ctaRow = primary.closest('.eq-resolver-cta-row')
+      if (ctaRow) {
+        ctaRow.classList.remove('status-busy', 'status-success', 'status-error', 'status-warning', 'status-info')
+        ctaRow.classList.add(`status-${type}`)
+      }
       primary.classList.remove('status-busy', 'status-success', 'status-error', 'status-warning', 'status-info')
       primary.classList.add(`status-${type}`)
     }
@@ -2409,6 +2419,8 @@ export class EasyQuizPanel {
       (e) => ((e as any).disabled = false),
     )
 
+    const ctaRow = this.analyzeBtn.closest('.eq-resolver-cta-row')
+    if (ctaRow) ctaRow.classList.remove('is-running')
     this.analyzeBtn.disabled = false
     this.analyzeBtn.classList.remove('danger')
     this.analyzeBtn.innerHTML = `<span class="eq-btn-icon">${ICONS.sparkles}</span><span class="eq-btn-label">Resolver Autopilot</span>`
@@ -2440,7 +2452,9 @@ export class EasyQuizPanel {
       (e) => ((e as any).disabled = busy),
     )
 
+    const ctaRow = this.analyzeBtn.closest('.eq-resolver-cta-row')
     if (busy) {
+      if (ctaRow) ctaRow.classList.add('is-running')
       this.analyzeBtn.disabled = false
       this.analyzeBtn.classList.add('danger')
       this.analyzeBtn.innerHTML = `<span class="eq-btn-icon">${ICONS.stop}</span><span class="eq-btn-label">Parar Autopilot</span>`

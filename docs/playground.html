@@ -1,0 +1,1858 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Playground - EasyQuiz</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #0c0e14;
+      --bg-surface: #141721;
+      --bg-card: #1b202e;
+      --bg-card-hover: #22283a;
+      --border-color: rgba(255, 255, 255, 0.09);
+      --border-accent: rgba(0, 255, 204, 0.35);
+      --primary: #00ffcc;
+      --primary-hover: #33ffdb;
+      --primary-dark: #00b38f;
+      --accent: #38bdf8;
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.12);
+      --error: #ef4444;
+      --error-bg: rgba(239, 68, 68, 0.12);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+      --radius: 12px;
+      --font-main: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-main);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Topbar Khan Style */
+    header.khan-topbar {
+      background: rgba(20, 23, 33, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .khan-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 17px;
+      color: #ffffff;
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+
+    .khan-logo-badge {
+      background: linear-gradient(135deg, #00ffcc, #38bdf8);
+      color: #000;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .breadcrumb {
+      font-size: 13px;
+      color: var(--text-muted);
+      display: none;
+    }
+    @media (min-width: 768px) { .breadcrumb { display: block; } }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .stat-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-main);
+    }
+
+    .stat-pill.points { color: #fde047; }
+    .stat-pill.streak { color: #fb923c; }
+
+    .btn-inject-eq {
+      background: rgba(0, 255, 204, 0.12);
+      border: 1px solid rgba(0, 255, 204, 0.4);
+      color: #00ffcc;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-inject-eq:hover {
+      background: rgba(0, 255, 204, 0.25);
+      transform: translateY(-1px);
+    }
+
+    /* Subheader com Barra de Progresso Khan Academy */
+    .progress-bar-container {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stepper {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 800px;
+      width: 100%;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      position: relative;
+    }
+
+    .step-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #1f2433;
+      border: 2px solid #333a4f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text-muted);
+      transition: all 0.25s ease;
+      flex-shrink: 0;
+    }
+
+    .step-item.active .step-dot {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #000;
+      box-shadow: 0 0 12px rgba(0, 255, 204, 0.4);
+    }
+
+    .step-item.completed .step-dot {
+      background: var(--success);
+      border-color: var(--success);
+      color: #000;
+    }
+
+    .step-line {
+      height: 3px;
+      background: #252b3d;
+      flex: 1;
+      border-radius: 2px;
+      transition: background 0.25s ease;
+    }
+
+    .step-item.completed .step-line {
+      background: var(--success);
+    }
+
+    /* Layout Principal */
+    main.quiz-main {
+      flex: 1;
+      max-width: 900px;
+      width: 100%;
+      margin: 32px auto;
+      padding: 0 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 28px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+      position: relative;
+      overflow: hidden;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .card-tag {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.1);
+      padding: 3px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+
+    .card-number {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-dim);
+    }
+
+    .question-title {
+      font-size: 19px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 14px;
+      line-height: 1.45;
+    }
+
+    .question-desc {
+      font-size: 15px;
+      color: var(--text-muted);
+      margin-bottom: 22px;
+      line-height: 1.6;
+    }
+
+    /* Fórmulas matemáticas estilizadas */
+    .math {
+      font-family: var(--font-mono);
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .math-block {
+      display: block;
+      padding: 12px;
+      margin: 12px 0;
+      background: rgba(0, 0, 0, 0.35);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 6px 6px 0;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: #e0f2fe;
+      white-space: pre-wrap;
+    }
+
+    /* 1. ARTIGO DE LEITURA (CONTEXTO) */
+    .article-box {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 22px;
+      font-size: 15px;
+      color: #d1d5db;
+      line-height: 1.7;
+    }
+
+    .article-box h3 {
+      color: var(--primary);
+      margin-bottom: 12px;
+      font-size: 17px;
+    }
+
+    .article-highlight {
+      background: rgba(0, 255, 204, 0.1);
+      border-left: 3px solid var(--primary);
+      padding: 10px 14px;
+      margin: 16px 0;
+      border-radius: 0 6px 6px 0;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    /* 2. MÚLTIPLA ESCOLHA DE OPÇÕES */
+    .options-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .option-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      user-select: none;
+    }
+
+    .option-card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .option-card input[type="radio"],
+    .option-card input[type="checkbox"] {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #4b5563;
+      border-radius: 50%;
+      outline: none;
+      transition: all 0.15s;
+      flex-shrink: 0;
+      display: grid;
+      place-content: center;
+      cursor: pointer;
+    }
+
+    .option-card input[type="checkbox"] {
+      border-radius: 6px;
+    }
+
+    .option-card input[type="radio"]:checked,
+    .option-card input[type="checkbox"]:checked {
+      border-color: var(--primary);
+      background: var(--primary);
+    }
+
+    .option-card input[type="radio"]:checked::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      background: #000;
+      border-radius: 50%;
+    }
+
+    .option-card input[type="checkbox"]:checked::before {
+      content: "✓";
+      color: #000;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .option-card:has(input:checked),
+    .option-card.selected {
+      border-color: var(--primary) !important;
+      background: rgba(0, 255, 204, 0.14) !important;
+      box-shadow: 0 0 16px rgba(0, 255, 204, 0.28) !important;
+    }
+
+    .option-card:has(input:checked) .option-badge,
+    .option-card.selected .option-badge {
+      color: var(--primary) !important;
+    }
+
+    .option-badge {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-muted);
+      width: 26px;
+    }
+
+    .option-text {
+      font-size: 14.5px;
+      color: #e5e7eb;
+      flex: 1;
+    }
+
+    /* 3. GRADE 3X3 PARA MATRIZES (INPUT DE CÉLULAS 3 POR 3) */
+    .matrix-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .matrix-bracket-left,
+    .matrix-bracket-right {
+      width: 14px;
+      height: 190px;
+      border: 3px solid #38bdf8;
+      border-right: none;
+      border-radius: 8px 0 0 8px;
+    }
+
+    .matrix-bracket-right {
+      border-left: none;
+      border-right: 3px solid #38bdf8;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .matrix-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 76px);
+      grid-gap: 12px;
+    }
+
+    .matrix-cell {
+      height: 52px;
+      background: #11141e;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      color: #00ffcc;
+      font-family: var(--font-mono);
+      font-size: 17px;
+      font-weight: 700;
+      text-align: center;
+      outline: none;
+      transition: all 0.15s;
+    }
+
+    .matrix-cell:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+      background: #181d2c;
+    }
+
+    /* 4. SELEÇÃO EM LISTA (<SELECT> DROPDOWN) */
+    .dropdown-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding: 14px;
+      background: var(--bg-card);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    @media (min-width: 640px) {
+      .dropdown-row {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+
+    .dropdown-label {
+      font-size: 14.5px;
+      color: #ffffff;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .custom-select {
+      background: #0f121b;
+      border: 1px solid #374151;
+      border-radius: 6px;
+      color: var(--primary);
+      padding: 8px 14px;
+      font-family: var(--font-main);
+      font-size: 13.5px;
+      font-weight: 600;
+      outline: none;
+      cursor: pointer;
+      min-width: 220px;
+    }
+
+    .custom-select:focus {
+      border-color: var(--primary);
+    }
+
+    /* 5. CATEGORIZAÇÃO / ARRASTAR E SOLTAR (PA VS PG) */
+    .dnd-pool {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px dashed #374151;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 20px;
+      min-height: 80px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .dnd-pool-title {
+      width: 100%;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    .dnd-card {
+      background: #232a3d;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 9px 14px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+      cursor: grab;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s;
+    }
+
+    .dnd-card:hover {
+      background: #2c354d;
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .dnd-card.active-selected {
+      border-color: var(--primary);
+      background: rgba(0, 255, 204, 0.15);
+      box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+    }
+
+    .dnd-zones {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    @media (min-width: 640px) {
+      .dnd-zones {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .dnd-zone {
+      background: #141824;
+      border: 2px dashed #2d3748;
+      border-radius: 12px;
+      padding: 16px;
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .dnd-zone.dragover {
+      border-color: var(--primary);
+      background: rgba(0, 255, 204, 0.05);
+    }
+
+    .dnd-zone-title {
+      font-weight: 800;
+      font-size: 13.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+      margin-bottom: 6px;
+    }
+
+    .dnd-zone.zone-pg .dnd-zone-title {
+      color: #a78bfa;
+    }
+
+    /* 6. VERDADEIRO OU FALSO EM TABELA */
+    .vf-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    .vf-table th {
+      text-align: left;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .vf-table td {
+      padding: 14px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 14px;
+      color: #e2e8f0;
+    }
+
+    .vf-radio-group {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    .vf-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .vf-label.vf-true { color: var(--success); }
+    .vf-label.vf-false { color: var(--error); }
+
+    /* 7. INPUT NORMAL DE NÚMERO / TEXTO */
+    .normal-input-box {
+      margin: 20px 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 400px;
+    }
+
+    .input-text-large {
+      flex: 1;
+      height: 48px;
+      background: #11141e;
+      border: 1px solid #374151;
+      border-radius: 8px;
+      padding: 0 16px;
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 600;
+      color: #00ffcc;
+      outline: none;
+      transition: all 0.15s;
+    }
+
+    .input-text-large:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 10px rgba(0, 255, 204, 0.25);
+    }
+
+    /* Diagrama SVG de Trigonometria */
+    .trig-diagram-container {
+      display: flex;
+      justify-content: center;
+      margin: 16px 0;
+    }
+
+    /* Rodapé do Card com Feedback e Botão Khan */
+    .card-footer {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .feedback-message {
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 8px;
+      padding: 8px 16px;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .feedback-message.success {
+      background: var(--success-bg);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .feedback-message.error {
+      background: var(--error-bg);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .action-buttons {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-left: auto;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid #374151;
+      color: var(--text-muted);
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-secondary:hover {
+      background: #1f2433;
+      color: #ffffff;
+      border-color: #4b5563;
+    }
+
+    .btn-primary {
+      background: #00d2b4;
+      border: none;
+      color: #000000;
+      border-radius: 8px;
+      padding: 11px 24px;
+      font-family: var(--font-main);
+      font-size: 14px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.18s;
+      box-shadow: 0 4px 12px rgba(0, 210, 180, 0.25);
+    }
+
+    .btn-primary:hover {
+      background: #33ffdb;
+      box-shadow: 0 6px 18px rgba(0, 255, 204, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary.btn-advance {
+      background: #10b981;
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+    }
+
+    .btn-primary.btn-advance:hover {
+      background: #059669;
+    }
+
+    /* Tela de Conclusão Final */
+    .celebration-box {
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .celebration-icon {
+      font-size: 54px;
+      margin-bottom: 16px;
+      display: inline-block;
+      animation: bounce 1s infinite alternate;
+    }
+
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-8px); }
+    }
+  </style>
+  <link rel="stylesheet" href="css/style.css?v=5.9.9">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="bg-dom"></div>
+<div class="global-backdrop" id="global-backdrop"></div>
+
+  <!-- Topbar Khan Academy Style (Ignorado pelo EasyQuiz para não capturar controles de topo) -->
+  <header class="khan-topbar" data-easyquiz-ignore="true">
+    <div class="topbar-left" data-easyquiz-ignore="true">
+      <a href="#" class="khan-logo" data-easyquiz-ignore="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00ffcc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+          <path d="M6 6h10"/>
+          <path d="M6 10h10"/>
+        </svg>
+        <span>KhanMath</span>
+        <span class="khan-logo-badge">2º Ano EM</span>
+      </a>
+      <div class="breadcrumb" data-easyquiz-ignore="true">
+        Matemática › Unidade 3: Trigonometria, Matrizes e Geometria
+      </div>
+    </div>
+
+    <div class="topbar-right" data-easyquiz-ignore="true">
+      <div class="stat-pill points" data-easyquiz-ignore="true">
+        <span>⚡</span>
+        <span id="score-display">0 XP</span>
+      </div>
+      <div class="stat-pill streak" data-easyquiz-ignore="true">
+        <span>🔥</span>
+        <span id="streak-display">0</span>
+      </div>
+      <!-- Botão para injetar EasyQuiz caso o usuário não tenha extensão ativa -->
+      <button class="btn-inject-eq" id="btn-inject-script" data-easyquiz-ignore="true" title="Injeta o script EasyQuiz do projeto direto na página">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        <span>Injetar EasyQuiz</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Barra de Progresso Estilo Khan Academy -->
+  <div class="progress-bar-container">
+    <div class="stepper" id="stepper">
+      <!-- 8 Etapas + Final -->
+      <div class="step-item active" data-step="0"><div class="step-dot">1</div><div class="step-line"></div></div>
+      <div class="step-item" data-step="1"><div class="step-dot">2</div><div class="step-line"></div></div>
+      <div class="step-item" data-step="2"><div class="step-dot">3</div><div class="step-line"></div></div>
+      <div class="step-item" data-step="3"><div class="step-dot">4</div><div class="step-line"></div></div>
+      <div class="step-item" data-step="4"><div class="step-dot">5</div><div class="step-line"></div></div>
+      <div class="step-item" data-step="5"><div class="step-dot">6</div><div class="step-line"></div></div>
+      <div class="step-item" data-step="6"><div class="step-dot">7</div><div class="step-line"></div></div>
+      <div class="step-item" data-step="7"><div class="step-dot">8</div><div class="step-line"></div></div>
+      <div class="step-item" data-step="8"><div class="step-dot">✓</div></div>
+    </div>
+  </div>
+
+  <!-- Container Principal do Exercício -->
+  <main class="quiz-main" id="quiz-container">
+
+    <!-- ==========================================
+         ETAPA 1: CONTEXTO / ARTIGO TEÓRICO (RAG)
+         ========================================== -->
+    <article class="card" id="task-step-0">
+      <div class="card-meta">
+        <span class="card-tag">Artigo Teórico • Contexto RAG</span>
+        <span class="card-number">Etapa 1 de 8</span>
+      </div>
+
+      <h1 class="question-title">Matrizes Quadradas e o Cálculo de Determinantes (Regra de Sarrus)</h1>
+      <p class="question-desc">Leia atentamente o artigo teórico a seguir antes de prosseguir para os exercícios práticos:</p>
+
+      <div class="article-box">
+        <h3>1. Estrutura de uma Matriz 3x3</h3>
+        <p>Uma matriz quadrada de terceira ordem possui 3 linhas e 3 colunas, sendo representada por $A = (a_{ij})_{3 \times 3}$. Cada elemento é localizado pela linha $i$ e coluna $j$.</p>
+        
+        <div class="article-highlight">
+          📌 Definição Fundamental: Uma matriz quadrada cujo determinante é estritamente igual a ZERO ($\det(A) = 0$) é chamada de <strong>Matriz Singular</strong> ou não invertível.
+        </div>
+
+        <h3>2. Regra de Sarrus</h3>
+        <p>Para calcular o determinante de uma matriz $3 \times 3$, repete-se as duas primeiras colunas à direita da matriz e realiza-se a soma dos produtos da diagonal principal menos a soma dos produtos da diagonal secundária:</p>
+        <div class="math-block">det(A) = (a11·a22·a33 + a12·a23·a31 + a13·a21·a32) - (a13·a22·a31 + a11·a23·a32 + a12·a21·a33)</div>
+
+        <p>A absorção correta desses conceitos é indispensável para a resolução dos sistemas lineares e matrizes dos próximos exercícios.</p>
+      </div>
+
+      <div class="card-footer">
+        <span style="font-size: 13px; color: #9ca3af;">Clique abaixo quando terminar a leitura para iniciar a prática.</span>
+        <div class="action-buttons">
+          <button class="btn-primary" id="btn-next-article" data-action="advance">Continuar para as questões →</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- ==========================================
+         ETAPA 2: MÚLTIPLA ESCOLHA COM IMAGEM (TRIGONOMETRIA)
+         ========================================== -->
+    <article class="card" id="task-step-1" style="display: none;">
+      <div class="card-meta">
+        <span class="card-tag">Trigonometria • Círculo Trigonométrico</span>
+        <span class="card-number">Questão 2 de 8</span>
+      </div>
+
+      <h2 class="question-title">Valores de Seno e Cosseno no 2º Quadrante</h2>
+      <p class="question-desc">Considere o círculo trigonométrico de raio unitário ilustrado abaixo com a extremidade do arco destacada em <span class="math">θ = 120° (2π/3 rad)</span>:</p>
+
+      <!-- Diagrama SVG do Círculo Trigonométrico -->
+      <div class="trig-diagram-container">
+        <svg width="280" height="280" viewBox="0 0 300 300">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+            </marker>
+          </defs>
+          <!-- Eixos Cartesianos -->
+          <line x1="20" y1="150" x2="280" y2="150" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <line x1="150" y1="280" x2="150" y2="20" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <text x="270" y="140" fill="#94a3b8" font-size="12" font-family="monospace">cos</text>
+          <text x="156" y="32" fill="#94a3b8" font-size="12" font-family="monospace">sen</text>
+          
+          <!-- Círculo de Raio 100 -->
+          <circle cx="150" cy="150" r="100" fill="none" stroke="#334155" stroke-width="2"/>
+          
+          <!-- Raio do ângulo de 120° (cos = -0.5 -> x = 100; sen = 0.866 -> y = 63.4) -->
+          <line x1="150" y1="150" x2="100" y2="63.4" stroke="#00ffcc" stroke-width="2.5"/>
+          <circle cx="100" cy="63.4" r="5" fill="#00ffcc"/>
+
+          <!-- Linhas tracejadas de projeção -->
+          <line x1="100" y1="63.4" x2="100" y2="150" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="4"/>
+          <line x1="100" y1="63.4" x2="150" y2="63.4" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="4"/>
+
+          <!-- Rótulos nos Eixos -->
+          <text x="92" y="166" fill="#f43f5e" font-size="11" font-weight="bold" font-family="monospace">-1/2</text>
+          <text x="154" y="68" fill="#38bdf8" font-size="11" font-weight="bold" font-family="monospace">√3/2</text>
+
+          <!-- Arco do Ângulo -->
+          <path d="M 180 150 A 30 30 0 0 0 135 124" fill="none" stroke="#fde047" stroke-width="2"/>
+          <text x="156" y="132" fill="#fde047" font-size="12" font-weight="bold">120°</text>
+        </svg>
+      </div>
+
+      <p class="question-desc">Com base nas simetrias do ciclo trigonométrico, quais são os valores exatos de <span class="math">cos(120°)</span> e <span class="math">sen(120°)</span>?</p>
+
+      <div class="options-grid" role="radiogroup" aria-label="Alternativas de Trigonometria">
+        <label class="option-card" for="q2-opt-a">
+          <input type="radio" name="trig-choice" id="q2-opt-a" value="A">
+          <span class="option-badge">A)</span>
+          <span class="option-text">cos(120°) = 1/2 e sen(120°) = √3/2</span>
+        </label>
+
+        <label class="option-card" for="q2-opt-b">
+          <input type="radio" name="trig-choice" id="q2-opt-b" value="B">
+          <span class="option-badge">B)</span>
+          <span class="option-text">cos(120°) = -1/2 e sen(120°) = √3/2</span>
+        </label>
+
+        <label class="option-card" for="q2-opt-c">
+          <input type="radio" name="trig-choice" id="q2-opt-c" value="C">
+          <span class="option-badge">C)</span>
+          <span class="option-text">cos(120°) = -√3/2 e sen(120°) = 1/2</span>
+        </label>
+
+        <label class="option-card" for="q2-opt-d">
+          <input type="radio" name="trig-choice" id="q2-opt-d" value="D">
+          <span class="option-badge">D)</span>
+          <span class="option-text">cos(120°) = -√2/2 e sen(120°) = √2/2</span>
+        </label>
+      </div>
+
+      <div class="card-footer">
+        <div id="feedback-step-1" class="feedback-message" style="display: none;"></div>
+        <div class="action-buttons">
+          <button class="btn-primary" id="btn-check-1">Verificar resposta</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- ==========================================
+         ETAPA 3: MATRIZ 3X3 (GRADE DE CÉLULAS 3 POR 3)
+         ========================================== -->
+    <article class="card" id="task-step-2" style="display: none;">
+      <div class="card-meta">
+        <span class="card-tag">Matrizes • Lei de Formação</span>
+        <span class="card-number">Questão 3 de 8</span>
+      </div>
+
+      <h2 class="question-title">Construção de Matriz 3x3 por Lei de Formação</h2>
+      <p class="question-desc">
+        Construa a matriz quadrada <span class="math">M = (m_ij)</span> de ordem <span class="math">3 × 3</span> cujos elementos são dados pela lei:
+        <br>
+        <span class="math-block" style="text-align: center; font-size: 16px;">m_ij = 2i - j   (onde i = linha, j = coluna)</span>
+        Preencha os 9 campos numéricos da matriz abaixo:
+      </p>
+
+      <div class="matrix-container" aria-label="Grade da Matriz 3 por 3">
+        <div class="matrix-bracket-left"></div>
+        <div class="matrix-grid">
+          <!-- Linha 1: 2(1)-1=1, 2(1)-2=0, 2(1)-3=-1 -->
+          <input type="number" class="matrix-cell" id="mat-1-1" aria-label="Linha 1 Coluna 1" placeholder="a11">
+          <input type="number" class="matrix-cell" id="mat-1-2" aria-label="Linha 1 Coluna 2" placeholder="a12">
+          <input type="number" class="matrix-cell" id="mat-1-3" aria-label="Linha 1 Coluna 3" placeholder="a13">
+
+          <!-- Linha 2: 2(2)-1=3, 2(2)-2=2, 2(2)-3=1 -->
+          <input type="number" class="matrix-cell" id="mat-2-1" aria-label="Linha 2 Coluna 1" placeholder="a21">
+          <input type="number" class="matrix-cell" id="mat-2-2" aria-label="Linha 2 Coluna 2" placeholder="a22">
+          <input type="number" class="matrix-cell" id="mat-2-3" aria-label="Linha 2 Coluna 3" placeholder="a23">
+
+          <!-- Linha 3: 2(3)-1=5, 2(3)-2=4, 2(3)-3=3 -->
+          <input type="number" class="matrix-cell" id="mat-3-1" aria-label="Linha 3 Coluna 1" placeholder="a31">
+          <input type="number" class="matrix-cell" id="mat-3-2" aria-label="Linha 3 Coluna 2" placeholder="a32">
+          <input type="number" class="matrix-cell" id="mat-3-3" aria-label="Linha 3 Coluna 3" placeholder="a33">
+        </div>
+        <div class="matrix-bracket-right"></div>
+      </div>
+
+      <div class="card-footer">
+        <div id="feedback-step-2" class="feedback-message" style="display: none;"></div>
+        <div class="action-buttons">
+          <button class="btn-primary" id="btn-check-2">Verificar resposta</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- ==========================================
+         ETAPA 4: SELEÇÃO EM LISTA (<SELECT> DROPDOWNS)
+         ========================================== -->
+    <article class="card" id="task-step-3" style="display: none;">
+      <div class="card-meta">
+        <span class="card-tag">Geometria Espacial • Volumes</span>
+        <span class="card-number">Questão 4 de 8</span>
+      </div>
+
+      <h2 class="question-title">Fórmulas de Volumes de Sólidos Geométricos</h2>
+      <p class="question-desc">Selecione na lista suspensa a fórmula correta do volume <span class="math">V</span> para cada um dos corpos redondos:</p>
+
+      <div class="dropdown-row">
+        <span class="dropdown-label">1. Volume do Cilindro Circular Reto (raio r, altura h):</span>
+        <select class="custom-select" id="sel-vol-cilindro" aria-label="Volume do Cilindro">
+          <option value="">Selecione a fórmula...</option>
+          <option value="terco_pi_r2_h">V = (1/3) · π · r² · h</option>
+          <option value="pi_r2_h">V = π · r² · h</option>
+          <option value="quatro_tercos_pi_r3">V = (4/3) · π · r³</option>
+        </select>
+      </div>
+
+      <div class="dropdown-row">
+        <span class="dropdown-label">2. Volume do Cone Circular Reto (raio r, altura h):</span>
+        <select class="custom-select" id="sel-vol-cone" aria-label="Volume do Cone">
+          <option value="">Selecione a fórmula...</option>
+          <option value="pi_r2_h">V = π · r² · h</option>
+          <option value="terco_pi_r2_h">V = (1/3) · π · r² · h</option>
+          <option value="quatro_tercos_pi_r3">V = (4/3) · π · r³</option>
+        </select>
+      </div>
+
+      <div class="dropdown-row">
+        <span class="dropdown-label">3. Volume da Esfera (raio r):</span>
+        <select class="custom-select" id="sel-vol-esfera" aria-label="Volume da Esfera">
+          <option value="">Selecione a fórmula...</option>
+          <option value="terco_pi_r2_h">V = (1/3) · π · r² · h</option>
+          <option value="pi_r2_h">V = π · r² · h</option>
+          <option value="quatro_tercos_pi_r3">V = (4/3) · π · r³</option>
+        </select>
+      </div>
+
+      <div class="card-footer">
+        <div id="feedback-step-3" class="feedback-message" style="display: none;"></div>
+        <div class="action-buttons">
+          <button class="btn-primary" id="btn-check-3">Verificar resposta</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- ==========================================
+         ETAPA 5: MULTI-SELEÇÃO (CHECKBOXES)
+         ========================================== -->
+    <article class="card" id="task-step-4" style="display: none;">
+      <div class="card-meta">
+        <span class="card-tag">Análise Combinatória • Multi-seleção</span>
+        <span class="card-number">Questão 5 de 8</span>
+      </div>
+
+      <h2 class="question-title">Propriedades de Agrupamentos e Probabilidade</h2>
+      <p class="question-desc">Selecione <strong>TODAS</strong> as alternativas matematicamente <strong>VERDADEIRAS</strong> (mais de uma opção correta):</p>
+
+      <div class="options-grid">
+        <label class="option-card" for="chk-comb-1">
+          <input type="checkbox" id="chk-comb-1" value="chk1">
+          <span class="option-text">O total de maneiras de dispor 5 pessoas em uma fila ordenada é dado pela permutação simples: <span class="math">P_5 = 5! = 120</span>.</span>
+        </label>
+
+        <label class="option-card" for="chk-comb-2">
+          <input type="checkbox" id="chk-comb-2" value="chk2">
+          <span class="option-text">Na combinação simples <span class="math">C(n, p)</span>, a ordem dos elementos importa e cria novos agrupamentos distintos.</span>
+        </label>
+
+        <label class="option-card" for="chk-comb-3">
+          <input type="checkbox" id="chk-comb-3" value="chk3">
+          <span class="option-text">O número de comissões de 3 membros que podem ser escolhidas entre 6 pessoas é <span class="math">C(6, 3) = 6! / (3! · 3!) = 20</span>.</span>
+        </label>
+
+        <label class="option-card" for="chk-comb-4">
+          <input type="checkbox" id="chk-comb-4" value="chk4">
+          <span class="option-text">A probabilidade de um evento certo ocorrer em um espaço amostral equiprovável é sempre igual a 0.</span>
+        </label>
+      </div>
+
+      <div class="card-footer">
+        <div id="feedback-step-4" class="feedback-message" style="display: none;"></div>
+        <div class="action-buttons">
+          <button class="btn-primary" id="btn-check-4">Verificar resposta</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- ==========================================
+         ETAPA 6: CATEGORIZAÇÃO / ARRASTAR E SOLTAR (PA VS PG)
+         ========================================== -->
+    <article class="card" id="task-step-5" style="display: none;">
+      <div class="card-meta">
+        <span class="card-tag">Sequências • Arrastar e Soltar / Categorização</span>
+        <span class="card-number">Questão 6 de 8</span>
+      </div>
+
+      <h2 class="question-title">Classificação de Sequências Numéricas (PA vs PG)</h2>
+      <p class="question-desc">
+        Arraste (ou clique para selecionar e posicionar) cada uma das sequências abaixo na sua respectiva categoria:
+        <strong>Progressão Aritmética (PA)</strong> ou <strong>Progressão Geométrica (PG)</strong>.
+      </p>
+
+      <!-- Banco de Itens Disponíveis -->
+      <div class="dnd-pool" id="dnd-pool" data-dropzone="pool">
+        <div class="dnd-pool-title">Sequências para categorizar:</div>
+        <div class="dnd-card" draggable="true" id="seq-1" data-type="PA">(2, 5, 8, 11, 14, ...)</div>
+        <div class="dnd-card" draggable="true" id="seq-2" data-type="PG">(3, 6, 12, 24, 48, ...)</div>
+        <div class="dnd-card" draggable="true" id="seq-3" data-type="PA">(10, 4, -2, -8, ...)</div>
+        <div class="dnd-card" draggable="true" id="seq-4" data-type="PG">(1, 1/3, 1/9, 1/27, ...)</div>
+        <div class="dnd-card" draggable="true" id="seq-5" data-type="PA">(7, 7, 7, 7, 7, ...)</div>
+        <div class="dnd-card" draggable="true" id="seq-6" data-type="PG">(5, -10, 20, -40, ...)</div>
+      </div>
+
+      <!-- Zonas de Destino -->
+      <div class="dnd-zones">
+        <div class="dnd-zone zone-pa" id="zone-pa" data-category="PA" data-dropzone="PA">
+          <div class="dnd-zone-title">
+            <span>📁 Progressão Aritmética (PA)</span>
+            <span class="dnd-count" id="count-pa">0</span>
+          </div>
+        </div>
+
+        <div class="dnd-zone zone-pg" id="zone-pg" data-category="PG" data-dropzone="PG">
+          <div class="dnd-zone-title">
+            <span>📁 Progressão Geométrica (PG)</span>
+            <span class="dnd-count" id="count-pg">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-footer">
+        <div id="feedback-step-5" class="feedback-message" style="display: none;"></div>
+        <div class="action-buttons">
+          <button class="btn-primary" id="btn-check-5">Verificar resposta</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- ==========================================
+         ETAPA 7: VERDADEIRO OU FALSO EM TABELA
+         ========================================== -->
+    <article class="card" id="task-step-6" style="display: none;">
+      <div class="card-meta">
+        <span class="card-tag">Sistemas Lineares • Verdadeiro ou Falso</span>
+        <span class="card-number">Questão 7 de 8</span>
+      </div>
+
+      <h2 class="question-title">Julgamento de Itens sobre Sistemas Lineares e Matrizes</h2>
+      <p class="question-desc">Julgue cada uma das afirmações teóricas abaixo como <strong>Verdadeira (V)</strong> ou <strong>Falsa (F)</strong>:</p>
+
+      <table class="vf-table" aria-label="Tabela de Verdadeiro ou Falso">
+        <thead>
+          <tr>
+            <th style="width: 70%;">Afirmação</th>
+            <th style="text-align: center;">Julgamento</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1. Todo sistema linear homogêneo (termos independentes nulos) admite pelo menos a solução trivial <span class="math">(0, 0, ..., 0)</span>.</td>
+            <td>
+              <div class="vf-radio-group">
+                <label class="vf-label vf-true"><input type="radio" name="vf_row_1" value="V"> V</label>
+                <label class="vf-label vf-false"><input type="radio" name="vf_row_1" value="F"> F</label>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>2. Pela Regra de Cramer, quando o determinante principal <span class="math">D = 0</span> e algum determinante secundário <span class="math">D_x ≠ 0</span>, o sistema é Possível e Determinado (SPD).</td>
+            <td>
+              <div class="vf-radio-group">
+                <label class="vf-label vf-true"><input type="radio" name="vf_row_2" value="V"> V</label>
+                <label class="vf-label vf-false"><input type="radio" name="vf_row_2" value="F"> F</label>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>3. Se uma matriz quadrada possui duas linhas idênticas ou proporcionais, seu determinante é obrigatoriamente igual a zero.</td>
+            <td>
+              <div class="vf-radio-group">
+                <label class="vf-label vf-true"><input type="radio" name="vf_row_3" value="V"> V</label>
+                <label class="vf-label vf-false"><input type="radio" name="vf_row_3" value="F"> F</label>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>4. Multiplicar uma única linha de uma matriz 3x3 por uma constante real <span class="math">k</span> faz com que o determinante da nova matriz seja multiplicado por <span class="math">k³</span>.</td>
+            <td>
+              <div class="vf-radio-group">
+                <label class="vf-label vf-true"><input type="radio" name="vf_row_4" value="V"> V</label>
+                <label class="vf-label vf-false"><input type="radio" name="vf_row_4" value="F"> F</label>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="card-footer">
+        <div id="feedback-step-6" class="feedback-message" style="display: none;"></div>
+        <div class="action-buttons">
+          <button class="btn-primary" id="btn-check-6">Verificar resposta</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- ==========================================
+         ETAPA 8: INPUT NORMAL DE TEXTO / NÚMERO
+         ========================================== -->
+    <article class="card" id="task-step-7" style="display: none;">
+      <div class="card-meta">
+        <span class="card-tag">Geometria Espacial • Cálculo Numérico</span>
+        <span class="card-number">Questão 8 de 8</span>
+      </div>
+
+      <h2 class="question-title">Cálculo de Capacidade de um Reservatório Cilíndrico</h2>
+      <p class="question-desc">
+        Um reservatório de água tem a forma de um cilindro circular reto com <strong>raio da base igual a 3 metros</strong> e <strong>altura igual a 10 metros</strong>.
+        <br><br>
+        Adotando <span class="math">π = 3,14</span>, determine o volume total desse reservatório em metros cúbicos (<span class="math">V = π · r² · h</span>).
+        <br>
+        <em>Digite apenas o valor numérico (use vírgula ou ponto decimal):</em>
+      </p>
+
+      <div class="normal-input-box">
+        <input type="text" class="input-text-large" id="input-volume-cilindro" placeholder="Ex: 282,6" aria-label="Volume numérico do cilindro">
+        <span style="font-weight: 700; color: #9ca3af;">m³</span>
+      </div>
+
+      <div class="card-footer">
+        <div id="feedback-step-7" class="feedback-message" style="display: none;"></div>
+        <div class="action-buttons">
+          <button class="btn-primary" id="btn-check-7">Verificar resposta</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- ==========================================
+         ETAPA FINAL: TELA DE CONCLUSÃO
+         ========================================== -->
+    <article class="card celebration-box" id="task-step-8" style="display: none;">
+      <div class="celebration-icon">🏆</div>
+      <h2 class="question-title" style="font-size: 26px; color: #00ffcc;">Parabéns! Lista de Exercícios Concluída!</h2>
+      <p class="question-desc" style="max-width: 500px; margin: 0 auto 24px auto;">
+        Você passou por todos os formatos de questões de Matemática do 2º Ano do Ensino Médio com sucesso:
+        leitura RAG, múltipla escolha com imagens, grade matricial 3x3, seletores de lista, multi-seleção, categorização por arrastar e soltar e cálculo numérico!
+      </p>
+
+      <div style="display: inline-flex; gap: 20px; background: rgba(0,0,0,0.3); padding: 14px 28px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 24px;">
+        <div>
+          <div style="font-size: 11px; text-transform: uppercase; color: #9ca3af; font-weight: 800;">Pontuação Total</div>
+          <div style="font-size: 22px; color: #fde047; font-weight: 800;" id="final-points">800 XP</div>
+        </div>
+        <div style="border-right: 1px solid var(--border-color);"></div>
+        <div>
+          <div style="font-size: 11px; text-transform: uppercase; color: #9ca3af; font-weight: 800;">Status do Robô</div>
+          <div style="font-size: 22px; color: #00ffcc; font-weight: 800;">Aprovado 100%</div>
+        </div>
+      </div>
+
+      <div class="action-buttons" style="justify-content: center;">
+        <button class="btn-primary" id="btn-restart-quiz">Reiniciar Simulado Completo</button>
+      </div>
+    </article>
+
+  </main>
+
+  <script>
+    // ==========================================
+    // SISTEMA DE ÁUDIO WEB SYNTH (EFEITOS SONOROS)
+    // ==========================================
+    let audioCtx = null;
+    function getAudioContext() {
+      try {
+        if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      } catch {}
+      return audioCtx;
+    }
+
+    function playTone(freq, type, duration) {
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+      } catch {}
+    }
+
+    function soundCorrect() {
+      playTone(523.25, 'sine', 0.15); // C5
+      setTimeout(() => playTone(659.25, 'sine', 0.25), 120); // E5
+      setTimeout(() => playTone(783.99, 'sine', 0.35), 240); // G5
+    }
+
+    function soundError() {
+      playTone(220, 'sawtooth', 0.2);
+      setTimeout(() => playTone(196, 'sawtooth', 0.3), 150);
+    }
+
+    // ==========================================
+    // ESTADO GLOBAL DO SIMULADO
+    // ==========================================
+    let currentStep = 0;
+    let score = 0;
+    let streak = 0;
+    const TOTAL_STEPS = 8;
+
+    function updateStats(pointsEarned = 0, isCorrect = true) {
+      if (isCorrect && pointsEarned > 0) {
+        score += pointsEarned;
+        streak += 1;
+      } else if (!isCorrect) {
+        streak = 0;
+      }
+      document.getElementById('score-display').textContent = `${score} XP`;
+      document.getElementById('streak-display').textContent = `${streak}`;
+      document.getElementById('final-points').textContent = `${score} XP`;
+    }
+
+    function updateStepper() {
+      const stepItems = document.querySelectorAll('.step-item');
+      stepItems.forEach((item, idx) => {
+        const stepIndex = parseInt(item.getAttribute('data-step'), 10);
+        item.classList.remove('active', 'completed');
+        if (stepIndex < currentStep) {
+          item.classList.add('completed');
+        } else if (stepIndex === currentStep) {
+          item.classList.add('active');
+        }
+      });
+    }
+
+    function goToStep(stepIndex) {
+      for (let i = 0; i <= TOTAL_STEPS; i++) {
+        const card = document.getElementById(`task-step-${i}`);
+        if (card) card.style.display = (i === stepIndex) ? 'block' : 'none';
+      }
+      currentStep = stepIndex;
+      updateStepper();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ==========================================
+    // SINCRONIZAÇÃO E REALCE VISUAL DOS CARDS (RÁDIOS E CHECKBOXES)
+    // ==========================================
+    function syncOptionCards() {
+      document.querySelectorAll('.option-card input').forEach(input => {
+        const card = input.closest('.option-card');
+        if (!card) return;
+        card.classList.toggle('selected', input.checked);
+      });
+    }
+
+    document.querySelectorAll('.option-card input').forEach(input => {
+      input.addEventListener('change', syncOptionCards);
+      input.addEventListener('input', syncOptionCards);
+    });
+
+    document.querySelectorAll('.option-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        const radio = card.querySelector('input[type="radio"]');
+        if (radio && e.target !== radio) {
+          radio.checked = true;
+          radio.dispatchEvent(new Event('change', { bubbles: true }));
+          radio.dispatchEvent(new Event('input', { bubbles: true }));
+          syncOptionCards();
+        }
+        const chk = card.querySelector('input[type="checkbox"]');
+        if (chk && e.target !== chk) {
+          chk.checked = !chk.checked;
+          chk.dispatchEvent(new Event('change', { bubbles: true }));
+          chk.dispatchEvent(new Event('input', { bubbles: true }));
+          syncOptionCards();
+        }
+      });
+    });
+
+    // Observador contínuo para manter sincronia perfeita quando o EasyQuiz marca as opções
+    setInterval(syncOptionCards, 300);
+
+    // ==========================================
+    // ETAPA 1: AVANÇO DO ARTIGO TEÓRICO
+    // ==========================================
+    document.getElementById('btn-next-article').addEventListener('click', () => {
+      soundCorrect();
+      updateStats(100, true);
+      goToStep(1);
+    });
+
+    // ==========================================
+    // ETAPA 2: MÚLTIPLA ESCOLHA (TRIGONOMETRIA)
+    // ==========================================
+    const checkBtn1 = document.getElementById('btn-check-1');
+    const feedback1 = document.getElementById('feedback-step-1');
+
+    checkBtn1.addEventListener('click', () => {
+      if (checkBtn1.classList.contains('btn-advance')) {
+        goToStep(2);
+        return;
+      }
+
+      const selected = document.querySelector('input[name="trig-choice"]:checked');
+      if (!selected) {
+        feedback1.className = 'feedback-message error';
+        feedback1.textContent = 'Por favor, selecione uma alternativa antes de verificar.';
+        feedback1.style.display = 'flex';
+        soundError();
+        return;
+      }
+
+      if (selected.value === 'B') {
+        soundCorrect();
+        updateStats(100, true);
+        feedback1.className = 'feedback-message success';
+        feedback1.textContent = '✓ Excelente! No 2º quadrante, cos(120°) = -1/2 e sen(120°) = √3/2.';
+        feedback1.style.display = 'flex';
+        checkBtn1.textContent = 'Próxima Pergunta →';
+        checkBtn1.classList.add('btn-advance');
+        setTimeout(() => { if (currentStep === 1) goToStep(2); }, 1000);
+      } else {
+        soundError();
+        updateStats(0, false);
+        feedback1.className = 'feedback-message error';
+        feedback1.textContent = 'Atenção aos sinais: no 2º quadrante o cosseno é negativo e o seno é positivo!';
+        feedback1.style.display = 'flex';
+      }
+    });
+
+    // ==========================================
+    // ETAPA 3: GRADE 3X3 (MATRIZ)
+    // ==========================================
+    const checkBtn2 = document.getElementById('btn-check-2');
+    const feedback2 = document.getElementById('feedback-step-2');
+    // Gabarito da Matriz 3x3: m_ij = 2i - j
+    // L1: 1, 0, -1 | L2: 3, 2, 1 | L3: 5, 4, 3
+    const correctMatrix = {
+      'mat-1-1': '1', 'mat-1-2': '0', 'mat-1-3': '-1',
+      'mat-2-1': '3', 'mat-2-2': '2', 'mat-2-3': '1',
+      'mat-3-1': '5', 'mat-3-2': '4', 'mat-3-3': '3'
+    };
+
+    checkBtn2.addEventListener('click', () => {
+      if (checkBtn2.classList.contains('btn-advance')) {
+        goToStep(3);
+        return;
+      }
+
+      let allCorrect = true;
+      let filledCount = 0;
+
+      for (const [id, expectedVal] of Object.entries(correctMatrix)) {
+        const cell = document.getElementById(id);
+        const val = (cell.value || '').trim();
+        if (val !== '') filledCount++;
+        if (val !== expectedVal) {
+          allCorrect = false;
+        }
+      }
+
+      if (filledCount < 9) {
+        feedback2.className = 'feedback-message error';
+        feedback2.textContent = `Preencha todas as 9 células da matriz (${filledCount}/9 preenchidas).`;
+        feedback2.style.display = 'flex';
+        soundError();
+        return;
+      }
+
+      if (allCorrect) {
+        soundCorrect();
+        updateStats(100, true);
+        feedback2.className = 'feedback-message success';
+        feedback2.textContent = '✓ Perfeito! Todos os 9 elementos da matriz satisfazem m_ij = 2i - j.';
+        feedback2.style.display = 'flex';
+        checkBtn2.textContent = 'Próxima Pergunta →';
+        checkBtn2.classList.add('btn-advance');
+        setTimeout(() => { if (currentStep === 2) goToStep(3); }, 1000);
+      } else {
+        soundError();
+        updateStats(0, false);
+        feedback2.className = 'feedback-message error';
+        feedback2.textContent = 'Alguns valores estão incorretos. Lembre-se: i é a linha e j é a coluna!';
+        feedback2.style.display = 'flex';
+      }
+    });
+
+    // ==========================================
+    // ETAPA 4: SELEÇÃO EM LISTA (<SELECT>)
+    // ==========================================
+    const checkBtn3 = document.getElementById('btn-check-3');
+    const feedback3 = document.getElementById('feedback-step-3');
+
+    checkBtn3.addEventListener('click', () => {
+      if (checkBtn3.classList.contains('btn-advance')) {
+        goToStep(4);
+        return;
+      }
+
+      const vCil = document.getElementById('sel-vol-cilindro').value;
+      const vCone = document.getElementById('sel-vol-cone').value;
+      const vEsf = document.getElementById('sel-vol-esfera').value;
+
+      if (!vCil || !vCone || !vEsf) {
+        feedback3.className = 'feedback-message error';
+        feedback3.textContent = 'Por favor, selecione as fórmulas para os 3 sólidos.';
+        feedback3.style.display = 'flex';
+        soundError();
+        return;
+      }
+
+      if (vCil === 'pi_r2_h' && vCone === 'terco_pi_r2_h' && vEsf === 'quatro_tercos_pi_r3') {
+        soundCorrect();
+        updateStats(100, true);
+        feedback3.className = 'feedback-message success';
+        feedback3.textContent = '✓ Perfeito! Todas as fórmulas de volume foram corretamente associadas.';
+        feedback3.style.display = 'flex';
+        checkBtn3.textContent = 'Próxima Pergunta →';
+        checkBtn3.classList.add('btn-advance');
+        setTimeout(() => { if (currentStep === 3) goToStep(4); }, 1000);
+      } else {
+        soundError();
+        updateStats(0, false);
+        feedback3.className = 'feedback-message error';
+        feedback3.textContent = 'Há fórmulas incorretas. Cilindro: π·r²·h | Cone: (1/3)·π·r²·h | Esfera: (4/3)·π·r³.';
+        feedback3.style.display = 'flex';
+      }
+    });
+
+    // ==========================================
+    // ETAPA 5: MULTI-SELEÇÃO (CHECKBOXES)
+    // ==========================================
+    const checkBtn4 = document.getElementById('btn-check-4');
+    const feedback4 = document.getElementById('feedback-step-4');
+
+    checkBtn4.addEventListener('click', () => {
+      if (checkBtn4.classList.contains('btn-advance')) {
+        goToStep(5);
+        return;
+      }
+
+      const c1 = document.getElementById('chk-comb-1').checked;
+      const c2 = document.getElementById('chk-comb-2').checked;
+      const c3 = document.getElementById('chk-comb-3').checked;
+      const c4 = document.getElementById('chk-comb-4').checked;
+
+      // Verdadeiras: 1 e 3 | Falsas: 2 e 4
+      if (c1 && !c2 && c3 && !c4) {
+        soundCorrect();
+        updateStats(100, true);
+        feedback4.className = 'feedback-message success';
+        feedback4.textContent = '✓ Excelente! Itens 1 e 3 são verdadeiros; na combinação a ordem não importa e P(certo)=1.';
+        feedback4.style.display = 'flex';
+        checkBtn4.textContent = 'Próxima Pergunta →';
+        checkBtn4.classList.add('btn-advance');
+        setTimeout(() => { if (currentStep === 4) goToStep(5); }, 1000);
+      } else {
+        soundError();
+        updateStats(0, false);
+        feedback4.className = 'feedback-message error';
+        feedback4.textContent = 'Seleção incorreta. Releia os conceitos de permutação, combinação e probabilidade certa.';
+        feedback4.style.display = 'flex';
+      }
+    });
+
+    // ==========================================
+    // ETAPA 6: ARRASTAR E SOLTAR (PA VS PG)
+    // ==========================================
+    const dndCards = document.querySelectorAll('.dnd-card');
+    const dropzones = document.querySelectorAll('[data-dropzone]');
+    let draggedCard = null;
+    let selectedCard = null;
+
+    // HTML5 Drag Events
+    dndCards.forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        draggedCard = card;
+        e.dataTransfer.setData('text/plain', card.id);
+        card.style.opacity = '0.5';
+      });
+
+      card.addEventListener('dragend', () => {
+        card.style.opacity = '1';
+        draggedCard = null;
+      });
+
+      // Click to Select padrão
+      card.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (selectedCard === card) {
+          card.classList.remove('active-selected');
+          selectedCard = null;
+        } else {
+          dndCards.forEach(c => c.classList.remove('active-selected'));
+          card.classList.add('active-selected');
+          selectedCard = card;
+        }
+      });
+    });
+
+    dropzones.forEach(zone => {
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('dragover');
+      });
+
+      zone.addEventListener('dragleave', () => {
+        zone.classList.remove('dragover');
+      });
+
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        if (draggedCard) {
+          zone.appendChild(draggedCard);
+          updateDndCounts();
+        }
+      });
+
+      // Click to Place
+      zone.addEventListener('click', () => {
+        if (selectedCard) {
+          zone.appendChild(selectedCard);
+          selectedCard.classList.remove('active-selected');
+          selectedCard = null;
+          updateDndCounts();
+        }
+      });
+    });
+
+    function updateDndCounts() {
+      const paCards = document.querySelectorAll('#zone-pa .dnd-card').length;
+      const pgCards = document.querySelectorAll('#zone-pg .dnd-card').length;
+      document.getElementById('count-pa').textContent = String(paCards);
+      document.getElementById('count-pg').textContent = String(pgCards);
+    }
+
+    const checkBtn5 = document.getElementById('btn-check-5');
+    const feedback5 = document.getElementById('feedback-step-5');
+
+    checkBtn5.addEventListener('click', () => {
+      if (checkBtn5.classList.contains('btn-advance')) {
+        goToStep(6);
+        return;
+      }
+
+      const paItems = document.querySelectorAll('#zone-pa .dnd-card');
+      const pgItems = document.querySelectorAll('#zone-pg .dnd-card');
+      const poolItems = document.querySelectorAll('#dnd-pool .dnd-card');
+
+      if (poolItems.length > 0) {
+        feedback5.className = 'feedback-message error';
+        feedback5.textContent = `Ainda restam ${poolItems.length} sequências para classificar.`;
+        feedback5.style.display = 'flex';
+        soundError();
+        return;
+      }
+
+      let allCorrect = true;
+      paItems.forEach(item => { if (item.getAttribute('data-type') !== 'PA') allCorrect = false; });
+      pgItems.forEach(item => { if (item.getAttribute('data-type') !== 'PG') allCorrect = false; });
+
+      if (allCorrect) {
+        soundCorrect();
+        updateStats(100, true);
+        feedback5.className = 'feedback-message success';
+        feedback5.textContent = '✓ Fantástico! Todas as 6 sequências foram classificadas corretamente em PA e PG.';
+        feedback5.style.display = 'flex';
+        checkBtn5.textContent = 'Próxima Pergunta →';
+        checkBtn5.classList.add('btn-advance');
+        setTimeout(() => { if (currentStep === 5) goToStep(6); }, 1000);
+      } else {
+        soundError();
+        updateStats(0, false);
+        feedback5.className = 'feedback-message error';
+        feedback5.textContent = 'Alguma sequência está na categoria errada. Verifique se a razão é por soma (PA) ou produto (PG).';
+        feedback5.style.display = 'flex';
+      }
+    });
+
+    // ==========================================
+    // ETAPA 7: VERDADEIRO OU FALSO (SISTEMAS)
+    // ==========================================
+    const checkBtn6 = document.getElementById('btn-check-6');
+    const feedback6 = document.getElementById('feedback-step-6');
+
+    checkBtn6.addEventListener('click', () => {
+      if (checkBtn6.classList.contains('btn-advance')) {
+        goToStep(7);
+        return;
+      }
+
+      const r1 = document.querySelector('input[name="vf_row_1"]:checked');
+      const r2 = document.querySelector('input[name="vf_row_2"]:checked');
+      const r3 = document.querySelector('input[name="vf_row_3"]:checked');
+      const r4 = document.querySelector('input[name="vf_row_4"]:checked');
+
+      if (!r1 || !r2 || !r3 || !r4) {
+        feedback6.className = 'feedback-message error';
+        feedback6.textContent = 'Julgue todas as 4 afirmações antes de verificar.';
+        feedback6.style.display = 'flex';
+        soundError();
+        return;
+      }
+
+      // Gabarito: 1: V | 2: F (é Impossível) | 3: V | 4: F (multiplica por k apenas)
+      if (r1.value === 'V' && r2.value === 'F' && r3.value === 'V' && r4.value === 'F') {
+        soundCorrect();
+        updateStats(100, true);
+        feedback6.className = 'feedback-message success';
+        feedback6.textContent = '✓ Resposta 100% correta! (V - F - V - F).';
+        feedback6.style.display = 'flex';
+        checkBtn6.textContent = 'Próxima Pergunta →';
+        checkBtn6.classList.add('btn-advance');
+        setTimeout(() => { if (currentStep === 6) goToStep(7); }, 1000);
+      } else {
+        soundError();
+        updateStats(0, false);
+        feedback6.className = 'feedback-message error';
+        feedback6.textContent = 'Há julgamentos incorretos. Lembre-se: multiplicar 1 linha multiplica o det por k (não k³).';
+        feedback6.style.display = 'flex';
+      }
+    });
+
+    // ==========================================
+    // ETAPA 8: INPUT NORMAL (VOLUME NUMÉRICO)
+    // ==========================================
+    const checkBtn7 = document.getElementById('btn-check-7');
+    const feedback7 = document.getElementById('feedback-step-7');
+
+    checkBtn7.addEventListener('click', () => {
+      if (checkBtn7.classList.contains('btn-advance')) {
+        goToStep(8);
+        return;
+      }
+
+      const val = (document.getElementById('input-volume-cilindro').value || '').trim().replace(',', '.');
+      if (!val) {
+        feedback7.className = 'feedback-message error';
+        feedback7.textContent = 'Digite sua resposta numérica no campo acima.';
+        feedback7.style.display = 'flex';
+        soundError();
+        return;
+      }
+
+      // V = 3.14 * 3^2 * 10 = 3.14 * 9 * 10 = 282.6
+      const num = parseFloat(val);
+      if (Math.abs(num - 282.6) < 0.1) {
+        soundCorrect();
+        updateStats(100, true);
+        feedback7.className = 'feedback-message success';
+        feedback7.textContent = '✓ Exato! V = 3,14 × 9 × 10 = 282,6 m³. Resolução impecável!';
+        feedback7.style.display = 'flex';
+        checkBtn7.textContent = 'Ver Resultado Final →';
+        checkBtn7.classList.add('btn-advance');
+        setTimeout(() => { if (currentStep === 7) goToStep(8); }, 1000);
+      } else {
+        soundError();
+        updateStats(0, false);
+        feedback7.className = 'feedback-message error';
+        feedback7.textContent = 'Valor incorreto. Calcule: V = 3,14 · 3² · 10.';
+        feedback7.style.display = 'flex';
+      }
+    });
+
+    // ==========================================
+    // ETAPA FINAL: REINICIAR
+    // ==========================================
+    document.getElementById('btn-restart-quiz').addEventListener('click', () => {
+      location.reload();
+    });
+
+    // ==========================================
+    // INJETOR DO SCRIPT EASYQUIZ (Silencioso e sem alerts)
+    // ==========================================
+    const injectBtn = document.getElementById('btn-inject-script');
+
+    // Auto-oculta o botão da topbar se o EasyQuiz já estiver carregado
+    const checkEasyQuizActive = () => {
+      if (!injectBtn) return;
+      if (document.getElementById('easyquiz-shadow-root') || window.__easyquiz || window.__easyquiz_loaded) {
+        injectBtn.style.display = 'none';
+      }
+    };
+    setInterval(checkEasyQuizActive, 1000);
+    checkEasyQuizActive();
+
+    injectBtn.addEventListener('click', () => {
+      if (document.getElementById('easyquiz-shadow-root') || window.__easyquiz) {
+        if (window.__easyquiz) window.__easyquiz.toggle(true);
+        injectBtn.style.display = 'none';
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `/dist/easyquiz.js?t=${Date.now()}`;
+      script.onload = () => {
+        window.__easyquiz_loaded = true;
+        injectBtn.style.display = 'none';
+      };
+      script.onerror = () => {
+        const fallback = document.createElement('script');
+        fallback.src = `https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/easyquiz.js?t=${Date.now()}`;
+        document.head.appendChild(fallback);
+      };
+      document.head.appendChild(script);
+    });
+  </script>
+<div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

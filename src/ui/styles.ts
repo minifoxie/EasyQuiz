@@ -453,69 +453,90 @@ export const PANEL_STYLES = `
   .eq-resolver-cta-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0;
     margin: 0 0 16px;
     position: relative;
+    border: 1px solid rgba(160, 210, 255, 0.28);
+    background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(111, 168, 255, 0.06));
+    border-radius: 16px;
+    box-shadow: 0 18px 32px rgba(24, 29, 35, 0.45), inset 0 1px 0 rgba(255,255,255,0.1);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+    overflow: hidden;
+  }
+
+  .eq-resolver-cta-row:hover {
+    transform: translateY(-2px) scale(1.02);
+    border-color: rgba(175, 216, 255, 0.4);
+    box-shadow: 0 24px 42px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.18);
+  }
+
+  .eq-resolver-cta-row::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(from 0deg, transparent, transparent, transparent, #00ffcc, #38bdf8, transparent);
+    animation: eq-spin-gradient 2.5s linear infinite;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes eq-spin-gradient {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .eq-resolver-cta-row.is-running::before,
+  .eq-resolver-cta-row.status-busy::before {
+    opacity: 1;
+  }
+
+  /* Inner background to mask the spinning gradient, so it only shows on the border/edges */
+  .eq-resolver-cta-row::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+    background: rgba(17, 17, 17, 0.95);
+    border-radius: 14px;
+    z-index: 1;
+    transition: background 0.3s ease;
+  }
+  
+  .eq-resolver-cta-row:hover::after {
+    background: rgba(22, 22, 22, 0.95);
   }
 
   .eq-resolve-primary {
     flex: 1;
     min-height: 56px;
-    border: 1px solid rgba(160, 210, 255, 0.28);
-    background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(111, 168, 255, 0.06));
+    background: transparent;
+    border: none;
     color: #f4f7fb;
     font-weight: 900;
     font-size: 15px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    border-radius: 16px;
-    box-shadow: 0 18px 32px rgba(24, 29, 35, 0.45), inset 0 1px 0 rgba(255,255,255,0.1);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
     padding: 0 18px;
-    transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
+    z-index: 2;
+    position: relative;
+    outline: none;
   }
 
-  .eq-resolve-primary:hover {
-    transform: translateY(-1px) scale(1.01);
-    border-color: rgba(175, 216, 255, 0.4);
-    box-shadow: 0 20px 38px rgba(24, 29, 35, 0.5), inset 0 1px 0 rgba(255,255,255,0.18);
-  }
-
-  .eq-resolve-primary.is-running,
-  .eq-resolve-primary.danger,
-  .eq-resolve-primary.status-busy,
-  .eq-resolve-primary.status-error,
-  .eq-resolve-primary.status-warning,
-  .eq-resolve-primary.status-success,
-  .eq-resolve-primary.status-info {
-    background: rgba(255,255,255,0.1);
-    border-color: rgba(255,255,255,0.22);
-    color: #ffffff;
-    animation: eq-primary-live 1.8s ease-in-out infinite;
-  }
-
-  .eq-resolve-primary.status-success {
-    border-color: rgba(90, 216, 139, 0.5);
-    box-shadow: 0 0 0 4px rgba(90, 216, 139, 0.12), inset 0 1px 0 rgba(255,255,255,0.08);
-  }
-
-  .eq-resolve-primary.status-error {
-    border-color: rgba(255, 125, 125, 0.5);
-    box-shadow: 0 0 0 4px rgba(255, 125, 125, 0.12), inset 0 1px 0 rgba(255,255,255,0.08);
-  }
-
-  .eq-resolve-primary.status-warning {
-    border-color: rgba(255, 204, 92, 0.5);
-    box-shadow: 0 0 0 4px rgba(255, 204, 92, 0.12), inset 0 1px 0 rgba(255,255,255,0.08);
-  }
-
-  .eq-resolve-primary.status-info {
-    border-color: rgba(140, 184, 255, 0.4);
-    box-shadow: 0 0 0 4px rgba(140, 184, 255, 0.08), inset 0 1px 0 rgba(255,255,255,0.08);
+  .eq-resolver-cta-row.is-running .eq-resolve-primary,
+  .eq-resolver-cta-row.status-busy .eq-resolve-primary {
+    color: #00ffcc;
   }
 
   .eq-btn-icon, .eq-menu-icon {
@@ -526,6 +547,11 @@ export const PANEL_STYLES = `
     height: 18px;
     flex-shrink: 0;
     filter: brightness(1.8) drop-shadow(0 0 10px rgba(160, 210, 255, 0.9));
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .eq-resolve-primary:hover .eq-btn-icon {
+    transform: scale(1.15) rotate(-5deg);
   }
 
   .eq-btn-label {
@@ -533,62 +559,61 @@ export const PANEL_STYLES = `
     white-space: nowrap;
   }
 
-  @keyframes eq-primary-live {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 200, 87, 0.15); }
-    50% { box-shadow: 0 0 0 5px rgba(239, 200, 87, 0.12); }
-  }
-
   .eq-resolve-menu-shell {
     position: relative;
     display: flex;
     align-items: center;
+    z-index: 2;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .eq-resolve-menu {
     width: 52px;
     min-width: 52px;
-    height: 52px;
-    border-radius: 14px;
-    border: 1px solid rgba(255,255,255,0.12);
-    background: rgba(255,255,255,0.04);
+    height: 56px;
+    background: transparent;
+    border: none;
     color: #edf3ff;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
-    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.2s ease, background 0.2s ease;
+    outline: none;
   }
 
   .eq-resolve-menu:hover,
   .eq-resolve-menu.is-open {
-    transform: translateY(-1px);
-    border-color: rgba(255,255,255,0.2);
-    background: rgba(255,255,255,0.07);
-    box-shadow: 0 10px 24px rgba(0,0,0,0.25);
+    background: rgba(255,255,255,0.08);
+  }
+
+  .eq-resolve-menu:hover .eq-btn-icon {
+    transform: scale(1.1);
   }
 
   .eq-resolver-context-menu {
     position: absolute;
-    top: calc(100% + 10px);
+    top: calc(100% + 14px);
     right: 0;
-    min-width: 220px;
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.05);
+    min-width: 240px;
+    background: rgba(15, 15, 15, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 14px;
-    box-shadow: none;
-    padding: 8px 0 0;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+    padding: 8px 0;
     z-index: 30;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    animation: eq-menu-appear 0.18s ease-out;
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    animation: eq-menu-appear 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform-origin: top right;
+    opacity: 0;
   }
 
   @keyframes eq-menu-appear {
-    0% { opacity: 0; transform: translateY(-8px) scale(0.98); }
+    0% { opacity: 0; transform: translateY(-12px) scale(0.9); }
     100% { opacity: 1; transform: translateY(0) scale(1); }
   }
 
