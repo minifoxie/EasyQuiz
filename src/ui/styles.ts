@@ -964,12 +964,9 @@ export const PANEL_STYLES = `
   /* Área Scrollável das Visualizações */
   .eq-views-wrapper {
     flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 16px;
+    overflow: hidden; /* não scrolla o wrapper — o pane interno é que scrolla */
     display: flex;
     flex-direction: column;
-    gap: 16px;
     background: var(--eq-bg);
   }
 
@@ -987,12 +984,22 @@ export const PANEL_STYLES = `
     background: var(--eq-border);
   }
 
+  /* cada pane preenche 100% do wrapper e tem scroll próprio */
   .eq-view-pane {
+    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    /* No animation here — let tab switch be instant; pane > * animate once on load */
+    padding: 16px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
   }
+
+  /* scrollbar fina no pane (mesmo estilo do wrapper antigo) */
+  .eq-view-pane::-webkit-scrollbar { width: 3px; }
+  .eq-view-pane::-webkit-scrollbar-track { background: transparent; }
+  .eq-view-pane::-webkit-scrollbar-thumb { background: var(--eq-surface-hover); border-radius: 2px; }
 
 
 
@@ -1600,15 +1607,12 @@ export const PANEL_STYLES = `
     flex-direction: column;
     padding: 0 !important;
     gap: 0 !important;
-    overflow: hidden;
+    overflow: hidden !important;
     min-height: 0;
-    /* flex:1 handled when display:flex is set by switchTab */
   }
 
   /* Brain pane fills the entire wrapper when active */
   .eq-views-wrapper.is-brain-active {
-    padding: 0 !important;
-    gap: 0 !important;
     overflow: hidden !important;
   }
 
