@@ -78,22 +78,23 @@ const injectorPanel = `
       'https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/' + baseName
     ];
     let currentIdx = 0;
-    const script = document.createElement('script');
     
     const loadNext = () => {
       if (currentIdx >= tryPaths.length) {
         showToast('Erro: Não foi possível carregar ' + baseName);
         return;
       }
+      const script = document.createElement('script');
       script.src = tryPaths[currentIdx];
+      
+      script.onload = () => showToast('Injetado: ' + baseName);
+      script.onerror = () => {
+        document.body.removeChild(script);
+        currentIdx++;
+        loadNext();
+      };
+      
       document.body.appendChild(script);
-    };
-
-    script.onload = () => showToast('Injetado: ' + baseName);
-    script.onerror = () => {
-      document.body.removeChild(script);
-      currentIdx++;
-      loadNext();
     };
 
     loadNext();
@@ -113,6 +114,9 @@ const injectorPanel = `
   }
 </script>
 `;
+
+// Remove existing injector panels to prevent duplication
+playgroundHtml = playgroundHtml.replace(/<div class="mega-container glass"[\s\S]*?<\/script>/g, '');
 
 playgroundHtml = playgroundHtml.replace(/<main class="quiz-main".*?>/, (match) => injectorPanel + '\n' + match);
 
