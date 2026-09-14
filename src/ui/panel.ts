@@ -251,9 +251,9 @@ export class EasyQuizPanel {
       <style>${PANEL_STYLES}</style>
 
       <!-- Launcher mínimo: apenas o controle para abrir/recolher o painel. -->
-      <button class="eq-launcher" type="button" title="Abrir / Recolher painel EasyQuiz ${BUILD_VERSION} (Alt+Q)" aria-label="Abrir ou esconder painel EasyQuiz">
-        <span class="eq-launcher-icon"><img src="${ICONS.canvasLogo}" alt="" /></span>
-        <span class="eq-launcher-dot" id="eq-launcher-dot"></span>
+      <button class="eq-launcher" type="button" title="Abrir / Recolher painel EasyQuiz (Alt+Q)" aria-label="Abrir ou esconder painel EasyQuiz">
+        <span class="eq-launcher-icon">${ICONS.chevronRight}</span>
+        <span class="eq-launcher-dot" id="eq-launcher-dot" aria-hidden="true"></span>
       </button>
 
       <!-- Sidebar Fixa Lateral Direita Estilo VS Code -->
@@ -261,19 +261,18 @@ export class EasyQuizPanel {
         <!-- Aba Retrátil na Borda Esquerda -->
         <button class="eq-dock-toggle" id="eq-dock-toggle" type="button" title="Recolher / Expandir Painel (Alt+Q)">
           <span class="eq-dock-toggle-icon">${ICONS.chevronRight}</span>
-          <span class="eq-dock-toggle-label">EQ</span>
         </button>
            <!-- Activity Bar Vertical na Esquerda (Estilo VS Code - Apenas Ícones) -->
           <nav class="eq-activity-bar" role="tablist" aria-label="Atalhos">
             <div class="eq-activity-top">
               <button class="eq-activity-btn active" id="eq-tab-resolver" role="tab" title="Resolver (Operações Atuais)">
                 <span class="eq-activity-indicator"></span>
-                <span class="eq-activity-icon">${ICONS.rocket}</span>
+                <span class="eq-activity-icon">${ICONS.sparkles}</span>
               </button>
 
               <button class="eq-activity-btn" id="eq-tab-brain" role="tab" title="Cérebro da IA (Contexto e Inspeção)">
                 <span class="eq-activity-indicator"></span>
-                <span class="eq-activity-icon">${ICONS.chip}</span>
+                <span class="eq-activity-icon">${ICONS.inspector}</span>
               </button>
 
               <button class="eq-activity-btn" id="eq-tab-media" role="tab" title="Mídias & Imagens (Capturas enviadas à IA e Interpretações)">
@@ -283,12 +282,12 @@ export class EasyQuizPanel {
 
               <button class="eq-activity-btn" id="eq-tab-metrics" role="tab" title="Métricas & Cronômetro (Tempo por Questão e Histórico)">
                 <span class="eq-activity-indicator"></span>
-                <span class="eq-activity-icon">${ICONS.stopwatch}</span>
+                <span class="eq-activity-icon">${ICONS.clock}</span>
               </button>
 
               <button class="eq-activity-btn" id="eq-tab-debug" role="tab" title="Terminal & Debug Output (Logs, Tokens, Prompts, Erros)">
                 <span class="eq-activity-indicator"></span>
-                <span class="eq-activity-icon">${ICONS.terminal}</span>
+                <span class="eq-activity-icon">${ICONS.code}</span>
               </button>
             </div>
 

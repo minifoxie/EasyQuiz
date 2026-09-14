@@ -17,8 +17,9 @@ export const PANEL_STYLES = `
     --eq-text:           #bdbdbd;
     --eq-text-bright:    #ffffff;
     --eq-muted:          #777777;
-    --eq-accent:         #fbbf24;
-    --eq-accent-hover:   #f59e0b;
+    --eq-accent:         #ffffff;
+    --eq-accent-hover:   #e5e5e5;
+    --eq-icon-accent:    #fbbf24;
     --eq-success:        #4ade80;
     --eq-warning:        #fbbf24;
     --eq-danger:         #f87171;
@@ -28,6 +29,11 @@ export const PANEL_STYLES = `
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    border-radius: 0 !important;
+  }
+
+  :host, :host * {
+    border-radius: 0 !important;
   }
 
   /* ===== ABA RETRÁTIL LATERAL ESQUERDA (DOCK TOGGLE) ===== */
@@ -42,8 +48,8 @@ export const PANEL_STYLES = `
     background: var(--eq-surface);
     border: 1px solid var(--eq-border);
     border-right: none;
-    border-radius: 8px 0 0 8px;
-    color: var(--eq-accent);
+    border-radius: 0;
+    color: var(--eq-text-bright);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -88,9 +94,9 @@ export const PANEL_STYLES = `
     height: 44px;
     padding: 0;
     justify-content: center;
-    background: rgba(17,17,17,0.82);
+    background: rgba(17,17,17,0.92);
     border: 1px solid var(--eq-border);
-    border-radius: 50%;
+    border-radius: 0;
     color: var(--eq-text-bright);
     display: flex;
     align-items: center;
@@ -121,7 +127,7 @@ export const PANEL_STYLES = `
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--eq-accent);
+    color: var(--eq-icon-accent);
   }
 
   .eq-launcher-icon img {
@@ -129,6 +135,13 @@ export const PANEL_STYLES = `
     height: 24px;
     object-fit: contain;
     filter: sepia(1) saturate(5) hue-rotate(355deg) brightness(1.2);
+  }
+
+  .eq-launcher-icon svg,
+  .eq-dock-toggle-icon svg {
+    width: 22px;
+    height: 22px;
+    color: var(--eq-icon-accent);
   }
 
   .eq-launcher-dot {
@@ -306,10 +319,10 @@ export const PANEL_STYLES = `
     flex: 0 0 30px;
     overflow: hidden;
     border: 1px solid rgba(251,191,36,0.55);
-    background: rgba(251,191,36,0.08);
-    padding: 4px;
-    border-radius: 8px;
-    color: var(--eq-accent);
+    background: transparent;
+    padding: 2px;
+    border: 0;
+    color: var(--eq-icon-accent);
     display: flex;
     align-items: center;
   }
@@ -319,6 +332,42 @@ export const PANEL_STYLES = `
     height: 100%;
     object-fit: contain;
     filter: sepia(1) saturate(5) hue-rotate(355deg) brightness(1.2);
+  }
+
+  #eq-view-resolver {
+    background: #ffffff;
+    color: #050505;
+    padding: 18px;
+    border: 1px solid #ffffff;
+    box-shadow: 0 18px 45px rgba(0,0,0,0.28);
+  }
+
+  #eq-view-resolver .eq-eyebrow,
+  #eq-view-resolver .eq-operation-subtitle,
+  #eq-view-resolver .eq-section-title,
+  #eq-view-resolver .eq-operation-state {
+    color: #555555;
+  }
+
+  #eq-view-resolver .eq-operation-title {
+    color: #050505;
+  }
+
+  #eq-view-resolver .eq-operation-state {
+    border-color: #050505;
+  }
+
+  #eq-view-resolver .eq-btn-primary,
+  #eq-view-resolver .eq-btn-secondary {
+    background: #050505;
+    border-color: #050505;
+    color: #ffffff;
+  }
+
+  #eq-view-resolver .eq-btn-primary:hover,
+  #eq-view-resolver .eq-btn-secondary:hover {
+    background: #303030;
+    border-color: #303030;
   }
 
   .eq-brand-name {
@@ -556,7 +605,7 @@ export const PANEL_STYLES = `
     align-items: center;
     justify-content: center;
     width: 16px;
-    color: var(--eq-accent);
+    color: var(--eq-text-bright);
     background: transparent;
   }
 
@@ -838,7 +887,7 @@ export const PANEL_STYLES = `
   /* ===== BOTÕES DE AÇÃO ===== */
   .eq-btn-primary {
     height: 38px;
-    background: var(--eq-accent);
+    background: #050505;
     border: none;
     border-radius: 4px;
     color: #fff;
@@ -855,7 +904,7 @@ export const PANEL_STYLES = `
   }
 
   .eq-btn-primary:hover {
-    background: var(--eq-accent-hover);
+    background: #252525;
     filter: brightness(1.08);
   }
 
@@ -880,10 +929,10 @@ export const PANEL_STYLES = `
 
   .eq-btn-secondary {
     height: 34px;
-    background: var(--eq-surface-raised);
-    border: 1px solid var(--eq-border);
+    background: #050505;
+    border: 1px solid #050505;
     border-radius: 4px;
-    color: var(--eq-text);
+    color: #fff;
     font-family: inherit;
     font-size: 12px;
     font-weight: 600;
@@ -896,9 +945,9 @@ export const PANEL_STYLES = `
   }
 
   .eq-btn-secondary:hover {
-    background: var(--eq-surface-hover);
-    border-color: var(--eq-muted);
-    color: var(--eq-text-bright);
+    background: #252525;
+    border-color: #252525;
+    color: #fff;
   }
 
   .eq-btn-secondary:disabled {
