@@ -994,18 +994,7 @@ export const PANEL_STYLES = `
     /* No animation here — let tab switch be instant; pane > * animate once on load */
   }
 
-  @keyframes eq-view-fade {
-    0% { opacity: 0; transform: translateY(4px); }
-    100% { opacity: 1; transform: translateY(0); }
-  }
 
-  .eq-views-wrapper > * {
-    animation: eq-view-fade 0.35s cubic-bezier(0.16,1,0.3,1) both;
-  }
-
-  .eq-views-wrapper > *:nth-child(2) { animation-delay: 0.04s; }
-  .eq-views-wrapper > *:nth-child(3) { animation-delay: 0.08s; }
-  .eq-views-wrapper > *:nth-child(4) { animation-delay: 0.12s; }
 
   /* ===== SEÇÕES E COMPONENTES ===== */
   /* Section headers estilo Discord Channel Categories */
@@ -1626,6 +1615,7 @@ export const PANEL_STYLES = `
   .eq-views-wrapper.is-brain-active > .eq-brain-pane {
     flex: 1;
     height: 100%;
+    display: flex !important;
   }
 
   .eq-brain-toolbar {
