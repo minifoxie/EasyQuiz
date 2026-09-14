@@ -24,6 +24,11 @@ jobs:
           curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/commits?per_page=100" > docs/commits.json
 
+      - name: Bust static asset URLs
+        run: |
+          VERSION="${GITHUB_SHA::7}"
+          sed -i -E "s/([?&]v=)[^\"'& ]+/\1${VERSION}/g" docs/index.html
+
       - name: Publish docs to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
