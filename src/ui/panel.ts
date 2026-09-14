@@ -1209,11 +1209,12 @@ export class EasyQuizPanel {
     const resultToggle = this.shadow.querySelector('#eq-result-toggle') as HTMLButtonElement | null
     const resultBody = this.shadow.querySelector('#eq-result-body') as HTMLElement | null
     if (resultToggle && resultBody) {
-      resultBody.style.display = 'block'
-      resultToggle.classList.add('is-open')
+      // Start collapsed — CSS transition handles the animation
+      resultBody.classList.add('is-collapsed')
+      resultToggle.classList.remove('is-open')
       resultToggle.addEventListener('click', () => {
         const isOpen = resultToggle.classList.toggle('is-open')
-        resultBody.style.display = isOpen ? 'block' : 'none'
+        resultBody.classList.toggle('is-collapsed', !isOpen)
       })
     }
 
