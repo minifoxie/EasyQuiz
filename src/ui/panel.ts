@@ -165,7 +165,7 @@ export class EasyQuizPanel {
   private inspPrompt: HTMLElement
   private inspRationale: HTMLElement
   private inspActions: HTMLElement
-  private copyPromptBtn: HTMLButtonElement
+  private copyPromptBtn: HTMLButtonElement | null = null
 
   // Form Controls
   private apiKeyInput: HTMLInputElement
@@ -817,7 +817,7 @@ export class EasyQuizPanel {
     this.inspPrompt = this.shadow.querySelector('#eq-insp-prompt') as HTMLElement
     this.inspRationale = this.shadow.querySelector('#eq-insp-rationale') as HTMLElement
     this.inspActions = this.shadow.querySelector('#eq-insp-actions') as HTMLElement
-    this.copyPromptBtn = this.shadow.querySelector('#eq-copy-prompt-btn') as HTMLButtonElement
+    this.copyPromptBtn = this.shadow.querySelector('#eq-copy-prompt-btn') as HTMLButtonElement | null
 
     // Elementos da Aba Debug & Terminal
     this.liveDebugTerminal = this.shadow.querySelector('#eq-live-debug-terminal') as HTMLElement
@@ -1197,8 +1197,8 @@ export class EasyQuizPanel {
     }
 
     // Botão Adicionar Nova Chave
-    const saveKeyBtn = this.shadow.querySelector('#eq-key-save') as HTMLButtonElement
-    saveKeyBtn.addEventListener('click', () => {
+    const saveKeyBtn = this.shadow.querySelector('#eq-key-save') as HTMLButtonElement | null
+    saveKeyBtn?.addEventListener('click', () => {
       const cleanVal = this.apiKeyInput.value.trim().replace(/^["']|["']$/g, '')
       if (!cleanVal) {
         this.setStatus('Insira o valor da chave antes de adicionar.', 'warning')
@@ -1745,6 +1745,7 @@ export class EasyQuizPanel {
     this.copyPromptBtn?.addEventListener('click', () => {
       const text = this.inspPrompt.textContent || ''
       navigator.clipboard.writeText(text).then(() => {
+        if (!this.copyPromptBtn) return
         const prev = this.copyPromptBtn.innerHTML
         this.copyPromptBtn.innerHTML = `${ICONS.check} Copiado!`
         setTimeout(() => (this.copyPromptBtn.innerHTML = prev), 2000)
