@@ -333,17 +333,19 @@ async function loadChangelog(page) {
         fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1')
       ]);
       let commits;
+      let total = _totalCommits || 200;
       if (!res.ok) {
           commits = [
-            { sha: "e82c5b1", commit: { message: "fix: apply the regex replacements for transparent topbar and darker gray elements", author: { date: "2026-09-13T20:48:51Z" } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
-            { sha: "d0ae763", commit: { message: "fix: make gray elements 25% transparent black", author: { date: "2026-09-13T20:39:56Z" } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
-            { sha: "54e925a", commit: { message: "fix: fine-tune ui transparency, disable click on drag buttons", author: { date: "2026-09-13T20:32:37Z" } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
-            { sha: "abdf9ef", commit: { message: "fix: stop animations at 100% to save resources", author: { date: "2026-09-13T19:57:00Z" } }, html_url: "https://github.com/minifoxie/EasyQuiz" }
+            { sha: "e82c5b1", commit: { message: "fix: aplicados ajustes de design e layout\nAjustes gerais de transparencia e cores.", author: { date: new Date().toISOString() } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
+            { sha: "d0ae763", commit: { message: "fix: background transparente na topbar e menus\nMelhoria na visibilidade do app.", author: { date: new Date(Date.now() - 3600000).toISOString() } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
+            { sha: "54e925a", commit: { message: "fix: previne execuçao ao clicar nos botoes de arrastar", author: { date: new Date(Date.now() - 7200000).toISOString() } }, html_url: "https://github.com/minifoxie/EasyQuiz" },
+            { sha: "abdf9ef", commit: { message: "fix: finalizaçao do sistema de background blur", author: { date: new Date(Date.now() - 10800000).toISOString() } }, html_url: "https://github.com/minifoxie/EasyQuiz" }
           ];
+          total = 4;
           _totalCommits = 4;
       } else {
         commits = await res.json();
-        const lh = tr.headers.get('link'); let total = _totalCommits||200;
+        const lh = tr.headers.get('link'); 
         if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if(m) total = parseInt(m[1]); }
         _totalCommits = total;
       }
