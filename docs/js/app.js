@@ -304,7 +304,7 @@ async function fetchLatestCommit() {
       const r = await fetch('commits.json?t='+Date.now());
       if (r.ok) {
         d = await r.json();
-        total = d.length;
+        total = d.length; try { const mr = await fetch('meta.json?t='+Date.now()); if(mr.ok) { const meta = await mr.json(); total = meta.total || d.length; } } catch(e){}
       }
     } catch(e) {}
     
@@ -342,7 +342,7 @@ async function loadChangelog(page) {
       const r = await fetch('commits.json?t='+Date.now());
       if (r.ok) {
         const allCommits = await r.json();
-        total = allCommits.length;
+        total = allCommits.length; try { const mr = await fetch('meta.json?t='+Date.now()); if(mr.ok) { const meta = await mr.json(); total = meta.total || allCommits.length; } } catch(e){}
         _totalCommits = total;
         // Paginate local array
         const start = (page - 1) * 20;

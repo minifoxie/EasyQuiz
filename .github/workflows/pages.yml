@@ -20,13 +20,15 @@ jobs:
       - name: Fetch Commits for Static API
         run: |
           # Fetch the last 100 commits to completely bypass the browser API rate limit
+          TOTAL=$(git rev-list --count HEAD)
+          echo "{\"total\": $TOTAL}" > docs/meta.json
           curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/commits?per_page=100" > docs/commits.json
           
           # Add the generated file locally so it gets included in the subtree push
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/commits.json
+          git add docs/commits.json docs/meta.json
           git commit -m "Auto-generate static commits API [skip ci]" || echo "No changes to commit"
 
       - name: Deploy docs/ to gh-pages branch
