@@ -1,6 +1,7 @@
 import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
+import { createBookmarklets } from './bookmarklets.mjs'
 
 const root = process.cwd()
 const dist = path.join(root, 'dist')
@@ -98,21 +99,14 @@ const discreteRaw = await readFile(path.join(dist, 'discrete.js'), 'utf-8')
 const discreteClean = discreteRaw.replace(/^\/\*[\s\S]*?\*\/\s*/, '')
 const discreteBookmarkletCode = `javascript:(function(){${discreteClean}})();void 0`
 
-// Bookmarklets Resilientes com jsDelivr CDN Primário e Proteção Total contra Erro 503/HTML
-const githubRepo = 'minifoxie/EasyQuiz'
-const cdnBase = `https://cdn.jsdelivr.net/gh/${githubRepo}@${gitHash}/dist`
-const fastlyBase = `https://fastly.jsdelivr.net/gh/${githubRepo}@${gitHash}/dist`
-const rawBase = `https://raw.githubusercontent.com/${githubRepo}/main/dist`
-
-// 1. jsDelivr CDN Direto (RECOMENDADO — Ultra-Curto, Alta Disponibilidade e 100% Imune a Erros 503 do GitHub)
-const legacyJsdelivr = `javascript:(function(){fetch('${cdnBase}/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();`
-
-const discreteJsdelivr = `javascript:(function(){fetch('${cdnBase}/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();`
-
-// 2. Multi-CDN com Auto-Failover Silencioso (jsDelivr -> Fastly jsDelivr -> GitHub Raw sem alarmes 503)
-const legacyMultiCdn = `javascript:(function(){function L(f){var v='?v='+Date.now();return fetch('${cdnBase}/'+f+v,{cache:'no-store'}).then(function(r){if(!r.ok)throw 1;return r.text()}).catch(function(){return fetch('${fastlyBase}/'+f+v,{cache:'no-store'}).then(function(r){if(!r.ok)throw 2;return r.text()})}).catch(function(){return fetch('${rawBase}/'+f+v,{cache:'no-store'}).then(function(r){if(!r.ok)throw 3;return r.text()})}).then(function(t){if(!t||t.trim().charAt(0)==='<')throw new Error('Código indisponível');return t})}L('easyquiz.js').then(function(c){try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz erro: '+e)}}).catch(function(e){alert('EasyQuiz falha no download: '+e)})})();`
-
-const discreteMultiCdn = `javascript:(function(){function L(f){var v='?v='+Date.now();return fetch('${cdnBase}/'+f+v,{cache:'no-store'}).then(function(r){if(!r.ok)throw 1;return r.text()}).catch(function(){return fetch('${fastlyBase}/'+f+v,{cache:'no-store'}).then(function(r){if(!r.ok)throw 2;return r.text()})}).catch(function(){return fetch('${rawBase}/'+f+v,{cache:'no-store'}).then(function(r){if(!r.ok)throw 3;return r.text()})}).then(function(t){if(!t||t.trim().charAt(0)==='<')throw new Error('Código indisponível');return t})}L('discrete.js').then(function(c){try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();`
+// Fonte única dos bookmarklets usados pelo site, README e artefatos de distribuição.
+const bookmarklets = createBookmarklets('latest')
+const githubRepo = bookmarklets.repo
+const legacyJsdelivr = bookmarklets.legacy
+const discreteJsdelivr = bookmarklets.discrete
+const legacyMultiCdn = bookmarklets.legacyFallback
+const discreteMultiCdn = bookmarklets.discreteFallback
+await writeFile(path.join(root, 'docs', 'bookmarklets.json'), JSON.stringify(bookmarklets, null, 2) + '\n', 'utf-8')
 
 // Deleta arquivos .txt antigos e redundantes
 for (const oldTxt of ['bookmarklet_legacy.txt', 'bookmarklet_discrete.txt', 'bookmarklet_discrete_legacy.txt']) {
@@ -343,6 +337,12 @@ const bundleSize = Buffer.byteLength(bundleContent, 'utf-8')
 try {
   let readme = await readFile(path.join(root, 'README.md'), 'utf-8');
   readme = readme.replace(/<span style="color:#00e5ff; font-family:monospace; font-size:0.7em;">v.*?<\/span>/g, `<span style="color:#00e5ff; font-family:monospace; font-size:0.7em;">${versionLabel}</span>`);
+  const updateBookmarkletSection = (source, mode, code) => source.replace(
+    new RegExp(`<!-- BOOKMARKLET:${mode}:START -->[\\s\\S]*?<!-- BOOKMARKLET:${mode}:END -->`),
+    `<!-- BOOKMARKLET:${mode}:START -->\n\`\`\`javascript\n${code}\n\`\`\`\n<!-- BOOKMARKLET:${mode}:END -->`
+  );
+  readme = updateBookmarkletSection(readme, 'DISCRETE', bookmarklets.discrete);
+  readme = updateBookmarkletSection(readme, 'LEGACY', bookmarklets.legacy);
   await writeFile(path.join(root, 'README.md'), readme);
   console.log(`[EasyQuiz] README.md atualizado com a versão ${versionLabel}`);
 

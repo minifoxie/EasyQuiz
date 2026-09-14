@@ -312,6 +312,28 @@ function initCodeButtons() {
   initDropdown('codeMenuBtnLegacy','codeMenuLegacy');
 }
 
+async function loadCanonicalBookmarklets() {
+  try {
+    const response = await fetchNoCache('bookmarklets.json');
+    if (!response.ok) return;
+    const bookmarklets = await response.json();
+    const entries = [
+      ['discrete', bookmarklets.discrete],
+      ['legacy', bookmarklets.legacy]
+    ];
+    entries.forEach(([mode, code]) => {
+      if (!code) return;
+      const data = document.getElementById(`code-${mode}-data`);
+      if (data) data.textContent = code;
+      const link = document.getElementById(`bm-${mode}`);
+      if (link) link.setAttribute('href', code);
+      const menuId = mode === 'discrete' ? 'codeMenuDiscrete' : 'codeMenuLegacy';
+      const menu = document.getElementById(menuId);
+      menu?.querySelector('.code-menu-body') && (menu.querySelector('.code-menu-body').textContent = code);
+    });
+  } catch (_) {}
+}
+
 function initHints() {
   document.querySelectorAll('.hint-btn').forEach(btn => { btn.onclick = e => { e.stopPropagation(); openOverlay(btn.dataset.hint); if(window.lucide) lucide.createIcons(); }; });
   document.querySelectorAll('.hint-close').forEach(btn => { btn.onclick = closeOverlay; });
@@ -499,6 +521,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initDropdown('navModeBtn','navModeMenu');
   initMobileMenu();
   initCodeButtons(); initHints();
+  loadCanonicalBookmarklets();
   document.querySelectorAll('.nav-links > .nav-btn').forEach(b => { b.onclick = e => { e.preventDefault(); switchTab(b.dataset.target); }; });
   document.getElementById('prev-page').onclick = () => loadChangelog(_curPage-1);
   document.getElementById('next-page').onclick = () => loadChangelog(_curPage+1);

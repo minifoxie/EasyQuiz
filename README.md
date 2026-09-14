@@ -17,6 +17,12 @@ Para acessar o painel interativo, tutoriais visuais e a maneira mais fácil de i
 
 Lá você encontra a documentação visual completa, atualizações recentes e configuração dos módulos.
 
+### Onde ficam os códigos de instalação?
+
+Os bookmarklets não devem ser editados diretamente no README ou no HTML. A fonte canônica fica em `scripts/bookmarklets.mjs`. O build gera `docs/bookmarklets.json`, atualiza os botões das páginas dos modos e substitui os blocos marcados deste README. O workflow do GitHub Pages também regenera esse arquivo antes de publicar.
+
+Assim, uma alteração no endereço CDN, no fallback ou na limpeza de uma instância é aplicada aos modos Discreto e Legacy em todos os pontos de distribuição. Depois de modificar a fonte, execute `npm run build` e publique o commit.
+
 ---
 
 ## 🚀 O que é o EasyQuiz?
@@ -44,6 +50,13 @@ O projeto possui duas modalidades de uso adaptáveis às suas necessidades:
 1. Entre no **[Site Oficial](https://minifoxie.github.io/EasyQuiz/)**.
 2. Escolha o modo de sua preferência e arraste o botão **"EQ Discret"** ou **"EQ Legacy"** para a sua Barra de Favoritos (`Ctrl + Shift + B` para exibi-la).
 3. Abra a página do quiz que deseja resolver, clique no favorito para injetar o motor, e utilize os atalhos abaixo.
+
+### Qual modo escolher?
+
+- **Discreto:** recomendado quando você quer apenas atalhos e indicadores mínimos. Use `Shift + A` para cadastrar as chaves e `Shift + Q` para analisar a questão atual.
+- **Legacy:** recomendado para inspeção e controle visual. Use `Alt + Q` para abrir o painel, configure as chaves na aba de configurações e acompanhe logs, métricas e mídia.
+
+O bookmarklet apenas carrega o bundle publicado; as chaves da API ficam salvas localmente no navegador e não são enviadas para este site estático.
 
 ### 🔑 Configurando sua Chave API
 O cérebro do EasyQuiz roda via Google Gemini, o que requer uma API Key (gratuita e configurada em 1 minuto).
@@ -76,17 +89,21 @@ Se preferir não usar o site para arrastar o botão, crie um novo favorito no se
 <details>
 <summary><strong>Código Modo Discreto</strong></summary>
 
+<!-- BOOKMARKLET:DISCRETE:START -->
 ```javascript
-javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@latest/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Indisponível');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EQ: '+e)}}).catch(function(e){alert('EQ falha: '+e)})})();
+javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@latest/dist/discrete.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__eqdiscrete&&typeof window.__eqdiscrete.destroy==='function'){window.__eqdiscrete.destroy()}(0,eval)(c)}catch(e){alert('EasyQuiz Discreto erro: '+e)}}).catch(function(e){alert('EasyQuiz Discreto falha no download: '+e)})})();
 ```
+<!-- BOOKMARKLET:DISCRETE:END -->
 </details>
 
 <details>
 <summary><strong>Código Modo Legacy</strong></summary>
 
+<!-- BOOKMARKLET:LEGACY:START -->
 ```javascript
-javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@latest/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Indisponível');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EQ: '+e)}}).catch(function(e){alert('EQ falha: '+e)})})();
+javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@latest/dist/easyquiz.js?v='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(c){if(!c||c.trim().charAt(0)==='<')throw new Error('Código indisponível');try{if(window.__easyquiz&&typeof window.__easyquiz.destroy==='function'){window.__easyquiz.destroy()}var h=document.getElementById('easyquiz-shadow-root');if(h)h.remove();(0,eval)(c)}catch(e){alert('EasyQuiz Legacy erro: '+e)}}).catch(function(e){alert('EasyQuiz Legacy falha no download: '+e)})})();
 ```
+<!-- BOOKMARKLET:LEGACY:END -->
 </details>
 
 ---
@@ -95,3 +112,13 @@ javascript:(function(){fetch('https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@lat
 
 Distribuído sob a Licença MIT. Uso livre para fins educacionais e experimentais.
 Desenvolvido e potencializado por **Google Gemini**, **Claude**, e **Antigravity**.
+
+## 🧰 Desenvolvimento e diagnóstico
+
+```bash
+npm install
+npm run typecheck
+npm run build
+```
+
+O site é uma página estática serverless publicada pelo GitHub Pages. O workflow gera `commits.json`, `meta.json` e `bookmarklets.json`, aplica cache busting com o SHA do commit e publica a pasta `docs`. Se uma versão antiga aparecer, confira primeiro a execução do workflow e aguarde a propagação do CDN; os assets publicados recebem uma URL nova a cada deploy.

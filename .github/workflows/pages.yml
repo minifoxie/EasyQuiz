@@ -24,6 +24,9 @@ jobs:
           curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/commits?per_page=100" > docs/commits.json
 
+      - name: Generate canonical bookmarklets
+        run: node scripts/generate-bookmarklets.mjs
+
       - name: Bust static asset URLs
         run: |
           VERSION="${GITHUB_SHA::7}"
