@@ -235,26 +235,26 @@ export const PANEL_STYLES = `
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #ffffff;
-    border: 1px solid rgba(15,15,15,0.08);
-    border-radius: 0;
-    color: var(--eq-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    color: rgba(255,255,255,0.72);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
     box-shadow: none;
   }
 
   .eq-activity-btn:hover {
-    color: #111111;
-    background: #f5f5f5;
-    border-color: rgba(15,15,15,0.12);
+    color: #ffffff;
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.08);
     transform: translateX(2px);
   }
 
   .eq-activity-btn.active {
     color: #111111;
     background: #ffffff;
-    border-color: rgba(15,15,15,0.12);
+    border-color: rgba(255,255,255,0.25);
     box-shadow: none;
     animation: eq-activity-in 0.35s cubic-bezier(0.16,1,0.3,1);
   }
@@ -334,10 +334,9 @@ export const PANEL_STYLES = `
     height: 30px;
     flex: 0 0 30px;
     overflow: hidden;
-    border: 1px solid rgba(251,191,36,0.55);
+    border: none;
     background: transparent;
-    padding: 2px;
-    border: 0;
+    padding: 0;
     color: var(--eq-icon-accent);
     display: flex;
     align-items: center;
@@ -347,15 +346,17 @@ export const PANEL_STYLES = `
     width: 100%;
     height: 100%;
     object-fit: contain;
-    filter: sepia(1) saturate(5) hue-rotate(355deg) brightness(1.2);
+    filter: none;
+    opacity: 1;
   }
 
   #eq-view-resolver {
-    background: #ffffff;
-    color: #111111;
+    background: rgba(16, 18, 22, 0.9);
+    color: #f4f7fb;
     padding: 18px;
-    border: 1px solid rgba(15,15,15,0.06);
-    box-shadow: none;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
     animation: eq-resolver-entry 0.35s cubic-bezier(0.16,1,0.3,1);
   }
 
@@ -385,8 +386,8 @@ export const PANEL_STYLES = `
     justify-content: center;
     width: 78px;
     height: 78px;
-    background: rgba(247,201,77,0.08);
-    border: 1px solid rgba(247,201,77,0.28);
+    background: transparent;
+    border: none;
     box-shadow: none;
     flex-shrink: 0;
   }
@@ -395,7 +396,8 @@ export const PANEL_STYLES = `
     width: 52px;
     height: 52px;
     object-fit: contain;
-    filter: sepia(1) saturate(4) hue-rotate(340deg) brightness(1.35);
+    filter: none;
+    opacity: 0.96;
   }
 
   .eq-brand-copy {
@@ -403,7 +405,7 @@ export const PANEL_STYLES = `
   }
 
   .eq-brand-title {
-    color: #111111;
+    color: #f4f7fb;
     font-size: 28px;
     font-weight: 900;
     line-height: 1;
@@ -412,7 +414,7 @@ export const PANEL_STYLES = `
 
   .eq-brand-subline {
     margin-top: 7px;
-    color: rgba(17,17,17,0.66);
+    color: rgba(223, 231, 243, 0.7);
     font-size: 11px;
     font-weight: 800;
     letter-spacing: 0.12em;
@@ -448,43 +450,6 @@ export const PANEL_STYLES = `
     transform: translateY(-1px);
   }
 
-  .eq-resolver-menu {
-    position: relative;
-    width: 100%;
-    background: rgba(255,255,255,0.96);
-    border: 1px solid rgba(15,15,15,0.08);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.06);
-    backdrop-filter: blur(14px) saturate(130%);
-    -webkit-backdrop-filter: blur(14px) saturate(130%);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 6px;
-    z-index: 40;
-    margin-top: -6px;
-  }
-
-  .eq-resolver-menu[hidden] { display: none !important; }
-
-  .eq-menu-action {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #111111;
-    background: transparent;
-    border: 0;
-    padding: 9px 10px;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-    transition: background 0.2s ease;
-  }
-
-  .eq-menu-action:hover {
-    background: rgba(247,201,77,0.12);
-  }
-
   .eq-resolver-cta-row {
     display: flex;
     align-items: center;
@@ -495,29 +460,31 @@ export const PANEL_STYLES = `
   .eq-resolve-primary {
     flex: 1;
     min-height: 52px;
-    border: 1px solid #efc857;
-    background: #ffffff;
-    color: #111111;
-    font-weight: 900;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    color: #f4f7fb;
+    font-weight: 800;
     font-size: 14px;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    box-shadow: none;
+    border-radius: 14px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
     cursor: pointer;
-    transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease, color 0.22s ease, box-shadow 0.22s ease;
   }
 
   .eq-resolve-primary:hover {
     transform: translateY(-1px);
-    background: #fffaf0;
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.18);
   }
 
   .eq-resolve-primary.is-running,
   .eq-resolve-primary.danger {
-    background: #efc857;
-    border-color: #dba91d;
-    color: #111111;
-    animation: eq-primary-live 1.6s ease-in-out infinite;
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.22);
+    color: #ffffff;
+    animation: eq-primary-live 1.8s ease-in-out infinite;
   }
 
   @keyframes eq-primary-live {
@@ -525,38 +492,14 @@ export const PANEL_STYLES = `
     50% { box-shadow: 0 0 0 5px rgba(239, 200, 87, 0.12); }
   }
 
-  .eq-resolve-secondary {
-    width: 42px;
-    height: 42px;
-    border: 1px solid rgba(15,15,15,0.12);
-    background: transparent;
-    color: #111111;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .eq-resolve-secondary:hover {
-    background: #f5f5f5;
-    border-color: rgba(15,15,15,0.2);
-  }
-
-  .eq-resolve-secondary.danger {
-    background: #efc857;
-    border-color: #dba91d;
-    color: #111111;
-  }
-
   .eq-status-card-resolver {
-    background: transparent;
-    border: 1px solid rgba(15,15,15,0.08);
-    box-shadow: none;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    padding: 12px 0 0;
-    border-radius: 0;
+    padding: 12px 12px 0;
+    border-radius: 14px;
     transition: all 0.2s ease;
   }
 
@@ -577,9 +520,9 @@ export const PANEL_STYLES = `
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #111111;
+    color: #edf3ff;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     font-size: 11px;
   }
@@ -587,14 +530,16 @@ export const PANEL_STYLES = `
   .eq-status-dot {
     width: 8px;
     height: 8px;
+    border-radius: 999px;
     background: #5ad88b;
     display: inline-block;
+    box-shadow: 0 0 0 4px rgba(90,216,139,0.12);
   }
 
   .eq-status-summary {
     margin-top: 10px;
     font-size: 13px;
-    color: rgba(17,17,17,0.8);
+    color: rgba(234,240,248,0.82);
     line-height: 1.5;
   }
 
@@ -610,28 +555,30 @@ export const PANEL_STYLES = `
     flex-direction: column;
     gap: 4px;
     padding: 8px 10px;
-    background: #f5f5f5;
-    border: 1px solid rgba(15,15,15,0.08);
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
   }
 
   .eq-status-item strong {
     font-size: 9px;
-    color: rgba(17,17,17,0.6);
+    color: rgba(234,240,248,0.6);
     text-transform: uppercase;
     letter-spacing: 0.08em;
    }
 
   .eq-status-item em {
     font-style: normal;
-    color: #111111;
+    color: #ffffff;
     font-size: 12px;
     font-weight: 700;
   }
 
   #eq-view-resolver .eq-operation-state {
-    border-color: rgba(15,15,15,0.12);
-    background: transparent;
-    color: #111111;
+    border-color: rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.03);
+    color: #edf3ff;
+    border-radius: 999px;
   }
 
   #eq-view-resolver .eq-operation-state.is-success { color: #baf7cf; }

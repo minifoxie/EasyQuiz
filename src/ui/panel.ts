@@ -342,14 +342,7 @@ export class EasyQuizPanel {
                 </div>
 
                 <div class="eq-resolver-cta-row">
-                  <button class="eq-resolve-primary" id="eq-analyze-btn" type="button">${ICONS.play} Iniciar Leitura</button>
-                  <button class="eq-resolve-secondary" id="eq-ap-toggle-btn" type="button" title="Autopilot">${ICONS.play}</button>
-                  <button class="eq-more-btn eq-more-btn-inline" id="eq-resolver-menu-btn" type="button" title="Mais ações" aria-label="Abrir menu de ações">${ICONS.moreVertical}</button>
-                </div>
-
-                <div class="eq-resolver-menu" id="eq-resolver-menu" hidden>
-                  <button type="button" class="eq-menu-action" data-action="analyze">${ICONS.analyze} Analisar página</button>
-                  <button type="button" class="eq-menu-action" data-action="inject">${ICONS.apply} Injetar resposta</button>
+                  <button class="eq-resolve-primary" id="eq-analyze-btn" type="button">${ICONS.play} Iniciar Auto-Resposta</button>
                 </div>
 
                 <div class="eq-status-card eq-status-card-resolver is-collapsed" id="eq-status-card" aria-expanded="false">
@@ -381,22 +374,6 @@ export class EasyQuizPanel {
                     <div class="eq-execution-list" id="eq-execution-list"></div>
                   </div>
                   <button class="eq-btn-secondary" id="eq-open-hud-btn" type="button">${ICONS.list} Abrir respostas disponíveis</button>
-                </div>
-
-                <!-- Status & Stopwatch Card -->
-                <div class="eq-status-card">
-                  <div class="eq-status-card-header">
-                    <div class="eq-ai-indicator">
-                      <span class="eq-dot-pulse" id="eq-dot-ap"></span>
-                      <span>Status da IA</span>
-                    </div>
-                    <div class="eq-stopwatch" id="eq-stopwatch-ap">
-                      ${ICONS.clock} <span>0.00s</span>
-                    </div>
-                  </div>
-                  <div class="eq-status-text" id="eq-status-text-ap">
-                    Pronto para iniciar. O Autopilot responderá e avançará as questões de forma automática.
-                  </div>
                 </div>
 
                 <!-- Console Terminal Oculto (Apenas para Autopilot Interno) -->
@@ -815,7 +792,7 @@ export class EasyQuizPanel {
 
     // Status & Stopwatch
     this.dotPulseAp = this.shadow.querySelector('#eq-dot-ap') as HTMLElement
-    this.statusTextAp = this.shadow.querySelector('#eq-status-text-ap') as HTMLElement
+    this.statusTextAp = (this.shadow.querySelector('#eq-status-text-ap') as HTMLElement | null) || (this.shadow.querySelector('#eq-status-summary') as HTMLElement | null) || this.dotPulseAp
     this.stopwatchAp = this.shadow.querySelector('#eq-stopwatch-ap span') as HTMLElement
     // Note: Adv elements have been removed/merged, we assign them to AP elements to avoid breaking code logic
     this.dotPulseAdv = this.dotPulseAp
@@ -986,33 +963,6 @@ export class EasyQuizPanel {
     this.shadow.querySelector('#eq-tab-metrics')?.addEventListener('click', () => this.switchTab('metrics'))
     this.shadow.querySelector('#eq-tab-debug')?.addEventListener('click', () => this.switchTab('debug'))
     this.shadow.querySelector('#eq-tab-settings')?.addEventListener('click', () => this.switchTab('settings'))
-
-    const resolverMenuBtn = this.shadow.querySelector('#eq-resolver-menu-btn') as HTMLButtonElement | null
-    const resolverMenu = this.shadow.querySelector('#eq-resolver-menu') as HTMLElement | null
-    resolverMenuBtn?.addEventListener('click', (event) => {
-      event.stopPropagation()
-      if (!resolverMenu) return
-      resolverMenu.hidden = !resolverMenu.hidden
-    })
-
-    this.shadow.addEventListener('click', (event) => {
-      const target = event.target as HTMLElement
-      if (!target.closest('#eq-resolver-menu') && !target.closest('#eq-resolver-menu-btn')) {
-        resolverMenu?.setAttribute('hidden', 'true')
-      }
-    })
-
-    resolverMenu?.querySelectorAll('[data-action]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const action = (button as HTMLElement).dataset.action
-        if (action === 'analyze') {
-          void this.callbacks.onAnalyze(1)
-        } else if (action === 'inject') {
-          this.callbacks.onApply(1)
-        }
-        resolverMenu.hidden = true
-      })
-    })
 
     const statusCard = this.shadow.querySelector('#eq-status-card') as HTMLElement | null
     statusCard?.addEventListener('click', () => {
@@ -1755,16 +1705,38 @@ export class EasyQuizPanel {
       this.applyHostDarkMode(v)
     })
 
-    this.analyzeBtn.addEventListener('click', async () => {
+    this.analyzeBtn?.addEventListener('click', async () => {
+      if (this.autopilot.isActive()) {
+        this.autopilot.stop()
+        this.callbacks.onCancel?.()
+        this.setProgress(0)
+        this.updateAutopilotUi(false)
+        this.setInterrupted('Auto-Resposta interrompida imediatamente pelo usuário.')
+        return
+      }
+
       if (this.isBusy) {
         this.callbacks.onCancel?.()
         this.setInterrupted('Análise cancelada pelo usuário. Pronto para nova tentativa.')
         return
       }
-      const plan = await this.callbacks.onAnalyze()
-      if (plan && !this.dryRunCheckbox.checked && !this.autoApplyCheckbox.checked) {
-        this.callbacks.onApply()
+
+      const key = this.apiKeyInput.value.trim().replace(/^['"]|['"]$/g, '')
+      if (!key) {
+        this.setStatus('Configure sua chave de API Gemini na aba Configurações antes de iniciar a Auto-Resposta.', 'error')
+        this.switchTab('settings')
+        this.apiKeyInput.focus()
+        return
       }
+
+      this.callbacks.onSettingsChange({ autoApply: true, autoAdvance: true })
+      this.autoApplyCheckbox.checked = true
+      this.autoAdvanceCheckbox.checked = true
+      resetSessionBlacklist()
+      this.autopilot.start()
+      this.updateAutopilotUi(true)
+      this.startStopwatch()
+      this.setStatus('Auto-Resposta ativa. Monitorando exercícios...', 'info')
     })
     if (this.applyBtn) {
       this.applyBtn.addEventListener('click', () => this.callbacks.onApply())
@@ -2332,14 +2304,17 @@ export class EasyQuizPanel {
   }
 
   public updateAutopilotUi(active: boolean): void {
-    if (active) {
-      this.apToggleBtn.innerHTML = `${ICONS.stop} PARAR AUTOPILOT`
-      this.apToggleBtn.classList.add('danger')
-      this.apToggleBtn.title = 'Interromper execução contínua do Autopilot'
-    } else {
-      this.apToggleBtn.innerHTML = `${ICONS.play} INICIAR AUTOPILOT`
-      this.apToggleBtn.classList.remove('danger')
-      this.apToggleBtn.title = 'Iniciar resolução automática contínua de questões'
+    const primary = this.analyzeBtn
+    if (primary) {
+      primary.classList.toggle('is-running', active)
+      primary.innerHTML = `${active ? ICONS.stop : ICONS.play} ${active ? 'Parar Auto-Resposta' : 'Iniciar Auto-Resposta'}`
+      primary.title = active ? 'Interromper a Auto-Resposta ativa' : 'Iniciar Auto-Resposta automática'
+      primary.classList.toggle('danger', active)
+    }
+    if (this.apToggleBtn) {
+      this.apToggleBtn.innerHTML = `${active ? ICONS.stop : ICONS.play} ${active ? 'Parar Auto-Resposta' : 'Iniciar Auto-Resposta'}`
+      this.apToggleBtn.classList.toggle('danger', active)
+      this.apToggleBtn.title = active ? 'Interromper a Auto-Resposta ativa' : 'Iniciar Auto-Resposta automática'
     }
   }
 
@@ -2425,8 +2400,10 @@ export class EasyQuizPanel {
   }
 
   public setStatus(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info'): void {
-    this.statusTextAp.textContent = message
-    this.statusTextAdv.textContent = message
+    const summaryEl = this.shadow.querySelector('#eq-status-summary') as HTMLElement | null
+    if (summaryEl) summaryEl.textContent = message
+    if (this.statusTextAp) this.statusTextAp.textContent = message
+    if (this.statusTextAdv) this.statusTextAdv.textContent = message
 
     if (type === 'error') {
       this.setOperationState('Bloqueado', 'error')
