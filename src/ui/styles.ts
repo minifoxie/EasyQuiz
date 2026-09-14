@@ -1604,7 +1604,7 @@ export const PANEL_STYLES = `
 
 
   /* ══════════════════════════════════════════
-     VS CODE BRAIN EXPLORER
+     VS CODE BRAIN EXPLORER — v2
   ══════════════════════════════════════════ */
 
   .eq-brain-pane {
@@ -1622,41 +1622,43 @@ export const PANEL_STYLES = `
     padding: 5px 8px;
     border-bottom: 1px solid rgba(255,255,255,0.06);
     flex-shrink: 0;
-    min-height: 32px;
+    min-height: 34px;
   }
 
   .eq-brain-toolbar-title {
-    font-size: 9.5px;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.1em;
-    color: rgba(234,240,248,0.45);
+    color: rgba(234,240,248,0.4);
     text-transform: uppercase;
   }
 
   .eq-brain-toolbar-actions { display: flex; gap: 2px; }
 
+  /* Horizontal layout */
   .eq-brain-layout {
     display: flex;
+    flex-direction: row;
     flex: 1;
     min-height: 0;
     overflow: hidden;
   }
 
-  /* ── FILE TREE ── */
+  /* FILE TREE */
   .eq-brain-explorer {
-    width: 168px;
-    min-width: 120px;
+    width: 180px;
+    min-width: 150px;
     flex-shrink: 0;
     border-right: 1px solid rgba(255,255,255,0.06);
     overflow-y: auto;
     overflow-x: hidden;
     padding: 4px 0;
-    background: rgba(0,0,0,0.1);
+    background: rgba(0,0,0,0.12);
   }
 
   .eq-brain-empty-tree {
-    padding: 10px 10px;
-    font-size: 11px;
+    padding: 12px 10px;
+    font-size: 11.5px;
     color: rgba(234,240,248,0.3);
     font-style: italic;
   }
@@ -1665,10 +1667,10 @@ export const PANEL_STYLES = `
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 6px;
+    padding: 4px 7px;
     cursor: pointer;
-    font-size: 12px;
-    color: rgba(234,240,248,0.75);
+    font-size: 12.5px;
+    color: rgba(234,240,248,0.78);
     user-select: none;
     transition: background 0.1s;
     white-space: nowrap;
@@ -1676,15 +1678,25 @@ export const PANEL_STYLES = `
   }
 
   .eq-tree-folder:hover { background: rgba(255,255,255,0.06); }
+  .eq-tree-folder.is-folder-sel { background: rgba(255,255,255,0.08); }
 
   .eq-tree-arrow {
-    font-size: 9px;
-    width: 10px;
+    width: 14px;
     flex-shrink: 0;
-    color: rgba(234,240,248,0.45);
+    display: inline-flex;
+    align-items: center;
+    color: rgba(234,240,248,0.4);
   }
 
-  .eq-tree-folder-icon { font-size: 12px; flex-shrink: 0; }
+  .eq-tree-ficon {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: rgba(234,240,248,0.6);
+    width: 16px;
+  }
+
+  .eq-tree-ficon svg { display: block; }
 
   .eq-tree-children { overflow: hidden; }
 
@@ -1692,32 +1704,28 @@ export const PANEL_STYLES = `
     display: flex;
     align-items: center;
     gap: 5px;
-    padding: 3px 6px 3px 22px;
+    padding: 3px 7px 3px 26px;
     cursor: pointer;
-    font-size: 11.5px;
-    color: rgba(234,240,248,0.6);
+    font-size: 12px;
+    color: rgba(234,240,248,0.58);
     user-select: none;
     transition: background 0.1s, color 0.1s;
     white-space: nowrap;
     overflow: hidden;
   }
 
-  .eq-tree-file:hover {
-    background: rgba(255,255,255,0.05);
-    color: rgba(234,240,248,0.88);
-  }
+  .eq-tree-file:hover { background: rgba(255,255,255,0.05); color: rgba(234,240,248,0.9); }
 
   .eq-tree-file.is-selected {
-    background: rgba(66,133,244,0.15);
+    background: rgba(66,133,244,0.18);
     color: #b9d4ff;
     border-left: 2px solid #4285F4;
-    padding-left: 20px;
+    padding-left: 24px;
   }
 
-  .eq-tree-file-icon { font-size: 11px; flex-shrink: 0; }
-  .eq-tree-label { overflow: hidden; text-overflow: ellipsis; }
+  .eq-tree-label { overflow: hidden; text-overflow: ellipsis; flex: 1; }
 
-  /* ── TAB CANVAS ── */
+  /* TAB CANVAS */
   .eq-brain-canvas {
     flex: 1;
     display: flex;
@@ -1734,11 +1742,15 @@ export const PANEL_STYLES = `
     overflow-x: auto;
     overflow-y: hidden;
     flex-shrink: 0;
-    min-height: 28px;
-    scrollbar-width: none;
+    min-height: 32px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.15) transparent;
   }
 
-  .eq-brain-tabbar::-webkit-scrollbar { display: none; }
+  .eq-brain-tabbar::-webkit-scrollbar { height: 3px; }
+  .eq-brain-tabbar::-webkit-scrollbar-track { background: transparent; }
+  .eq-brain-tabbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 2px; }
+  .eq-brain-tabbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.32); }
 
   .eq-brain-tab {
     display: flex;
@@ -1747,21 +1759,29 @@ export const PANEL_STYLES = `
     padding: 0 10px;
     border-right: 1px solid rgba(255,255,255,0.05);
     cursor: pointer;
-    font-size: 11px;
+    font-size: 11.5px;
     color: rgba(234,240,248,0.45);
     white-space: nowrap;
     user-select: none;
     transition: background 0.12s, color 0.12s;
-    min-width: 70px;
-    max-width: 130px;
+    min-width: 90px;
+    max-width: 150px;
+    flex-shrink: 0;
   }
 
-  .eq-brain-tab:hover { background: rgba(255,255,255,0.04); color: rgba(234,240,248,0.8); }
+  .eq-brain-tab:hover { background: rgba(255,255,255,0.04); color: rgba(234,240,248,0.82); }
 
   .eq-brain-tab.is-active {
-    background: rgba(255,255,255,0.06);
-    color: rgba(234,240,248,0.95);
+    background: rgba(255,255,255,0.07);
+    color: rgba(234,240,248,0.96);
     border-bottom: 2px solid #4285F4;
+  }
+
+  .eq-brain-tab-icon {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    opacity: 0.5;
   }
 
   .eq-brain-tab-label { overflow: hidden; text-overflow: ellipsis; flex: 1; }
@@ -1770,7 +1790,8 @@ export const PANEL_STYLES = `
     background: none;
     border: none;
     color: inherit;
-    font-size: 9px;
+    display: inline-flex;
+    align-items: center;
     padding: 0 2px;
     cursor: pointer;
     opacity: 0;
@@ -1795,44 +1816,69 @@ export const PANEL_STYLES = `
     justify-content: center;
     height: 100%;
     min-height: 80px;
-    gap: 5px;
-    color: rgba(234,240,248,0.25);
-    font-size: 11.5px;
+    gap: 6px;
+    color: rgba(234,240,248,0.22);
+    font-size: 12px;
     text-align: center;
   }
 
-  .eq-brain-empty-icon { font-size: 26px; margin-bottom: 2px; }
-  .eq-brain-empty-sub { font-size: 10px; color: rgba(234,240,248,0.18); }
+  .eq-brain-empty-icon { margin-bottom: 4px; }
+  .eq-brain-empty-sub { font-size: 10px; color: rgba(234,240,248,0.16); }
 
-  .eq-brain-file-view {
+  .eq-folder-view { padding: 10px; }
+
+  .eq-folder-view-header {
     display: flex;
-    flex-direction: column;
-    height: 100%;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: rgba(234,240,248,0.72);
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 6px;
   }
+
+  .eq-folder-view-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: rgba(234,240,248,0.62);
+    transition: background 0.1s, color 0.1s;
+    user-select: none;
+  }
+
+  .eq-folder-view-row:hover { background: rgba(255,255,255,0.06); color: rgba(234,240,248,0.9); }
+
+  .eq-brain-file-view { display: flex; flex-direction: column; height: 100%; }
 
   .eq-brain-file-header {
     display: flex;
     align-items: center;
-    padding: 3px 10px;
+    padding: 4px 12px;
     border-bottom: 1px solid rgba(255,255,255,0.05);
     background: rgba(0,0,0,0.08);
     flex-shrink: 0;
   }
 
   .eq-brain-file-lang {
-    font-size: 9px;
+    font-size: 9.5px;
     font-weight: 700;
-    color: rgba(234,240,248,0.3);
+    color: rgba(234,240,248,0.28);
     text-transform: uppercase;
     letter-spacing: 0.08em;
   }
 
   .eq-brain-code {
     margin: 0;
-    padding: 10px 12px;
+    padding: 12px 14px;
     font-family: 'JetBrains Mono', Consolas, monospace;
-    font-size: 11.5px;
-    line-height: 1.6;
+    font-size: 12px;
+    line-height: 1.65;
     color: rgba(220,235,255,0.88);
     overflow: auto;
     white-space: pre-wrap;
@@ -1842,7 +1888,6 @@ export const PANEL_STYLES = `
     border: none;
     tab-size: 2;
   }
-
 
   /* ===== BARRA DE FERRAMENTAS DO TERMINAL & DEBUG ===== */
   .eq-debug-toolbar {

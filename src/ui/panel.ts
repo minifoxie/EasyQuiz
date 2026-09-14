@@ -2679,76 +2679,65 @@ export class EasyQuizPanel {
     this.renderBrainExplorer()
   }
 
-  // ── VS Code Brain Explorer State ──────────────────────────────
+  // ── Brain Explorer State ────────────────────────────────────────
   private brainOpenTabs: { id: string; label: string }[] = []
-  private brainActiveTab: string | null = null
+  private brainActiveTab:     string | null = null
+  private brainSelectedFolder: string | null = null
   private brainOpenFolders: Set<string> = new Set(['folder-ia', 'folder-ctx', 'folder-meta'])
+
+  private getBrainFolders() {
+    const plan = this.latestPlan
+    type BrainFile   = { id: string; label: string; icon: string }
+    type BrainFolder = { id: string; label: string; files: BrainFile[] }
+
+    const F: BrainFolder[] = [
+      { id: 'folder-ia',  label: 'Resposta da IA',     files: [
+          { id: 'rationale',  label: 'rationale.md',    icon: 'file'     },
+          { id: 'actions',    label: 'actions.json',    icon: 'code'     },
+          { id: 'summary',    label: 'resumo.txt',      icon: 'list'     },
+        ] },
+      { id: 'folder-ctx', label: 'Contexto & Prompt',  files: [
+          { id: 'prompt',     label: 'prompt-enviado.txt', icon: 'file'  },
+          { id: 'rag',        label: 'rag-context.txt',    icon: 'chip'  },
+        ] },
+      { id: 'folder-meta', label: 'Metadados',          files: [
+          { id: 'meta-model',   label: 'modelo.info',   icon: 'sparkles' },
+          { id: 'meta-latency', label: 'latencia.info', icon: 'clock'    },
+          { id: 'meta-tokens',  label: 'tokens.info',   icon: 'info'     },
+        ] },
+    ]
+
+    if ((plan as any)?.executionResult) {
+      F.push({ id: 'folder-exec', label: 'Execução', files: [
+        { id: 'exec-steps',  label: 'steps.log',     icon: 'list' },
+        { id: 'exec-result', label: 'resultado.log', icon: 'file' },
+      ] })
+    }
+    return F
+  }
 
   private renderBrainExplorer(): void {
     const explorerEl = this.shadow.querySelector('#eq-brain-explorer') as HTMLElement | null
     if (!explorerEl) return
 
-    const plan = this.latestPlan
-
-    type BrainFile = { id: string; label: string; ext: string }
-    type BrainFolder = { id: string; label: string; files: BrainFile[] }
-
-    const folders: BrainFolder[] = [
-      {
-        id: 'folder-ia',
-        label: 'Resposta da IA',
-        files: [
-          { id: 'rationale', label: 'rationale.md', ext: 'md' },
-          { id: 'actions', label: 'actions.json', ext: 'json' },
-          { id: 'summary', label: 'resumo.txt', ext: 'txt' },
-        ],
-      },
-      {
-        id: 'folder-ctx',
-        label: 'Contexto & Prompt',
-        files: [
-          { id: 'prompt', label: 'prompt-enviado.txt', ext: 'txt' },
-          { id: 'rag', label: 'rag-context.txt', ext: 'txt' },
-        ],
-      },
-      {
-        id: 'folder-meta',
-        label: 'Metadados',
-        files: [
-          { id: 'meta-model', label: 'modelo.info', ext: 'info' },
-          { id: 'meta-latency', label: 'latencia.info', ext: 'info' },
-          { id: 'meta-tokens', label: 'tokens.info', ext: 'info' },
-        ],
-      },
-    ]
-
-    if ((plan as any)?.executionResult) {
-      folders.push({
-        id: 'folder-exec',
-        label: 'Execução',
-        files: [
-          { id: 'exec-steps', label: 'steps.log', ext: 'log' },
-          { id: 'exec-result', label: 'resultado.log', ext: 'log' },
-        ],
-      })
-    }
-
-    const FILE_ICONS: Record<string, string> = {
-      md: '📝', json: '⚙️', txt: '📄', info: 'ℹ️', log: '📋',
-    }
-
     explorerEl.innerHTML = ''
 
-    for (const folder of folders) {
-      const isOpen = this.brainOpenFolders.has(folder.id)
+    for (const folder of this.getBrainFolders()) {
+      const isOpen     = this.brainOpenFolders.has(folder.id)
+      const isFolderSel = this.brainSelectedFolder === folder.id
 
       const folderRow = document.createElement('div')
-      folderRow.className = 'eq-tree-folder' + (isOpen ? ' is-open' : '')
-      folderRow.innerHTML = `<span class="eq-tree-arrow">${isOpen ? '▾' : '▸'}</span><span class="eq-tree-folder-icon">📁</span><span class="eq-tree-label">${folder.label}</span>`
-      folderRow.addEventListener('click', () => {
+      folderRow.className = 'eq-tree-folder' + (isOpen ? ' is-open' : '') + (isFolderSel ? ' is-folder-sel' : '')
+      folderRow.innerHTML = `<span class="eq-tree-arrow">${isOpen ? ICONS.chevronDown : ICONS.chevronRight}</span><span class="eq-tree-ficon">${ICONS.folder}</span><span class="eq-tree-label">${folder.label}</span>`
+      folderRow.addEventListener('click', (e) => {
+        e.stopPropagation()
         if (this.brainOpenFolders.has(folder.id)) this.brainOpenFolders.delete(folder.id)
         else this.brainOpenFolders.add(folder.id)
+        this.brainSelectedFolder = folder.id
+        this.brainActiveTab = null
+        this.showFolderContent(folder)
         this.renderBrainExplorer()
+        this.renderBrainTabs()
       })
       explorerEl.appendChild(folderRow)
 
@@ -2758,13 +2747,37 @@ export class EasyQuizPanel {
         for (const file of folder.files) {
           const fileRow = document.createElement('div')
           fileRow.className = 'eq-tree-file' + (this.brainActiveTab === file.id ? ' is-selected' : '')
-          fileRow.innerHTML = `<span class="eq-tree-file-icon">${FILE_ICONS[file.ext] || '📄'}</span><span class="eq-tree-label">${file.label}</span>`
-          fileRow.addEventListener('click', () => this.openBrainFile(file.id, file.label))
+          fileRow.innerHTML = `<span class="eq-tree-ficon">${(ICONS as any)[file.icon] || ICONS.file}</span><span class="eq-tree-label">${file.label}</span>`
+          fileRow.addEventListener('click', (e) => {
+            e.stopPropagation()
+            this.brainSelectedFolder = null
+            this.openBrainFile(file.id, file.label)
+          })
           wrap.appendChild(fileRow)
         }
         explorerEl.appendChild(wrap)
       }
     }
+  }
+
+  private showFolderContent(folder: { id: string; label: string; files: { id: string; label: string; icon: string }[] }): void {
+    const contentEl = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
+    if (!contentEl) return
+    const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+
+    let rows = ''
+    for (const file of folder.files) {
+      rows += `<div class="eq-folder-view-row" data-file-id="${esc(file.id)}" data-file-label="${esc(file.label)}"><span class="eq-tree-ficon">${(ICONS as any)[file.icon] || ICONS.file}</span><span>${esc(file.label)}</span></div>`
+    }
+
+    contentEl.innerHTML = `<div class="eq-folder-view"><div class="eq-folder-view-header"><span class="eq-tree-ficon">${ICONS.folder}</span><span>${esc(folder.label)}</span></div><div class="eq-folder-view-files">${rows}</div></div>`
+
+    contentEl.querySelectorAll<HTMLElement>('.eq-folder-view-row').forEach(row => {
+      row.addEventListener('click', () => {
+        this.brainSelectedFolder = null
+        this.openBrainFile(row.dataset.fileId!, row.dataset.fileLabel!)
+      })
+    })
   }
 
   private openBrainFile(fileId: string, label: string): void {
@@ -2790,7 +2803,7 @@ export class EasyQuizPanel {
       this.renderBrainFileContent(this.brainActiveTab)
     } else {
       const c = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
-      if (c) c.innerHTML = '<div class="eq-brain-empty-canvas"><div class="eq-brain-empty-icon">📂</div><div>Nada selecionado</div><div class="eq-brain-empty-sub">Clique em um arquivo no explorador</div></div>'
+      if (c) c.innerHTML = `<div class="eq-brain-empty-canvas"><div class="eq-brain-empty-icon" style="display:inline-flex;align-items:center;">${ICONS.folderTree}</div><div>Nada selecionado</div><div class="eq-brain-empty-sub">Clique em uma pasta ou arquivo</div></div>`
     }
   }
 
@@ -2801,11 +2814,18 @@ export class EasyQuizPanel {
     for (const tab of this.brainOpenTabs) {
       const tabEl = document.createElement('div')
       tabEl.className = 'eq-brain-tab' + (this.brainActiveTab === tab.id ? ' is-active' : '')
-      tabEl.innerHTML = `<span class="eq-brain-tab-label">${tab.label}</span><button class="eq-brain-tab-close" data-tab-id="${tab.id}" type="button" title="Fechar">✕</button>`
+      tabEl.innerHTML = `<span class="eq-brain-tab-icon">${ICONS.file}</span><span class="eq-brain-tab-label">${tab.label}</span><button class="eq-brain-tab-close" data-tab-id="${tab.id}" type="button" title="Fechar">${ICONS.close}</button>`
       tabEl.addEventListener('click', (e) => {
-        const close = (e.target as HTMLElement).closest<HTMLElement>('.eq-brain-tab-close')
-        if (close) this.closeBrainTab(close.dataset.tabId!)
-        else { this.brainActiveTab = tab.id; this.renderBrainExplorer(); this.renderBrainTabs(); this.renderBrainFileContent(tab.id) }
+        const closeBtn = (e.target as HTMLElement).closest<HTMLElement>('.eq-brain-tab-close')
+        if (closeBtn) {
+          this.closeBrainTab(closeBtn.dataset.tabId!)
+        } else {
+          this.brainActiveTab = tab.id
+          this.brainSelectedFolder = null
+          this.renderBrainExplorer()
+          this.renderBrainTabs()
+          this.renderBrainFileContent(tab.id)
+        }
       })
       tabbar.appendChild(tabEl)
     }
@@ -2818,23 +2838,23 @@ export class EasyQuizPanel {
     const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
 
     const DATA: Record<string, { lang: string; content: string }> = {
-      rationale: { lang: 'markdown', content: plan?.rationale || 'Aguardando resposta da IA...' },
-      actions:   { lang: 'json',     content: plan?.actions?.length ? JSON.stringify(plan.actions, null, 2) : '// Nenhuma ação.' },
-      summary:   { lang: 'text',     content: plan ? `Modo: ${plan.mode || 'auto'}\nConfiança: ${Math.round((plan.confidence||0)*100)}%\nAções: ${plan.actions?.length||0}\nModelo: ${plan.usedModel||'--'}` : 'Aguardando análise...' },
-      prompt:    { lang: 'text',     content: plan?.promptSent || this.latestPromptText || 'Nenhum prompt registrado.' },
-      rag:       { lang: 'text',     content: (plan as any)?.ragContext || 'Contexto RAG não disponível.' },
-      'meta-model':   { lang: 'text', content: `Modelo: ${plan?.usedModel || this.initialSettings.model || '--'}` },
-      'meta-latency': { lang: 'text', content: plan?.durationMs ? `Latência: ${plan.durationMs}ms` : 'Latência: --' },
-      'meta-tokens':  { lang: 'text', content: plan?.tokensUsed ? `Tokens: ${plan.tokensUsed}` : 'Tokens: --' },
-      'exec-steps':   { lang: 'log',  content: (plan as any)?.executionResult?.steps?.map((s: unknown) => JSON.stringify(s)).join('\n') || 'Sem passos.' },
-      'exec-result':  { lang: 'log',  content: (plan as any)?.executionResult ? JSON.stringify((plan as any).executionResult, null, 2) : 'Sem resultado.' },
+      rationale:      { lang: 'markdown', content: plan?.rationale || 'Aguardando resposta da IA...' },
+      actions:        { lang: 'json',     content: plan?.actions?.length ? JSON.stringify(plan.actions, null, 2) : '// Nenhuma ação.' },
+      summary:        { lang: 'text',     content: plan ? `Modo: ${plan.mode || 'auto'}\nConfiança: ${Math.round((plan.confidence||0)*100)}%\nAções: ${plan.actions?.length||0}\nModelo: ${plan.usedModel||'--'}` : 'Aguardando análise...' },
+      prompt:         { lang: 'text',     content: plan?.promptSent || this.latestPromptText || 'Nenhum prompt registrado.' },
+      rag:            { lang: 'text',     content: (plan as any)?.ragContext || 'Contexto RAG não disponível.' },
+      'meta-model':   { lang: 'text',     content: `Modelo: ${plan?.usedModel || this.initialSettings.model || '--'}` },
+      'meta-latency': { lang: 'text',     content: plan?.durationMs ? `Latência: ${plan.durationMs}ms` : 'Latência: --' },
+      'meta-tokens':  { lang: 'text',     content: plan?.tokensUsed ? `Tokens: ${plan.tokensUsed}` : 'Tokens: --' },
+      'exec-steps':   { lang: 'log',      content: (plan as any)?.executionResult?.steps?.map((s: unknown) => JSON.stringify(s)).join('\n') || 'Sem passos.' },
+      'exec-result':  { lang: 'log',      content: (plan as any)?.executionResult ? JSON.stringify((plan as any).executionResult, null, 2) : 'Sem resultado.' },
     }
 
     const d = DATA[fileId] || { lang: 'text', content: 'Conteúdo não disponível.' }
     contentEl.innerHTML = `<div class="eq-brain-file-view"><div class="eq-brain-file-header"><span class="eq-brain-file-lang">${d.lang}</span></div><pre class="eq-brain-code"><code>${esc(d.content)}</code></pre></div>`
   }
 
-  public showFloatingAnswers(plan?: AnalysisPlan | null): void {
+    public showFloatingAnswers(plan?: AnalysisPlan | null): void {
     const target = plan || this.latestPlan
     if (target) {
       this.floatingAnswers.show(target)
