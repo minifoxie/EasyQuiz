@@ -422,6 +422,7 @@ export class EasyQuizPanel {
                 <div class="eq-brain-toolbar">
                   <span class="eq-brain-toolbar-title">CÉREBRO DA IA</span>
                   <div class="eq-brain-toolbar-actions">
+                    <button class="eq-icon-btn" id="eq-brain-canvas-toggle" type="button" title="Mostrar/Ocultar visualizador">${ICONS.eye}</button>
                     <button class="eq-icon-btn" id="eq-copy-prompt-btn" type="button" title="Copiar conteúdo selecionado">${ICONS.copy}</button>
                   </div>
                 </div>
@@ -438,6 +439,8 @@ export class EasyQuizPanel {
                       </div>
                     </div>
                   </div>
+                  <!-- Resize handle -->
+                  <div class="eq-brain-resize-handle" id="eq-brain-resize-handle" title="Arrastar para redimensionar"></div>
                   <!-- BOTTOM: File Tree -->
                   <div class="eq-brain-explorer" id="eq-brain-explorer">
                     <div class="eq-brain-empty-tree">Aguardando análise...</div>
@@ -954,6 +957,7 @@ export class EasyQuizPanel {
     }
 
     if (tab === 'brain') {
+      this.initBrainControls()
       this.renderContextTree()
       this.refreshInspectorView()
     } else if (tab === 'media') {
@@ -2683,9 +2687,61 @@ export class EasyQuizPanel {
   private brainActiveTab:      string | null = null
   private brainSelectedFolder: string | null = null
   private brainOpenFolders: Set<string> = new Set(['folder-ia', 'folder-ctx', 'folder-meta'])
+  private brainCanvasHidden = false
+  private brainCanvasHeight = 280
 
   private readonly GLOBAL_ID    = '__global__'
   private readonly GLOBAL_LABEL = 'Contexto Global'
+
+  private getBrainFileColor(icon: string): string {
+    const m: Record<string, string> = {
+      file:     '#7eb8f7', code: '#f4c96a', list: '#a5d6a7',
+      chip:     '#80cbc4', sparkles: '#ce93d8', clock: '#ffcc80', info: '#81deea',
+    }
+    return m[icon] || '#9e9e9e'
+  }
+
+  private renderMarkdown(raw: string): string {
+    const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    let html = ''
+    const lines = raw.split('\n')
+    let inCode = false, codeLang = '', codeLines: string[] = []
+
+    const flushCode = () => {
+      if (!inCode) return ''
+      inCode = false
+      const c = codeLines.join('\n'); codeLines = []
+      return `<div class="eq-md-codeblock"><div class="eq-md-codelang">${esc(codeLang)}</div><pre><code>${esc(c)}</code></pre></div>`
+    }
+
+    const inl = (line: string) => line
+      .replace(/`([^`]+)`/g, (_: string, c: string) => `<code class="eq-md-inline">${esc(c)}</code>`)
+      .replace(/***([^*]+)***/g, (_: string, t: string) => `<strong><em>${esc(t)}</em></strong>`)
+      .replace(/**([^*]+)**/g, (_: string, t: string) => `<strong>${esc(t)}</strong>`)
+      .replace(/*([^*]+)*/g, (_: string, t: string) => `<em>${esc(t)}</em>`)
+      .replace(/~~([^~]+)~~/g, (_: string, t: string) => `<del>${esc(t)}</del>`)
+
+    for (const line of lines) {
+      if (/^```/.test(line)) {
+        if (inCode) { html += flushCode() } else { inCode = true; codeLang = line.slice(3).trim() || 'text'; codeLines = [] }
+        continue
+      }
+      if (inCode) { codeLines.push(line); continue }
+      const h1 = line.match(/^#s+(.+)/), h2 = line.match(/^##s+(.+)/), h3 = line.match(/^###s+(.+)/)
+      if (h3) { html += `<h3 class="eq-md-h3">${inl(h3[1])}</h3>`; continue }
+      if (h2) { html += `<h2 class="eq-md-h2">${inl(h2[1])}</h2>`; continue }
+      if (h1) { html += `<h1 class="eq-md-h1">${inl(h1[1])}</h1>`; continue }
+      const bq = line.match(/^>s*(.*)/)
+      if (bq) { html += `<blockquote class="eq-md-bq">${inl(bq[1])}</blockquote>`; continue }
+      if (/^---+$/.test(line)) { html += '<hr class="eq-md-hr">'; continue }
+      const li = line.match(/^[-*+]s+(.+)/)
+      if (li) { html += `<div class="eq-md-li"><span class="eq-md-bullet">·</span><span>${inl(li[1])}</span></div>`; continue }
+      if (line.trim() === '') { html += '<div class="eq-md-gap"></div>'; continue }
+      html += `<div class="eq-md-p">${inl(esc(line))}</div>`
+    }
+    html += flushCode()
+    return html
+  }
 
   private getBrainFolders() {
     const plan = this.latestPlan
@@ -2724,21 +2780,63 @@ export class EasyQuizPanel {
     return null
   }
 
+  public initBrainControls(): void {
+    const handle    = this.shadow.querySelector('#eq-brain-resize-handle') as HTMLElement | null
+    const canvas    = this.shadow.querySelector('.eq-brain-canvas')        as HTMLElement | null
+    const toggleBtn = this.shadow.querySelector('#eq-brain-canvas-toggle') as HTMLElement | null
+    const copyBtn   = this.shadow.querySelector('#eq-copy-prompt-btn')     as HTMLElement | null
+
+    if (handle && canvas) {
+      let startY = 0, startH = 0
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault(); startY = e.clientY; startH = canvas.getBoundingClientRect().height
+        const onMove = (mv: MouseEvent) => {
+          const newH = Math.max(100, Math.min(520, startH + mv.clientY - startY))
+          canvas.style.height = newH + 'px'
+          this.brainCanvasHeight = newH
+        }
+        const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+        window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+      })
+    }
+
+    if (toggleBtn && canvas) {
+      toggleBtn.addEventListener('click', () => {
+        this.brainCanvasHidden = !this.brainCanvasHidden
+        if (this.brainCanvasHidden) {
+          canvas.classList.add('is-hidden')
+          toggleBtn.innerHTML = ICONS.eyeOff
+          toggleBtn.title = 'Mostrar visualizador'
+        } else {
+          canvas.classList.remove('is-hidden')
+          toggleBtn.innerHTML = ICONS.eye
+          toggleBtn.title = 'Ocultar visualizador'
+        }
+      })
+    }
+
+    if (copyBtn) {
+      copyBtn.addEventListener('click', () => this.copyCurrentContent())
+    }
+  }
+
   private copyCurrentContent(): void {
     const contentEl = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
-    const codeEl = contentEl?.querySelector('.eq-brain-code') as HTMLElement | null
-    const text = codeEl?.textContent || contentEl?.textContent || ''
-    if (!text.trim()) return
-    navigator.clipboard.writeText(text).then(() => {
-      this.setStatus('Conteúdo copiado.', 'success')
-    }).catch(() => {
-      const ta = document.createElement('textarea')
-      ta.value = text
-      document.body.appendChild(ta)
-      ta.select()
-      document.execCommand('copy')
-      document.body.removeChild(ta)
-      this.setStatus('Conteúdo copiado.', 'success')
+    const codeEl = contentEl?.querySelector('.eq-brain-code, .eq-brain-markdown') as HTMLElement | null
+    const text = codeEl?.textContent?.trim() || contentEl?.textContent?.trim() || ''
+    if (!text) return
+    const tabLabel = this.brainOpenTabs.find(t => t.id === this.brainActiveTab)?.label || 'conteúdo'
+    const copyBtn  = this.shadow.querySelector('#eq-copy-prompt-btn') as HTMLElement | null
+    const origIcon = copyBtn?.innerHTML || ''
+    const onSuccess = () => {
+      if (copyBtn) { copyBtn.innerHTML = ICONS.check; copyBtn.style.color = '#4ade80' }
+      this.setStatus(`"${tabLabel}" copiado com sucesso.`, 'success')
+      setTimeout(() => { if (copyBtn) { copyBtn.innerHTML = origIcon; copyBtn.style.color = '' } }, 1800)
+    }
+    navigator.clipboard.writeText(text).then(onSuccess).catch(() => {
+      const ta = document.createElement('textarea'); ta.value = text
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
+      onSuccess()
     })
   }
 
@@ -2761,14 +2859,14 @@ export class EasyQuizPanel {
   }
 
   private buildGlobalContext(): string {
-    const sections: string[] = []
+    const parts: string[] = []
     for (const folder of this.getBrainFolders()) {
-      sections.push(`\n════════════════════════════════\n📁 ${folder.label}\n════════════════════════════════`)
+      parts.push(`\n════════════════════════════════\n📁 ${folder.label}\n════════════════════════════════`)
       for (const file of folder.files) {
-        sections.push(`\n── ${file.label} ──\n${this.getBrainFileText(file.id)}`)
+        parts.push(`\n── ${file.label} ──\n${this.getBrainFileText(file.id)}`)
       }
     }
-    return sections.join('\n')
+    return parts.join('\n')
   }
 
   private renderBrainExplorer(): void {
@@ -2777,28 +2875,22 @@ export class EasyQuizPanel {
     explorerEl.innerHTML = ''
     const activeFolder = this.getActiveFolder()
 
-    // ── "Contexto Global" node at top ──
     const globalRow = document.createElement('div')
     globalRow.className = 'eq-tree-file eq-tree-global' + (this.brainActiveTab === this.GLOBAL_ID ? ' is-selected' : '')
-    globalRow.innerHTML = `<span class="eq-tree-ficon">${ICONS.folderTree}</span><span class="eq-tree-label">${this.GLOBAL_LABEL}</span>`
-    globalRow.addEventListener('click', () => {
-      this.brainSelectedFolder = null
-      this.openBrainFile(this.GLOBAL_ID, this.GLOBAL_LABEL)
-    })
+    globalRow.innerHTML = `<span class="eq-tree-ficon" style="color:#60a5fa">${ICONS.folderTree}</span><span class="eq-tree-label">${this.GLOBAL_LABEL}</span>`
+    globalRow.addEventListener('click', () => { this.brainSelectedFolder = null; this.openBrainFile(this.GLOBAL_ID, this.GLOBAL_LABEL) })
     explorerEl.appendChild(globalRow)
 
-    const sep = document.createElement('div')
-    sep.className = 'eq-tree-sep'
+    const sep = document.createElement('div'); sep.className = 'eq-tree-sep'
     explorerEl.appendChild(sep)
 
     for (const folder of this.getBrainFolders()) {
-      const isOpen    = this.brainOpenFolders.has(folder.id)
-      const isSel     = this.brainSelectedFolder === folder.id || activeFolder === folder.id
+      const isOpen = this.brainOpenFolders.has(folder.id)
+      const isSel  = this.brainSelectedFolder === folder.id || activeFolder === folder.id
 
       const folderRow = document.createElement('div')
-      folderRow.className = 'eq-tree-folder' + (isOpen ? ' is-open' : '') + (isSel ? ' is-folder-sel' : '')
+      folderRow.className = 'eq-tree-folder' + (isSel ? ' is-folder-sel' : '')
 
-      // Arrow — click ONLY triggers collapse
       const arrow = document.createElement('span')
       arrow.className = 'eq-tree-arrow'
       arrow.innerHTML = isOpen ? ICONS.chevronDown : ICONS.chevronRight
@@ -2810,43 +2902,29 @@ export class EasyQuizPanel {
       })
       folderRow.appendChild(arrow)
 
-      const ficon = document.createElement('span')
-      ficon.className = 'eq-tree-ficon'
-      ficon.innerHTML = ICONS.folder
-      folderRow.appendChild(ficon)
+      const ficon = document.createElement('span'); ficon.className = 'eq-tree-ficon'; ficon.style.color = '#fbbf24'; ficon.innerHTML = ICONS.folder
+      const label = document.createElement('span'); label.className = 'eq-tree-label'; label.textContent = folder.label
+      folderRow.appendChild(ficon); folderRow.appendChild(label)
 
-      const label = document.createElement('span')
-      label.className = 'eq-tree-label'
-      label.textContent = folder.label
-      folderRow.appendChild(label)
-
-      // Clicking folder body (not arrow): highlight + show overview
       folderRow.addEventListener('click', () => {
-        this.brainSelectedFolder = folder.id
-        this.brainActiveTab = null
-        this.showFolderContent(folder)
-        this.renderBrainExplorer()
-        this.renderBrainTabs()
+        this.brainSelectedFolder = folder.id; this.brainActiveTab = null
+        this.showFolderContent(folder); this.renderBrainExplorer(); this.renderBrainTabs()
       })
       explorerEl.appendChild(folderRow)
 
-      // Children with animation
-      const childrenWrap = document.createElement('div')
-      childrenWrap.className = 'eq-tree-children' + (isOpen ? ' is-open' : '')
-      childrenWrap.style.setProperty('--child-count', String(folder.files.length))
+      const childWrap = document.createElement('div')
+      childWrap.className = 'eq-tree-children' + (isOpen ? ' is-open' : '')
+      childWrap.style.setProperty('--child-count', String(folder.files.length))
 
       for (const file of folder.files) {
+        const color = this.getBrainFileColor(file.icon)
         const fileRow = document.createElement('div')
         fileRow.className = 'eq-tree-file' + (this.brainActiveTab === file.id ? ' is-selected' : '')
-        fileRow.innerHTML = `<span class="eq-tree-ficon">${(ICONS as any)[file.icon] || ICONS.file}</span><span class="eq-tree-label">${file.label}</span>`
-        fileRow.addEventListener('click', (e) => {
-          e.stopPropagation()
-          this.brainSelectedFolder = null
-          this.openBrainFile(file.id, file.label)
-        })
-        childrenWrap.appendChild(fileRow)
+        fileRow.innerHTML = `<span class="eq-tree-ficon" style="color:${color}">${(ICONS as any)[file.icon] || ICONS.file}</span><span class="eq-tree-label">${file.label}</span>`
+        fileRow.addEventListener('click', (e) => { e.stopPropagation(); this.brainSelectedFolder = null; this.openBrainFile(file.id, file.label) })
+        childWrap.appendChild(fileRow)
       }
-      explorerEl.appendChild(childrenWrap)
+      explorerEl.appendChild(childWrap)
     }
   }
 
@@ -2856,38 +2934,39 @@ export class EasyQuizPanel {
     const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     let rows = ''
     for (const file of folder.files) {
-      rows += `<div class="eq-folder-view-row" data-file-id="${esc(file.id)}" data-file-label="${esc(file.label)}"><span class="eq-tree-ficon">${(ICONS as any)[file.icon] || ICONS.file}</span><span>${esc(file.label)}</span></div>`
+      const c = this.getBrainFileColor(file.icon)
+      rows += `<div class="eq-folder-view-row" data-file-id="${esc(file.id)}" data-file-label="${esc(file.label)}"><span class="eq-tree-ficon" style="color:${c}">${(ICONS as any)[file.icon] || ICONS.file}</span><span>${esc(file.label)}</span></div>`
     }
-    contentEl.innerHTML = `<div class="eq-folder-view"><div class="eq-folder-view-header"><span class="eq-tree-ficon">${ICONS.folder}</span><span>${esc(folder.label)}</span></div><div class="eq-folder-view-files">${rows}</div></div>`
+    contentEl.innerHTML = `<div class="eq-folder-view"><div class="eq-folder-view-header"><span class="eq-tree-ficon" style="color:#fbbf24">${ICONS.folder}</span><span>${esc(folder.label)}</span></div><div class="eq-folder-view-files">${rows}</div></div>`
     contentEl.querySelectorAll<HTMLElement>('.eq-folder-view-row').forEach(row => {
       row.addEventListener('click', () => this.openBrainFile(row.dataset.fileId!, row.dataset.fileLabel!))
     })
   }
 
   private openBrainFile(fileId: string, label: string): void {
-    if (!this.brainOpenTabs.find(t => t.id === fileId)) {
-      this.brainOpenTabs.push({ id: fileId, label })
-    }
+    if (!this.brainOpenTabs.find(t => t.id === fileId)) this.brainOpenTabs.push({ id: fileId, label })
     this.brainActiveTab = fileId
-    this.renderBrainExplorer()
-    this.renderBrainTabs()
-    this.renderBrainFileContent(fileId)
+    if (this.brainCanvasHidden) {
+      const canvas    = this.shadow.querySelector('.eq-brain-canvas')        as HTMLElement | null
+      const toggleBtn = this.shadow.querySelector('#eq-brain-canvas-toggle') as HTMLElement | null
+      canvas?.classList.remove('is-hidden')
+      if (toggleBtn) { toggleBtn.innerHTML = ICONS.eye; toggleBtn.title = 'Ocultar visualizador' }
+      this.brainCanvasHidden = false
+    }
+    this.renderBrainExplorer(); this.renderBrainTabs(); this.renderBrainFileContent(fileId)
   }
 
   private closeBrainTab(fileId: string): void {
     const idx = this.brainOpenTabs.findIndex(t => t.id === fileId)
     if (idx === -1) return
     this.brainOpenTabs.splice(idx, 1)
-    if (this.brainActiveTab === fileId) {
-      this.brainActiveTab = this.brainOpenTabs[idx - 1]?.id || this.brainOpenTabs[0]?.id || null
-    }
-    this.renderBrainExplorer()
-    this.renderBrainTabs()
+    if (this.brainActiveTab === fileId) this.brainActiveTab = this.brainOpenTabs[idx-1]?.id || this.brainOpenTabs[0]?.id || null
+    this.renderBrainExplorer(); this.renderBrainTabs()
     if (this.brainActiveTab) {
       this.renderBrainFileContent(this.brainActiveTab)
     } else {
       const c = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
-      if (c) c.innerHTML = `<div class="eq-brain-empty-canvas"><div class="eq-brain-empty-icon" style="display:inline-flex;">${ICONS.folderTree}</div><div>Nada selecionado</div><div class="eq-brain-empty-sub">Clique em um item no explorador</div></div>`
+      if (c) c.innerHTML = '<div class="eq-brain-empty-canvas"><div>Nada selecionado</div><div class="eq-brain-empty-sub">Clique em um item no explorador</div></div>'
     }
   }
 
@@ -2896,21 +2975,13 @@ export class EasyQuizPanel {
     if (!tabbar) return
     tabbar.innerHTML = ''
     for (const tab of this.brainOpenTabs) {
-      const isGlobal = tab.id === this.GLOBAL_ID
       const tabEl = document.createElement('div')
       tabEl.className = 'eq-brain-tab' + (this.brainActiveTab === tab.id ? ' is-active' : '')
-      tabEl.innerHTML = `<span class="eq-brain-tab-icon">${isGlobal ? ICONS.folderTree : ICONS.file}</span><span class="eq-brain-tab-label">${tab.label}</span><button class="eq-brain-tab-close" data-tab-id="${tab.id}" type="button" title="Fechar">${ICONS.close}</button>`
+      tabEl.innerHTML = `<span class="eq-brain-tab-icon">${tab.id === this.GLOBAL_ID ? ICONS.folderTree : ICONS.file}</span><span class="eq-brain-tab-label">${tab.label}</span><button class="eq-brain-tab-close" data-tab-id="${tab.id}" type="button">${ICONS.close}</button>`
       tabEl.addEventListener('click', (e) => {
-        const closeBtn = (e.target as HTMLElement).closest<HTMLElement>('.eq-brain-tab-close')
-        if (closeBtn) {
-          this.closeBrainTab(closeBtn.dataset.tabId!)
-        } else {
-          this.brainActiveTab = tab.id
-          this.brainSelectedFolder = null
-          this.renderBrainExplorer()
-          this.renderBrainTabs()
-          this.renderBrainFileContent(tab.id)
-        }
+        const cl = (e.target as HTMLElement).closest<HTMLElement>('.eq-brain-tab-close')
+        if (cl) { this.closeBrainTab(cl.dataset.tabId!) }
+        else { this.brainActiveTab = tab.id; this.brainSelectedFolder = null; this.renderBrainExplorer(); this.renderBrainTabs(); this.renderBrainFileContent(tab.id) }
       })
       tabbar.appendChild(tabEl)
     }
@@ -2919,14 +2990,16 @@ export class EasyQuizPanel {
   private renderBrainFileContent(fileId: string): void {
     const contentEl = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
     if (!contentEl) return
-    const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    const isGlobal = fileId === this.GLOBAL_ID
-    const lang = isGlobal ? 'global' : (() => {
-      const m: Record<string, string> = { rationale:'markdown', actions:'json', 'exec-steps':'log', 'exec-result':'log' }
-      return m[fileId] || 'text'
-    })()
-    const content = this.getBrainFileText(fileId)
-    contentEl.innerHTML = `<div class="eq-brain-file-view"><div class="eq-brain-file-header"><span class="eq-brain-file-lang">${lang}</span></div><pre class="eq-brain-code"><code>${esc(content)}</code></pre></div>`
+    const isGlobal   = fileId === this.GLOBAL_ID
+    const isMarkdown = fileId === 'rationale' || isGlobal
+    const lang = isGlobal ? 'global' : isMarkdown ? 'markdown' : fileId === 'actions' || fileId === 'exec-result' ? 'json' : 'text'
+    const raw  = this.getBrainFileText(fileId)
+    if (isMarkdown) {
+      contentEl.innerHTML = `<div class="eq-brain-file-view"><div class="eq-brain-file-header"><span class="eq-brain-file-lang">${lang}</span></div><div class="eq-brain-markdown">${this.renderMarkdown(raw)}</div></div>`
+    } else {
+      const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      contentEl.innerHTML = `<div class="eq-brain-file-view"><div class="eq-brain-file-header"><span class="eq-brain-file-lang">${lang}</span></div><pre class="eq-brain-code"><code>${esc(raw)}</code></pre></div>`
+    }
   }
 
     public showFloatingAnswers(plan?: AnalysisPlan | null): void {
