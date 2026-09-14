@@ -27,6 +27,9 @@ jobs:
       - name: Generate canonical bookmarklets
         run: node scripts/generate-bookmarklets.mjs
 
+      - name: Sync bookmarklet links in static HTML
+        run: node scripts/sync-site-bookmarklets.mjs
+
       - name: Bust static asset URLs
         run: |
           VERSION="${GITHUB_SHA::7}"

@@ -107,6 +107,7 @@ const discreteJsdelivr = bookmarklets.discrete
 const legacyMultiCdn = bookmarklets.legacyFallback
 const discreteMultiCdn = bookmarklets.discreteFallback
 await writeFile(path.join(root, 'docs', 'bookmarklets.json'), JSON.stringify(bookmarklets, null, 2) + '\n', 'utf-8')
+await import('./sync-site-bookmarklets.mjs')
 
 // Deleta arquivos .txt antigos e redundantes
 for (const oldTxt of ['bookmarklet_legacy.txt', 'bookmarklet_discrete.txt', 'bookmarklet_discrete_legacy.txt']) {
