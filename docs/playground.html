@@ -809,8 +809,12 @@
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <link rel="stylesheet" href="css/style.css?v=5.9.9">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <link rel="stylesheet" href="css/style.css?v=5.9.9">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
+<div id="bg-dom"></div>
+<div class="global-backdrop" id="global-backdrop"></div>
 <div id="bg-dom"></div>
 <div class="global-backdrop" id="global-backdrop"></div>
 <div id="bg-dom"></div>
@@ -845,12 +849,7 @@
         <span id="streak-display">0</span>
       </div>
       <!-- Botão para injetar EasyQuiz caso o usuário não tenha extensão ativa -->
-      <button class="btn-inject-eq" id="btn-inject-script" data-easyquiz-ignore="true" title="Injeta o script EasyQuiz do projeto direto na página">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-        </svg>
-        <span>Injetar EasyQuiz</span>
-      </button>
+      
     </div>
   </header>
 
@@ -916,6 +915,79 @@
     toast.querySelector('.toast-msg').textContent = 'Injetado: ' + src.split('/').pop();
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 3000);
+  }
+</script>
+
+
+<div class="mega-container glass" style="max-width: 900px; margin: 30px auto 10px; padding: 20px;">
+  <div class="section-heading" style="margin-bottom: 15px;">
+    <h2 style="font-size: 1.2rem; display: flex; align-items: center; gap: 8px;"><i data-lucide="flask-conical"></i> Modo de Injeção</h2>
+  </div>
+  <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem;">
+    Escolha qual versão do EasyQuiz você deseja injetar nesta página de testes.
+  </p>
+  <div class="features-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
+    <div class="feature-card glass" style="padding: 15px; cursor: pointer;" onclick="injectScript('../dist/easyquiz.js')">
+      <div class="feature-icon"><i data-lucide="panel-top"></i></div>
+      <h3 style="font-size: 1rem; margin-top: 10px;">Injetar Legacy Mode</h3>
+      <p style="font-size: 0.8rem;">Modo de interface completa</p>
+    </div>
+    <div class="feature-card glass" style="padding: 15px; cursor: pointer;" onclick="injectScript('../dist/discrete.js')">
+      <div class="feature-icon"><i data-lucide="eye-off"></i></div>
+      <h3 style="font-size: 1rem; margin-top: 10px;">Injetar Discrete Mode</h3>
+      <p style="font-size: 0.8rem;">Modo invisível / atalhos</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  function injectScript(src) {
+    if (window.__easyquiz) {
+      try { window.__easyquiz.destroy(); } catch(e){}
+    }
+    if (window.__eqdiscrete) {
+      try { window.__eqdiscrete.destroy(); } catch(e){}
+    }
+    
+    const baseName = src.split('/').pop();
+    const tryPaths = [
+      '../dist/' + baseName + '?v=' + Date.now(),
+      '/dist/' + baseName + '?v=' + Date.now(),
+      'https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/' + baseName
+    ];
+    let currentIdx = 0;
+    const script = document.createElement('script');
+    
+    const loadNext = () => {
+      if (currentIdx >= tryPaths.length) {
+        showToast('Erro: Não foi possível carregar ' + baseName);
+        return;
+      }
+      script.src = tryPaths[currentIdx];
+      document.body.appendChild(script);
+    };
+
+    script.onload = () => showToast('Injetado: ' + baseName);
+    script.onerror = () => {
+      document.body.removeChild(script);
+      currentIdx++;
+      loadNext();
+    };
+
+    loadNext();
+    
+    function showToast(msg) {
+      const toast = document.getElementById('toast') || document.createElement('div');
+      if (!document.getElementById('toast')) {
+        toast.id = 'toast';
+        toast.innerHTML = '<i data-lucide="check-circle-2"></i><span class="toast-msg"></span>';
+        document.body.appendChild(toast);
+        if (window.lucide) window.lucide.createIcons();
+      }
+      toast.querySelector('.toast-msg').textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
   }
 </script>
 
@@ -1924,6 +1996,8 @@
       loadScript();
     });
   </script>
+<div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>
+<script>lucide.createIcons();</script>
 <div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>
 <script>lucide.createIcons();</script>
 <div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>

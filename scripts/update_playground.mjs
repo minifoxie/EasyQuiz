@@ -70,21 +70,46 @@ const injectorPanel = `
     if (window.__eqdiscrete) {
       try { window.__eqdiscrete.destroy(); } catch(e){}
     }
-    const script = document.createElement('script');
-    script.src = src + '?v=' + Date.now();
-    document.body.appendChild(script);
     
-    // Notification style feedback (Toast)
-    const toast = document.getElementById('toast') || document.createElement('div');
-    if (!document.getElementById('toast')) {
-      toast.id = 'toast';
-      toast.innerHTML = '<i data-lucide="check-circle-2"></i><span class="toast-msg"></span>';
-      document.body.appendChild(toast);
-      lucide.createIcons();
+    const baseName = src.split('/').pop();
+    const tryPaths = [
+      '../dist/' + baseName + '?v=' + Date.now(),
+      '/dist/' + baseName + '?v=' + Date.now(),
+      'https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/' + baseName
+    ];
+    let currentIdx = 0;
+    const script = document.createElement('script');
+    
+    const loadNext = () => {
+      if (currentIdx >= tryPaths.length) {
+        showToast('Erro: Não foi possível carregar ' + baseName);
+        return;
+      }
+      script.src = tryPaths[currentIdx];
+      document.body.appendChild(script);
+    };
+
+    script.onload = () => showToast('Injetado: ' + baseName);
+    script.onerror = () => {
+      document.body.removeChild(script);
+      currentIdx++;
+      loadNext();
+    };
+
+    loadNext();
+    
+    function showToast(msg) {
+      const toast = document.getElementById('toast') || document.createElement('div');
+      if (!document.getElementById('toast')) {
+        toast.id = 'toast';
+        toast.innerHTML = '<i data-lucide="check-circle-2"></i><span class="toast-msg"></span>';
+        document.body.appendChild(toast);
+        if (window.lucide) window.lucide.createIcons();
+      }
+      toast.querySelector('.toast-msg').textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
     }
-    toast.querySelector('.toast-msg').textContent = 'Injetado: ' + src.split('/').pop();
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 3000);
   }
 </script>
 `;
