@@ -309,7 +309,7 @@ async function fetchLatestCommit() {
     } catch(e) {}
     
     if (!d || !d[0]) {
-      const r = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
+      const r = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1', {cache: 'no-store'});
       if (!r.ok) throw new Error('Rate limit');
       const lh = r.headers.get('link'); if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if (m) total = parseInt(m[1]); }
       d = await r.json();
@@ -352,8 +352,8 @@ async function loadChangelog(page) {
 
     if (!commits) {
       const [res, tr] = await Promise.all([
-          fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=20&page='+page),
-          fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1')
+          fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=20&page='+page, {cache: 'no-store'}),
+          fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1', {cache: 'no-store'})
       ]);
       if (!res.ok) throw new Error('Rate limit');
       commits = await res.json();
