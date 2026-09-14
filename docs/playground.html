@@ -841,8 +841,12 @@
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <link rel="stylesheet" href="css/style.css?v=5.9.9">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <link rel="stylesheet" href="css/style.css?v=5.9.9">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
+<div id="bg-dom"></div>
+<div class="global-backdrop" id="global-backdrop"></div>
 <div id="bg-dom"></div>
 <div class="global-backdrop" id="global-backdrop"></div>
 <div id="bg-dom"></div>
@@ -979,6 +983,9 @@
 
 
 
+
+
+
 <div class="mega-container glass" style="max-width: 900px; margin: 30px auto 10px; padding: 20px;">
   <div class="section-heading" style="margin-bottom: 15px;">
     <h2 style="font-size: 1.2rem; display: flex; align-items: center; gap: 8px;"><i data-lucide="flask-conical"></i> Modo de Injeção</h2>
@@ -1006,9 +1013,10 @@
     if (window.__eqdiscrete){ try { window.__eqdiscrete.destroy(); } catch(e){} }
 
     const urls = [
-      './'  + baseName,
       'https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/docs/' + baseName,
+      'https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/docs/' + baseName,
       'https://raw.githubusercontent.com/minifoxie/EasyQuiz/main/dist/' + baseName,
+      './'  + baseName,
     ];
 
     showToast('Carregando ' + baseName + '...');
@@ -2047,6 +2055,8 @@
       loadScript();
     });
   </script>
+<div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>
+<script>lucide.createIcons();</script>
 <div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>
 <script>lucide.createIcons();</script>
 <div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>
