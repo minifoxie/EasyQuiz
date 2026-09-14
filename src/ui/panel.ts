@@ -350,13 +350,12 @@ export class EasyQuizPanel {
 
                 <div class="eq-resolver-cta-row">
                   <button class="eq-resolve-primary" id="eq-analyze-btn" type="button">${ICONS.play} Iniciar Leitura</button>
-                  <button class="eq-resolve-secondary" id="eq-ap-toggle-btn" type="button" title="Autopilot">
-                    ${ICONS.play}
-                  </button>
+                  <button class="eq-resolve-secondary" id="eq-ap-toggle-btn" type="button" title="Autopilot">${ICONS.play}</button>
+                  <button class="eq-more-btn eq-more-btn-inline" id="eq-resolver-menu-btn" type="button" title="Mais ações" aria-label="Abrir menu de ações">${ICONS.moreVertical}</button>
                   <button class="eq-btn-secondary" id="eq-apply-btn" type="button" style="display:none;" aria-hidden="true">Aplicar</button>
                 </div>
 
-                <div class="eq-status-card eq-status-card-resolver" id="eq-status-card">
+                <div class="eq-status-card eq-status-card-resolver is-collapsed" id="eq-status-card" aria-expanded="false">
                   <div class="eq-status-card-header">
                     <div class="eq-status-title-wrap">
                       <span class="eq-status-dot"></span>
@@ -1016,6 +1015,12 @@ export class EasyQuizPanel {
         }
         resolverMenu.hidden = true
       })
+    })
+
+    const statusCard = this.shadow.querySelector('#eq-status-card') as HTMLElement | null
+    statusCard?.addEventListener('click', () => {
+      const collapsed = statusCard.classList.toggle('is-collapsed')
+      statusCard.setAttribute('aria-expanded', String(!collapsed))
     })
 
     // Ações de Métricas & Cronômetro
