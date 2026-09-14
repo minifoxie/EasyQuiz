@@ -935,42 +935,40 @@ export class EasyQuizPanel {
 
   private switchTab(tab: 'resolver' | 'brain' | 'media' | 'metrics' | 'debug' | 'settings') {
     this.activeTab = tab
-    this.shadow.querySelector('.eq-views-wrapper')?.classList.toggle('is-brain-active', tab === 'brain')
-    const tabs: Array<'resolver' | 'brain' | 'media' | 'metrics' | 'debug' | 'settings'> = [
-      'resolver',
-      'brain',
-      'media',
-      'metrics',
-      'debug',
-      'settings',
-    ]
+    const ALL_TABS = ['resolver', 'brain', 'media', 'metrics', 'debug', 'settings'] as const
+    const wrapper = this.shadow.querySelector('.eq-views-wrapper') as HTMLElement | null
 
-    for (const t of tabs) {
-      const btn = this.shadow.querySelector(`#eq-tab-${t}`) as HTMLElement
-      const view = this.shadow.querySelector(`#eq-view-${t}`) as HTMLElement
-      if (t === tab) {
-        btn?.classList.add('active')
-        if (view) view.style.display = 'flex'
-      } else {
-        btn?.classList.remove('active')
-        if (view) view.style.display = 'none'
-      }
+    // Toggle brain layout class on wrapper (zero-padding for brain, normal for others)
+    wrapper?.classList.toggle('is-brain-active', tab === 'brain')
+
+    // Show active pane, hide all others
+    for (const t of ALL_TABS) {
+      const btn  = this.shadow.querySelector(`#eq-tab-${t}`)  as HTMLElement | null
+      const view = this.shadow.querySelector(`#eq-view-${t}`) as HTMLElement | null
+      const active = t === tab
+      btn?.classList.toggle('active', active)
+      if (view) view.style.display = active ? 'flex' : 'none'
     }
 
-    // Add/remove brain-active class on wrapper for zero-padding layout
-    const wrapper = this.shadow.querySelector('.eq-views-wrapper') as HTMLElement | null
-    if (tab === 'brain') {
-      wrapper?.classList.add('is-brain-active')
-      this.initBrainControls()
-      this.renderContextTree()
-      this.refreshInspectorView()
-    } else if (tab === 'media') {
-      this.renderMediaTab()
-    } else if (tab === 'metrics') {
-      this.updateTimingMetrics()
-    } else if (tab === 'debug') {
-      this.refreshDebugView()
-      this.renderTerminalEntries()
+    // Per-tab initialization
+    switch (tab) {
+      case 'brain':
+        this.initBrainControls()
+        this.renderContextTree()
+        this.refreshInspectorView()
+        break
+      case 'media':
+        try { this.renderMediaTab() } catch {}
+        break
+      case 'metrics':
+        try { this.updateTimingMetrics() } catch {}
+        break
+      case 'debug':
+        try { this.refreshDebugView(); this.renderTerminalEntries() } catch {}
+        break
+      case 'settings':
+        // Settings is static HTML — no special init needed
+        break
     }
   }
 
@@ -3059,7 +3057,7 @@ export class EasyQuizPanel {
       this.renderBrainFileContent(this.brainActiveTab)
     } else {
       const c = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
-      if (c) c.innerHTML = '<div class="eq-brain-empty-canvas"><div>Nada selecionado</div><div class="eq-brain-empty-sub">Clique em um item no explorador</div></div>'
+      if (c) c.innerHTML = '<div class="eq-brain-empty-canvas"><div style="margin-bottom:4px;opacity:0.5">Nada selecionado</div><div class="eq-brain-empty-sub">Selecione um arquivo no explorador abaixo para visualizá-lo</div></div>'
     }
   }
 

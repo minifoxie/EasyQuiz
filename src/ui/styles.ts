@@ -991,7 +991,7 @@ export const PANEL_STYLES = `
     display: flex;
     flex-direction: column;
     gap: 16px;
-    animation: eq-view-fade 0.35s cubic-bezier(0.16,1,0.3,1);
+    /* No animation here — let tab switch be instant; pane > * animate once on load */
   }
 
   @keyframes eq-view-fade {
@@ -1607,17 +1607,25 @@ export const PANEL_STYLES = `
      VS CODE BRAIN EXPLORER — v4
   ══════════════════════════════════════════ */
 
-  .eq-brain-pane { flex-direction:column; padding:0!important; gap:0!important; overflow:hidden; min-height:0; flex:1; }
+  .eq-brain-pane {
+    flex-direction: column;
+    padding: 0 !important;
+    gap: 0 !important;
+    overflow: hidden;
+    min-height: 0;
+    /* flex:1 handled when display:flex is set by switchTab */
+  }
 
-  /* When brain tab is active: remove wrapper padding so it fills 100% */
+  /* Brain pane fills the entire wrapper when active */
   .eq-views-wrapper.is-brain-active {
     padding: 0 !important;
     gap: 0 !important;
+    overflow: hidden !important;
   }
 
-  /* Other view panes need min-height to prevent collapse */
-  .eq-view-pane:not(.eq-brain-pane) {
-    min-height: 0;
+  .eq-views-wrapper.is-brain-active > .eq-brain-pane {
+    flex: 1;
+    height: 100%;
   }
 
   .eq-brain-toolbar {
