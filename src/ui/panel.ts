@@ -350,15 +350,17 @@ export class EasyQuizPanel {
                   </div>
                 </div>
 
-                <div class="eq-resolver-cta-row">
+                <!-- CTA: Autopilot + 3-dot as SEPARATE standalone buttons -->
+                <div class="eq-cta-wrapper">
                   <button class="eq-resolve-primary" id="eq-analyze-btn" type="button">
                     <span class="eq-btn-icon">${ICONS.sparkles}</span>
                     <span class="eq-btn-label">Resolver Autopilot</span>
+                    <!-- shimmer overlay (visible only when running) -->
+                    <span class="eq-btn-shimmer" aria-hidden="true"></span>
                   </button>
-                  <div class="eq-resolve-menu-shell">
-                    <button class="eq-resolve-menu" id="eq-auto-menu-btn" type="button" aria-label="Mais opções da IA" title="Mais opções da IA">
-                      <span class="eq-btn-icon">${ICONS.moreVertical}</span>
-                    </button>
+                  <button class="eq-resolve-menu" id="eq-auto-menu-btn" type="button" aria-label="Mais opções" title="Mais opções">
+                    <span class="eq-btn-icon">${ICONS.moreVertical}</span>
+                    <!-- context menu anchor -->
                     <div class="eq-resolver-context-menu" id="eq-auto-menu" hidden>
                       <button type="button" class="eq-menu-item" data-auto-action="toggle">
                         <span class="eq-menu-icon">${ICONS.sparkles}</span>
@@ -373,39 +375,37 @@ export class EasyQuizPanel {
                         <span>Mostrar status</span>
                       </button>
                     </div>
-                  </div>
+                  </button>
+                  <!-- Animated ping-pong line (visible only when running) -->
+                  <div class="eq-cta-progress-line" id="eq-cta-progress-line" aria-hidden="true"></div>
                 </div>
 
-                <div class="eq-status-card eq-status-card-resolver" id="eq-status-card" aria-expanded="true">
-                  <div class="eq-status-card-header">
-                    <div class="eq-status-title-wrap">
-                      <span class="eq-status-icon">${ICONS.info}</span>
-                      <span class="eq-dot-pulse" id="eq-dot-ap"></span>
-                      <span class="eq-status-label">Status da IA</span>
+                <!-- STATUS BAR: always minimal single line -->
+                <div class="eq-status-bar" id="eq-status-card">
+                  <span class="eq-dot-pulse" id="eq-dot-ap"></span>
+                  <span class="eq-status-bar-text" id="eq-status-summary">Sistema aguardando.</span>
+                  <span class="eq-operation-state" id="eq-operation-state">Pronto</span>
+                  <em class="eq-status-bar-timer" id="eq-stopwatch-ap"><span>--</span></em>
+                </div>
+
+                <!-- RESULTS: collapsible -->
+                <div id="eq-result" class="eq-operation-result" style="display: none; flex-direction: column; gap: 0;">
+                  <button class="eq-result-toggle" id="eq-result-toggle" type="button">
+                    <span class="eq-result-toggle-icon">${ICONS.chevronRight}</span>
+                    <span>Plano e respostas</span>
+                    <div class="eq-badges" id="eq-badges" style="margin-left:auto;"></div>
+                  </button>
+                  <div class="eq-result-body" id="eq-result-body">
+                    <div class="eq-rationale-card" id="eq-rationale-text"></div>
+                    <div class="eq-action-list" id="eq-actions-list"></div>
+                    <div class="eq-execution-card" id="eq-execution-card" hidden>
+                      <div class="eq-section-title">Execução e evidências</div>
+                      <div class="eq-execution-placeholder" id="eq-execution-placeholder" style="display: none;"></div>
+                      <div class="eq-execution-summary" id="eq-execution-summary"></div>
+                      <div class="eq-execution-list" id="eq-execution-list"></div>
                     </div>
-                    <span class="eq-operation-state" id="eq-operation-state">Pronto</span>
+                    <button class="eq-btn-secondary" id="eq-open-hud-btn" type="button">${ICONS.list} Abrir respostas disponíveis</button>
                   </div>
-                  <div class="eq-status-summary" id="eq-status-summary" id="eq-status-text-ap">Sistema aguardando leitura da página.</div>
-                  <div class="eq-status-metrics">
-                    <span class="eq-status-item"><strong>Modo</strong><em>Legacy</em></span>
-                    <span class="eq-status-item"><strong>Tempo</strong><em id="eq-stopwatch-ap"><span>--</span></em></span>
-                    <span class="eq-status-item"><strong>Latência</strong><em>-- ms</em></span>
-                  </div>
-                </div>
-
-                <div id="eq-result" class="eq-operation-result" style="display: none; flex-direction: column; gap: 10px;">
-                  <div class="eq-section-title">Plano e respostas</div>
-                  <div class="eq-badges" id="eq-badges"></div>
-                  <div class="eq-rationale-card" id="eq-rationale-text"></div>
-                  <div class="eq-action-list" id="eq-actions-list"></div>
-                  
-                  <div class="eq-execution-card" id="eq-execution-card" hidden>
-                    <div class="eq-section-title">Execução e evidências</div>
-                    <div class="eq-execution-placeholder" id="eq-execution-placeholder" style="display: none;"></div>
-                    <div class="eq-execution-summary" id="eq-execution-summary"></div>
-                    <div class="eq-execution-list" id="eq-execution-list"></div>
-                  </div>
-                  <button class="eq-btn-secondary" id="eq-open-hud-btn" type="button">${ICONS.list} Abrir respostas disponíveis</button>
                 </div>
 
                 <!-- Console Terminal Oculto (Apenas para Autopilot Interno) -->
@@ -1163,7 +1163,8 @@ export class EasyQuizPanel {
     })
 
     const autoMenuBtn = this.shadow.querySelector('#eq-auto-menu-btn') as HTMLButtonElement | null
-    const autoMenu = this.shadow.querySelector('#eq-auto-menu') as HTMLElement | null
+    // autoMenu is now INSIDE autoMenuBtn in the new layout
+    const autoMenu = autoMenuBtn?.querySelector('#eq-auto-menu') as HTMLElement | null
     if (autoMenu) autoMenu.hidden = true
     autoMenuBtn?.classList.remove('is-open')
 
@@ -1176,7 +1177,8 @@ export class EasyQuizPanel {
     })
 
     autoMenu?.querySelectorAll('[data-auto-action]').forEach((item) => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation()
         const action = (item as HTMLElement).dataset.autoAction
         if (action === 'toggle') {
           this.analyzeBtn?.click()
@@ -1185,23 +1187,33 @@ export class EasyQuizPanel {
           this.logToConsole('> [SYS] Memória contextual limpa com sucesso.', 'text-green')
           this.setStatus('Memória contextual da sessão limpa.', 'success')
         } else if (action === 'status') {
-          const statusCard = this.shadow.querySelector('#eq-status-card') as HTMLElement | null
-          statusCard?.classList.remove('is-collapsed')
-          statusCard?.setAttribute('aria-expanded', 'true')
-          statusCard?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+          const statusBar = this.shadow.querySelector('#eq-status-card') as HTMLElement | null
+          statusBar?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
         }
-        autoMenu.hidden = true
+        if (autoMenu) autoMenu.hidden = true
         autoMenuBtn?.classList.remove('is-open')
       })
     })
 
     this.shadow.addEventListener('click', (e) => {
       const target = e.target as HTMLElement
-      if (!target.closest('#eq-auto-menu') && !target.closest('#eq-auto-menu-btn')) {
-        autoMenu?.setAttribute('hidden', 'true')
+      if (!target.closest('#eq-auto-menu-btn')) {
+        if (autoMenu) autoMenu.hidden = true
         autoMenuBtn?.classList.remove('is-open')
       }
     })
+
+    // Results toggle (collapsible)
+    const resultToggle = this.shadow.querySelector('#eq-result-toggle') as HTMLButtonElement | null
+    const resultBody = this.shadow.querySelector('#eq-result-body') as HTMLElement | null
+    if (resultToggle && resultBody) {
+      resultBody.style.display = 'block'
+      resultToggle.classList.add('is-open')
+      resultToggle.addEventListener('click', () => {
+        const isOpen = resultToggle.classList.toggle('is-open')
+        resultBody.style.display = isOpen ? 'block' : 'none'
+      })
+    }
 
     // Botão Adicionar Nova Chave
     const saveKeyBtn = this.shadow.querySelector('#eq-key-save') as HTMLButtonElement
@@ -2379,7 +2391,7 @@ export class EasyQuizPanel {
   public updateAutopilotUi(active: boolean): void {
     const primary = this.analyzeBtn
     if (primary) {
-      const ctaRow = primary.closest('.eq-resolver-cta-row')
+      const ctaRow = primary.closest('.eq-cta-wrapper')
       const label = active ? 'Parar Autopilot' : 'Resolver Autopilot'
       const icon = active ? ICONS.stop : ICONS.sparkles
       if (ctaRow) {
@@ -2412,7 +2424,7 @@ export class EasyQuizPanel {
     }
     const primary = this.analyzeBtn
     if (primary) {
-      const ctaRow = primary.closest('.eq-resolver-cta-row')
+      const ctaRow = primary.closest('.eq-cta-wrapper')
       if (ctaRow) {
         ctaRow.classList.remove('status-busy', 'status-success', 'status-error', 'status-warning', 'status-info')
         ctaRow.classList.add(`status-${type}`)
@@ -2428,7 +2440,7 @@ export class EasyQuizPanel {
       (e) => ((e as any).disabled = false),
     )
 
-    const ctaRow = this.analyzeBtn.closest('.eq-resolver-cta-row')
+    const ctaRow = this.analyzeBtn.closest('.eq-cta-wrapper')
     if (ctaRow) ctaRow.classList.remove('is-running')
     this.analyzeBtn.disabled = false
     this.analyzeBtn.classList.remove('danger')
@@ -2461,7 +2473,7 @@ export class EasyQuizPanel {
       (e) => ((e as any).disabled = busy),
     )
 
-    const ctaRow = this.analyzeBtn?.closest('.eq-resolver-cta-row')
+    const ctaRow = this.analyzeBtn?.closest('.eq-cta-wrapper')
     if (busy) {
       if (ctaRow) ctaRow.classList.add('is-running')
       if (this.analyzeBtn) {
