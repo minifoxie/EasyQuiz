@@ -1607,7 +1607,18 @@ export const PANEL_STYLES = `
      VS CODE BRAIN EXPLORER — v4
   ══════════════════════════════════════════ */
 
-  .eq-brain-pane { flex-direction:column; padding:0!important; gap:0!important; overflow:hidden; }
+  .eq-brain-pane { flex-direction:column; padding:0!important; gap:0!important; overflow:hidden; min-height:0; flex:1; }
+
+  /* When brain tab is active: remove wrapper padding so it fills 100% */
+  .eq-views-wrapper.is-brain-active {
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+
+  /* Other view panes need min-height to prevent collapse */
+  .eq-view-pane:not(.eq-brain-pane) {
+    min-height: 0;
+  }
 
   .eq-brain-toolbar {
     display:flex; align-items:center; justify-content:space-between;

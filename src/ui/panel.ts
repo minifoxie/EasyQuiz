@@ -935,6 +935,7 @@ export class EasyQuizPanel {
 
   private switchTab(tab: 'resolver' | 'brain' | 'media' | 'metrics' | 'debug' | 'settings') {
     this.activeTab = tab
+    this.shadow.querySelector('.eq-views-wrapper')?.classList.toggle('is-brain-active', tab === 'brain')
     const tabs: Array<'resolver' | 'brain' | 'media' | 'metrics' | 'debug' | 'settings'> = [
       'resolver',
       'brain',
@@ -956,7 +957,10 @@ export class EasyQuizPanel {
       }
     }
 
+    // Add/remove brain-active class on wrapper for zero-padding layout
+    const wrapper = this.shadow.querySelector('.eq-views-wrapper') as HTMLElement | null
     if (tab === 'brain') {
+      wrapper?.classList.add('is-brain-active')
       this.initBrainControls()
       this.renderContextTree()
       this.refreshInspectorView()
@@ -2497,9 +2501,16 @@ export class EasyQuizPanel {
     }
   }
 
-  private toastQueue: { msg: string; type: string }[] = []
+  private _lastToastMsg = ''
+  private _lastToastTime = 0
 
-  public showToast(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info', duration = 3500): void {
+  public showToast(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info', duration = 3500, _force = false): void {
+    // Dedup: skip if same message was shown within 1500ms
+    const now = Date.now()
+    const sig = type + ':' + message
+    if (!_force && sig === this._lastToastMsg && now - this._lastToastTime < 1500) return
+    this._lastToastMsg = sig
+    this._lastToastTime = now
     let container = this.shadow.querySelector('#eq-toast-container') as HTMLElement | null
     if (!container) {
       container = document.createElement('div')
@@ -2531,10 +2542,13 @@ export class EasyQuizPanel {
     toast.addEventListener('click', () => { clearTimeout(timer); dismiss() }, { once: true })
   }
   public setStatus(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info'): void {
-    // Fire toast for all meaningful events
-    if (message && message.length > 4) {
-      const dur = type === 'info' ? 2600 : 3500
-      this.showToast(message, type, dur)
+    // Fire toast only for user-actionable events (not transient status updates)
+    if (message && message.length > 4 && (type === 'success' || type === 'error')) {
+      this.showToast(message, type, 3500)
+    } else if (type === 'warning' && message.length > 8) {
+      this.showToast(message, type, 4000)
+    } else if (type === 'info' && message.length > 10) {
+      this.showToast(message, type, 2400)
     }
     const summaryEl = this.shadow.querySelector('#eq-status-summary') as HTMLElement | null
     if (summaryEl) summaryEl.textContent = message
@@ -2716,8 +2730,12 @@ export class EasyQuizPanel {
     if (this.inspTokens) this.inspTokens.textContent = plan?.tokensUsed ? `${plan.tokensUsed}` : '--'
     if (this.inspPrompt) this.inspPrompt.textContent = plan?.promptSent || this.latestPromptText || ''
     if (this.inspRationale) this.inspRationale.textContent = plan?.rationale || ''
-    // Re-render VS Code-style explorer tree
+    // Re-render VS Code-style explorer tree (real-time)
     this.renderBrainExplorer()
+    // Also re-render active canvas tab so content is always up-to-date
+    if (this.brainActiveTab) {
+      this.renderBrainFileContent(this.brainActiveTab)
+    }
   }
 
   // ── Brain Explorer State ────────────────────────────────────────
