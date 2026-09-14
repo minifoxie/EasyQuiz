@@ -293,32 +293,40 @@ function initHints() {
 }
 
 let _totalCommits = 0;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 function toVer(n) { const v = n + 370; return 'v'+Math.floor(v/100)+'.'+Math.floor((v%100)/10)+'.'+(v%10); }
 function escH(u) { return u.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
 
 async function fetchLatestCommit() {
+  try {
+    let d, total = 0;
     try {
-      const r = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
-        if (!r.ok) {
-          document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = 'v5.9.8');
-          document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = '614f8ab');
-          return;
-        }
-      const lh = r.headers.get('link'); if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if (m) _totalCommits = parseInt(m[1]); }
-    const d = await r.json(); 
-      if (!d||!d[0]) {
-        const sl = 'Erro: Limite de API ou falha';
-        const ds = document.getElementById('discrete-sha'), ls = document.getElementById('legacy-sha');
-        if (ds) ds.textContent = sl; if (ls) ls.textContent = sl;
-        return;
+      const r = await fetch('commits.json?t='+Date.now());
+      if (r.ok) {
+        d = await r.json();
+        total = d.length;
       }
+    } catch(e) {}
+    
+    if (!d || !d[0]) {
+      const r = await fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1');
+      if (!r.ok) throw new Error('Rate limit');
+      const lh = r.headers.get('link'); if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if (m) total = parseInt(m[1]); }
+      d = await r.json();
+    }
+    
+    if (!d||!d[0]) throw new Error('Empty');
+    _totalCommits = total;
+    
     const sha = d[0].sha.slice(0,7), dt = new Date(d[0].commit.author.date).toLocaleDateString('pt-BR');
-    const ver = _totalCommits > 0 ? toVer(_totalCommits) : 'v1.0.0';
+    const ver = total > 0 ? toVer(total) : 'v1.0.0';
     document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = ver);
     const sl = sha+' · '+dt;
-    const ds = document.getElementById('discrete-sha'), ls = document.getElementById('legacy-sha');
-    if (ds) ds.textContent = sl; if (ls) ls.textContent = sl;
-  } catch(_){ document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = 'v5.9.8'); document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = '614f8ab'); }
+    document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = sl);
+  } catch(_) {
+    document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = 'v5.9.9'); 
+    document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = '8511476');
+  }
 }
 
 let _curPage = 1;
@@ -328,21 +336,32 @@ async function loadChangelog(page) {
   ctr.innerHTML = '<div class="commits-loading"><i data-lucide="loader-2" class="spin-icon"></i> Carregando historico...</div>';
   if (window.lucide) lucide.createIcons();
   try {
-    const [res, tr] = await Promise.all([
-        fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=20&page='+page),
-        fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1')
-      ]);
-      let commits;
-      let total = _totalCommits || 200;
-      if (!res.ok) {
-          throw new Error('Rate limit');
-      } else {
-        commits = await res.json();
-        if (!Array.isArray(commits)) throw new Error('Not an array');
-        const lh = tr.headers.get('link'); 
-        if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if(m) total = parseInt(m[1]); }
+    let commits = null, total = _totalCommits || 200;
+    
+    try {
+      const r = await fetch('commits.json?t='+Date.now());
+      if (r.ok) {
+        const allCommits = await r.json();
+        total = allCommits.length;
         _totalCommits = total;
+        // Paginate local array
+        const start = (page - 1) * 20;
+        commits = allCommits.slice(start, start + 20);
       }
+    } catch(e) {}
+
+    if (!commits) {
+      const [res, tr] = await Promise.all([
+          fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=20&page='+page),
+          fetch('https://api.github.com/repos/minifoxie/EasyQuiz/commits?per_page=1')
+      ]);
+      if (!res.ok) throw new Error('Rate limit');
+      commits = await res.json();
+      if (!Array.isArray(commits)) throw new Error('Not an array');
+      const lh = tr.headers.get('link'); 
+      if (lh) { const m = lh.match(/page=(\d+)>; rel="last"/); if(m) total = parseInt(m[1]); }
+      _totalCommits = total;
+    }
     ctr.innerHTML = '';
     commits.forEach((c,i) => {
       const gi = total - ((page-1)*20+i), vs = toVer(gi);
