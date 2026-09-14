@@ -353,6 +353,7 @@ export class EasyQuizPanel {
                   <button class="eq-resolve-secondary" id="eq-ap-toggle-btn" type="button" title="Autopilot">
                     ${ICONS.play}
                   </button>
+                  <button class="eq-btn-secondary" id="eq-apply-btn" type="button" style="display:none;" aria-hidden="true">Aplicar</button>
                 </div>
 
                 <div class="eq-status-card eq-status-card-resolver" id="eq-status-card">
@@ -866,8 +867,8 @@ export class EasyQuizPanel {
     this.hostDarkModeCheckbox = this.shadow.querySelector('#eq-host-dark') as HTMLInputElement
     this.useVisionCheckbox = this.shadow.querySelector('#eq-use-vision') as HTMLInputElement
     this.analyzeBtn = this.shadow.querySelector('#eq-analyze-btn') as HTMLButtonElement
-    this.applyBtn = this.shadow.querySelector('#eq-apply-btn') as HTMLButtonElement
-    this.applyBtn.disabled = true
+    this.applyBtn = this.shadow.querySelector('#eq-apply-btn') as HTMLButtonElement | null
+    if (this.applyBtn) this.applyBtn.disabled = true
     this.resultContainer = this.shadow.querySelector('#eq-result') as HTMLElement
 
     // Instanciação do Gabarito Flutuante Arrastável e Minimizável
@@ -1763,7 +1764,9 @@ export class EasyQuizPanel {
         this.callbacks.onApply()
       }
     })
-    this.applyBtn.addEventListener('click', () => this.callbacks.onApply())
+    if (this.applyBtn) {
+      this.applyBtn.addEventListener('click', () => this.callbacks.onApply())
+    }
   }
 
   private startStopwatch() {
@@ -2356,7 +2359,7 @@ export class EasyQuizPanel {
     this.analyzeBtn.classList.remove('danger')
     this.analyzeBtn.innerHTML = `${ICONS.sparkles} Resolver com IA (Alt+R)`
     this.analyzeBtn.title = 'Analisar e responder questão ativa'
-    this.applyBtn.disabled = !this.latestPlan || !this.latestPlan.actions.length
+    if (this.applyBtn) this.applyBtn.disabled = !this.latestPlan || !this.latestPlan.actions.length
 
     this.stopStopwatch()
     this.stopQuestionTimer()
@@ -2388,7 +2391,7 @@ export class EasyQuizPanel {
       this.analyzeBtn.classList.add('danger')
       this.analyzeBtn.innerHTML = `${ICONS.stop} Parar Análise`
       this.analyzeBtn.title = 'Interromper e cancelar análise em andamento'
-      this.applyBtn.disabled = true
+      if (this.applyBtn) this.applyBtn.disabled = true
       this.startStopwatch()
       this.startQuestionTimer()
       this.dotPulseAp.className = 'eq-dot-pulse busy'
@@ -2405,7 +2408,7 @@ export class EasyQuizPanel {
       this.analyzeBtn.classList.remove('danger')
       this.analyzeBtn.innerHTML = `${ICONS.sparkles} Resolver com IA (Alt+R)`
       this.analyzeBtn.title = 'Analisar e responder questão ativa'
-      this.applyBtn.disabled = !this.latestPlan || !this.latestPlan.actions.length
+      if (this.applyBtn) this.applyBtn.disabled = !this.latestPlan || !this.latestPlan.actions.length
       this.stopStopwatch()
       this.stopQuestionTimer()
       this.dotPulseAp.className = 'eq-dot-pulse'
@@ -2519,7 +2522,7 @@ export class EasyQuizPanel {
       actionsListEl.appendChild(item)
     }
 
-    this.applyBtn.disabled = !canApply || !plan.actions.length
+    if (this.applyBtn) this.applyBtn.disabled = !canApply || !plan.actions.length
     const executionCard = this.shadow.querySelector('#eq-execution-card') as HTMLElement | null
     if (executionCard) executionCard.hidden = true
 
