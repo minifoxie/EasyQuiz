@@ -2497,7 +2497,45 @@ export class EasyQuizPanel {
     }
   }
 
+  private toastQueue: { msg: string; type: string }[] = []
+
+  public showToast(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info', duration = 3500): void {
+    let container = this.shadow.querySelector('#eq-toast-container') as HTMLElement | null
+    if (!container) {
+      container = document.createElement('div')
+      container.id = 'eq-toast-container'
+      container.style.cssText = 'position:fixed;bottom:16px;left:16px;z-index:2147483647;display:flex;flex-direction:column-reverse;gap:7px;pointer-events:none;'
+      this.shadow.appendChild(container)
+    }
+    const icons: Record<string, string> = {
+      success: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
+      error:   '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>',
+      warning: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>',
+      info:    '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>',
+    }
+    const colors: Record<string, string> = { success:'#22c55e', error:'#ef4444', warning:'#f59e0b', info:'#60a5fa' }
+    const toast = document.createElement('div')
+    const col = colors[type] || colors.info
+    toast.style.cssText = `display:flex;align-items:center;gap:9px;background:rgba(16,16,22,0.97);border:1px solid rgba(255,255,255,0.09);border-left:3px solid ${col};padding:9px 14px 9px 11px;border-radius:8px;font-size:12px;color:rgba(234,240,248,0.9);font-family:inherit;box-shadow:0 4px 22px rgba(0,0,0,0.5);pointer-events:all;max-width:290px;word-break:break-word;transform:translateX(-10px);opacity:0;transition:transform 0.22s cubic-bezier(0.34,1.56,0.64,1),opacity 0.18s ease;`
+    const ico = document.createElement('span')
+    ico.style.cssText = `color:${col};display:inline-flex;flex-shrink:0;`
+    ico.innerHTML = icons[type] || icons.info
+    toast.appendChild(ico)
+    const txt = document.createElement('span')
+    txt.textContent = message; txt.style.flex = "1"
+    toast.appendChild(txt)
+    container.appendChild(toast)
+    requestAnimationFrame(() => requestAnimationFrame(() => { toast.style.transform = "translateX(0)"; toast.style.opacity = "1" }))
+    const dismiss = () => { toast.style.transform = "translateX(-12px)"; toast.style.opacity = "0"; setTimeout(() => toast.remove(), 220) }
+    const timer = setTimeout(dismiss, duration)
+    toast.addEventListener('click', () => { clearTimeout(timer); dismiss() }, { once: true })
+  }
   public setStatus(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info'): void {
+    // Fire toast for all meaningful events
+    if (message && message.length > 4) {
+      const dur = type === 'info' ? 2600 : 3500
+      this.showToast(message, type, dur)
+    }
     const summaryEl = this.shadow.querySelector('#eq-status-summary') as HTMLElement | null
     if (summaryEl) summaryEl.textContent = message
     if (this.statusTextAp) if (this.statusTextAp) this.statusTextAp.textContent = message
@@ -2859,12 +2897,49 @@ export class EasyQuizPanel {
   }
 
   private buildGlobalContext(): string {
-    const parts: string[] = []
-    for (const folder of this.getBrainFolders()) {
-      parts.push(`\n════════════════════════════════\n📁 ${folder.label}\n════════════════════════════════`)
-      for (const file of folder.files) {
-        parts.push(`\n── ${file.label} ──\n${this.getBrainFileText(file.id)}`)
-      }
+    const plan = this.latestPlan
+    const esc = (s: string) => String(s ?? '-- sem dados --')
+    const parts: string[] = [
+      '# Contexto Global — EasyQuiz',
+      '',
+      '---',
+      '',
+      '## Resposta da IA',
+      '',
+      '### Racional',
+      esc(plan?.rationale || 'Aguardando análise...'),
+      '',
+      '### Ações',
+      plan?.actions?.length ? JSON.stringify(plan.actions, null, 2) : '// Nenhuma ação registrada.',
+      '',
+      '### Resumo',
+      plan ? `- Modo: ${plan.mode || 'auto'}\n- Confiança: ${Math.round((plan.confidence||0)*100)}%\n- Total de ações: ${plan.actions?.length||0}\n- Modelo: ${plan.usedModel||'--'}` : 'Aguardando análise...',
+      '',
+      '---',
+      '',
+      '## Contexto & Prompt',
+      '',
+      '### Prompt enviado',
+      esc(plan?.promptSent || this.latestPromptText || 'Nenhum prompt registrado.'),
+      '',
+      '### Contexto RAG',
+      esc((plan as any)?.ragContext || 'Contexto RAG não disponível.'),
+      '',
+      '---',
+      '',
+      '## Metadados',
+      '',
+      `- **Modelo:** ${plan?.usedModel || this.initialSettings.model || '--'}`,
+      `- **Latência:** ${plan?.durationMs ? plan.durationMs + 'ms' : '--'}`,
+      `- **Tokens:** ${plan?.tokensUsed ?? '--'}`,
+      '',
+    ]
+    if ((plan as any)?.executionResult) {
+      parts.push('---', '', '## Execução', '')
+      parts.push('### Steps')
+      parts.push((plan as any).executionResult?.steps?.map((s: unknown) => JSON.stringify(s)).join('\n') || 'Sem passos.')
+      parts.push('', '### Resultado')
+      parts.push(JSON.stringify((plan as any).executionResult, null, 2))
     }
     return parts.join('\n')
   }

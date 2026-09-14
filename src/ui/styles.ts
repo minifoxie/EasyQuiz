@@ -1607,7 +1607,7 @@ export const PANEL_STYLES = `
      VS CODE BRAIN EXPLORER — v4
   ══════════════════════════════════════════ */
 
-  .eq-brain-pane { display:flex!important; flex-direction:column; padding:0!important; gap:0!important; overflow:hidden; }
+  .eq-brain-pane { flex-direction:column; padding:0!important; gap:0!important; overflow:hidden; }
 
   .eq-brain-toolbar {
     display:flex; align-items:center; justify-content:space-between;
@@ -1632,7 +1632,7 @@ export const PANEL_STYLES = `
     flex-direction: column;
     overflow: hidden;
     border-bottom: 1px solid rgba(255,255,255,0.07);
-    transition: height 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease;
+    transition: opacity 0.25s ease;
   }
 
   .eq-brain-canvas.is-hidden {
@@ -1651,9 +1651,10 @@ export const PANEL_STYLES = `
     flex-shrink:0; min-height:30px;
     scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.1) transparent;
   }
-  .eq-brain-tabbar::-webkit-scrollbar { height:2px; }
+  .eq-brain-tabbar::-webkit-scrollbar { height:2px; position:absolute; }
   .eq-brain-tabbar::-webkit-scrollbar-track { background:transparent; }
   .eq-brain-tabbar::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.14); border-radius:1px; }
+  .eq-brain-tabbar::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.26); }
 
   .eq-brain-tab {
     display:flex; align-items:center; gap:5px; padding:0 10px;
@@ -1776,7 +1777,7 @@ export const PANEL_STYLES = `
     overflow-y: auto;
     overflow-x: hidden;
     padding: 3px 0;
-    background: rgba(15,15,20,0.9);
+    background: transparent;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.08) transparent;
   }
