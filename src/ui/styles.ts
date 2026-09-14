@@ -457,69 +457,31 @@ export const PANEL_STYLES = `
     margin: 0 0 16px;
     position: relative;
     border: 1px solid rgba(120, 120, 140, 0.3);
-    background: rgba(28, 28, 30, 0.85);
-    border-radius: 0;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+    background: rgba(26, 26, 28, 0.92);
+    border-radius: 2px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
     overflow: visible;
+    z-index: 1;
   }
 
   .eq-resolver-cta-row:hover {
-    border-color: rgba(160, 160, 180, 0.5);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+    border-color: rgba(160, 160, 180, 0.45);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   }
 
-  .eq-resolver-cta-row::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: conic-gradient(from 0deg,
-      transparent 0deg,
-      transparent 200deg,
-      rgba(66, 133, 244, 0.9) 230deg,
-      rgba(155, 114, 203, 0.9) 260deg,
-      rgba(217, 101, 112, 0.9) 285deg,
-      transparent 310deg,
-      transparent 360deg
-    );
-    animation: eq-spin-gradient 2.8s linear infinite;
-    opacity: 0;
-    transition: opacity 0.4s ease;
-    pointer-events: none;
-    z-index: 0;
-    clip-path: inset(30%);
+  /* Animated Gemini-gradient border glow - only when autopilot is running */
+  .eq-resolver-cta-row.is-running,
+  .eq-resolver-cta-row.status-busy {
+    border-color: transparent;
+    animation: eq-border-glow 2.4s linear infinite;
   }
 
-  @keyframes eq-spin-gradient {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-
-  .eq-resolver-cta-row.is-running::before,
-  .eq-resolver-cta-row.status-busy::before {
-    opacity: 1;
-  }
-
-  /* Inner background mask so gradient only shows on border edge */
-  .eq-resolver-cta-row::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    right: 2px;
-    bottom: 2px;
-    background: rgba(22, 22, 24, 0.97);
-    border-radius: 0;
-    z-index: 1;
-    pointer-events: none;
-    transition: background 0.3s ease;
-  }
-  
-  .eq-resolver-cta-row:hover::after {
-    background: rgba(26, 26, 28, 0.97);
+  @keyframes eq-border-glow {
+    0%   { box-shadow: 0 0 0 1px #4285F4, 0 0 12px 2px rgba(66, 133, 244, 0.5); }
+    33%  { box-shadow: 0 0 0 1px #9B72CB, 0 0 12px 2px rgba(155, 114, 203, 0.5); }
+    66%  { box-shadow: 0 0 0 1px #D96570, 0 0 12px 2px rgba(217, 101, 112, 0.5); }
+    100% { box-shadow: 0 0 0 1px #4285F4, 0 0 12px 2px rgba(66, 133, 244, 0.5); }
   }
 
   .eq-resolve-primary {
@@ -545,7 +507,8 @@ export const PANEL_STYLES = `
 
   .eq-resolver-cta-row.is-running .eq-resolve-primary,
   .eq-resolver-cta-row.status-busy .eq-resolve-primary {
-    color: #00ffcc;
+    color: #edf3ff;
+    letter-spacing: 0.04em;
   }
 
   .eq-btn-icon, .eq-menu-icon {

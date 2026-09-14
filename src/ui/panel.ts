@@ -380,16 +380,16 @@ export class EasyQuizPanel {
                   <div class="eq-status-card-header">
                     <div class="eq-status-title-wrap">
                       <span class="eq-status-icon">${ICONS.info}</span>
-                      <span class="eq-status-dot"></span>
+                      <span class="eq-dot-pulse" id="eq-dot-ap"></span>
                       <span class="eq-status-label">Status da IA</span>
                     </div>
                     <span class="eq-operation-state" id="eq-operation-state">Pronto</span>
                   </div>
-                  <div class="eq-status-summary" id="eq-status-summary">Sistema aguardando leitura da página.</div>
+                  <div class="eq-status-summary" id="eq-status-summary" id="eq-status-text-ap">Sistema aguardando leitura da página.</div>
                   <div class="eq-status-metrics">
                     <span class="eq-status-item"><strong>Modo</strong><em>Legacy</em></span>
+                    <span class="eq-status-item"><strong>Tempo</strong><em id="eq-stopwatch-ap"><span>--</span></em></span>
                     <span class="eq-status-item"><strong>Latência</strong><em>-- ms</em></span>
-                    <span class="eq-status-item"><strong>Contexto</strong><em>0 itens</em></span>
                   </div>
                 </div>
 
@@ -1821,8 +1821,8 @@ export class EasyQuizPanel {
     this.stopwatchStartTime = Date.now()
     const update = () => {
       const elapsed = ((Date.now() - this.stopwatchStartTime) / 1000).toFixed(2) + 's'
-      this.stopwatchAp.textContent = elapsed
-      this.stopwatchAdv.textContent = elapsed
+      if (this.stopwatchAp) this.stopwatchAp.textContent = elapsed
+      if (this.stopwatchAdv) this.stopwatchAdv.textContent = elapsed
     }
     update()
     this.stopwatchInterval = setInterval(update, 100)
@@ -1835,8 +1835,8 @@ export class EasyQuizPanel {
     }
     if (finalMs !== undefined) {
       const val = (finalMs / 1000).toFixed(2) + 's'
-      this.stopwatchAp.textContent = val
-      this.stopwatchAdv.textContent = val
+      if (this.stopwatchAp) this.stopwatchAp.textContent = val
+      if (this.stopwatchAdv) this.stopwatchAdv.textContent = val
     }
   }
 
