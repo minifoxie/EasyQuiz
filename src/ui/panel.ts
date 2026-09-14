@@ -1723,8 +1723,8 @@ export class EasyQuizPanel {
     })
 
     // Limpar Memória da Sessão
-    const clearMemoryBtn = this.shadow.querySelector('#eq-ap-clear-memory') as HTMLButtonElement
-    clearMemoryBtn.addEventListener('click', () => {
+    const clearMemoryBtn = this.shadow.querySelector('#eq-ap-clear-memory') as HTMLButtonElement | null
+    clearMemoryBtn?.addEventListener('click', () => {
       clearSessionMemories()
       this.logToConsole('> [SYS] Memória contextual limpa com sucesso.', 'text-green')
       this.setStatus('Memória contextual da sessão limpa.', 'success')
@@ -1742,7 +1742,7 @@ export class EasyQuizPanel {
     })
 
     // Copiar Prompt no Inspetor
-    this.copyPromptBtn.addEventListener('click', () => {
+    this.copyPromptBtn?.addEventListener('click', () => {
       const text = this.inspPrompt.textContent || ''
       navigator.clipboard.writeText(text).then(() => {
         const prev = this.copyPromptBtn.innerHTML
