@@ -89,7 +89,12 @@ const injectorPanel = `
 </script>
 `;
 
-playgroundHtml = playgroundHtml.replace(/<main class="quiz-main">/, injectorPanel + '\n<main class="quiz-main">');
+playgroundHtml = playgroundHtml.replace(/<main class="quiz-main".*?>/, (match) => injectorPanel + '\n' + match);
+
+// Remove the old inject button from topbar if it exists
+playgroundHtml = playgroundHtml.replace(/<button[^>]*id="btn-inject-script"[^>]*>.*?<\/button>/s, '');
+// Remove old inject script logic at the bottom
+playgroundHtml = playgroundHtml.replace(/<script>\s*\/\/\s*INJETOR DO SCRIPT EASYQUIZ[\s\S]*?<\/script>/, '');
 
 // Add toast and update lucide icons
 playgroundHtml = playgroundHtml.replace(/<\/body>/, `<div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>\n<script>lucide.createIcons();</script>\n</body>`);

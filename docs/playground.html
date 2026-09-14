@@ -805,8 +805,16 @@
   </style>
   <link rel="stylesheet" href="css/style.css?v=5.9.9">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <link rel="stylesheet" href="css/style.css?v=5.9.9">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <link rel="stylesheet" href="css/style.css?v=5.9.9">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
+<div id="bg-dom"></div>
+<div class="global-backdrop" id="global-backdrop"></div>
+<div id="bg-dom"></div>
+<div class="global-backdrop" id="global-backdrop"></div>
 <div id="bg-dom"></div>
 <div class="global-backdrop" id="global-backdrop"></div>
 
@@ -863,7 +871,55 @@
   </div>
 
   <!-- Container Principal do Exercício -->
-  <main class="quiz-main" id="quiz-container">
+  
+<div class="mega-container glass" style="max-width: 900px; margin: 30px auto 10px; padding: 20px;">
+  <div class="section-heading" style="margin-bottom: 15px;">
+    <h2 style="font-size: 1.2rem; display: flex; align-items: center; gap: 8px;"><i data-lucide="flask-conical"></i> Modo de Injeção</h2>
+  </div>
+  <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem;">
+    Escolha qual versão do EasyQuiz você deseja injetar nesta página de testes.
+  </p>
+  <div class="features-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
+    <div class="feature-card glass" style="padding: 15px; cursor: pointer;" onclick="injectScript('../dist/easyquiz.js')">
+      <div class="feature-icon"><i data-lucide="panel-top"></i></div>
+      <h3 style="font-size: 1rem; margin-top: 10px;">Injetar Legacy Mode</h3>
+      <p style="font-size: 0.8rem;">Modo de interface completa</p>
+    </div>
+    <div class="feature-card glass" style="padding: 15px; cursor: pointer;" onclick="injectScript('../dist/discrete.js')">
+      <div class="feature-icon"><i data-lucide="eye-off"></i></div>
+      <h3 style="font-size: 1rem; margin-top: 10px;">Injetar Discrete Mode</h3>
+      <p style="font-size: 0.8rem;">Modo invisível / atalhos</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  function injectScript(src) {
+    if (window.__easyquiz) {
+      try { window.__easyquiz.destroy(); } catch(e){}
+    }
+    if (window.__eqdiscrete) {
+      try { window.__eqdiscrete.destroy(); } catch(e){}
+    }
+    const script = document.createElement('script');
+    script.src = src + '?v=' + Date.now();
+    document.body.appendChild(script);
+    
+    // Notification style feedback (Toast)
+    const toast = document.getElementById('toast') || document.createElement('div');
+    if (!document.getElementById('toast')) {
+      toast.id = 'toast';
+      toast.innerHTML = '<i data-lucide="check-circle-2"></i><span class="toast-msg"></span>';
+      document.body.appendChild(toast);
+      lucide.createIcons();
+    }
+    toast.querySelector('.toast-msg').textContent = 'Injetado: ' + src.split('/').pop();
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+  }
+</script>
+
+<main class="quiz-main" id="quiz-container">
 
     <!-- ==========================================
          ETAPA 1: CONTEXTO / ARTIGO TEÓRICO (RAG)
@@ -1839,19 +1895,39 @@
       }
 
       const script = document.createElement('script');
-      script.src = `/dist/easyquiz.js?t=${Date.now()}`;
+      // Tenta carregar localmente primeiro (relativo ou absoluto)
+      const tryPaths = [
+        `../dist/easyquiz.js?t=${Date.now()}`,
+        `/dist/easyquiz.js?t=${Date.now()}`,
+        `https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/easyquiz.js`
+      ];
+      let currentPathIdx = 0;
+      
+      const loadScript = () => {
+        if (currentPathIdx >= tryPaths.length) return; // falhou em todos
+        script.src = tryPaths[currentPathIdx];
+        document.head.appendChild(script);
+      };
+
       script.onload = () => {
         window.__easyquiz_loaded = true;
         injectBtn.style.display = 'none';
+        showToast('Modo Legacy Injetado!', 2500);
       };
+      
       script.onerror = () => {
-        const fallback = document.createElement('script');
-        fallback.src = `https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/easyquiz.js?t=${Date.now()}`;
-        document.head.appendChild(fallback);
+        document.head.removeChild(script); // Limpa o elemento que falhou
+        currentPathIdx++;
+        loadScript();
       };
-      document.head.appendChild(script);
+
+      loadScript();
     });
   </script>
+<div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>
+<script>lucide.createIcons();</script>
+<div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>
+<script>lucide.createIcons();</script>
 <div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>
 <script>lucide.createIcons();</script>
 </body>
