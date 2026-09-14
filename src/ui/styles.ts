@@ -460,29 +460,29 @@ export const PANEL_STYLES = `
 
   .eq-resolve-primary {
     flex: 1;
-    min-height: 52px;
-    border: 1px solid rgba(255,255,255,0.12);
-    background: rgba(255,255,255,0.04);
+    min-height: 56px;
+    border: 1px solid rgba(160, 210, 255, 0.28);
+    background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(111, 168, 255, 0.06));
     color: #f4f7fb;
-    font-weight: 800;
-    font-size: 14px;
+    font-weight: 900;
+    font-size: 15px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    border-radius: 14px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    border-radius: 16px;
+    box-shadow: 0 18px 32px rgba(24, 29, 35, 0.45), inset 0 1px 0 rgba(255,255,255,0.1);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    padding: 0 16px;
-    transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease, color 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
+    padding: 0 18px;
+    transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
   }
 
   .eq-resolve-primary:hover {
-    transform: translateY(-1px);
-    background: rgba(255,255,255,0.08);
-    border-color: rgba(255,255,255,0.18);
+    transform: translateY(-1px) scale(1.01);
+    border-color: rgba(175, 216, 255, 0.4);
+    box-shadow: 0 20px 38px rgba(24, 29, 35, 0.5), inset 0 1px 0 rgba(255,255,255,0.18);
   }
 
   .eq-resolve-primary.is-running,
@@ -522,9 +522,10 @@ export const PANEL_STYLES = `
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     flex-shrink: 0;
+    filter: brightness(1.8) drop-shadow(0 0 10px rgba(160, 210, 255, 0.9));
   }
 
   .eq-btn-label {
@@ -572,17 +573,17 @@ export const PANEL_STYLES = `
     top: calc(100% + 10px);
     right: 0;
     min-width: 220px;
-    background: rgba(18, 20, 26, 0.96);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.05);
     border-radius: 14px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.45);
-    padding: 8px;
+    box-shadow: none;
+    padding: 8px 0 0;
     z-index: 30;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     animation: eq-menu-appear 0.18s ease-out;
   }
 
@@ -594,7 +595,7 @@ export const PANEL_STYLES = `
   .eq-menu-item {
     appearance: none;
     border: 1px solid transparent;
-    background: rgba(255,255,255,0.03);
+    background: transparent;
     color: #eef3ff;
     border-radius: 10px;
     padding: 9px 10px;
@@ -609,8 +610,8 @@ export const PANEL_STYLES = `
   }
 
   .eq-menu-item:hover {
-    background: rgba(255,255,255,0.07);
-    border-color: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02);
+    border-color: rgba(255,255,255,0.04);
     transform: translateX(1px);
   }
 
@@ -622,6 +623,7 @@ export const PANEL_STYLES = `
 
   .eq-status-card-resolver {
     position: relative;
+    min-height: 96px;
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
@@ -669,6 +671,10 @@ export const PANEL_STYLES = `
     opacity: 1;
     transform: translateY(0);
     overflow: hidden;
+  }
+
+  .eq-status-card-resolver.is-collapsed {
+    min-height: 62px;
   }
 
   .eq-status-card-header {

@@ -207,15 +207,15 @@ export class EasyQuizPanel {
           this.setBusy(false)
           this.updateAutopilotUi(false)
           if (msg.includes('conclusão') || msg.includes('finalizada') || msg.includes('Parabéns')) {
-            this.setStatus('Atividade concluída com sucesso! Autopilot finalizado.', 'success')
+            this.setStatus('Atividade concluída. Resolver Autopilot finalizado com sucesso.', 'success')
           } else {
-            this.setStatus('Autopilot desativado.', 'info')
+            this.setStatus('Resolver Autopilot pausado e aguardando nova ação.', 'info')
           }
         } else if (status === 'error') {
           this._autopilotAnalyzingShown = false
           this.setBusy(false)
           this.updateAutopilotUi(false)
-          this.setStatus('Autopilot interrompido por erro.', 'error')
+          this.setStatus('Resolver Autopilot interrompido por erro.', 'error')
         }
       },
       onRequestAnalysis: async (attempt?: number, signal?: AbortSignal) => {
@@ -343,8 +343,8 @@ export class EasyQuizPanel {
 
                 <div class="eq-resolver-cta-row">
                   <button class="eq-resolve-primary" id="eq-analyze-btn" type="button">
-                    <span class="eq-btn-icon">${ICONS.play}</span>
-                    <span class="eq-btn-label">Iniciar Auto-Resposta</span>
+                    <span class="eq-btn-icon">${ICONS.sparkles}</span>
+                    <span class="eq-btn-label">Resolver Autopilot</span>
                   </button>
                   <div class="eq-resolve-menu-shell">
                     <button class="eq-resolve-menu" id="eq-auto-menu-btn" type="button" aria-label="Mais opções da IA" title="Mais opções da IA">
@@ -352,8 +352,8 @@ export class EasyQuizPanel {
                     </button>
                     <div class="eq-resolver-context-menu" id="eq-auto-menu" hidden>
                       <button type="button" class="eq-menu-item" data-auto-action="toggle">
-                        <span class="eq-menu-icon">${ICONS.play}</span>
-                        <span>Iniciar Auto-Resposta</span>
+                        <span class="eq-menu-icon">${ICONS.sparkles}</span>
+                        <span>Resolver Autopilot</span>
                       </button>
                       <button type="button" class="eq-menu-item" data-auto-action="memory">
                         <span class="eq-menu-icon">${ICONS.eraser}</span>
@@ -1155,6 +1155,8 @@ export class EasyQuizPanel {
 
     const autoMenuBtn = this.shadow.querySelector('#eq-auto-menu-btn') as HTMLButtonElement | null
     const autoMenu = this.shadow.querySelector('#eq-auto-menu') as HTMLElement | null
+    if (autoMenu) autoMenu.hidden = true
+    autoMenuBtn?.classList.remove('is-open')
 
     autoMenuBtn?.addEventListener('click', (e) => {
       e.stopPropagation()
@@ -1773,19 +1775,19 @@ export class EasyQuizPanel {
         this.callbacks.onCancel?.()
         this.setProgress(0)
         this.updateAutopilotUi(false)
-        this.setInterrupted('Auto-Resposta interrompida imediatamente pelo usuário.')
+        this.setInterrupted('Resolver Autopilot interrompido pelo usuário.')
         return
       }
 
       if (this.isBusy) {
         this.callbacks.onCancel?.()
-        this.setInterrupted('Análise cancelada pelo usuário. Pronto para nova tentativa.')
+        this.setInterrupted('Análise cancelada. O Resolver Autopilot está pronto para outra tentativa.')
         return
       }
 
       const key = this.apiKeyInput.value.trim().replace(/^['"]|['"]$/g, '')
       if (!key) {
-        this.setStatus('Configure sua chave de API Gemini na aba Configurações antes de iniciar a Auto-Resposta.', 'error')
+        this.setStatus('Configure sua chave de API Gemini antes de ativar o Resolver Autopilot.', 'error')
         this.switchTab('settings')
         this.apiKeyInput.focus()
         return
@@ -1798,7 +1800,7 @@ export class EasyQuizPanel {
       this.autopilot.start()
       this.updateAutopilotUi(true)
       this.startStopwatch()
-      this.setStatus('Auto-Resposta ativa. Monitorando exercícios...', 'info')
+      this.setStatus('Resolver Autopilot ativo. Monitorando e respondendo...', 'info')
     })
     if (this.applyBtn) {
       this.applyBtn.addEventListener('click', () => this.callbacks.onApply())
@@ -2368,18 +2370,18 @@ export class EasyQuizPanel {
   public updateAutopilotUi(active: boolean): void {
     const primary = this.analyzeBtn
     if (primary) {
-      const label = active ? 'Parar Auto-Resposta' : 'Iniciar Auto-Resposta'
-      const icon = active ? ICONS.stop : ICONS.play
+      const label = active ? 'Parar Autopilot' : 'Resolver Autopilot'
+      const icon = active ? ICONS.stop : ICONS.sparkles
       primary.classList.toggle('is-running', active)
       primary.classList.toggle('is-idle', !active)
       primary.classList.toggle('danger', active)
       primary.innerHTML = `<span class="eq-btn-icon">${icon}</span><span class="eq-btn-label">${label}</span>`
-      primary.title = active ? 'Interromper a Auto-Resposta ativa' : 'Iniciar Auto-Resposta automática'
+      primary.title = active ? 'Interromper o Resolver Autopilot' : 'Ligar o Resolver Autopilot'
     }
     if (this.apToggleBtn) {
-      this.apToggleBtn.innerHTML = `${active ? ICONS.stop : ICONS.play} ${active ? 'Parar Auto-Resposta' : 'Iniciar Auto-Resposta'}`
+      this.apToggleBtn.innerHTML = `${active ? ICONS.stop : ICONS.sparkles} ${active ? 'Parar Autopilot' : 'Resolver Autopilot'}`
       this.apToggleBtn.classList.toggle('danger', active)
-      this.apToggleBtn.title = active ? 'Interromper a Auto-Resposta ativa' : 'Iniciar Auto-Resposta automática'
+      this.apToggleBtn.title = active ? 'Interromper o Resolver Autopilot' : 'Ligar o Resolver Autopilot'
     }
   }
 
@@ -2409,8 +2411,8 @@ export class EasyQuizPanel {
 
     this.analyzeBtn.disabled = false
     this.analyzeBtn.classList.remove('danger')
-    this.analyzeBtn.innerHTML = `${ICONS.sparkles} Resolver com IA (Alt+R)`
-    this.analyzeBtn.title = 'Analisar e responder questão ativa'
+    this.analyzeBtn.innerHTML = `<span class="eq-btn-icon">${ICONS.sparkles}</span><span class="eq-btn-label">Resolver Autopilot</span>`
+    this.analyzeBtn.title = 'Ligar o Resolver Autopilot'
     if (this.applyBtn) this.applyBtn.disabled = !this.latestPlan || !this.latestPlan.actions.length
 
     this.stopStopwatch()
@@ -2441,8 +2443,8 @@ export class EasyQuizPanel {
     if (busy) {
       this.analyzeBtn.disabled = false
       this.analyzeBtn.classList.add('danger')
-      this.analyzeBtn.innerHTML = `${ICONS.stop} Parar Análise`
-      this.analyzeBtn.title = 'Interromper e cancelar análise em andamento'
+      this.analyzeBtn.innerHTML = `<span class="eq-btn-icon">${ICONS.stop}</span><span class="eq-btn-label">Parar Autopilot</span>`
+      this.analyzeBtn.title = 'Interromper o Resolver Autopilot'
       if (this.applyBtn) this.applyBtn.disabled = true
       this.startStopwatch()
       this.startQuestionTimer()
@@ -2458,8 +2460,8 @@ export class EasyQuizPanel {
     } else {
       this.analyzeBtn.disabled = false
       this.analyzeBtn.classList.remove('danger')
-      this.analyzeBtn.innerHTML = `${ICONS.sparkles} Resolver com IA (Alt+R)`
-      this.analyzeBtn.title = 'Analisar e responder questão ativa'
+      this.analyzeBtn.innerHTML = `<span class="eq-btn-icon">${ICONS.sparkles}</span><span class="eq-btn-label">Resolver Autopilot</span>`
+      this.analyzeBtn.title = 'Ligar o Resolver Autopilot'
       if (this.applyBtn) this.applyBtn.disabled = !this.latestPlan || !this.latestPlan.actions.length
       this.stopStopwatch()
       this.stopQuestionTimer()
