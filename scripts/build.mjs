@@ -49,6 +49,8 @@ const buildOptions = {
 }
 
 await build(buildOptions)
+import fs from 'fs'
+fs.copyFileSync(path.join(dist, 'easyquiz.js'), path.join(root, 'docs', 'easyquiz.js'))
 
 // ============================================================
 // BUILD DO MODO DISCRETO
@@ -70,6 +72,7 @@ const discreteBuildOptions = {
 }
 
 await build(discreteBuildOptions)
+fs.copyFileSync(path.join(dist, 'discrete.js'), path.join(root, 'docs', 'discrete.js'))
 
 // ============================================================
 // BOOKMARKLET SUPREMO — INLINE / AUTO-CONTIDO (Anti-CSP)

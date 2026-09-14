@@ -73,6 +73,7 @@ const injectorPanel = `
     
     const baseName = src.split('/').pop();
     const tryPaths = [
+      './' + baseName + '?v=' + Date.now(),
       '../dist/' + baseName + '?v=' + Date.now(),
       '/dist/' + baseName + '?v=' + Date.now(),
       'https://cdn.jsdelivr.net/gh/minifoxie/EasyQuiz@main/dist/' + baseName
