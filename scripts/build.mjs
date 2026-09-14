@@ -26,7 +26,9 @@ try {
   versionLabel = `v${count.split('').join('.')}`
 } catch {}
 
-const canonicalGitHash = gitHash || 'main'
+// Always use 'main' so bookmarklets fetch the latest after every push.
+// Using a specific commit hash would pin them to the pre-push commit (stale).
+const canonicalGitHash = 'main'
 
 console.log(`[EasyQuiz] Version: ${versionLabel}`)
 
