@@ -318,7 +318,7 @@ async function fetchLatestCommit() {
     const sl = sha+' · '+dt;
     const ds = document.getElementById('discrete-sha'), ls = document.getElementById('legacy-sha');
     if (ds) ds.textContent = sl; if (ls) ls.textContent = sl;
-  } catch(_){}
+  } catch(_){ document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = 'v5.9.8'); document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = '614f8ab'); }
 }
 
 let _curPage = 1;
