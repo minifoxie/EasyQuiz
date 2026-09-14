@@ -20,12 +20,16 @@ export function createBookmarklets(gitHash = 'latest') {
   const cdnBase = `https://cdn.jsdelivr.net/gh/${githubRepo}@${gitHash}/dist`
   const fastlyBase = `https://fastly.jsdelivr.net/gh/${githubRepo}@${gitHash}/dist`
   const rawBase = `https://raw.githubusercontent.com/${githubRepo}/main/dist`
+  const discreteFallback = multiCdnBookmarklet({ bundle: 'discrete.js', label: 'Discreto', cdnBase, fastlyBase, rawBase })
+  const legacyFallback = multiCdnBookmarklet({ bundle: 'easyquiz.js', label: 'Legacy', cdnBase, fastlyBase, rawBase })
   return {
     version: gitHash,
     repo: githubRepo,
-    discrete: cdnBookmarklet({ bundle: 'discrete.js', label: 'Discreto', cdnBase }),
-    legacy: cdnBookmarklet({ bundle: 'easyquiz.js', label: 'Legacy', cdnBase }),
-    discreteFallback: multiCdnBookmarklet({ bundle: 'discrete.js', label: 'Discreto', cdnBase, fastlyBase, rawBase }),
-    legacyFallback: multiCdnBookmarklet({ bundle: 'easyquiz.js', label: 'Legacy', cdnBase, fastlyBase, rawBase })
+    discrete: discreteFallback,
+    legacy: legacyFallback,
+    discreteDirect: cdnBookmarklet({ bundle: 'discrete.js', label: 'Discreto', cdnBase }),
+    legacyDirect: cdnBookmarklet({ bundle: 'easyquiz.js', label: 'Legacy', cdnBase }),
+    discreteFallback,
+    legacyFallback
   }
 }
