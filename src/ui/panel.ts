@@ -137,6 +137,7 @@ export class EasyQuizPanel {
   private liveTerminalOutput: HTMLElement | null = null
   private terminalInputEl: HTMLInputElement | null = null
   private outputSearchQuery: string = ''
+  private outputSortNewest: boolean = true
   private _reconnectContextbarBtns: () => void = () => {}
   private _autopilotAnalyzingShown: boolean = false  // evita spam de "IA analisando..." por ciclo
 
@@ -517,29 +518,21 @@ export class EasyQuizPanel {
                 <span id="eq-debug-badge" style="display:none">ATIVO</span>
 
                 <!-- Output toolbar — only in Output mode -->
-                <div id="eq-output-toolbar" style="display:none;align-items:center;gap:6px;padding:5px 10px;background:#080808;border-bottom:1px solid #161616;flex-shrink:0;">
+                <div id="eq-output-toolbar" style="display:none;align-items:center;gap:5px;padding:5px 10px;background:#080808;border-bottom:1px solid #161616;flex-shrink:0;">
                   <div style="position:relative;display:inline-flex;">
-                    <button id="eq-output-filter-btn" type="button" style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;padding:3px 10px;border-radius:5px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#777;cursor:pointer;font-family:'Cascadia Code','Fira Code',monospace;letter-spacing:0.02em;">
-                      <span id="eq-output-filter-label">Filtro</span>
-                      <span style="display:inline-flex;width:10px;height:10px;color:#444;">${ICONS.chevronDown}</span>
-                    </button>
+                    <button id="eq-output-filter-btn" type="button" style="display:inline-flex;align-items:center;gap:4px;height:24px;font-size:9.5px;font-weight:600;padding:0 9px;border-radius:5px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#777;cursor:pointer;font-family:'Cascadia Code','Fira Code',monospace;white-space:nowrap;"><span id="eq-output-filter-label">Filtro: Todos</span><span style="display:inline-flex;width:10px;height:10px;color:#444;transform:rotate(90deg);">${ICONS.chevronRight}</span></button>
                     <div id="eq-output-filter-menu" hidden style="position:absolute;top:calc(100% + 5px);left:0;z-index:9999;background:rgba(8,8,14,0.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:5px;min-width:172px;box-shadow:0 12px 32px rgba(0,0,0,0.75);">
                       <div style="padding:3px 8px 4px;font-size:8px;font-weight:700;letter-spacing:0.1em;color:#333;font-family:monospace;">CATEGORIAS</div>
-                      <label id="eq-filter-opt-all" style="display:flex;align-items:center;gap:7px;padding:6px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-all" checked style="accent-color:#aaa;"> <span style="display:inline-flex;width:12px;height:12px;color:#777;">${ICONS.list}</span> <span style="font-size:10px;color:#aaa;font-family:monospace;">Todos</span> <span id="eq-dbg-count-all" style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
-                      <label id="eq-filter-opt-error" style="display:flex;align-items:center;gap:7px;padding:6px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(255,85,85,0.08)'" onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-error" style="accent-color:#ff5555;"> <span style="display:inline-flex;width:12px;height:12px;color:#ff5555;">${ICONS.info}</span> <span style="font-size:10px;color:#aaa;font-family:monospace;">Erros</span> <span id="eq-dbg-count-error" style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
-                      <label id="eq-filter-opt-ai" style="display:flex;align-items:center;gap:7px;padding:6px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(96,165,250,0.08)'" onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-ai" style="accent-color:#60a5fa;"> <span style="display:inline-flex;width:12px;height:12px;color:#60a5fa;">${ICONS.sparkles}</span> <span style="font-size:10px;color:#aaa;font-family:monospace;">IA</span> <span id="eq-dbg-count-ai" style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
-                      <label id="eq-filter-opt-dom" style="display:flex;align-items:center;gap:7px;padding:6px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(74,222,128,0.06)'" onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-dom" style="accent-color:#4ade80;"> <span style="display:inline-flex;width:12px;height:12px;color:#4ade80;">${ICONS.code}</span> <span style="font-size:10px;color:#aaa;font-family:monospace;">DOM/Exec</span> <span id="eq-dbg-count-dom" style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
-                      <div style="height:1px;background:rgba(255,255,255,0.05);margin:4px 0;"></div>
-                      <button id="eq-fchk-apply" type="button" style="width:100%;font-size:9px;padding:4px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:4px;color:#888;cursor:pointer;font-family:monospace;letter-spacing:0.05em;">APLICAR</button>
+                      <label class="eq-filter-lbl" id="eq-filter-opt-all"   style="display:flex;align-items:center;gap:7px;padding:5px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-all"   checked style="accent-color:#aaa;cursor:pointer;"> <span style="display:inline-flex;width:12px;height:12px;color:#777;">${ICONS.list}</span>     <span style="font-size:10px;color:#aaa;font-family:monospace;">Todos</span>    <span id="eq-dbg-count-all"   style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
+                      <label class="eq-filter-lbl" id="eq-filter-opt-error" style="display:flex;align-items:center;gap:7px;padding:5px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(255,85,85,0.08)'"   onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-error"         style="accent-color:#ff5555;cursor:pointer;"> <span style="display:inline-flex;width:12px;height:12px;color:#ff5555;">${ICONS.info}</span>    <span style="font-size:10px;color:#aaa;font-family:monospace;">Erros</span>    <span id="eq-dbg-count-error" style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
+                      <label class="eq-filter-lbl" id="eq-filter-opt-ai"    style="display:flex;align-items:center;gap:7px;padding:5px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(96,165,250,0.08)'"  onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-ai"           style="accent-color:#60a5fa;cursor:pointer;"> <span style="display:inline-flex;width:12px;height:12px;color:#60a5fa;">${ICONS.sparkles}</span> <span style="font-size:10px;color:#aaa;font-family:monospace;">IA</span>       <span id="eq-dbg-count-ai"    style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
+                      <label class="eq-filter-lbl" id="eq-filter-opt-dom"   style="display:flex;align-items:center;gap:7px;padding:5px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(74,222,128,0.06)'"  onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-dom"          style="accent-color:#4ade80;cursor:pointer;"> <span style="display:inline-flex;width:12px;height:12px;color:#4ade80;">${ICONS.code}</span>    <span style="font-size:10px;color:#aaa;font-family:monospace;">DOM/Exec</span> <span id="eq-dbg-count-dom"   style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
                     </div>
                   </div>
-                  <div style="flex:1;display:flex;align-items:center;gap:5px;background:#0d0d0d;border:1px solid #1a1a1a;border-radius:5px;padding:3px 8px;">
-                    <span style="color:#333;display:inline-flex;flex-shrink:0;width:10px;height:10px;">${ICONS.analyze}</span>
-                    <input id="eq-output-search" type="text" placeholder="buscar..." autocomplete="off" style="flex:1;background:transparent;border:none;outline:none;color:#777;font-size:9.5px;font-family:'Cascadia Code','Fira Code',monospace;caret-color:#555;" />
-                    <button id="eq-output-search-clear" type="button" style="display:none;background:transparent;border:none;color:#333;cursor:pointer;font-size:9px;padding:0;line-height:1;">✕</button>
-                  </div>
-                  <button id="eq-dbg-scroll-toggle" type="button" title="Auto-scroll" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:5px;color:#555;cursor:pointer;font-size:11px;flex-shrink:0;transition:color 0.12s;">↓</button>
-                </div>
+                  <button id="eq-output-sort-btn" type="button" title="Ordenar (mais recente/mais antigo)" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:5px;color:#aaa;cursor:pointer;flex-shrink:0;transition:color 0.12s;"><span style="display:inline-flex;width:13px;height:13px;transform:rotate(270deg);transition:transform 0.2s;">${ICONS.chevronRight}</span></button>
+                  <div style="flex:1;display:flex;align-items:center;gap:5px;background:#0d0d0d;border:1px solid #1a1a1a;border-radius:5px;padding:0 8px;height:24px;"><span style="color:#2a2a2a;display:inline-flex;flex-shrink:0;width:10px;height:10px;">${ICONS.analyze}</span><input id="eq-output-search" type="text" placeholder="buscar logs..." autocomplete="off" style="flex:1;background:transparent;border:none;outline:none;color:#777;font-size:9.5px;font-family:'Cascadia Code','Fira Code',monospace;caret-color:#555;" /><button id="eq-output-search-clear" type="button" style="display:none;background:transparent;border:none;color:#333;cursor:pointer;font-size:9px;padding:0;line-height:1;">✕</button></div>
+                  <button id="eq-dbg-scroll-toggle" type="button" title="Auto-scroll" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:5px;color:#aaa;cursor:pointer;flex-shrink:0;font-size:11px;">↓</button>
+                </div></div>
 
                 <!-- TERMINAL MODE — True terminal, no input bar -->
                 <div id="eq-term-panel-terminal" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;position:relative;">
@@ -1914,7 +1907,7 @@ export class EasyQuizPanel {
     this.liveDebugTerminal.replaceChildren()
 
     let entries = this.activeLogFilter === 'all'
-      ? this.logEntries
+      ? [...this.logEntries]
       : this.logEntries.filter((e) => e.category === this.activeLogFilter)
 
     if (this.outputSearchQuery) {
@@ -1922,19 +1915,21 @@ export class EasyQuizPanel {
       entries = entries.filter(e => e.message.toLowerCase().includes(q))
     }
 
+    if (!(this as any).outputSortNewest) entries = entries.reverse()
+
     if (entries.length === 0) {
       const empty = document.createElement('div')
-      empty.style.cssText = 'color:#333;font-style:italic;'
+      empty.style.cssText = 'color:#333;font-style:italic;white-space:pre-wrap;'
       empty.textContent = this.outputSearchQuery
-        ? `Nenhum resultado para "${this.outputSearchQuery}".`
-        : `Nenhum log para o filtro "${this.activeLogFilter.toUpperCase()}".`
+        ? 'Nenhum resultado para "' + this.outputSearchQuery + '".'
+        : 'Nenhum log para o filtro "' + this.activeLogFilter.toUpperCase() + '".'
       this.liveDebugTerminal.appendChild(empty)
       return
     }
 
     for (const item of entries) {
       const line = document.createElement('div')
-      line.style.cssText = 'padding:1px 0;'
+      line.style.cssText = 'padding:1px 0;white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;max-width:100%;'
       line.textContent = item.message
       if (item.colorClass) line.className = item.colorClass
       this.liveDebugTerminal.appendChild(line)
@@ -2003,7 +1998,7 @@ export class EasyQuizPanel {
     const richOut = (html: string, extraStyle = '') => {
       if (!termOutput || !currentLine) return
       const line = document.createElement('div')
-      line.style.cssText = 'padding:0;white-space:pre-wrap;overflow-wrap:break-word;line-height:1.65;' + extraStyle
+      line.style.cssText = 'padding:0;white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;max-width:100%;line-height:1.65;' + extraStyle
       line.innerHTML = html
       termOutput.insertBefore(line, currentLine)
     }
@@ -2224,12 +2219,21 @@ export class EasyQuizPanel {
       modeT?.addEventListener('click', () => switchMode('terminal'))
       modeO?.addEventListener('click', () => switchMode('output'))
       cpB?.addEventListener('click', () => {
+        const flash = (el: HTMLElement) => { const oc = el.style.color; el.style.color = '#4ade80'; setTimeout(() => el.style.color = oc, 400) }
+        const selText = window.getSelection()?.toString() || ''
         if (this.terminalMode === 'terminal') {
-          if (!termOutput) return
-          const lines2 = Array.from(termOutput.children).filter(e=>e!==currentLine).map(el=>(el as HTMLElement).textContent||'')
-          navigator.clipboard.writeText(lines2.join('\n')).then(()=>this.showToast('Terminal copiado','success',2000))
+          if (selText) {
+            navigator.clipboard.writeText(selText).then(() => { this.showToast('Seleção copiada', 'success', 2000); if (cpB) flash(cpB) })
+          } else if (termOutput) {
+            const tlines = Array.from(termOutput.children).filter(e => e !== currentLine).map(el => (el as HTMLElement).textContent || '')
+            navigator.clipboard.writeText(tlines.join('\n')).then(() => { this.showToast('Terminal copiado', 'success', 2000); if (cpB) flash(cpB) })
+          }
         } else {
-          navigator.clipboard.writeText(this.getFormattedLogs()).then(()=>this.showToast('Output copiado','success',2000))
+          if (selText) {
+            navigator.clipboard.writeText(selText).then(() => { this.showToast('Seleção copiada', 'success', 2000); if (cpB) flash(cpB) })
+          } else {
+            navigator.clipboard.writeText(this.getFormattedLogs()).then(() => { this.showToast('Output copiado', 'success', 2000); if (cpB) flash(cpB) })
+          }
         }
       })
       clB?.addEventListener('click', () => {
@@ -2292,6 +2296,21 @@ export class EasyQuizPanel {
         e.preventDefault()
         this.terminalCmdHistoryIdx = Math.max(this.terminalCmdHistoryIdx-1, -1)
         typedEl.textContent = this.terminalCmdHistoryIdx >= 0 ? this.terminalCmdHistory[this.terminalCmdHistoryIdx] : ''
+      } else if (e.key === 'c' && e.ctrlKey) {
+        const selStr = window.getSelection()?.toString() || ''
+        if (selStr) {
+          navigator.clipboard.writeText(selStr)
+        } else if (typedEl?.textContent) {
+          navigator.clipboard.writeText(typedEl.textContent)
+        }
+        const cpFlash = this.shadow.querySelector('#eq-term-copy-btn') as HTMLElement|null
+        if (cpFlash) { const oc = cpFlash.style.color; cpFlash.style.color = '#4ade80'; setTimeout(() => cpFlash.style.color = oc, 400) }
+      } else if (e.key === 'v' && e.ctrlKey) {
+        e.preventDefault()
+        navigator.clipboard.readText().then(txt => {
+          if (typedEl) typedEl.textContent = (typedEl.textContent||'') + txt.replace(/\n/g, ' ')
+          if (termOutput) termOutput.scrollTop = termOutput.scrollHeight
+        })
       } else if (e.key === 'l' && e.ctrlKey) {
         e.preventDefault()
         if (termOutput && currentLine) { [...termOutput.children].forEach(k=>{if(k!==currentLine)k.remove()}) }
@@ -2312,6 +2331,24 @@ export class EasyQuizPanel {
     })
 
     // ── Filter context menu ───────────────────────────────
+    // ── Auto-apply filters ──
+    const applyFilters = () => {
+      const allChk  = (this.shadow.querySelector('#eq-fchk-all')   as HTMLInputElement)?.checked
+      const errChk  = (this.shadow.querySelector('#eq-fchk-error') as HTMLInputElement)?.checked
+      const aiChk   = (this.shadow.querySelector('#eq-fchk-ai')    as HTMLInputElement)?.checked
+      const domChk  = (this.shadow.querySelector('#eq-fchk-dom')   as HTMLInputElement)?.checked
+      const anyChecked = allChk || errChk || aiChk || domChk
+      if (!anyChecked) { const el = this.shadow.querySelector('#eq-fchk-all') as HTMLInputElement|null; if (el) el.checked = true; this.activeLogFilter = 'all' }
+      else if (allChk) this.activeLogFilter = 'all'
+      else if (errChk && !aiChk && !domChk) this.activeLogFilter = 'error'
+      else if (aiChk && !errChk && !domChk) this.activeLogFilter = 'ai'
+      else if (domChk && !errChk && !aiChk) this.activeLogFilter = 'dom'
+      else this.activeLogFilter = 'all'
+      const lbl = this.shadow.querySelector('#eq-output-filter-label') as HTMLElement|null
+      const lblMap: Record<string,string> = { all:'Todos', error:'Erros', ai:'IA', dom:'DOM' }
+      if (lbl) lbl.textContent = 'Filtro: ' + (lblMap[this.activeLogFilter] || this.activeLogFilter)
+      this.renderTerminalEntries()
+    }
     filterBtn?.addEventListener('click', (e) => { e.stopPropagation(); if (filterMenu) filterMenu.hidden = !filterMenu.hidden })
     applyBtn?.addEventListener('click', () => {
       const allChk  = (this.shadow.querySelector('#eq-fchk-all')   as HTMLInputElement)?.checked
