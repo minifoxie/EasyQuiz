@@ -3121,19 +3121,55 @@ export class EasyQuizPanel {
     }
   }
 
-  private showFolderContent(folder: { id: string; label: string; files: { id: string; label: string; icon: string }[] }): void {
+  private showFolderContent(folder: { id: string; label: string; files: { id: string; label: string; icon: string }[]; subfolders?: { id: string; label: string; icon: string; files: { id: string; label: string; icon: string }[] }[] }): void {
     const contentEl = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
     if (!contentEl) return
-    const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    let rows = ''
+    contentEl.innerHTML = ''
+
+    const esc = (s: string) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    const wrap = document.createElement('div')
+    wrap.className = 'eq-folder-view'
+
+    const header = document.createElement('div')
+    header.className = 'eq-folder-view-header'
+    header.innerHTML = `<span class="eq-tree-ficon" style="color:#fbbf24">${ICONS.folder}</span><span>${esc(folder.label)}</span>`
+    wrap.appendChild(header)
+
+    const filesDiv = document.createElement('div')
+    filesDiv.className = 'eq-folder-view-files'
+
+    // Direct files
     for (const file of folder.files) {
       const c = this.getBrainFileColor(file.icon)
-      rows += `<div class="eq-folder-view-row" data-file-id="${esc(file.id)}" data-file-label="${esc(file.label)}"><span class="eq-tree-ficon" style="color:${c}">${(ICONS as any)[file.icon] || ICONS.file}</span><span>${esc(file.label)}</span></div>`
+      const row = document.createElement('div')
+      row.className = 'eq-folder-view-row'
+      row.innerHTML = `<span class="eq-tree-ficon" style="color:${c}">${(ICONS as any)[file.icon] || ICONS.file}</span><span>${esc(file.label)}</span>`
+      row.addEventListener('click', () => this.openBrainFile(file.id, file.label))
+      filesDiv.appendChild(row)
     }
-    contentEl.innerHTML = `<div class="eq-folder-view"><div class="eq-folder-view-header"><span class="eq-tree-ficon" style="color:#fbbf24">${ICONS.folder}</span><span>${esc(folder.label)}</span></div><div class="eq-folder-view-files">${rows}</div></div>`
-    contentEl.querySelectorAll<HTMLElement>('.eq-folder-view-row').forEach(row => {
-      row.addEventListener('click', () => this.openBrainFile(row.dataset.fileId!, row.dataset.fileLabel!))
-    })
+
+    // Subfolders
+    for (const sf of (folder.subfolders || [])) {
+      const sfRow = document.createElement('div')
+      sfRow.className = 'eq-folder-view-row'
+      sfRow.style.cssText = 'display:flex;align-items:center;gap:6px;padding:7px 10px;cursor:pointer;border-radius:5px;'
+      const imgCount = sf.id === 'media-images' ? this.latestImages.length : sf.files.length
+      sfRow.innerHTML = `<span class="eq-tree-ficon" style="color:#60a5fa">${(ICONS as any)[sf.icon] || ICONS.folder}</span><span style="flex:1">${esc(sf.label)}</span><span style="font-size:9px;color:#555;">${imgCount} item${imgCount !== 1 ? 's' : ''}</span>`
+      sfRow.addEventListener('mouseenter', () => { sfRow.style.background = 'rgba(255,255,255,0.04)' })
+      sfRow.addEventListener('mouseleave', () => { sfRow.style.background = '' })
+      sfRow.addEventListener('click', () => {
+        this.brainSelectedFolder = sf.id
+        this.brainActiveTab = null
+        this.brainOpenFolders.add(sf.id)
+        this.showSubfolderContent(sf)
+        this.renderBrainExplorer()
+        this.renderBrainTabs()
+      })
+      filesDiv.appendChild(sfRow)
+    }
+
+    wrap.appendChild(filesDiv)
+    contentEl.appendChild(wrap)
   }
 
   private openBrainFile(fileId: string, label: string): void {
@@ -3277,6 +3313,35 @@ export class EasyQuizPanel {
       zoomHint.style.cssText = 'position:absolute;bottom:6px;right:8px;font-size:9px;color:rgba(255,255,255,0.3);pointer-events:none;'
       zoomHint.textContent = 'scroll para zoom · clique para ampliar'
       imgArea.appendChild(zoomHint)
+
+      // Prev/Next arrows (only when multiple images)
+      const total = this.latestImages.length
+      if (total > 1) {
+        const makeArrow = (dir: 'prev' | 'next') => {
+          const btn = document.createElement('button')
+          btn.style.cssText = `position:absolute;${dir === 'prev' ? 'left:6px' : 'right:6px'};top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.12);color:#ccc;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:13px;z-index:5;display:flex;align-items:center;justify-content:center;transition:background 0.12s;`
+          btn.innerHTML = dir === 'prev' ? '‹' : '›'
+          btn.title = dir === 'prev' ? 'Imagem anterior' : 'Próxima imagem'
+          btn.style.display = (dir === 'prev' && index === 0) || (dir === 'next' && index === total - 1) ? 'none' : 'flex'
+          btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(96,165,250,0.3)' })
+          btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(0,0,0,0.55)' })
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            const nextIdx = dir === 'prev' ? index - 1 : index + 1
+            if (nextIdx >= 0 && nextIdx < total) {
+              this.brainActiveTab = 'img-' + nextIdx
+              const img2 = this.latestImages[nextIdx]
+              const label2 = 'img-' + (nextIdx + 1) + '.' + (img2?.mediaType?.split('/')?.[1] || 'jpg')
+              if (!this.brainOpenTabs.find(t => t.id === 'img-' + nextIdx)) this.brainOpenTabs.push({ id: 'img-' + nextIdx, label: label2 })
+              this.renderBrainExplorer(); this.renderBrainTabs()
+              this.showImageFile(nextIdx)
+            }
+          })
+          return btn
+        }
+        imgArea.appendChild(makeArrow('prev'))
+        imgArea.appendChild(makeArrow('next'))
+      }
     } else {
       imgArea.style.cssText += 'color:#555;font-size:11px;'
       imgArea.textContent = 'Sem dados visuais — captura em modo texto'
@@ -3328,18 +3393,18 @@ export class EasyQuizPanel {
     // Remove existing lightbox
     this.shadow.querySelector('#eq-img-lightbox')?.remove()
 
-    // Overlay — click outside to close
+    // Overlay — click on backdrop to close
     const overlay = document.createElement('div')
     overlay.id = 'eq-img-lightbox'
     overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;'
 
-    // Modal wrapper — NO overflow:hidden so close button isn't clipped
+    // Modal wrapper
     const modal = document.createElement('div')
     modal.style.cssText = 'display:flex;width:min(90vw,1100px);max-height:90vh;border-radius:10px;background:#0f0f17;border:1px solid rgba(255,255,255,0.1);box-shadow:0 24px 64px rgba(0,0,0,0.8);position:relative;overflow:hidden;'
 
-    // Close button — outside modal, floating top-right of overlay
+    // Close button INSIDE overlay but OUTSIDE modal — safe from overflow:hidden
     const closeBtn = document.createElement('button')
-    closeBtn.style.cssText = 'position:fixed;top:16px;right:20px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.15);color:#ddd;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;z-index:2147483648;display:flex;align-items:center;justify-content:center;line-height:1;'
+    closeBtn.style.cssText = 'position:absolute;top:10px;right:10px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.15);color:#ddd;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:18px;z-index:10;display:flex;align-items:center;justify-content:center;line-height:1;'
     closeBtn.textContent = '×'
     closeBtn.title = 'Fechar (ESC)'
 
@@ -3434,14 +3499,35 @@ export class EasyQuizPanel {
     }
 
     modal.appendChild(metaSide)
+    overlay.appendChild(closeBtn)  // closeBtn is inside overlay, outside modal
     overlay.appendChild(modal)
-    // Append both overlay and close button to shadow root
     this.shadow.appendChild(overlay)
-    this.shadow.appendChild(closeBtn)
 
-    const close = () => { overlay.remove(); closeBtn.remove() }
+    const close = () => overlay.remove()
     closeBtn.addEventListener('click', (e) => { e.stopPropagation(); close() })
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
+    modal.addEventListener('click', (e) => e.stopPropagation())  // prevent modal clicks from bubbling to overlay
+    overlay.addEventListener('click', () => close())  // click anywhere on backdrop closes
+
+    // Prev/Next in lightbox
+    const totalImgs = this.latestImages.length
+    if (totalImgs > 1) {
+      const makeNav = (dir: 'prev' | 'next') => {
+        const btn = document.createElement('button')
+        btn.style.cssText = `position:absolute;${dir === 'prev' ? 'left:12px' : 'right:12px'};top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.15);color:#ddd;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:22px;z-index:10;display:${(dir === 'prev' && index === 0) || (dir === 'next' && index === totalImgs - 1) ? 'none' : 'flex'};align-items:center;justify-content:center;`
+        btn.innerHTML = dir === 'prev' ? '‹' : '›'
+        btn.title = dir === 'prev' ? 'Anterior' : 'Próxima'
+        btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(96,165,250,0.35)' })
+        btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(0,0,0,0.6)' })
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          const ni = dir === 'prev' ? index - 1 : index + 1
+          if (ni >= 0 && ni < totalImgs) { overlay.remove(); this.openImageLightbox(ni) }
+        })
+        return btn
+      }
+      overlay.appendChild(makeNav('prev'))
+      overlay.appendChild(makeNav('next'))
+    }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { close(); window.removeEventListener('keydown', onKey) } }
     window.addEventListener('keydown', onKey)
   }
