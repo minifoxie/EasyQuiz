@@ -453,6 +453,7 @@ export class EasyQuizPanel {
                 <span id="eq-insp-prompt" style="display:none;"></span>
                 <span id="eq-insp-rationale" style="display:none;"></span>
                 <div id="eq-insp-actions" style="display:none;"></div>
+              </div><!-- FIX: FECHAMENTO eq-view-brain -->
 
               <!-- TAB 2.5: MÍDIAS E IMAGENS -->
               <div class="eq-view-pane" id="eq-view-media" style="display: none;">
