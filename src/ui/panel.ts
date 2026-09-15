@@ -3208,16 +3208,45 @@ export class EasyQuizPanel {
   private renderBrainFileContent(fileId: string): void {
     const contentEl = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
     if (!contentEl) return
+
+    const raw = this.getBrainFileText(fileId)
+    const safeEsc = (s: string) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    
     const isGlobal   = fileId === this.GLOBAL_ID
     const isMarkdown = fileId === 'rationale' || isGlobal
-    const lang = isGlobal ? 'global' : isMarkdown ? 'markdown' : fileId === 'actions' || fileId === 'exec-result' ? 'json' : 'text'
-    const raw  = this.getBrainFileText(fileId)
+    const isJson     = fileId === 'actions' || fileId === 'exec-result'
+    const lang       = isGlobal ? 'markdown' : isMarkdown ? 'markdown' : isJson ? 'json' : 'text'
+
+    // Always wipe content first to avoid bleed from previous selection
+    contentEl.innerHTML = ''
+
+    const wrapper = document.createElement('div')
+    wrapper.className = 'eq-brain-file-view'
+
+    const header = document.createElement('div')
+    header.className = 'eq-brain-file-header'
+    header.innerHTML = `<span class="eq-brain-file-lang">${safeEsc(lang)}</span>`
+    wrapper.appendChild(header)
+
     if (isMarkdown) {
-      contentEl.innerHTML = `<div class="eq-brain-file-view"><div class="eq-brain-file-header"><span class="eq-brain-file-lang">${lang}</span></div><div class="eq-brain-markdown">${this.renderMarkdown(raw)}</div></div>`
+      const md = document.createElement('div')
+      md.className = 'eq-brain-markdown'
+      try {
+        md.innerHTML = this.renderMarkdown(raw || '(sem conteúdo)')
+      } catch {
+        md.textContent = raw || '(sem conteúdo)'
+      }
+      wrapper.appendChild(md)
     } else {
-      const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      contentEl.innerHTML = `<div class="eq-brain-file-view"><div class="eq-brain-file-header"><span class="eq-brain-file-lang">${lang}</span></div><pre class="eq-brain-code"><code>${esc(raw)}</code></pre></div>`
+      const pre = document.createElement('pre')
+      pre.className = 'eq-brain-code'
+      const code = document.createElement('code')
+      code.textContent = raw || '(sem conteúdo)'
+      pre.appendChild(code)
+      wrapper.appendChild(pre)
     }
+
+    contentEl.appendChild(wrapper)
   }
 
     public showFloatingAnswers(plan?: AnalysisPlan | null): void {
