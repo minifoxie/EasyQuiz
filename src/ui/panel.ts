@@ -2414,10 +2414,10 @@ export class EasyQuizPanel {
     this._lastToastTime = now
 
     const icons: Record<string, string> = {
-      success: '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
-      error:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>',
-      warning: '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>',
-      info:    '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>',
+      success: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
+      error:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>',
+      warning: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>',
+      info:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>',
     }
     const colors: Record<string, string> = { success:'#22c55e', error:'#ef4444', warning:'#f59e0b', info:'#60a5fa' }
     const col = colors[type] || colors.info
@@ -2442,9 +2442,9 @@ export class EasyQuizPanel {
     const MAX_VISIBLE = 5
     const makeToastEl = (msg: string, c: string, ico: string, dur: number): HTMLElement => {
       const toast = document.createElement('div')
-      toast.style.cssText = `display:flex;align-items:center;gap:7px;background:rgba(14,14,20,0.97);border:1px solid rgba(255,255,255,0.07);border-left:3px solid ${c};padding:6px 10px 6px 9px;border-radius:6px;font-size:11px;color:rgba(230,236,244,0.88);font-family:inherit;box-shadow:0 3px 16px rgba(0,0,0,0.55);pointer-events:all;max-width:288px;word-break:break-word;transform:translateX(-8px);opacity:0;transition:transform 0.2s cubic-bezier(0.34,1.4,0.64,1),opacity 0.15s ease;`
+      toast.style.cssText = 'display:flex;align-items:center;gap:8px;background:rgba(10,10,18,0.98);border:1px solid rgba(255,255,255,0.09);border-left:3px solid ' + c + ';padding:7px 12px 7px 10px;border-radius:7px;font-size:11px;color:rgba(235,240,248,0.92);font-family:inherit;box-shadow:0 4px 20px rgba(0,0,0,0.65),0 1px 4px rgba(0,0,0,0.4);pointer-events:all;max-width:296px;word-break:break-word;transform:translateX(-10px);opacity:0;transition:transform 0.22s cubic-bezier(0.34,1.5,0.64,1),opacity 0.16s ease;cursor:pointer;'
       const icoEl = document.createElement('span')
-      icoEl.style.cssText = `color:${c};display:inline-flex;flex-shrink:0;`
+      icoEl.style.cssText = 'color:' + c + ';display:inline-flex;flex-shrink:0;width:14px;height:14px;'
       icoEl.innerHTML = ico
       const txtEl = document.createElement('span')
       txtEl.textContent = msg
@@ -2844,7 +2844,72 @@ export class EasyQuizPanel {
     return null
   }
 
-  public initBrainControls(): void {
+  private smartCopy(): void {
+    // Determine what's currently visible in the brain canvas and copy it
+    const contentEl = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
+
+    // Case 1: Image file selected
+    if (this.brainActiveTab && this.brainActiveTab.startsWith('img-')) {
+      const idx = parseInt(this.brainActiveTab.slice(4), 10)
+      const img = this.latestImages[idx]
+      if (img?.base64) {
+        // Copy as data URI to clipboard (text form — browsers can't copy raw image blobs easily)
+        const uri = 'data:' + (img.mediaType || 'image/jpeg') + ';base64,' + img.base64
+        const desc = this.latestImageDescriptions.find(d => d.index === idx)
+        const lines = [
+          '[EasyQuiz] Imagem ' + (idx + 1) + ' de ' + this.latestImages.length,
+          'Status: ' + (img.captureStatus || 'desconhecido'),
+          'Tipo: ' + (img.mediaType || '--'),
+          img.alt ? ('Alt: ' + img.alt) : '',
+          img.source ? ('Fonte: ' + img.source) : '',
+          desc?.description ? ('Analise IA: ' + desc.description) : '',
+          img.textContext ? ('Contexto: ' + img.textContext) : '',
+          'Data URI: ' + uri.slice(0, 80) + '...',
+        ].filter(Boolean).join('\n')
+        navigator.clipboard.writeText(lines).then(() => this.showToast('Imagem copiada (URI + metadados)', 'success', 2500))
+        return
+      }
+    }
+
+    // Case 2: Subfolder "Imagens" selected — copy list of images info
+    if (this.brainSelectedFolder === 'media-images') {
+      const lines = ['[EasyQuiz] Imagens capturadas: ' + this.latestImages.length]
+      this.latestImages.forEach((img, i) => {
+        const d = this.latestImageDescriptions.find(x => x.index === i)
+        lines.push((i + 1) + '. ' + (img.captureStatus || '?') + (d?.description ? ' — ' + d.description.slice(0, 80) : ''))
+      })
+      navigator.clipboard.writeText(lines.join('\n')).then(() => this.showToast('Lista de imagens copiada', 'success', 2500))
+      return
+    }
+
+    // Case 3: Any other brain file — get text from getBrainFileText
+    if (this.brainActiveTab) {
+      const text = this.getBrainFileText(this.brainActiveTab)
+      if (text) {
+        navigator.clipboard.writeText(text).then(() => this.showToast('Conteúdo copiado', 'success', 2200))
+        return
+      }
+    }
+
+    // Case 4: Folder selected — copy visible canvas text
+    if (this.brainSelectedFolder) {
+      const text = contentEl?.innerText?.trim() || ''
+      if (text) {
+        navigator.clipboard.writeText(text).then(() => this.showToast('Estrutura copiada', 'success', 2200))
+        return
+      }
+    }
+
+    // Fallback
+    const fallback = contentEl?.innerText?.trim() || ''
+    if (fallback) {
+      navigator.clipboard.writeText(fallback).then(() => this.showToast('Conteúdo copiado', 'success', 2200))
+    } else {
+      this.showToast('Nada selecionado para copiar', 'warning', 2000)
+    }
+  }
+
+    public initBrainControls(): void {
     const handle    = this.shadow.querySelector('#eq-brain-resize-handle') as HTMLElement | null
     const canvas    = this.shadow.querySelector('.eq-brain-canvas')        as HTMLElement | null
     const toggleBtn = this.shadow.querySelector('#eq-brain-canvas-toggle') as HTMLElement | null
@@ -2865,6 +2930,9 @@ export class EasyQuizPanel {
     }
 
     if (toggleBtn && canvas) {
+      // Sync icon to current state
+      toggleBtn.innerHTML = this.brainCanvasHidden ? ICONS.eyeOff : ICONS.eye
+      toggleBtn.title = this.brainCanvasHidden ? 'Mostrar visualizador' : 'Ocultar visualizador'
       toggleBtn.addEventListener('click', () => {
         this.brainCanvasHidden = !this.brainCanvasHidden
         if (this.brainCanvasHidden) {
@@ -2880,29 +2948,11 @@ export class EasyQuizPanel {
     }
 
     if (copyBtn) {
-      copyBtn.addEventListener('click', () => this.copyCurrentContent())
+      copyBtn.addEventListener('click', () => this.smartCopy())
     }
   }
 
-  private copyCurrentContent(): void {
-    const contentEl = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
-    const codeEl = contentEl?.querySelector('.eq-brain-code, .eq-brain-markdown') as HTMLElement | null
-    const text = codeEl?.textContent?.trim() || contentEl?.textContent?.trim() || ''
-    if (!text) return
-    const tabLabel = this.brainOpenTabs.find(t => t.id === this.brainActiveTab)?.label || 'conteúdo'
-    const copyBtn  = this.shadow.querySelector('#eq-copy-prompt-btn') as HTMLElement | null
-    const origIcon = copyBtn?.innerHTML || ''
-    const onSuccess = () => {
-      if (copyBtn) { copyBtn.innerHTML = ICONS.check; copyBtn.style.color = '#4ade80' }
-      this.setStatus(`"${tabLabel}" copiado com sucesso.`, 'success')
-      setTimeout(() => { if (copyBtn) { copyBtn.innerHTML = origIcon; copyBtn.style.color = '' } }, 1800)
-    }
-    navigator.clipboard.writeText(text).then(onSuccess).catch(() => {
-      const ta = document.createElement('textarea'); ta.value = text
-      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
-      onSuccess()
-    })
-  }
+  private copyCurrentContent(): void { this.smartCopy() }
 
   private getBrainFileText(fileId: string): string {
     if (fileId === this.GLOBAL_ID) return this.buildGlobalContext()
@@ -3993,7 +4043,45 @@ export class EasyQuizPanel {
       timeChip.textContent = timeStr
       metaRow.appendChild(timeChip)
 
-      item.appendChild(topRow); item.appendChild(barWrap); item.appendChild(metaRow)
+      // Accordion collapse button icon
+      const chevronIco = document.createElement('span')
+      chevronIco.style.cssText = 'flex-shrink:0;display:inline-flex;color:#444;transition:transform 0.2s ease;margin-left:4px;'
+      chevronIco.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>'
+      topRow.appendChild(chevronIco)
+
+      // Collapsible body
+      const body = document.createElement('div')
+      body.style.cssText = 'overflow:hidden;max-height:0;transition:max-height 0.22s ease;'
+      body.appendChild(barWrap)
+      body.appendChild(metaRow)
+
+      // Click to expand (only one open at a time)
+      let expanded = false
+      const toggle = () => {
+        expanded = !expanded
+        if (expanded) {
+          // Collapse all other open items
+          this.metricsHistoryList?.querySelectorAll<HTMLElement>('.eq-mhist-body').forEach(b => {
+            if (b !== body) {
+              b.style.maxHeight = '0'
+              const ic = b.parentElement?.querySelector<HTMLElement>('.eq-mhist-chevron')
+              if (ic) ic.style.transform = ''
+            }
+          })
+          body.style.maxHeight = body.scrollHeight + 40 + 'px'
+          chevronIco.style.transform = 'rotate(180deg)'
+        } else {
+          body.style.maxHeight = '0'
+          chevronIco.style.transform = ''
+        }
+      }
+      body.className = 'eq-mhist-body'
+      chevronIco.className = 'eq-mhist-chevron'
+      topRow.style.cursor = 'pointer'
+      topRow.addEventListener('click', toggle)
+
+      item.appendChild(topRow)
+      item.appendChild(body)
       this.metricsHistoryList.appendChild(item)
     }
   }
@@ -4015,13 +4103,7 @@ export class EasyQuizPanel {
       })
     }
     navigator.clipboard.writeText(lines.join('\n')).then(() => {
-      if (this.metricsCopyBtn) {
-        const orig = this.metricsCopyBtn.innerHTML
-        this.metricsCopyBtn.innerHTML = ' Copiado!'
-        setTimeout(() => {
-          this.metricsCopyBtn.innerHTML = orig
-        }, 1500)
-      }
+      this.showToast('Relatório copiado!', 'success', 2500)
     })
   }
 
