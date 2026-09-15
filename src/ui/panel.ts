@@ -321,6 +321,16 @@ export class EasyQuizPanel {
               </div>
             </header>
 
+            <!-- Context Topbar: padronizado em todas as abas -->
+            <div id="eq-tab-contextbar" style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:rgba(255,255,255,0.025);border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;min-height:30px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span id="eq-ctxbar-icon" style="display:inline-flex;color:#aaa;opacity:0.7;"></span>
+                <span id="eq-ctxbar-name" style="font-size:11px;font-weight:700;color:#ccc;letter-spacing:0.02em;"></span>
+                <span id="eq-ctxbar-sub" style="font-size:9px;color:#444;font-weight:500;"></span>
+              </div>
+              <div id="eq-ctxbar-actions" style="display:flex;align-items:center;gap:4px;"></div>
+            </div>
+
             <!-- Barra de Carregamento / Progresso Dinâmica -->
             <div class="eq-progress-container" id="eq-progress-container" style="display: none;">
               <div class="eq-progress-info">
@@ -933,6 +943,9 @@ export class EasyQuizPanel {
       if (view) view.style.display = active ? 'flex' : 'none'
     }
 
+    // Update unified context topbar
+    this.updateContextBar(tab)
+
     // Per-tab initialization
     switch (tab) {
       case 'brain':
@@ -952,9 +965,97 @@ export class EasyQuizPanel {
     }
   }
 
+  private updateContextBar(tab: string): void {
+    const icon = this.shadow.querySelector('#eq-ctxbar-icon') as HTMLElement | null
+    const name = this.shadow.querySelector('#eq-ctxbar-name') as HTMLElement | null
+    const sub  = this.shadow.querySelector('#eq-ctxbar-sub')  as HTMLElement | null
+    const acts = this.shadow.querySelector('#eq-ctxbar-actions') as HTMLElement | null
+    if (!icon || !name || !sub || !acts) return
+
+    acts.innerHTML = ''
+
+    const TAB_META: Record<string, { icon: string; label: string; sub: string; color: string; actions?: () => HTMLElement[] }> = {
+      resolver: {
+        icon: ICONS.sparkles, label: 'Resolver', sub: 'Autopilot & operações', color: '#a78bfa',
+        actions: () => {
+          const badge = document.createElement('span')
+          badge.id = 'eq-ctxbar-status'
+          badge.style.cssText = 'font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(167,139,250,0.13);border:1px solid rgba(167,139,250,0.25);color:#a78bfa;letter-spacing:0.04em;'
+          badge.textContent = 'PRONTO'
+          return [badge]
+        }
+      },
+      brain: {
+        icon: ICONS.inspector, label: 'Cérebro da IA', sub: 'Contexto & inspeção', color: '#60a5fa',
+        actions: () => {
+          const toggleBtn = this.shadow.querySelector('#eq-brain-canvas-toggle') as HTMLElement | null
+          // Mirror toggle button state in contextbar
+          const eyeBtn = document.createElement('button')
+          eyeBtn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:4px;cursor:pointer;color:#888;'
+          eyeBtn.innerHTML = this.brainCanvasHidden ? ICONS.eyeOff : ICONS.eye
+          eyeBtn.title = 'Mostrar/Ocultar canvas'
+          eyeBtn.addEventListener('click', () => { toggleBtn?.click(); eyeBtn.innerHTML = this.brainCanvasHidden ? ICONS.eyeOff : ICONS.eye })
+          const copyBtn2 = document.createElement('button')
+          copyBtn2.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:4px;cursor:pointer;color:#888;'
+          copyBtn2.innerHTML = ICONS.copy
+          copyBtn2.title = 'Copiar conteúdo selecionado'
+          copyBtn2.addEventListener('click', () => this.smartCopy())
+          return [eyeBtn, copyBtn2]
+        }
+      },
+      metrics: {
+        icon: ICONS.clock, label: 'Métricas', sub: 'Cronômetro & histórico', color: '#4ade80',
+        actions: () => {
+          const copyBtn3 = document.createElement('button')
+          copyBtn3.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:4px;cursor:pointer;color:#888;'
+          copyBtn3.innerHTML = ICONS.copy
+          copyBtn3.title = 'Copiar relatório'
+          copyBtn3.addEventListener('click', () => this.copyMetricsReport())
+          const resetBtn = document.createElement('button')
+          resetBtn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,85,85,0.08);border:1px solid rgba(255,85,85,0.15);border-radius:4px;cursor:pointer;color:#ff8888;'
+          resetBtn.innerHTML = ICONS.trash
+          resetBtn.title = 'Zerar métricas'
+          resetBtn.addEventListener('click', () => {
+            const rb = this.shadow.querySelector('#eq-metrics-reset-btn') as HTMLButtonElement | null
+            rb?.click()
+          })
+          return [copyBtn3, resetBtn]
+        }
+      },
+      debug: {
+        icon: ICONS.code, label: 'Debug Output', sub: 'Terminal & auditoria', color: '#0098ff',
+        actions: () => {
+          const badge = document.createElement('span')
+          badge.id = 'eq-debug-badge'
+          badge.style.cssText = 'font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(0,152,255,0.13);border:1px solid rgba(0,152,255,0.25);color:#0098ff;letter-spacing:0.04em;'
+          badge.textContent = 'ATIVO'
+          return [badge]
+        }
+      },
+      settings: {
+        icon: ICONS.settings, label: 'Configurações', sub: 'Ajustes & preferências', color: '#fbbf24'
+      },
+    }
+
+    const meta = TAB_META[tab]
+    if (!meta) return
+
+    icon.innerHTML = meta.icon
+    icon.style.color = meta.color
+    name.textContent = meta.label
+    name.style.color = meta.color === '#a78bfa' ? '#ccc' : '#ddd'
+    sub.textContent = meta.sub
+
+    if (meta.actions) {
+      for (const el of meta.actions()) acts.appendChild(el)
+    }
+  }
+
   private setupEventListeners(): void {
     // Abas do Activity Bar Vertical
     this.shadow.querySelector('#eq-tab-resolver')?.addEventListener('click', () => this.switchTab('resolver'))
+    // Init contextbar for the default active tab
+    setTimeout(() => this.updateContextBar(this.activeTab || 'resolver'), 0)
     this.shadow.querySelector('#eq-tab-brain')?.addEventListener('click', () => this.switchTab('brain'))
     this.shadow.querySelector('#eq-tab-metrics')?.addEventListener('click', () => this.switchTab('metrics'))
     this.shadow.querySelector('#eq-tab-debug')?.addEventListener('click', () => this.switchTab('debug'))
@@ -2942,14 +3043,17 @@ export class EasyQuizPanel {
     if (toggleBtn && canvas) {
       toggleBtn.addEventListener('click', () => {
         this.brainCanvasHidden = !this.brainCanvasHidden
+        const resizeHandle = this.shadow.querySelector('#eq-brain-resize-handle') as HTMLElement | null
         if (this.brainCanvasHidden) {
           canvas.classList.add('is-hidden')
           toggleBtn.innerHTML = ICONS.eyeOff
           toggleBtn.title = 'Mostrar visualizador'
+          if (resizeHandle) resizeHandle.style.display = 'none'
         } else {
           canvas.classList.remove('is-hidden')
           toggleBtn.innerHTML = ICONS.eye
           toggleBtn.title = 'Ocultar visualizador'
+          if (resizeHandle) resizeHandle.style.display = ''
         }
       })
     }
