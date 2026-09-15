@@ -157,6 +157,7 @@ export interface EasyQuizSettings {
   hostDarkMode: boolean
   useVision: boolean
   confidenceThreshold: number
+  toastStacking: boolean
 }
 
 export const DEFAULT_SETTINGS: EasyQuizSettings = {
@@ -172,6 +173,7 @@ export const DEFAULT_SETTINGS: EasyQuizSettings = {
   hostDarkMode: true,
   useVision: true,
   confidenceThreshold: 0.8,
+  toastStacking: true,
 }
 
 export interface QuestionTimingRecord {

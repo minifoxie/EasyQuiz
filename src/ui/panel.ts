@@ -181,6 +181,7 @@ export class EasyQuizPanel {
   private autoAdvanceCheckbox: HTMLInputElement
   private hostDarkModeCheckbox: HTMLInputElement
   private useVisionCheckbox: HTMLInputElement
+  private toastStackingCheckbox: HTMLInputElement
   private analyzeBtn: HTMLButtonElement
   private applyBtn: HTMLButtonElement
   private resultContainer: HTMLElement
@@ -770,6 +771,10 @@ export class EasyQuizPanel {
                     <input id="eq-host-dark" type="checkbox" />
                     <span style="color: #00ffcc;">Habilitar Smart Dark Mode no Site</span>
                   </label>
+                  <label class="eq-checkbox-label" style="margin-top: 6px;">
+                    <input id="eq-toast-stacking" type="checkbox" />
+                    <span style="color: #fbbf24;">Acumular Toasts (Histórico de Notificações)</span>
+                  </label>
                 </div>
 
                 <!-- Zona de Redefinição -->
@@ -854,6 +859,8 @@ export class EasyQuizPanel {
     this.autoAdvanceCheckbox = this.shadow.querySelector('#eq-auto-advance') as HTMLInputElement
     this.hostDarkModeCheckbox = this.shadow.querySelector('#eq-host-dark') as HTMLInputElement
     this.useVisionCheckbox = this.shadow.querySelector('#eq-use-vision') as HTMLInputElement
+    this.toastStackingCheckbox = this.shadow.querySelector('#eq-toast-stacking') as HTMLInputElement
+    this.toastStackingCheckbox = this.shadow.querySelector('#eq-toast-stacking') as HTMLInputElement
     this.analyzeBtn = this.shadow.querySelector('#eq-analyze-btn') as HTMLButtonElement
     this.applyBtn = this.shadow.querySelector('#eq-apply-btn') as HTMLButtonElement | null
     if (this.applyBtn) this.applyBtn.disabled = true
@@ -885,6 +892,8 @@ export class EasyQuizPanel {
     this.autoAdvanceCheckbox.checked = initialSettings.autoAdvance
     this.hostDarkModeCheckbox.checked = initialSettings.hostDarkMode
     this.useVisionCheckbox.checked = initialSettings.useVision
+    this.toastStackingCheckbox.checked = initialSettings.toastStacking ?? true
+    this.toastStackingCheckbox.checked = initialSettings.toastStacking ?? true
 
     // Elementos da Aba de Métricas & Cronômetro
     this.metricsLiveTime = this.shadow.querySelector('#eq-metrics-live-time') as HTMLElement
@@ -2127,6 +2136,7 @@ export class EasyQuizPanel {
     }
     if (this.activeTab === 'brain') {
       this.renderContextTree()
+      this.refreshBrainCanvas()
       if (plan) this.refreshInspectorView()
     } else if (this.activeTab === 'debug') {
       this.refreshDebugView()
@@ -2138,6 +2148,7 @@ export class EasyQuizPanel {
     this.latestImages = images
     if (this.activeTab === 'brain') {
       this.renderContextTree()
+      this.refreshBrainCanvas()
     }
     if (this.activeTab === 'media' || images.length > 0) {
       this.renderMediaTab()
@@ -2421,7 +2432,7 @@ export class EasyQuizPanel {
 
   public setInterrupted(message = 'Análise interrompida pelo usuário.'): void {
     this.isBusy = false
-    ;[this.modelSelect, this.modeSelect, this.engineSelect, this.dryRunCheckbox, this.autoApplyCheckbox, this.autoAdvanceCheckbox, this.useVisionCheckbox].forEach(
+    ;[this.modelSelect, this.modeSelect, this.engineSelect, this.dryRunCheckbox, this.autoApplyCheckbox, this.autoAdvanceCheckbox, this.useVisionCheckbox, this.toastStackingCheckbox].forEach(
       (e) => ((e as any).disabled = false),
     )
 
@@ -2454,7 +2465,7 @@ export class EasyQuizPanel {
 
   public setBusy(busy: boolean, message?: string): void {
     this.isBusy = busy
-    ;[this.modelSelect, this.modeSelect, this.engineSelect, this.dryRunCheckbox, this.autoApplyCheckbox, this.autoAdvanceCheckbox, this.useVisionCheckbox].forEach(
+    ;[this.modelSelect, this.modeSelect, this.engineSelect, this.dryRunCheckbox, this.autoApplyCheckbox, this.autoAdvanceCheckbox, this.useVisionCheckbox, this.toastStackingCheckbox].forEach(
       (e) => ((e as any).disabled = busy),
     )
 
@@ -2502,44 +2513,134 @@ export class EasyQuizPanel {
 
   private _lastToastMsg = ''
   private _lastToastTime = 0
+  private _toastQueue: Array<{message: string; type: string; col: string; iconHtml: string; expiresAt: number}> = []
+  private _toastVisible: HTMLElement[] = []
+  private _toastOverflowBtn: HTMLElement | null = null
 
   public showToast(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info', duration = 3500, _force = false): void {
-    // Dedup: skip if same message was shown within 1500ms
     const now = Date.now()
     const sig = type + ':' + message
     if (!_force && sig === this._lastToastMsg && now - this._lastToastTime < 1500) return
     this._lastToastMsg = sig
     this._lastToastTime = now
+
+    const icons: Record<string, string> = {
+      success: '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
+      error:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>',
+      warning: '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>',
+      info:    '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>',
+    }
+    const colors: Record<string, string> = { success:'#22c55e', error:'#ef4444', warning:'#f59e0b', info:'#60a5fa' }
+    const col = colors[type] || colors.info
+    const iconHtml = icons[type] || icons.info
+
+    // Push to queue
+    const useStacking = this.initialSettings.toastStacking ?? true
+    const entry = { message, type, col, iconHtml, expiresAt: Date.now() + duration }
+    if (useStacking) {
+      this._toastQueue.push(entry)
+    }
+
+    // Ensure container exists
     let container = this.shadow.querySelector('#eq-toast-container') as HTMLElement | null
     if (!container) {
       container = document.createElement('div')
       container.id = 'eq-toast-container'
-      container.style.cssText = 'position:fixed;bottom:16px;left:16px;z-index:2147483647;display:flex;flex-direction:column-reverse;gap:7px;pointer-events:none;'
+      container.style.cssText = 'position:fixed;bottom:8px;left:12px;z-index:2147483647;display:flex;flex-direction:column-reverse;gap:5px;pointer-events:none;max-width:300px;'
       this.shadow.appendChild(container)
     }
-    const icons: Record<string, string> = {
-      success: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
-      error:   '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>',
-      warning: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>',
-      info:    '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>',
+
+    const MAX_VISIBLE = 5
+    const makeToastEl = (msg: string, c: string, ico: string, dur: number): HTMLElement => {
+      const toast = document.createElement('div')
+      toast.style.cssText = `display:flex;align-items:center;gap:7px;background:rgba(14,14,20,0.97);border:1px solid rgba(255,255,255,0.07);border-left:3px solid ${c};padding:6px 10px 6px 9px;border-radius:6px;font-size:11px;color:rgba(230,236,244,0.88);font-family:inherit;box-shadow:0 3px 16px rgba(0,0,0,0.55);pointer-events:all;max-width:288px;word-break:break-word;transform:translateX(-8px);opacity:0;transition:transform 0.2s cubic-bezier(0.34,1.4,0.64,1),opacity 0.15s ease;`
+      const icoEl = document.createElement('span')
+      icoEl.style.cssText = `color:${c};display:inline-flex;flex-shrink:0;`
+      icoEl.innerHTML = ico
+      const txtEl = document.createElement('span')
+      txtEl.textContent = msg
+      txtEl.style.flex = '1'
+      toast.appendChild(icoEl)
+      toast.appendChild(txtEl)
+      return toast
     }
-    const colors: Record<string, string> = { success:'#22c55e', error:'#ef4444', warning:'#f59e0b', info:'#60a5fa' }
-    const toast = document.createElement('div')
-    const col = colors[type] || colors.info
-    toast.style.cssText = `display:flex;align-items:center;gap:9px;background:rgba(16,16,22,0.97);border:1px solid rgba(255,255,255,0.09);border-left:3px solid ${col};padding:9px 14px 9px 11px;border-radius:8px;font-size:12px;color:rgba(234,240,248,0.9);font-family:inherit;box-shadow:0 4px 22px rgba(0,0,0,0.5);pointer-events:all;max-width:290px;word-break:break-word;transform:translateX(-10px);opacity:0;transition:transform 0.22s cubic-bezier(0.34,1.56,0.64,1),opacity 0.18s ease;`
-    const ico = document.createElement('span')
-    ico.style.cssText = `color:${col};display:inline-flex;flex-shrink:0;`
-    ico.innerHTML = icons[type] || icons.info
-    toast.appendChild(ico)
-    const txt = document.createElement('span')
-    txt.textContent = message; txt.style.flex = "1"
-    toast.appendChild(txt)
+
+    // Check if we're over the limit
+    // Clean expired entries from _toastVisible
+    this._toastVisible = this._toastVisible.filter(el => el.isConnected)
+
+    const overflow = useStacking ? Math.max(0, this._toastQueue.filter(e => e.expiresAt > Date.now()).length - MAX_VISIBLE) : 0
+
+    if (useStacking && this._toastVisible.length >= MAX_VISIBLE) {
+      // Don't render visually — just update overflow badge
+      this._updateToastOverflow(container, overflow)
+      return
+    }
+
+    const toast = makeToastEl(message, col, iconHtml, duration)
     container.appendChild(toast)
-    requestAnimationFrame(() => requestAnimationFrame(() => { toast.style.transform = "translateX(0)"; toast.style.opacity = "1" }))
-    const dismiss = () => { toast.style.transform = "translateX(-12px)"; toast.style.opacity = "0"; setTimeout(() => toast.remove(), 220) }
+    if (useStacking) this._toastVisible.push(toast)
+    requestAnimationFrame(() => requestAnimationFrame(() => { toast.style.transform = 'translateX(0)'; toast.style.opacity = '1' }))
+    const dismiss = () => {
+      toast.style.transform = 'translateX(-10px)'; toast.style.opacity = '0'
+      setTimeout(() => {
+        toast.remove()
+        if (useStacking) {
+          this._toastVisible = this._toastVisible.filter(el => el !== toast)
+          this._toastQueue = this._toastQueue.filter(e => e.expiresAt > Date.now())
+          this._updateToastOverflow(container!, Math.max(0, this._toastQueue.length - this._toastVisible.filter(e=>e.isConnected).length))
+        }
+      }, 200)
+    }
     const timer = setTimeout(dismiss, duration)
     toast.addEventListener('click', () => { clearTimeout(timer); dismiss() }, { once: true })
+
+    if (useStacking) this._updateToastOverflow(container, overflow)
   }
+
+  private _updateToastOverflow(container: HTMLElement, overflow: number): void {
+    if (this._toastOverflowBtn) { this._toastOverflowBtn.remove(); this._toastOverflowBtn = null }
+    if (overflow <= 0) return
+    const btn = document.createElement('button')
+    btn.style.cssText = 'display:flex;align-items:center;gap:5px;background:rgba(14,14,20,0.92);border:1px solid rgba(255,255,255,0.1);border-radius:5px;font-size:10px;color:rgba(200,210,225,0.8);padding:4px 8px;cursor:pointer;pointer-events:all;font-family:inherit;'
+    btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg><span>+${overflow} notif.</span>`
+    btn.addEventListener('click', () => this._showToastHistory())
+    this._toastOverflowBtn = btn
+    container.appendChild(btn)
+  }
+
+  private _showToastHistory(): void {
+    const now = Date.now()
+    const history = this._toastQueue.filter(e => e.expiresAt > now)
+    if (history.length === 0) return
+    let container = this.shadow.querySelector('#eq-toast-container') as HTMLElement | null
+    if (!container) return
+    // Remove existing overflow btn
+    if (this._toastOverflowBtn) { this._toastOverflowBtn.remove(); this._toastOverflowBtn = null }
+    // Show all queued toasts
+    const colors: Record<string, string> = { success:'#22c55e', error:'#ef4444', warning:'#f59e0b', info:'#60a5fa' }
+    for (const entry of history) {
+      if (container.querySelectorAll('.eq-toast-hist').length > 20) break
+      const el = document.createElement('div')
+      el.className = 'eq-toast-hist'
+      el.style.cssText = `display:flex;align-items:center;gap:7px;background:rgba(14,14,20,0.95);border:1px solid rgba(255,255,255,0.07);border-left:3px solid ${entry.col};padding:5px 9px 5px 8px;border-radius:5px;font-size:10.5px;color:rgba(200,210,225,0.82);font-family:inherit;box-shadow:0 2px 10px rgba(0,0,0,0.4);pointer-events:all;max-width:288px;word-break:break-word;`
+      const icoEl = document.createElement('span')
+      icoEl.style.cssText = `color:${entry.col};display:inline-flex;flex-shrink:0;`
+      icoEl.innerHTML = entry.iconHtml
+      const txtEl = document.createElement('span')
+      txtEl.textContent = entry.message
+      txtEl.style.flex = '1'
+      const timeEl = document.createElement('span')
+      const secsLeft = Math.ceil((entry.expiresAt - now) / 1000)
+      timeEl.textContent = `${secsLeft}s`
+      timeEl.style.cssText = 'color:rgba(150,160,180,0.5);font-size:9px;flex-shrink:0;'
+      el.appendChild(icoEl); el.appendChild(txtEl); el.appendChild(timeEl)
+      el.addEventListener('click', () => el.remove(), { once: true })
+      container.appendChild(el)
+      setTimeout(() => el.remove(), Math.max(500, entry.expiresAt - now))
+    }
+  }
+
   public setStatus(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info'): void {
     // Fire toast only for user-actionable events (not transient status updates)
     if (message && message.length > 4 && (type === 'success' || type === 'error')) {
@@ -2899,63 +3000,76 @@ export class EasyQuizPanel {
     if (fileId === this.GLOBAL_ID) return this.buildGlobalContext()
     const plan = this.latestPlan
     const DATA: Record<string, string> = {
-      rationale:      plan?.rationale || 'Aguardando resposta da IA...',
-      actions:        plan?.actions?.length ? JSON.stringify(plan.actions, null, 2) : '// Nenhuma ação.',
-      summary:        plan ? `Modo: ${plan.mode || 'auto'}\nConfiança: ${Math.round((plan.confidence||0)*100)}%\nAções: ${plan.actions?.length||0}\nModelo: ${plan.usedModel||'--'}` : 'Aguardando análise...',
-      prompt:         plan?.promptSent || this.latestPromptText || 'Nenhum prompt registrado.',
-      rag:            (plan as any)?.ragContext || 'Contexto RAG não disponível.',
-      'meta-model':   `Modelo: ${plan?.usedModel || this.initialSettings.model || '--'}`,
+      rationale:      plan?.rationale || 'Aguardando raciocínio da IA (ou extração em andamento)...',
+      actions:        plan?.actions?.length ? JSON.stringify(plan.actions, null, 2) : '// Nenhuma ação planejada no momento.',
+      summary:        plan ? `Modo: ${plan.mode || 'auto'}\nConfiança: ${Math.round((plan.confidence||0)*100)}%\nAções: ${plan.actions?.length||0}\nModelo: ${plan.usedModel||'--'}` : 'Aguardando primeira análise completa...',
+      prompt:         plan?.promptSent || this.latestPromptText || 'Nenhum prompt em memória. A IA ainda não foi acionada.',
+      rag:            (plan as any)?.ragContext || 'Nenhuma memória estendida usada ou capturada.',
+      'meta-model':   `Modelo Ativo: ${plan?.usedModel || this.initialSettings.model || '--'}`,
       'meta-latency': plan?.durationMs ? `Latência: ${plan.durationMs}ms` : 'Latência: --',
       'meta-tokens':  plan?.tokensUsed ? `Tokens: ${plan.tokensUsed}` : 'Tokens: --',
-      'exec-steps':   (plan as any)?.executionResult?.steps?.map((s: unknown) => JSON.stringify(s)).join('\n') || 'Sem passos.',
-      'exec-result':  (plan as any)?.executionResult ? JSON.stringify((plan as any).executionResult, null, 2) : 'Sem resultado.',
+      'exec-steps':   (plan as any)?.executionResult?.steps?.map((s: unknown) => JSON.stringify(s)).join('\n') || 'Passos de execução ainda não iniciados.',
+      'exec-result':  (plan as any)?.executionResult ? JSON.stringify((plan as any).executionResult, null, 2) : 'Aguardando resultado de execução...',
     }
-    return DATA[fileId] ?? 'Conteúdo não disponível.'
+    return DATA[fileId] ?? 'Conteúdo não disponível para este arquivo.'
   }
 
   private buildGlobalContext(): string {
     const plan = this.latestPlan
+    const ctx = this.latestContext
+    const imgs = this.latestImages
     const esc = (s: string) => String(s ?? '-- sem dados --')
+    
     const parts: string[] = [
-      '# Contexto Global — EasyQuiz',
+      '# Visão Global — EasyQuiz',
+      '',
+      `**URL:** ${window.location.href}`,
+      `**Título:** ${document.title}`,
+      `**Mídias Capturadas:** ${imgs.length} imagem(ns)`,
+      '',
+      '---',
+      '',
+      '## Status da Extração Local',
+      '',
+      '### Texto do Enunciado Detectado',
+      ctx ? ctx.questionText : 'Aguardando captura do DOM...',
+      '',
+      '### Controles (Alternativas/Botões)',
+      ctx && ctx.controls.length > 0 ? ctx.controls.map(c => `- [${c.type}] ${c.label || c.id || c.name || c.value || 'Sem rótulo'}`).join('\n') : 'Nenhum controle capturado ainda.',
       '',
       '---',
       '',
       '## Resposta da IA',
       '',
-      '### Racional',
-      esc(plan?.rationale || 'Aguardando análise...'),
+      '### Raciocínio (Rationale)',
+      esc(plan?.rationale || 'Aguardando análise da IA...'),
       '',
-      '### Ações',
-      plan?.actions?.length ? JSON.stringify(plan.actions, null, 2) : '// Nenhuma ação registrada.',
+      '### Ações a Executar',
+      plan?.actions?.length ? JSON.stringify(plan.actions, null, 2) : '// Nenhuma ação planejada no momento.',
       '',
       '### Resumo',
-      plan ? `- Modo: ${plan.mode || 'auto'}\n- Confiança: ${Math.round((plan.confidence||0)*100)}%\n- Total de ações: ${plan.actions?.length||0}\n- Modelo: ${plan.usedModel||'--'}` : 'Aguardando análise...',
+      plan ? `- Modo: ${plan.mode || 'auto'}\n- Confiança: ${Math.round((plan.confidence||0)*100)}%\n- Total de ações: ${plan.actions?.length||0}\n- Modelo: ${plan.usedModel||'--'}` : 'Aguardando primeira análise...',
       '',
       '---',
       '',
-      '## Contexto & Prompt',
+      '## Injeção & Metadados',
       '',
-      '### Prompt enviado',
-      esc(plan?.promptSent || this.latestPromptText || 'Nenhum prompt registrado.'),
+      '### Prompt Enviado (Raw)',
+      esc(plan?.promptSent || this.latestPromptText || 'Nenhum prompt em memória.'),
       '',
-      '### Contexto RAG',
-      esc((plan as any)?.ragContext || 'Contexto RAG não disponível.'),
+      '### Contexto RAG Acumulado',
+      esc((plan as any)?.ragContext || 'Nenhuma memória estendida usada.'),
       '',
-      '---',
-      '',
-      '## Metadados',
-      '',
-      `- **Modelo:** ${plan?.usedModel || this.initialSettings.model || '--'}`,
-      `- **Latência:** ${plan?.durationMs ? plan.durationMs + 'ms' : '--'}`,
-      `- **Tokens:** ${plan?.tokensUsed ?? '--'}`,
+      `- **Modelo Configurado:** ${plan?.usedModel || this.initialSettings.model || '--'}`,
+      `- **Latência Último Call:** ${plan?.durationMs ? plan.durationMs + 'ms' : '--'}`,
+      `- **Tokens Consumidos:** ${plan?.tokensUsed ?? '--'}`,
       '',
     ]
     if ((plan as any)?.executionResult) {
-      parts.push('---', '', '## Execução', '')
-      parts.push('### Steps')
+      parts.push('---', '', '## Execução Automática (Autopilot)', '')
+      parts.push('### Steps (Passo a Passo)')
       parts.push((plan as any).executionResult?.steps?.map((s: unknown) => JSON.stringify(s)).join('\n') || 'Sem passos.')
-      parts.push('', '### Resultado')
+      parts.push('', '### Resultado Final')
       parts.push(JSON.stringify((plan as any).executionResult, null, 2))
     }
     return parts.join('\n')
@@ -3054,8 +3168,20 @@ export class EasyQuizPanel {
     this.brainOpenTabs.splice(idx, 1)
     if (this.brainActiveTab === fileId) this.brainActiveTab = this.brainOpenTabs[idx-1]?.id || this.brainOpenTabs[0]?.id || null
     this.renderBrainExplorer(); this.renderBrainTabs()
+    this.refreshBrainCanvas()
+  }
+
+  private refreshBrainCanvas(): void {
     if (this.brainActiveTab) {
       this.renderBrainFileContent(this.brainActiveTab)
+    } else if (this.brainSelectedFolder) {
+      const folder = this.getBrainFolders().find(f => f.id === this.brainSelectedFolder)
+      if (folder) {
+        this.showFolderContent(folder)
+      } else {
+        const c = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
+        if (c) c.innerHTML = '<div class="eq-brain-empty-canvas"><div style="margin-bottom:4px;opacity:0.5">Nada selecionado</div><div class="eq-brain-empty-sub">Selecione um arquivo no explorador abaixo para visualizá-lo</div></div>'
+      }
     } else {
       const c = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
       if (c) c.innerHTML = '<div class="eq-brain-empty-canvas"><div style="margin-bottom:4px;opacity:0.5">Nada selecionado</div><div class="eq-brain-empty-sub">Selecione um arquivo no explorador abaixo para visualizá-lo</div></div>'
