@@ -130,6 +130,13 @@ export class EasyQuizPanel {
   private activeLogFilter: 'all' | 'error' | 'ai' | 'dom' = 'all'
   private autoScrollLogs: boolean = true
   private lastErrorMsg: string | null = null
+  private terminalCmdHistory: string[] = []
+  private terminalCmdHistoryIdx: number = -1
+  private terminalMode: 'terminal' | 'output' = 'terminal'
+  private _terminalInited: boolean = false
+  private liveTerminalOutput: HTMLElement | null = null
+  private terminalInputEl: HTMLInputElement | null = null
+  private outputSearchQuery: string = ''
   private _autopilotAnalyzingShown: boolean = false  // evita spam de "IA analisando..." por ciclo
 
   // Barra de Progresso
@@ -505,104 +512,70 @@ export class EasyQuizPanel {
               </div>
 
               <!-- TAB 4: DEBUG OUTPUT & TERMINAL -->
-              <div class="eq-view-pane" id="eq-view-debug" style="display: none;">
-                                <span id="eq-debug-badge" style="display:none">ATIVO</span>
+              <div class="eq-view-pane" id="eq-view-debug" style="display: none; flex-direction:column;">
+                <span id="eq-debug-badge" style="display:none">ATIVO</span>
 
-                <!-- Grid 4 Métricas de Tokens / Desempenho -->
-                <div class="eq-token-grid">
-                  <div class="eq-token-box">
-                    <div class="eq-token-title">Modelo</div>
-                    <div class="eq-token-val" id="eq-dbg-model">--</div>
+                <!-- Sub-topbar: Terminal | Output + Copy/Clear -->
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
+                  <div id="eq-term-mode-tabs" style="display:flex;align-items:center;gap:2px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:5px;padding:2px;">
+                    <button id="eq-term-mode-terminal" type="button" style="font-size:10px;font-weight:600;padding:2px 10px;border-radius:3px;background:rgba(167,139,250,0.18);border:1px solid rgba(167,139,250,0.3);color:#a78bfa;cursor:pointer;transition:all 0.12s;">Terminal</button>
+                    <button id="eq-term-mode-output" type="button" style="font-size:10px;font-weight:600;padding:2px 10px;border-radius:3px;background:transparent;border:1px solid transparent;color:#555;cursor:pointer;transition:all 0.12s;">Output</button>
                   </div>
-                  <div class="eq-token-box">
-                    <div class="eq-token-title">Latência</div>
-                    <div class="eq-token-val" id="eq-dbg-latency">--</div>
-                  </div>
-                  <div class="eq-token-box">
-                    <div class="eq-token-title">Prompt / Resp</div>
-                    <div class="eq-token-val" id="eq-dbg-split-tokens">-- / --</div>
-                  </div>
-                  <div class="eq-token-box">
-                    <div class="eq-token-title">Total Tokens</div>
-                    <div class="eq-token-val" id="eq-dbg-total-tokens" style="color: #4ec9b0;">--</div>
+                  <div style="display:flex;align-items:center;gap:3px;">
+                    <button class="eq-icon-btn" id="eq-term-copy-btn" type="button" title="Copiar conteúdo atual" style="width:22px;height:22px;">${ICONS.copy}</button>
+                    <button class="eq-icon-btn" id="eq-term-clear-btn" type="button" title="Limpar" style="width:22px;height:22px;color:#ff5555;">${ICONS.eraser}</button>
                   </div>
                 </div>
 
-                <!-- Alerta de Erro Recente (Se houver) -->
-                <div class="eq-debug-error-card" id="eq-dbg-error-card" style="display: none;">
+                <!-- Compact token strip (both modes) -->
+                <div style="display:flex;align-items:center;border-bottom:1px solid rgba(255,255,255,0.04);flex-shrink:0;font-family:'Cascadia Code','Fira Code','Courier New',monospace;">
+                  <div style="padding:4px 10px;border-right:1px solid rgba(255,255,255,0.04);font-size:9px;"><span style="color:#3d3d4d;">MDL</span> <span id="eq-dbg-model" style="color:#aaa;">--</span></div>
+                  <div style="padding:4px 10px;border-right:1px solid rgba(255,255,255,0.04);font-size:9px;"><span style="color:#3d3d4d;">LAT</span> <span id="eq-dbg-latency" style="color:#4ade80;">--</span></div>
+                  <div style="padding:4px 10px;border-right:1px solid rgba(255,255,255,0.04);font-size:9px;"><span style="color:#3d3d4d;">TOK</span> <span id="eq-dbg-total-tokens" style="color:#60a5fa;">--</span></div>
+                  <div style="padding:4px 10px;font-size:9px;"><span style="color:#3d3d4d;">P/R</span> <span id="eq-dbg-split-tokens" style="color:#666;">--/--</span></div>
+                  <div style="margin-left:auto;padding:4px 10px;font-size:9px;"><span style="color:#3d3d4d;">CHARS</span> <span id="eq-dbg-prompt-len" style="color:#666;">--</span></div>
+                </div>
+
+                <!-- TERMINAL MODE -->
+                <div id="eq-term-panel-terminal" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;">
+                  <div id="eq-term-output" style="flex:1;overflow-y:auto;padding:10px 12px 4px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11px;line-height:1.55;background:#08080f;color:#c0c8d0;word-break:break-all;">
+                    <div style="color:#2a2a3a;">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+                    <div style="color:#4a4a6a;">  EasyQuiz Terminal — v${BUILD_VERSION}</div>
+                    <div style="color:#4a4a6a;">  Digite <span style="color:#a78bfa;">help</span> para ver os comandos disponíveis.</div>
+                    <div style="color:#2a2a3a;">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+                  </div>
+                  <div id="eq-term-input-line" style="display:flex;align-items:center;padding:5px 12px;background:#06060c;border-top:1px solid rgba(167,139,250,0.15);flex-shrink:0;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11px;cursor:text;">
+                    <span style="color:#a78bfa;font-weight:700;white-space:nowrap;user-select:none;">EasyQuiz_Legacy:</span>
+                    <input id="eq-term-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="flex:1;background:transparent;border:none;outline:none;color:#d0d8e8;font-family:inherit;font-size:inherit;margin-left:8px;caret-color:#a78bfa;" placeholder="" />
+                  </div>
+                </div>
+
+                <!-- OUTPUT MODE (hidden by default) -->
+                <div id="eq-term-panel-output" style="flex:1;display:none;flex-direction:column;overflow:hidden;min-height:0;">
+                  <div style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-bottom:1px solid rgba(255,255,255,0.04);flex-shrink:0;flex-wrap:wrap;">
+                    <div style="display:flex;gap:2px;flex-wrap:wrap;">
+                      <button class="eq-filter-chip active" id="eq-dbg-filter-all" type="button">Todos <span id="eq-dbg-count-all">0</span></button>
+                      <button class="eq-filter-chip" id="eq-dbg-filter-error" type="button">Erros <span id="eq-dbg-count-error">0</span></button>
+                      <button class="eq-filter-chip" id="eq-dbg-filter-ai" type="button">IA <span id="eq-dbg-count-ai">0</span></button>
+                      <button class="eq-filter-chip" id="eq-dbg-filter-dom" type="button">DOM <span id="eq-dbg-count-dom">0</span></button>
+                    </div>
+                    <input id="eq-output-search" type="text" placeholder="Buscar..." autocomplete="off" style="flex:1;min-width:70px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:3px;padding:2px 7px;color:#aaa;font-size:9px;outline:none;font-family:'Cascadia Code','Fira Code',monospace;" />
+                    <button class="eq-icon-btn" id="eq-dbg-scroll-toggle" type="button" title="Auto-scroll" style="width:20px;height:20px;color:#00ffcc;flex-shrink:0;">↓</button>
+                  </div>
+                  <div class="eq-terminal" id="eq-live-debug-terminal" style="flex:1;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10.5px;background:#08080f;overflow-y:auto;padding:8px 12px;line-height:1.5;">
+                    <div class="text-blue">> [SYS] Output de auditoria pronto.</div>
+                  </div>
+                </div>
+
+                <!-- Error card -->
+                <div class="eq-debug-error-card" id="eq-dbg-error-card" style="display:none;flex-shrink:0;">
                   <div class="eq-debug-error-header">
-                    <span>️ Último Erro / Falha Registrada</span>
-                    <button class="eq-icon-btn" id="eq-dbg-copy-error-btn" type="button" title="Copiar Erro" style="width: 20px; height: 20px;">
-                      ${ICONS.copy}
-                    </button>
+                    <span>Último Erro</span>
+                    <button class="eq-icon-btn" id="eq-dbg-copy-error-btn" type="button" title="Copiar" style="width:20px;height:20px;">${ICONS.copy}</button>
                   </div>
                   <div class="eq-debug-error-msg" id="eq-dbg-error-text"></div>
                 </div>
 
-                <!-- Terminal Interativo ao Vivo -->
-                <div class="eq-field-group" style="gap: 6px;">
-                  <div class="eq-debug-toolbar">
-                    <div class="eq-filter-chips">
-                      <button class="eq-filter-chip active" id="eq-dbg-filter-all" type="button">Todos (<span id="eq-dbg-count-all">0</span>)</button>
-                      <button class="eq-filter-chip" id="eq-dbg-filter-error" type="button">Erros (<span id="eq-dbg-count-error">0</span>)</button>
-                      <button class="eq-filter-chip" id="eq-dbg-filter-ai" type="button">IA (<span id="eq-dbg-count-ai">0</span>)</button>
-                      <button class="eq-filter-chip" id="eq-dbg-filter-dom" type="button">DOM / Exec (<span id="eq-dbg-count-dom">0</span>)</button>
-                    </div>
-                    <div class="eq-debug-toolbar-actions">
-                      <button class="eq-icon-btn" id="eq-dbg-scroll-toggle" type="button" title="Auto-Scroll Ligado (Clique para alternar)" style="width: 26px; height: 26px; color: #00ffcc;">
-                        ↓
-                      </button>
-                      <button class="eq-icon-btn" id="eq-dbg-copy-logs" type="button" title="Copiar Logs Atuais" style="width: 26px; height: 26px;">
-                        ${ICONS.copy}
-                      </button>
-                      <button class="eq-icon-btn" id="eq-dbg-clear-logs" type="button" title="Limpar Console" style="width: 26px; height: 26px; color: #ff5555;">
-                        ${ICONS.eraser}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div class="eq-terminal" id="eq-live-debug-terminal" style="height: 180px;">
-                    <div class="text-blue">> [SYS] Terminal de auditoria EasyQuiz pronto.</div>
-                  </div>
-                </div>
-
-                <!-- Prompt Bruto Enviado (Raw) -->
-                <div class="eq-field-group">
-                  <div class="eq-section-title">
-                    <span>Prompt Enviado à IA (Raw)</span>
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                      <span class="text-muted" id="eq-dbg-prompt-len" style="font-size: 10px;">0 chars</span>
-                      <button class="eq-btn-secondary" id="eq-dbg-copy-prompt" type="button" style="height: 24px; padding: 0 6px; font-size: 10px;">
-                        ${ICONS.copy} Copiar
-                      </button>
-                    </div>
-                  </div>
-                  <div class="eq-code-block" id="eq-dbg-prompt-view" style="max-height: 120px;">Nenhum prompt registrado ainda.</div>
-                </div>
-
-                <!-- Contexto & Escopo Injetado -->
-                <div class="eq-field-group">
-                  <div class="eq-section-title">
-                    <span>Contexto & Escopo Injetado</span>
-                    <button class="eq-btn-secondary" id="eq-dbg-copy-context" type="button" style="height: 24px; padding: 0 6px; font-size: 10px;">
-                      ${ICONS.copy} Copiar JSON
-                    </button>
-                  </div>
-                  <div class="eq-code-block" id="eq-dbg-context-view" style="max-height: 110px;">Aguardando captura de contexto...</div>
-                </div>
-
-                <!-- Resposta Bruta da IA -->
-                <div class="eq-field-group">
-                  <div class="eq-section-title">
-                    <span>Resposta Bruta da IA (Raw Output)</span>
-                    <button class="eq-btn-secondary" id="eq-dbg-copy-raw-resp" type="button" style="height: 24px; padding: 0 6px; font-size: 10px;">
-                      ${ICONS.copy} Copiar Resposta
-                    </button>
-                  </div>
-                  <div class="eq-code-block" id="eq-dbg-raw-resp-view" style="max-height: 110px;">Aguardando retorno da API...</div>
-                </div>
-
-                <div class="eq-footer-note" style="margin-top: auto;">Debug Live Output • Auditoria Completa de Tokens e Payloads</div>
               </div>
 
               <!-- TAB 4: CONFIGURAÇÕES -->
@@ -682,11 +655,8 @@ export class EasyQuizPanel {
                   </div>
                 </div>
 
-                <!-- Seleção de Modelos -->
-                <div class="eq-field-group">
-                  <div class="eq-section-title">Modelo Padrão</div>
-                  <select id="eq-model-select" class="eq-select"></select>
-                </div>
+                <!-- Model select hidden (controlled elsewhere) -->
+                <select id="eq-model-select" style="display:none;"></select>
                 
                 <div class="eq-grid-2">
                   <div class="eq-field-group">
@@ -929,7 +899,7 @@ export class EasyQuizPanel {
         try { this.updateTimingMetrics() } catch {}
         break
       case 'debug':
-        try { this.refreshDebugView(); this.renderTerminalEntries() } catch {}
+        try { this.refreshDebugView(); this.renderTerminalEntries(); this.initTerminalREPL() } catch {}
         break
       case 'settings':
         // Settings is static HTML — no special init needed
@@ -995,7 +965,7 @@ export class EasyQuizPanel {
         }
       },
       debug: {
-        icon: ICONS.code, label: 'Debug Output', sub: 'Terminal & auditoria', color: '#0098ff',
+        icon: ICONS.code, label: 'Terminal', sub: 'Comandos & logs', color: '#0098ff',
         actions: () => {
           const badge = document.createElement('span')
           badge.id = 'eq-debug-badge'
@@ -1920,20 +1890,28 @@ export class EasyQuizPanel {
     if (!this.liveDebugTerminal) return
     this.liveDebugTerminal.replaceChildren()
 
-    const filtered = this.activeLogFilter === 'all'
+    let entries = this.activeLogFilter === 'all'
       ? this.logEntries
       : this.logEntries.filter((e) => e.category === this.activeLogFilter)
 
-    if (filtered.length === 0) {
+    if (this.outputSearchQuery) {
+      const q = this.outputSearchQuery.toLowerCase()
+      entries = entries.filter(e => e.message.toLowerCase().includes(q))
+    }
+
+    if (entries.length === 0) {
       const empty = document.createElement('div')
-      empty.className = 'text-muted'
-      empty.textContent = `Nenhum log encontrado para o filtro "${this.activeLogFilter.toUpperCase()}".`
+      empty.style.cssText = 'color:#333;font-style:italic;'
+      empty.textContent = this.outputSearchQuery
+        ? `Nenhum resultado para "${this.outputSearchQuery}".`
+        : `Nenhum log para o filtro "${this.activeLogFilter.toUpperCase()}".`
       this.liveDebugTerminal.appendChild(empty)
       return
     }
 
-    for (const item of filtered) {
+    for (const item of entries) {
       const line = document.createElement('div')
+      line.style.cssText = 'padding:1px 0;'
       line.textContent = item.message
       if (item.colorClass) line.className = item.colorClass
       this.liveDebugTerminal.appendChild(line)
@@ -1944,6 +1922,199 @@ export class EasyQuizPanel {
     }
   }
 
+
+  // ── Terminal REPL ──────────────────────────────────────────────────────────
+  public appendTerminalLine(text: string, colorClass?: string): void {
+    if (!this.liveTerminalOutput) return
+    const line = document.createElement('div')
+    line.style.cssText = 'padding:1px 0;'
+    line.textContent = text
+    const c = colorClass === 'text-red' ? '#ff6b6b'
+             : colorClass === 'text-blue' ? '#60a5fa'
+             : colorClass === 'text-green' ? '#4ade80'
+             : colorClass === 'text-yellow' ? '#fbbf24'
+             : '#c0c8d0'
+    line.style.color = c
+    this.liveTerminalOutput.appendChild(line)
+    while (this.liveTerminalOutput.children.length > 500) {
+      this.liveTerminalOutput.removeChild(this.liveTerminalOutput.firstChild!)
+    }
+    this.liveTerminalOutput.scrollTop = this.liveTerminalOutput.scrollHeight
+  }
+
+  private executeTerminalCommand(raw: string): void {
+    const args = raw.trim().split(/\s+/)
+    const cmd = args[0].toLowerCase()
+    const out = (t: string, c = '#c0c8d0') => {
+      const line = document.createElement('div')
+      line.style.cssText = 'padding:0;color:' + c + ';'
+      line.textContent = t
+      this.liveTerminalOutput?.appendChild(line)
+    }
+    switch (cmd) {
+      case 'help':
+        out('  help       lista os comandos', '#555')
+        out('  status     estado atual do sistema', '#555')
+        out('  version    versao do EasyQuiz', '#555')
+        out('  tokens     tokens da ultima requisicao', '#555')
+        out('  context    contexto da questao atual', '#555')
+        out('  errors     lista de erros recentes', '#555')
+        out('  logs [n]   ultimas N entradas de output', '#555')
+        out('  history    historico de questoes', '#555')
+        out('  reset      limpa metricas e contadores', '#555')
+        out('  clear      limpa o terminal', '#555')
+        out('  copy       copia o conteudo do terminal', '#555')
+        break
+      case 'clear':
+        if (this.liveTerminalOutput) this.liveTerminalOutput.replaceChildren()
+        return
+      case 'status': {
+        const plan = this.latestPlan
+        const ctx = this.latestContext
+        out('  Modelo ... ' + (plan?.usedModel || (this.initialSettings as any)?.model || '--'), '#60a5fa')
+        out('  Modo ..... ' + (plan?.mode || 'aguardando'), '#60a5fa')
+        out('  Latencia . ' + (plan?.durationMs ? plan.durationMs + 'ms' : '--'), '#4ade80')
+        out('  Tokens ... ' + (plan?.tokensUsed ?? '--'), '#4ade80')
+        out('  Contexto . ' + (ctx ? ctx.questionText.slice(0, 60) + (ctx.questionText.length > 60 ? '...' : '') : 'nao capturado'), '#aaa')
+        break
+      }
+      case 'version':
+        out('  EasyQuiz ' + (typeof BUILD_VERSION !== 'undefined' ? BUILD_VERSION : '?') + ' -- Hibrido 4.0 (RAG + AST + Vision)', '#a78bfa')
+        break
+      case 'tokens': {
+        const plan = this.latestPlan
+        if (!plan) { out('  Nenhuma requisicao ainda.', '#555'); break }
+        out('  Prompt tokens ... ' + (plan.promptTokens ?? '--'), '#60a5fa')
+        out('  Response tokens . ' + (plan.candidatesTokens ?? '--'), '#60a5fa')
+        out('  Total ........... ' + (plan.tokensUsed ?? '--'), '#4ade80')
+        out('  Latencia ........ ' + (plan.durationMs ? plan.durationMs + 'ms' : '--'), '#4ade80')
+        break
+      }
+      case 'context': {
+        const ctx = this.latestContext
+        if (!ctx) { out('  Contexto nao disponivel.', '#555'); break }
+        out('  Escopo: ' + ctx.scope.tagName.toLowerCase() + (ctx.scope.id ? '#' + ctx.scope.id : ''), '#aaa')
+        out('  Controles: ' + ctx.controls.length, '#aaa')
+        out('  Texto: ' + ctx.questionText.slice(0, 100), '#aaa')
+        break
+      }
+      case 'errors': {
+        const errs = this.logEntries.filter(e => e.category === 'error')
+        if (!errs.length) { out('  Nenhum erro registrado.', '#4ade80'); break }
+        errs.slice(-10).forEach(e => out('  ' + e.message, '#ff6b6b'))
+        break
+      }
+      case 'logs': {
+        const n = parseInt(args[1] || '10', 10) || 10
+        const last = this.logEntries.slice(-n)
+        if (!last.length) { out('  Nenhum log.', '#555'); break }
+        last.forEach(e => out('  ' + e.message, '#888'))
+        break
+      }
+      case 'history': {
+        const hist = (this as any).metricsHistory as any[]
+        if (!hist?.length) { out('  Nenhuma questao respondida.', '#555'); break }
+        hist.slice(-10).forEach((r, i) => out('  #' + (i+1) + ' ' + (r.questionTitle || 'Questao').slice(0, 50) + ' -- ' + (r.durationMs ? (r.durationMs/1000).toFixed(1) + 's' : '--'), '#aaa'))
+        break
+      }
+      case 'reset':
+        this.clearLogs()
+        out('  Logs resetados.', '#4ade80')
+        break
+      case 'copy': {
+        const text = Array.from(this.liveTerminalOutput?.children || []).map(el => (el as HTMLElement).textContent || '').join('\n')
+        navigator.clipboard.writeText(text).then(() => { out('  Copiado.', '#4ade80'); this.showToast('Terminal copiado', 'success', 2000) })
+        break
+      }
+      case '': break
+      default:
+        out('  Comando desconhecido: "' + cmd + '". Digite help.', '#ff6b6b')
+    }
+    if (this.liveTerminalOutput) this.liveTerminalOutput.scrollTop = this.liveTerminalOutput.scrollHeight
+  }
+
+  public initTerminalREPL(): void {
+    this.liveTerminalOutput = this.shadow.querySelector('#eq-term-output') as HTMLElement | null
+    this.terminalInputEl    = this.shadow.querySelector('#eq-term-input') as HTMLInputElement | null
+    if (this._terminalInited) return
+    this._terminalInited = true
+
+    const termPanel   = this.shadow.querySelector('#eq-term-panel-terminal') as HTMLElement | null
+    const outputPanel = this.shadow.querySelector('#eq-term-panel-output') as HTMLElement | null
+    const modeTermBtn = this.shadow.querySelector('#eq-term-mode-terminal') as HTMLElement | null
+    const modeOutBtn  = this.shadow.querySelector('#eq-term-mode-output') as HTMLElement | null
+    const copyBtn     = this.shadow.querySelector('#eq-term-copy-btn') as HTMLElement | null
+    const clearBtn    = this.shadow.querySelector('#eq-term-clear-btn') as HTMLElement | null
+    const inputLine   = this.shadow.querySelector('#eq-term-input-line') as HTMLElement | null
+    const searchEl    = this.shadow.querySelector('#eq-output-search') as HTMLInputElement | null
+
+    const switchMode = (mode: 'terminal' | 'output') => {
+      this.terminalMode = mode
+      const isT = mode === 'terminal'
+      if (termPanel)   { termPanel.style.display   = isT ? 'flex' : 'none' }
+      if (outputPanel) { outputPanel.style.display  = isT ? 'none' : 'flex' }
+      if (modeTermBtn) { modeTermBtn.style.cssText  = 'font-size:10px;font-weight:600;padding:2px 10px;border-radius:3px;cursor:pointer;transition:all 0.12s;background:' + (isT  ? 'rgba(167,139,250,0.18)' : 'transparent') + ';border:1px solid ' + (isT  ? 'rgba(167,139,250,0.3)' : 'transparent') + ';color:' + (isT  ? '#a78bfa' : '#555') + ';' }
+      if (modeOutBtn)  { modeOutBtn.style.cssText   = 'font-size:10px;font-weight:600;padding:2px 10px;border-radius:3px;cursor:pointer;transition:all 0.12s;background:' + (!isT ? 'rgba(96,165,250,0.15)'   : 'transparent') + ';border:1px solid ' + (!isT ? 'rgba(96,165,250,0.25)'    : 'transparent') + ';color:' + (!isT ? '#60a5fa'  : '#555') + ';' }
+    }
+
+    modeTermBtn?.addEventListener('click', () => switchMode('terminal'))
+    modeOutBtn?.addEventListener('click',  () => { switchMode('output'); this.renderTerminalEntries() })
+    copyBtn?.addEventListener('click', () => {
+      if (this.terminalMode === 'terminal') {
+        const text = Array.from(this.liveTerminalOutput?.children || []).map(el => (el as HTMLElement).textContent || '').join('\n')
+        navigator.clipboard.writeText(text).then(() => this.showToast('Terminal copiado', 'success', 2000))
+      } else {
+        navigator.clipboard.writeText(this.getFormattedLogs()).then(() => this.showToast('Output copiado', 'success', 2000))
+      }
+    })
+    clearBtn?.addEventListener('click', () => {
+      if (this.terminalMode === 'terminal') { if (this.liveTerminalOutput) this.liveTerminalOutput.replaceChildren(); this.appendTerminalLine('> [SYS] Terminal limpo.', 'text-blue') }
+      else this.clearLogs()
+    })
+    inputLine?.addEventListener('click', () => this.terminalInputEl?.focus())
+    this.terminalInputEl?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const val = this.terminalInputEl!.value.trim()
+        this.terminalInputEl!.value = ''
+        this.terminalCmdHistoryIdx = -1
+        if (val) {
+          this.terminalCmdHistory.unshift(val)
+          if (this.terminalCmdHistory.length > 50) this.terminalCmdHistory.pop()
+          const echo = document.createElement('div')
+          echo.style.cssText = 'padding:1px 0;color:#6b5de0;'
+          echo.textContent = 'EasyQuiz_Legacy: ' + val
+          this.liveTerminalOutput?.appendChild(echo)
+          this.executeTerminalCommand(val)
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        this.terminalCmdHistoryIdx = Math.min(this.terminalCmdHistoryIdx + 1, this.terminalCmdHistory.length - 1)
+        if (this.terminalCmdHistoryIdx >= 0) this.terminalInputEl!.value = this.terminalCmdHistory[this.terminalCmdHistoryIdx]
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        this.terminalCmdHistoryIdx = Math.max(this.terminalCmdHistoryIdx - 1, -1)
+        this.terminalInputEl!.value = this.terminalCmdHistoryIdx >= 0 ? this.terminalCmdHistory[this.terminalCmdHistoryIdx] : ''
+      }
+    })
+    searchEl?.addEventListener('input', () => { this.outputSearchQuery = searchEl.value; this.renderTerminalEntries() })
+    const filterWire = (id: string, cat: string) => {
+      this.shadow.querySelector('#' + id)?.addEventListener('click', () => {
+        this.activeLogFilter = cat as any
+        this.shadow.querySelectorAll('.eq-filter-chip').forEach(b => b.classList.remove('active'))
+        this.shadow.querySelector('#' + id)?.classList.add('active')
+        this.renderTerminalEntries()
+      })
+    }
+    filterWire('eq-dbg-filter-all', 'all'); filterWire('eq-dbg-filter-error', 'error')
+    filterWire('eq-dbg-filter-ai', 'ai');   filterWire('eq-dbg-filter-dom', 'dom')
+    this.shadow.querySelector('#eq-dbg-scroll-toggle')?.addEventListener('click', (e) => {
+      this.autoScrollLogs = !this.autoScrollLogs
+      ;(e.target as HTMLElement).style.color = this.autoScrollLogs ? '#00ffcc' : '#444'
+    })
+    switchMode('terminal')
+    setTimeout(() => this.terminalInputEl?.focus(), 80)
+  }
+
   public clearLogs(): void {
     this.logEntries = []
     this.updateLogCounters()
@@ -1951,7 +2122,7 @@ export class EasyQuizPanel {
       this.liveDebugTerminal.replaceChildren()
       const init = document.createElement('div')
       init.className = 'text-blue'
-      init.textContent = '> [SYS] Console de logs limpo pelo usuário.'
+      init.textContent = '> [SYS] Output limpo.'
       this.liveDebugTerminal.appendChild(init)
     }
     if (this.apConsole) this.apConsole.replaceChildren()
@@ -2006,35 +2177,7 @@ export class EasyQuizPanel {
     if (this.dbgPromptLen) {
       const len = prompt.length
       const est = Math.round(len / 4)
-      this.dbgPromptLen.textContent = `${len} chars (~${est} tokens est.)`
-    }
-
-    if (this.dbgPromptView) {
-      this.dbgPromptView.textContent = prompt || 'Nenhum prompt enviado até o momento.'
-    }
-
-    if (this.dbgContextView) {
-      if (ctx) {
-        const summary = {
-          scope: `${ctx.scope.tagName.toLowerCase()}${ctx.scope.id ? '#' + ctx.scope.id : ''}${ctx.scope.className ? '.' + ctx.scope.className.split(' ').join('.') : ''}`,
-          questionLength: ctx.questionText.length,
-          questionSnippet: ctx.questionText.slice(0, 150) + (ctx.questionText.length > 150 ? '...' : ''),
-          controlsCount: ctx.controls.length,
-          controls: ctx.controls.map((c, i) => ({
-            index: i + 1,
-            tag: c.tag,
-            type: c.type,
-            name: c.name || undefined,
-            id: c.id || undefined,
-            value: c.value || undefined,
-            label: c.label || undefined,
-            role: c.role,
-          })),
-        }
-        this.dbgContextView.textContent = JSON.stringify(summary, null, 2)
-      } else {
-        this.dbgContextView.textContent = 'Aguardando captura de contexto pelo EasyQuiz...'
-      }
+      this.dbgPromptLen.textContent = `${len}c (~${est}tok)`
     }
 
     if (this.dbgRawRespView) {
@@ -2104,13 +2247,19 @@ export class EasyQuizPanel {
       this.setLastError(formatted)
     }
 
+    // Write to Output (log list)
     if (this.liveDebugTerminal && (this.activeLogFilter === 'all' || this.activeLogFilter === category)) {
       const line = document.createElement('div')
+      line.style.cssText = 'padding:1px 0;'
       line.textContent = formatted
       if (colorClass) line.className = colorClass
       this.liveDebugTerminal.appendChild(line)
+    }
+    // Also write to Terminal REPL (dom/all/error categories)
+    if (this.liveTerminalOutput && (category === 'dom' || category === 'all' || category === 'error')) {
+      this.appendTerminalLine(formatted, colorClass)
 
-      while (this.liveDebugTerminal.children.length > 250) {
+      while (this.liveDebugTerminal.children.length > 300) {
         this.liveDebugTerminal.removeChild(this.liveDebugTerminal.firstChild!)
       }
 
@@ -2202,6 +2351,10 @@ export class EasyQuizPanel {
     const ctx = this.latestContext
     const memories = getSessionMemories()
     const plan = this.latestPlan
+    // IA Artifacts folder — always rendered, updated by refreshDebugView
+    const hasPrompt = !!(this.latestPromptText || plan?.promptSent)
+    const hasCtx = !!ctx
+    const hasResp = !!plan
 
     this.contextTreeContainer.innerHTML = ''
 
@@ -2253,7 +2406,56 @@ export class EasyQuizPanel {
       this.contextTreeContainer.appendChild(planNode)
     }
 
-    // Pasta 5: Imagens Detectadas (Sempre exibida para dar feedback)
+    // Pasta 5: IA Artifacts — Prompt, Context, Raw Response
+    {
+      const aiFolder = document.createElement('div')
+      aiFolder.style.cssText = 'border-bottom:1px solid rgba(255,255,255,0.04);'
+      const aiHeader = document.createElement('div')
+      aiHeader.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 10px;cursor:pointer;font-size:10px;font-weight:600;color:#fbbf24;letter-spacing:0.04em;user-select:none;'
+      aiHeader.innerHTML = '<span style="display:inline-flex;width:12px;height:12px;color:#fbbf24;">' + ICONS.inspector + '</span> IA ARTIFACTS'
+      const aiChildren = document.createElement('div')
+      aiChildren.style.cssText = 'padding-left:16px;overflow:hidden;'
+
+      const makeAiFile = (id: string, label: string, subtitle: string, ready: boolean) => {
+        const row = document.createElement('div')
+        row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;cursor:pointer;border-radius:4px;transition:background 0.1s;' + (this.brainActiveTab === id ? 'background:rgba(251,191,36,0.1);' : '')
+        row.innerHTML = '<span style="font-size:9px;color:' + (ready ? '#fbbf24' : '#444') + ';">' + ICONS.code + '</span><span style="font-size:10px;color:' + (ready ? '#ddd' : '#444') + ';flex:1;">' + label + '</span><span style="font-size:8px;color:#333;">' + subtitle + '</span>'
+        row.addEventListener('click', () => {
+          this.brainSelectedFolder = null
+          this.brainActiveTab = id
+          const text = this.getBrainFileText(id)
+          const contentEl = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
+          if (contentEl) {
+            contentEl.innerHTML = ''
+            const pre = document.createElement('pre')
+            pre.className = 'eq-brain-code'
+            pre.style.cssText = 'padding:12px;font-size:10.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word;color:#d0d8e8;font-family:"Cascadia Code","Fira Code","Courier New",monospace;'
+            pre.textContent = text
+            contentEl.appendChild(pre)
+          }
+          this.renderBrainExplorer()
+          this.renderBrainTabs()
+        })
+        return row
+      }
+
+      aiChildren.appendChild(makeAiFile('ai-prompt', 'prompt.txt', hasPrompt ? 'pronto' : 'aguardando', hasPrompt))
+      aiChildren.appendChild(makeAiFile('ai-context', 'context.json', hasCtx ? 'pronto' : 'aguardando', hasCtx))
+      aiChildren.appendChild(makeAiFile('ai-response', 'response.txt', hasResp ? 'pronto' : 'aguardando', !!plan))
+
+      let aiOpen = false
+      aiHeader.addEventListener('click', () => {
+        aiOpen = !aiOpen
+        aiChildren.style.display = aiOpen ? 'block' : 'none'
+      })
+      aiChildren.style.display = 'none'
+
+      aiFolder.appendChild(aiHeader)
+      aiFolder.appendChild(aiChildren)
+      this.contextTreeContainer.appendChild(aiFolder)
+    }
+
+    // Pasta 6: Imagens Detectadas (Sempre exibida para dar feedback)
     const imgs = this.latestImages
     const descs = this.latestImageDescriptions
     const imgItems = imgs.map((img, idx) => {
@@ -3039,6 +3241,28 @@ export class EasyQuizPanel {
 
   private getBrainFileText(fileId: string): string {
     if (fileId === this.GLOBAL_ID) return this.buildGlobalContext()
+    // AI Artifacts
+    if (fileId === 'ai-prompt') {
+      const txt = this.latestPromptText || this.latestPlan?.promptSent || ''
+      return txt || '// Nenhum prompt enviado ainda. Execute o Autopilot para gerar.'
+    }
+    if (fileId === 'ai-context') {
+      const ctx = this.latestContext
+      if (!ctx) return '// Aguardando captura de contexto pelo EasyQuiz...'
+      const summary = {
+        scope: ctx.scope.tagName.toLowerCase() + (ctx.scope.id ? '#'+ctx.scope.id : '') + (ctx.scope.className ? '.'+ctx.scope.className.split(' ').join('.') : ''),
+        questionLength: ctx.questionText.length,
+        questionSnippet: ctx.questionText.slice(0, 200) + (ctx.questionText.length > 200 ? '...' : ''),
+        controlsCount: ctx.controls.length,
+        controls: ctx.controls.map((c, i) => ({ index: i+1, tag: c.tag, type: c.type, name: c.name||undefined, id: c.id||undefined, value: c.value||undefined, label: c.label||undefined, role: c.role })),
+      }
+      return JSON.stringify(summary, null, 2)
+    }
+    if (fileId === 'ai-response') {
+      const plan = this.latestPlan
+      if (!plan) return '// Aguardando retorno da API...'
+      return plan.rawResponse || JSON.stringify({ pageType: plan.pageType, mode: plan.mode, confidence: plan.confidence, rationale: plan.rationale, actions: plan.actions }, null, 2)
+    }
     if (fileId.startsWith('img-')) {
       const idx = parseInt(fileId.slice(4), 10)
       const img = this.latestImages[idx]
