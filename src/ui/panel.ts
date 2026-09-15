@@ -346,26 +346,6 @@ export class EasyQuizPanel {
               
               <!-- TAB 1: RESOLVER -->
               <div class="eq-view-pane" id="eq-view-resolver">
-                <div class="eq-resolver-hero">
-                  <div class="eq-resolver-brand">
-                    <span class="eq-brand-mark"><img src="${ICONS.canvasLogo}" alt="EQ Legacy" /></span>
-                    <div class="eq-brand-copy">
-                      <div class="eq-brand-title">EQ Legacy</div>
-                      <div class="eq-brand-subline">BETA • ${BUILD_VERSION}</div>
-                    </div>
-                  </div>
-                </div>
-                
-
-                <div class="eq-resolver-hero">
-                  <div class="eq-resolver-brand">
-                    <span class="eq-brand-mark"><img src="${ICONS.canvasLogo}" alt="EQ Legacy" /></span>
-                    <div class="eq-brand-copy">
-                      <div class="eq-brand-title">EQ Legacy</div>
-                      <div class="eq-brand-subline">BETA • ${BUILD_VERSION}</div>
-                    </div>
-                  </div>
-                </div>
 
                 <!-- CTA: Autopilot + 3-dot as SEPARATE standalone buttons -->
                 <div class="eq-cta-wrapper">
