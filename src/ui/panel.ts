@@ -346,15 +346,7 @@ export class EasyQuizPanel {
               
               <!-- TAB 1: RESOLVER -->
               <div class="eq-view-pane" id="eq-view-resolver">
-                <div class="eq-resolver-hero">
-                  <div class="eq-resolver-brand">
-                    <span class="eq-brand-mark"><img src="${ICONS.canvasLogo}" alt="EQ Legacy" /></span>
-                    <div class="eq-brand-copy">
-                      <div class="eq-brand-title">EQ Legacy</div>
-                      <div class="eq-brand-subline">BETA • ${BUILD_VERSION}</div>
-                    </div>
-                  </div>
-                </div>
+                
 
                 <!-- CTA: Autopilot + 3-dot as SEPARATE standalone buttons -->
                 <div class="eq-cta-wrapper">
@@ -425,13 +417,8 @@ export class EasyQuizPanel {
               <!-- TAB 2: CÉREBRO DA IA — VS Code Explorer -->
               <div class="eq-view-pane eq-brain-pane" id="eq-view-brain" style="display: none;">
                 <!-- Toolbar -->
-                <div class="eq-brain-toolbar">
-                  <span class="eq-brain-toolbar-title">CÉREBRO DA IA</span>
-                  <div class="eq-brain-toolbar-actions">
-                    <button class="eq-icon-btn" id="eq-brain-canvas-toggle" type="button" title="Mostrar/Ocultar visualizador">${ICONS.eye}</button>
-                    <button class="eq-icon-btn" id="eq-copy-prompt-btn" type="button" title="Copiar conteúdo selecionado">${ICONS.copy}</button>
-                  </div>
-                </div>
+                <!-- Toolbar buttons hidden -->
+                <div style="display:none"><button id="eq-brain-canvas-toggle"></button><button id="eq-copy-prompt-btn"></button></div>
                 <!-- Main layout: canvas top, explorer bottom -->
                 <div class="eq-brain-layout">
                   <!-- TOP: Tab Canvas -->
@@ -465,15 +452,7 @@ export class EasyQuizPanel {
               <!-- TAB 3: MÉTRICAS & CRONÔMETRO -->
               <div class="eq-view-pane" id="eq-view-metrics" style="display: none; gap:0; padding: 0;">
 
-                <!-- Header compacto -->
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="display:inline-flex;color:#0098ff;opacity:0.85;">${ICONS.clock}</span>
-                    <span style="font-size:12px;font-weight:700;color:#e0e0e0;letter-spacing:0.02em;">Métricas & Cronômetro</span>
-                  </div>
-                  <span id="eq-metrics-total-badge" style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(0,152,255,0.13);border:1px solid rgba(0,152,255,0.25);color:#0098ff;letter-spacing:0.04em;">0 QUESTÕES</span>
-                </div>
-
+                <span id="eq-metrics-total-badge" style="display:none">0 QUESTÕES</span>
                 <!-- Cronômetro ao vivo -->
                 <div style="padding:14px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.05);flex-shrink:0;background:rgba(0,152,255,0.03);">
                   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -503,15 +482,7 @@ export class EasyQuizPanel {
                   </div>
                 </div>
 
-                <!-- Ações -->
-                <div style="display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.05);flex-shrink:0;">
-                  <button id="eq-metrics-copy-btn" type="button" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:5px;color:#aaa;font-size:10px;padding:5px 8px;cursor:pointer;transition:background 0.12s;">
-                    ${ICONS.copy} <span>Copiar Relatório</span>
-                  </button>
-                  <button id="eq-metrics-reset-btn" type="button" style="display:flex;align-items:center;justify-content:center;gap:5px;background:rgba(255,85,85,0.08);border:1px solid rgba(255,85,85,0.18);border-radius:5px;color:#ff8888;font-size:10px;padding:5px 10px;cursor:pointer;transition:background 0.12s;">
-                    ${ICONS.trash}
-                  </button>
-                </div>
+                <div style="display:none"><button id="eq-metrics-copy-btn" type="button"></button><button id="eq-metrics-reset-btn" type="button"></button></div>
 
                 <!-- Histórico -->
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px 5px;flex-shrink:0;">
@@ -526,15 +497,7 @@ export class EasyQuizPanel {
 
               <!-- TAB 4: DEBUG OUTPUT & TERMINAL -->
               <div class="eq-view-pane" id="eq-view-debug" style="display: none;">
-                <!-- Header padronizado -->
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="display:inline-flex;color:#0098ff;opacity:0.85;">${ICONS.code}</span>
-                    <span style="font-size:12px;font-weight:700;color:#e0e0e0;letter-spacing:0.02em;">Debug Output</span>
-                    <span style="font-size:9px;color:#444;font-weight:500;">Terminal & Auditoria</span>
-                  </div>
-                  <span id="eq-debug-badge" style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(0,152,255,0.13);border:1px solid rgba(0,152,255,0.25);color:#0098ff;letter-spacing:0.04em;">ATIVO</span>
-                </div>
+                                <span id="eq-debug-badge" style="display:none">ATIVO</span>
 
                 <!-- Grid 4 Métricas de Tokens / Desempenho -->
                 <div class="eq-token-grid">
