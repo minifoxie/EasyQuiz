@@ -516,54 +516,51 @@ export class EasyQuizPanel {
               <div class="eq-view-pane" id="eq-view-debug" style="display:none;flex-direction:column;">
                 <span id="eq-debug-badge" style="display:none">ATIVO</span>
 
-                <!-- Output mode toolbar (only visible in output mode) -->
-                <div id="eq-output-toolbar" style="display:none;align-items:center;gap:6px;padding:5px 10px;background:#0a0a0a;border-bottom:1px solid #1a1a1a;flex-shrink:0;">
-                  <!-- Filter dropdown trigger -->
+                <!-- Output toolbar — only in Output mode -->
+                <div id="eq-output-toolbar" style="display:none;align-items:center;gap:6px;padding:5px 10px;background:#080808;border-bottom:1px solid #161616;flex-shrink:0;">
                   <div style="position:relative;display:inline-flex;">
-                    <button id="eq-output-filter-btn" type="button" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:3px 9px;border-radius:4px;background:#111;border:1px solid #222;color:#888;cursor:pointer;font-family:'Cascadia Code','Fira Code',monospace;transition:border-color 0.12s;">
-                      <span id="eq-output-filter-label">Filtro: Todos</span>
-                      ${ICONS.chevronRight}
+                    <button id="eq-output-filter-btn" type="button" style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;padding:3px 10px;border-radius:5px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#777;cursor:pointer;font-family:'Cascadia Code','Fira Code',monospace;letter-spacing:0.02em;">
+                      <span id="eq-output-filter-label">Filtro</span>
+                      <span style="display:inline-flex;width:10px;height:10px;color:#444;">${ICONS.chevronDown}</span>
                     </button>
-                    <div id="eq-output-filter-menu" hidden style="position:absolute;top:calc(100% + 4px);left:0;z-index:9999;background:#111;border:1px solid #222;border-radius:6px;padding:4px;min-width:150px;box-shadow:0 8px 24px rgba(0,0,0,0.6);">
-                      <div style="padding:4px 8px 2px;font-size:8px;font-weight:700;letter-spacing:0.1em;color:#333;font-family:monospace;">CATEGORIAS</div>
-                      <label id="eq-filter-opt-all"   style="display:flex;align-items:center;gap:8px;padding:5px 10px;cursor:pointer;border-radius:4px;font-size:10px;color:#aaa;font-family:monospace;transition:background 0.08s;"><input type="checkbox" id="eq-fchk-all"   checked style="accent-color:#555;"> Todos <span id="eq-dbg-count-all"   style="margin-left:auto;color:#333;font-size:9px;">0</span></label>
-                      <label id="eq-filter-opt-error" style="display:flex;align-items:center;gap:8px;padding:5px 10px;cursor:pointer;border-radius:4px;font-size:10px;color:#aaa;font-family:monospace;transition:background 0.08s;"><input type="checkbox" id="eq-fchk-error"         style="accent-color:#ff5555;"> Erros <span id="eq-dbg-count-error" style="margin-left:auto;color:#333;font-size:9px;">0</span></label>
-                      <label id="eq-filter-opt-ai"    style="display:flex;align-items:center;gap:8px;padding:5px 10px;cursor:pointer;border-radius:4px;font-size:10px;color:#aaa;font-family:monospace;transition:background 0.08s;"><input type="checkbox" id="eq-fchk-ai"           style="accent-color:#60a5fa;"> IA <span id="eq-dbg-count-ai"    style="margin-left:auto;color:#333;font-size:9px;">0</span></label>
-                      <label id="eq-filter-opt-dom"   style="display:flex;align-items:center;gap:8px;padding:5px 10px;cursor:pointer;border-radius:4px;font-size:10px;color:#aaa;font-family:monospace;transition:background 0.08s;"><input type="checkbox" id="eq-fchk-dom"          style="accent-color:#4ade80;"> DOM/Exec <span id="eq-dbg-count-dom" style="margin-left:auto;color:#333;font-size:9px;">0</span></label>
-                      <div style="height:1px;background:#1a1a1a;margin:4px 0;"></div>
-                      <div style="padding:2px 8px;display:flex;gap:4px;">
-                        <button id="eq-fchk-apply" type="button" style="flex:1;font-size:9px;padding:3px 6px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:3px;color:#888;cursor:pointer;font-family:monospace;">Aplicar</button>
-                      </div>
+                    <div id="eq-output-filter-menu" hidden style="position:absolute;top:calc(100% + 5px);left:0;z-index:9999;background:rgba(8,8,14,0.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:5px;min-width:172px;box-shadow:0 12px 32px rgba(0,0,0,0.75);">
+                      <div style="padding:3px 8px 4px;font-size:8px;font-weight:700;letter-spacing:0.1em;color:#333;font-family:monospace;">CATEGORIAS</div>
+                      <label id="eq-filter-opt-all" style="display:flex;align-items:center;gap:7px;padding:6px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-all" checked style="accent-color:#aaa;"> <span style="display:inline-flex;width:12px;height:12px;color:#777;">${ICONS.list}</span> <span style="font-size:10px;color:#aaa;font-family:monospace;">Todos</span> <span id="eq-dbg-count-all" style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
+                      <label id="eq-filter-opt-error" style="display:flex;align-items:center;gap:7px;padding:6px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(255,85,85,0.08)'" onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-error" style="accent-color:#ff5555;"> <span style="display:inline-flex;width:12px;height:12px;color:#ff5555;">${ICONS.info}</span> <span style="font-size:10px;color:#aaa;font-family:monospace;">Erros</span> <span id="eq-dbg-count-error" style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
+                      <label id="eq-filter-opt-ai" style="display:flex;align-items:center;gap:7px;padding:6px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(96,165,250,0.08)'" onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-ai" style="accent-color:#60a5fa;"> <span style="display:inline-flex;width:12px;height:12px;color:#60a5fa;">${ICONS.sparkles}</span> <span style="font-size:10px;color:#aaa;font-family:monospace;">IA</span> <span id="eq-dbg-count-ai" style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
+                      <label id="eq-filter-opt-dom" style="display:flex;align-items:center;gap:7px;padding:6px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(74,222,128,0.06)'" onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-dom" style="accent-color:#4ade80;"> <span style="display:inline-flex;width:12px;height:12px;color:#4ade80;">${ICONS.code}</span> <span style="font-size:10px;color:#aaa;font-family:monospace;">DOM/Exec</span> <span id="eq-dbg-count-dom" style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
+                      <div style="height:1px;background:rgba(255,255,255,0.05);margin:4px 0;"></div>
+                      <button id="eq-fchk-apply" type="button" style="width:100%;font-size:9px;padding:4px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:4px;color:#888;cursor:pointer;font-family:monospace;letter-spacing:0.05em;">APLICAR</button>
                     </div>
                   </div>
-                  <!-- Search -->
-                  <div style="flex:1;display:flex;align-items:center;gap:5px;background:#0d0d0d;border:1px solid #1e1e1e;border-radius:4px;padding:3px 8px;">
-                    <span style="color:#333;display:inline-flex;flex-shrink:0;">${ICONS.search || '⌕'}</span>
-                    <input id="eq-output-search" type="text" placeholder="buscar logs..." autocomplete="off" style="flex:1;background:transparent;border:none;outline:none;color:#888;font-size:9.5px;font-family:'Cascadia Code','Fira Code',monospace;caret-color:#555;" />
-                    <button id="eq-output-search-clear" type="button" style="display:none;background:transparent;border:none;color:#444;cursor:pointer;font-size:10px;padding:0;line-height:1;">✕</button>
+                  <div style="flex:1;display:flex;align-items:center;gap:5px;background:#0d0d0d;border:1px solid #1a1a1a;border-radius:5px;padding:3px 8px;">
+                    <span style="color:#333;display:inline-flex;flex-shrink:0;width:10px;height:10px;">${ICONS.analyze}</span>
+                    <input id="eq-output-search" type="text" placeholder="buscar..." autocomplete="off" style="flex:1;background:transparent;border:none;outline:none;color:#777;font-size:9.5px;font-family:'Cascadia Code','Fira Code',monospace;caret-color:#555;" />
+                    <button id="eq-output-search-clear" type="button" style="display:none;background:transparent;border:none;color:#333;cursor:pointer;font-size:9px;padding:0;line-height:1;">✕</button>
                   </div>
-                  <!-- Auto-scroll -->
-                  <button id="eq-dbg-scroll-toggle" type="button" title="Auto-scroll" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:#111;border:1px solid #222;border-radius:4px;color:#444;cursor:pointer;font-size:11px;flex-shrink:0;transition:color 0.12s;">↓</button>
+                  <button id="eq-dbg-scroll-toggle" type="button" title="Auto-scroll" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:5px;color:#555;cursor:pointer;font-size:11px;flex-shrink:0;transition:color 0.12s;">↓</button>
                 </div>
 
-                <!-- TERMINAL MODE -->
-                <div id="eq-term-panel-terminal" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;">
-                  <div id="eq-term-output" style="flex:1;overflow-y:auto;padding:10px 14px 4px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.6;background:#0d0d0d;color:#e0e0e0;word-break:break-all;user-select:text;-webkit-user-select:text;cursor:text;">
-                    <div style="color:#333;">┌─────────────────────────────────────────────────┐</div>
-                    <div style="color:#333;">│  <span style="color:#888;">EasyQuiz Terminal</span>  <span style="color:#444;">v${BUILD_VERSION}</span>               │</div>
-                    <div style="color:#333;">│  Digite <span style="color:#ccc;font-weight:600;">help</span> para ver os comandos disponíveis  │</div>
-                    <div style="color:#333;">└─────────────────────────────────────────────────┘</div>
-                  </div>
-                  <div id="eq-term-input-line" style="display:flex;align-items:center;padding:6px 14px;background:#080808;border-top:1px solid #1a1a1a;flex-shrink:0;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;cursor:text;">
-                    <span style="color:#fff;font-weight:700;white-space:nowrap;user-select:none;">EasyQuiz_Legacy:</span>
-                    <input id="eq-term-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="flex:1;background:transparent;border:none;outline:none;color:#e0e0e0;font-family:inherit;font-size:inherit;margin-left:8px;caret-color:#fff;" placeholder="" />
+                <!-- TERMINAL MODE — True terminal, no input bar -->
+                <div id="eq-term-panel-terminal" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;position:relative;">
+                  <!-- Hidden textarea captures keyboard input -->
+                  <textarea id="eq-term-capture" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;resize:none;border:none;outline:none;"></textarea>
+                  <!-- Output area: all lines + current prompt at bottom -->
+                  <div id="eq-term-output" tabindex="0" style="flex:1;overflow-y:auto;padding:10px 14px 6px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;background:#0a0a0a;color:#ddd;user-select:text;-webkit-user-select:text;cursor:text;outline:none;">
+                    <div style="color:#222;white-space:pre;">┌──────────────────────────────────────────────────┐</div>
+                    <div style="color:#222;white-space:pre;">│  <span style="color:#666;">EasyQuiz Terminal</span>  <span style="color:#333;">v${BUILD_VERSION}</span>                  │</div>
+                    <div style="color:#222;white-space:pre;">│  <span style="color:#555;">Digite </span><span style="color:#bbb;font-weight:600;">help</span><span style="color:#555;"> para ver os comandos disponíveis</span>  │</div>
+                    <div style="color:#222;white-space:pre;">└──────────────────────────────────────────────────┘</div>
+                    <div style="height:4px;"></div>
+                    <!-- Current input line — always last -->
+                    <div id="eq-term-current-line" style="display:flex;align-items:baseline;white-space:pre;"><span style="color:#fff;font-weight:700;user-select:none;">EasyQuiz_Legacy:&nbsp;</span><span id="eq-term-typed" style="color:#e0e0e0;"></span><span class="eq-term-cursor"></span></div>
                   </div>
                 </div>
 
                 <!-- OUTPUT MODE -->
                 <div id="eq-term-panel-output" style="flex:1;display:none;flex-direction:column;overflow:hidden;min-height:0;">
-                  <div class="eq-terminal" id="eq-live-debug-terminal" style="flex:1;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10.5px;background:#0d0d0d;overflow-y:auto;padding:8px 14px;line-height:1.55;user-select:text;-webkit-user-select:text;color:#ccc;">
-                    <div style="color:#444;">&gt; [SYS] Output de auditoria pronto.</div>
+                  <div class="eq-terminal" id="eq-live-debug-terminal" style="flex:1;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10.5px;background:#0a0a0a;overflow-y:auto;padding:8px 14px;line-height:1.55;user-select:text;-webkit-user-select:text;color:#bbb;">
+                    <div style="color:#333;">&gt; [SYS] Output de auditoria pronto.</div>
                   </div>
                 </div>
 
@@ -576,7 +573,7 @@ export class EasyQuizPanel {
                   <div class="eq-debug-error-msg" id="eq-dbg-error-text"></div>
                 </div>
 
-                <!-- Hidden API info elements (filled by refreshDebugView) -->
+                <!-- Hidden API info elements -->
                 <div style="display:none;">
                   <span id="eq-dbg-model">--</span>
                   <span id="eq-dbg-latency">--</span>
@@ -1952,313 +1949,416 @@ export class EasyQuizPanel {
   // ── Terminal REPL ──────────────────────────────────────────────────────────
   public appendTerminalLine(text: string, colorClass?: string): void {
     if (!this.liveTerminalOutput) return
+    const currentLine = this.shadow.querySelector('#eq-term-current-line') as HTMLElement | null
     const line = document.createElement('div')
-    line.style.cssText = 'padding:1px 0;'
+    line.style.cssText = 'padding:0;white-space:pre-wrap;overflow-wrap:break-word;'
     line.textContent = text
     const c = colorClass === 'text-red' ? '#ff4444'
-             : colorClass === 'text-blue' ? '#aaaaaa'
-             : colorClass === 'text-green' ? '#cccccc'
-             : colorClass === 'text-yellow' ? '#999999'
-             : '#e0e0e0'
+             : colorClass === 'text-blue' ? '#888'
+             : colorClass === 'text-green' ? '#aaa'
+             : colorClass === 'text-yellow' ? '#888'
+             : '#ccc'
     line.style.color = c
-    this.liveTerminalOutput.appendChild(line)
-    while (this.liveTerminalOutput.children.length > 500) {
-      this.liveTerminalOutput.removeChild(this.liveTerminalOutput.firstChild!)
+    if (currentLine) {
+      this.liveTerminalOutput.insertBefore(line, currentLine)
+    } else {
+      this.liveTerminalOutput.appendChild(line)
+    }
+    while (this.liveTerminalOutput.children.length > 600) {
+      const f = this.liveTerminalOutput.firstChild
+      if (f && f !== currentLine) this.liveTerminalOutput.removeChild(f)
+      else break
     }
     this.liveTerminalOutput.scrollTop = this.liveTerminalOutput.scrollHeight
   }
 
-  private executeTerminalCommand(raw: string): void {
-    const args = raw.trim().split(/\s+/)
-    const cmd  = args[0].toLowerCase()
-    const out  = (t: string, c = '#cccccc') => {
-      const line = document.createElement('div')
-      line.style.cssText = 'padding:0;white-space:pre;color:' + c + ';'
-      line.textContent = t
-      this.liveTerminalOutput?.appendChild(line)
-    }
-    const row = (cols: string[], widths: number[]) =>
-      out('  ' + cols.map((c, i) => c.padEnd(widths[i] || 0)).join('  '), '#aaaaaa')
-    const blank = () => out('', '#000')
-    const sep   = (w = 50) => out('  ' + '─'.repeat(w), '#2a2a2a')
-
-    switch (cmd) {
-      case 'help':
-        blank()
-        out('  ┌─ COMANDOS ────────────────────────────────────────┐', '#444')
-        out('  │                                                   │', '#444')
-        out('  │  help        lista todos os comandos             │', '#666')
-        out('  │  status      estado atual do sistema             │', '#666')
-        out('  │  version     versão e build info                 │', '#666')
-        out('  │  info-api    info da última req. à API           │', '#666')
-        out('  │  tokens      tokens consumidos (detalhado)       │', '#666')
-        out('  │  context     contexto da questão atual           │', '#666')
-        out('  │  controls    controles detectados (tabela)       │', '#666')
-        out('  │  errors      erros registrados                   │', '#666')
-        out('  │  logs [n]    últimas N entradas do output        │', '#666')
-        out('  │  history     histórico de questões               │', '#666')
-        out('  │  reset       limpa logs e métricas               │', '#666')
-        out('  │  clear       limpa o terminal                    │', '#666')
-        out('  │  copy        copia terminal para clipboard       │', '#666')
-        out('  │                                                   │', '#444')
-        out('  └───────────────────────────────────────────────────┘', '#444')
-        blank()
-        break
-
-      case 'clear':
-        if (this.liveTerminalOutput) this.liveTerminalOutput.replaceChildren()
-        return
-
-      case 'info-api': {
-        const plan = this.latestPlan
-        blank()
-        out('  ┌─ API INFO ─────────────────────────────────────────┐', '#444')
-        const f = (label: string, val: string) =>
-          out('  │  ' + label.padEnd(14) + (val || '--').toString().slice(0,36).padEnd(36) + '│', '#888')
-        f('Modelo',        plan?.usedModel || (this.initialSettings as any)?.model || '--')
-        f('Latência',      plan?.durationMs ? plan.durationMs + 'ms' : '--')
-        f('P.Tokens',      String(plan?.promptTokens ?? '--'))
-        f('R.Tokens',      String(plan?.candidatesTokens ?? '--'))
-        f('Total',         String(plan?.tokensUsed ?? '--'))
-        f('Prompt',        this.latestPromptText?.length ? this.latestPromptText.length + ' chars' : '--')
-        out('  └─────────────────────────────────────────────────────┘', '#444')
-        blank()
-        break
-      }
-
-      case 'version':
-        blank()
-        out('  EasyQuiz ' + (typeof BUILD_VERSION !== 'undefined' ? BUILD_VERSION : '?'), '#ffffff')
-        out('  Motor: Híbrido 4.0  (RAG + AST + Vision + Multimodal)', '#888888')
-        out('  Build: ' + new Date().toLocaleDateString('pt-BR'), '#555555')
-        blank()
-        break
-
-      case 'status': {
-        const plan = this.latestPlan; const ctx = this.latestContext
-        blank(); sep()
-        out('  STATUS DO SISTEMA', '#ffffff'); sep()
-        out('  Modelo     ' + (plan?.usedModel || (this.initialSettings as any)?.model || '--'), '#aaaaaa')
-        out('  Modo       ' + (plan?.mode || 'aguardando'), '#aaaaaa')
-        out('  Latência   ' + (plan?.durationMs ? plan.durationMs + 'ms' : '--'), '#aaaaaa')
-        out('  Tokens     ' + (plan?.tokensUsed ?? '--'), '#aaaaaa')
-        out('  Confiança  ' + (plan ? Math.round(plan.confidence * 100) + '%' : '--'), '#aaaaaa')
-        out('  Contexto   ' + (ctx ? '"' + ctx.questionText.slice(0, 45) + (ctx.questionText.length > 45 ? '...' : '') + '"' : 'não capturado'), '#888888')
-        out('  Controles  ' + (ctx ? ctx.controls.length : '--'), '#aaaaaa')
-        sep(); blank()
-        break
-      }
-
-      case 'tokens': {
-        const plan = this.latestPlan; blank()
-        if (!plan) { out('  Nenhuma requisição ainda.', '#555555'); blank(); break }
-        sep(); out('  TOKENS DA ÚLTIMA REQUISIÇÃO', '#ffffff'); sep()
-        out('  Prompt tokens    ' + String(plan.promptTokens ?? '--').padStart(8), '#888888')
-        out('  Response tokens  ' + String(plan.candidatesTokens ?? '--').padStart(8), '#888888')
-        out('  ' + '─'.repeat(28), '#2a2a2a')
-        out('  Total            ' + String(plan.tokensUsed ?? '--').padStart(8), '#cccccc')
-        out('  Latência         ' + String(plan.durationMs ? plan.durationMs + 'ms' : '--').padStart(8), '#cccccc')
-        sep(); blank(); break
-      }
-
-      case 'context': {
-        const ctx = this.latestContext; blank()
-        if (!ctx) { out('  Contexto não disponível.', '#555555'); blank(); break }
-        sep(); out('  CONTEXTO ATUAL', '#ffffff'); sep()
-        out('  Escopo    ' + ctx.scope.tagName.toLowerCase() + (ctx.scope.id ? '#' + ctx.scope.id : ''), '#aaaaaa')
-        out('  Controles ' + ctx.controls.length, '#aaaaaa')
-        out('  Texto     ' + ctx.questionText.slice(0, 55) + (ctx.questionText.length > 55 ? '...' : ''), '#888888')
-        sep(); blank(); break
-      }
-
-      case 'controls': {
-        const ctx = this.latestContext; blank()
-        if (!ctx?.controls.length) { out('  Nenhum controle detectado.', '#555555'); blank(); break }
-        sep(); out('  CONTROLES  (' + ctx.controls.length + ')', '#ffffff')
-        out('  ' + '─'.repeat(55), '#2a2a2a')
-        row(['#', 'Tipo', 'Label / ID', 'Valor'], [3, 10, 26, 10])
-        out('  ' + '─'.repeat(55), '#2a2a2a')
-        ctx.controls.forEach((c: any, i: number) =>
-          row([String(i+1), ((c.type||c.tag||'?').toUpperCase()).slice(0,9), (c.label||c.id||c.name||'—').slice(0,25), (c.value||'—').slice(0,9)], [3,10,26,10]))
-        sep(); blank(); break
-      }
-
-      case 'errors': {
-        const errs = this.logEntries.filter(e => e.category === 'error'); blank()
-        if (!errs.length) { out('  ✓ Nenhum erro nesta sessão.', '#888888'); blank(); break }
-        sep(); out('  ERROS  (' + errs.length + ')', '#ffffff'); sep()
-        errs.slice(-15).forEach(e => out('  ' + e.message, '#999999'))
-        sep(); blank(); break
-      }
-
-      case 'logs': {
-        const n = Math.min(parseInt(args[1] || '10', 10) || 10, 50)
-        const last = this.logEntries.slice(-n); blank()
-        if (!last.length) { out('  Nenhum log.', '#555555'); blank(); break }
-        sep(); out('  ÚLTIMAS ' + n + ' ENTRADAS', '#ffffff'); sep()
-        last.forEach(e => out('  ' + e.message, '#888888'))
-        sep(); blank(); break
-      }
-
-      case 'history': {
-        const hist = (this as any).metricsHistory as any[]; blank()
-        if (!hist?.length) { out('  Nenhuma questão respondida.', '#555555'); blank(); break }
-        sep(); out('  HISTÓRICO  (' + hist.length + ' questões)', '#ffffff')
-        out('  ' + '─'.repeat(58), '#2a2a2a')
-        row(['#', 'Questão', 'Tempo', 'Modelo'], [3, 37, 7, 10])
-        out('  ' + '─'.repeat(58), '#2a2a2a')
-        hist.slice(-15).forEach((r: any, i: number) =>
-          row([String(i+1), (r.questionTitle||'Questão').slice(0,36), (r.durationMs ? (r.durationMs/1000).toFixed(1)+'s' : '--'), (r.model||'--').slice(0,9)], [3,37,7,10]))
-        sep(); blank(); break
-      }
-
-      case 'reset':
-        this.clearLogs(); blank()
-        out('  ✓ Logs e métricas resetados.', '#888888'); blank(); break
-
-      case 'copy': {
-        const lines2 = Array.from(this.liveTerminalOutput?.children || []).map(el => (el as HTMLElement).textContent || '')
-        navigator.clipboard.writeText(lines2.join('\n')).then(() => { out('  ✓ Copiado.', '#888888'); this.showToast('Terminal copiado', 'success', 2000) })
-        break
-      }
-
-      case '': break
-
-      default:
-        blank()
-        out('  Comando não reconhecido: "' + cmd + '"', '#666666')
-        out('  Digite help para ver os comandos.', '#444444')
-        blank()
-    }
-
-    if (this.liveTerminalOutput) this.liveTerminalOutput.scrollTop = this.liveTerminalOutput.scrollHeight
-  }
+  // executeTerminalCommand inlined in initTerminalREPL
 
   public initTerminalREPL(): void {
     this.liveTerminalOutput = this.shadow.querySelector('#eq-term-output') as HTMLElement | null
-    this.terminalInputEl    = this.shadow.querySelector('#eq-term-input') as HTMLInputElement | null
     if (this._terminalInited) {
       this._reconnectContextbarBtns()
       return
     }
     this._terminalInited = true
 
-    const termPanel   = this.shadow.querySelector('#eq-term-panel-terminal') as HTMLElement | null
-    const outputPanel = this.shadow.querySelector('#eq-term-panel-output')   as HTMLElement | null
-    const outputBar   = this.shadow.querySelector('#eq-output-toolbar')      as HTMLElement | null
-    const inputLine   = this.shadow.querySelector('#eq-term-input-line')     as HTMLElement | null
-    const searchEl    = this.shadow.querySelector('#eq-output-search')       as HTMLInputElement | null
-    const searchClear = this.shadow.querySelector('#eq-output-search-clear') as HTMLElement | null
-    const filterBtn   = this.shadow.querySelector('#eq-output-filter-btn')   as HTMLElement | null
-    const filterMenu  = this.shadow.querySelector('#eq-output-filter-menu')  as HTMLElement | null
-    const applyBtn    = this.shadow.querySelector('#eq-fchk-apply')          as HTMLElement | null
+    const captureTA    = this.shadow.querySelector('#eq-term-capture') as HTMLTextAreaElement | null
+    const termOutput   = this.shadow.querySelector('#eq-term-output') as HTMLElement | null
+    const typedEl      = this.shadow.querySelector('#eq-term-typed') as HTMLElement | null
+    const currentLine  = this.shadow.querySelector('#eq-term-current-line') as HTMLElement | null
+    const termPanel    = this.shadow.querySelector('#eq-term-panel-terminal') as HTMLElement | null
+    const outputPanel  = this.shadow.querySelector('#eq-term-panel-output') as HTMLElement | null
+    const outputBar    = this.shadow.querySelector('#eq-output-toolbar') as HTMLElement | null
+    const searchEl     = this.shadow.querySelector('#eq-output-search') as HTMLInputElement | null
+    const searchClear  = this.shadow.querySelector('#eq-output-search-clear') as HTMLElement | null
+    const filterBtn    = this.shadow.querySelector('#eq-output-filter-btn') as HTMLElement | null
+    const filterMenu   = this.shadow.querySelector('#eq-output-filter-menu') as HTMLElement | null
+    const applyBtn     = this.shadow.querySelector('#eq-fchk-apply') as HTMLElement | null
 
+    // ── Icon helper for terminal ──────────────────────────
+    const ticon = (name: string, color = '#888', size = 13) =>
+      `<span style="display:inline-flex;vertical-align:middle;width:${size}px;height:${size}px;color:${color};flex-shrink:0;">${(ICONS as any)[name] || ''}</span>`
+
+    // ── Rich output (HTML) ────────────────────────────────
+    const richOut = (html: string, extraStyle = '') => {
+      if (!termOutput || !currentLine) return
+      const line = document.createElement('div')
+      line.style.cssText = 'padding:0;white-space:pre-wrap;overflow-wrap:break-word;line-height:1.65;' + extraStyle
+      line.innerHTML = html
+      termOutput.insertBefore(line, currentLine)
+    }
+
+    // ── Plain text output ─────────────────────────────────
+    const out = (t: string, c = '#cccccc') => richOut(`<span style="color:${c};">${t}</span>`)
+    const blank = () => out('', '#000')
+    const sep = (w = 52) => out('  ' + '─'.repeat(w), '#222')
+    const row = (cols: string[], widths: number[], colors?: string[]) => {
+      const padded = cols.map((c, i) => c.padEnd(widths[i] || 0))
+      const colored = colors ? padded.map((t, i) => `<span style="color:${colors[i]||'#aaa'}">${t}</span>`) : padded.map(t => `<span style="color:#aaa">${t}</span>`)
+      richOut('  ' + colored.join('  ') + '  ')
+    }
+
+    // ── Command executor ──────────────────────────────────
+    const execCmd = (raw: string) => {
+      const args = raw.trim().split(/s+/)
+      const cmd  = args[0].toLowerCase()
+
+      switch (cmd) {
+        case 'help':
+          blank()
+          richOut('  ' + ticon('terminal','#555',14) + ' <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> COMANDOS DISPONÍVEIS</span>')
+          blank()
+          const cmds = [
+            ['help',     'lista todos os comandos',           'list',     '#666'],
+            ['status',   'estado atual do sistema',           'sparkles', '#666'],
+            ['version',  'versão e info do build',            'info',     '#666'],
+            ['info-api', 'dados da última requisição à API',  'chip',     '#666'],
+            ['tokens',   'tokens consumidos (detalhado)',     'code',     '#666'],
+            ['context',  'contexto da questão atual',         'eye',      '#666'],
+            ['controls', 'controles detectados (tabela)',     'list',     '#666'],
+            ['errors',   'erros recentes registrados',        'info',     '#666'],
+            ['logs [n]', 'últimas N entradas do output',      'file',     '#666'],
+            ['history',  'histórico de questões respondidas', 'clock',    '#666'],
+            ['reset',    'limpa logs e métricas',             'eraser',   '#666'],
+            ['clear',    'limpa o terminal',                  'trash',    '#666'],
+            ['copy',     'copia terminal para clipboard',     'copy',     '#666'],
+          ]
+          cmds.forEach(([name, desc, icon, c]) => {
+            richOut(`    ${ticon(icon,c,11)} <span style="color:#ccc;font-weight:600;min-width:72px;display:inline-block;">${name.padEnd(10)}</span> <span style="color:#555;">${desc}</span>`)
+          })
+          blank()
+          break
+
+        case 'clear':
+          if (termOutput && currentLine) {
+            const kids = [...termOutput.children]
+            kids.forEach(k => { if (k !== currentLine) k.remove() })
+          }
+          return
+
+        case 'info-api': {
+          const plan = this.latestPlan
+          blank()
+          richOut('  ' + ticon('chip','#555',14) + ' <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> INFORMAÇÕES DA API</span>')
+          sep(44)
+          const f = (ico: string, icoC: string, label: string, val: string, valC = '#aaa') =>
+            richOut(`  ${ticon(ico,icoC,11)}  <span style="color:#444;">${label.padEnd(16)}</span><span style="color:${valC};font-weight:600;">${val||'--'}</span>`)
+          f('sparkles','#888','Modelo',        plan?.usedModel || (this.initialSettings as any)?.model || '--', '#ccc')
+          f('clock',   '#888','Latência',      plan?.durationMs ? plan.durationMs+'ms' : '--', '#ccc')
+          f('code',    '#888','Prompt tokens', String(plan?.promptTokens??'--'))
+          f('code',    '#888','Resp. tokens',  String(plan?.candidatesTokens??'--'))
+          f('chip',    '#aaa','Total tokens',  String(plan?.tokensUsed??'--'), '#fff')
+          f('file',    '#888','Prompt chars',  this.latestPromptText?.length ? this.latestPromptText.length+' chars' : '--')
+          sep(44)
+          blank()
+          break
+        }
+
+        case 'version':
+          blank()
+          richOut('  ' + ticon('sparkles','#888',14) + ` <span style="color:#ddd;font-weight:700;"> EasyQuiz ${typeof BUILD_VERSION!=='undefined'?BUILD_VERSION:'?'}</span>`)
+          out('  Motor: Híbrido 4.0  ·  RAG + AST + Vision + Multimodal', '#555')
+          out('  Build: ' + new Date().toLocaleDateString('pt-BR'), '#333')
+          blank()
+          break
+
+        case 'status': {
+          const plan = this.latestPlan; const ctx = this.latestContext
+          blank()
+          richOut('  ' + ticon('inspector','#555',14) + ' <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> STATUS DO SISTEMA</span>')
+          sep(44)
+          const s = (ico: string, icoC: string, label: string, val: string, valC = '#aaa') =>
+            richOut(`  ${ticon(ico,icoC,11)}  <span style="color:#444;">${label.padEnd(14)}</span><span style="color:${valC};">${val||'--'}</span>`)
+          s('sparkles','#888','Modelo',    plan?.usedModel||(this.initialSettings as any)?.model||'--', '#ccc')
+          s('play',    '#888','Modo',      plan?.mode||'aguardando')
+          s('clock',   '#888','Latência',  plan?.durationMs?plan.durationMs+'ms':'--', '#aaa')
+          s('chip',    '#888','Tokens',    String(plan?.tokensUsed??'--'))
+          s('analyze', '#888','Confiança', plan?Math.round(plan.confidence*100)+'%':'--')
+          s('eye',     '#888','Controles', ctx?String(ctx.controls.length):'--')
+          if (ctx) {
+            const snippet = '"'+ctx.questionText.slice(0,50)+(ctx.questionText.length>50?'...':'')+'"'
+            s('file', '#888', 'Contexto', snippet, '#666')
+          }
+          sep(44)
+          blank()
+          break
+        }
+
+        case 'tokens': {
+          const plan = this.latestPlan; blank()
+          if (!plan) { out('  Nenhuma requisição ainda.', '#444'); blank(); break }
+          richOut('  ' + ticon('code','#555',14) + ' <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> TOKENS CONSUMIDOS</span>')
+          sep(38)
+          out(`  Prompt tokens    ${String(plan.promptTokens??'--').padStart(8)}`, '#888')
+          out(`  Response tokens  ${String(plan.candidatesTokens??'--').padStart(8)}`, '#888')
+          out('  ' + '┈'.repeat(28), '#222')
+          out(`  Total            ${String(plan.tokensUsed??'--').padStart(8)}`, '#ddd')
+          out(`  Latência         ${String(plan.durationMs?plan.durationMs+'ms':'--').padStart(8)}`, '#aaa')
+          sep(38)
+          blank(); break
+        }
+
+        case 'context': {
+          const ctx = this.latestContext; blank()
+          if (!ctx) { out('  Contexto não disponível.', '#444'); blank(); break }
+          richOut('  ' + ticon('eye','#555',14) + ' <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> CONTEXTO ATUAL</span>')
+          sep(44)
+          out('  Escopo    ' + ctx.scope.tagName.toLowerCase()+(ctx.scope.id?'#'+ctx.scope.id:''), '#aaa')
+          out('  Controles ' + ctx.controls.length, '#aaa')
+          out('  Texto     ' + ctx.questionText.slice(0,55)+(ctx.questionText.length>55?'...':''), '#888')
+          sep(44); blank(); break
+        }
+
+        case 'controls': {
+          const ctx = this.latestContext; blank()
+          if (!ctx?.controls.length) { out('  Nenhum controle detectado.', '#444'); blank(); break }
+          richOut('  ' + ticon('list','#555',14) + ` <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> CONTROLES (${ctx.controls.length})</span>`)
+          sep(55)
+          row(['#','Tipo','Label / ID','Valor'],[3,10,27,10],['#555','#777','#aaa','#888'])
+          out('  '+'┈'.repeat(53),'#222')
+          ctx.controls.forEach((c: any,i: number) =>
+            row([String(i+1),((c.type||c.tag||'?').toUpperCase()).slice(0,9),(c.label||c.id||c.name||'—').slice(0,26),(c.value||'—').slice(0,9)],[3,10,27,10],['#555','#777','#ccc','#888']))
+          sep(55); blank(); break
+        }
+
+        case 'errors': {
+          const errs = this.logEntries.filter(e => e.category === 'error'); blank()
+          if (!errs.length) { richOut('  ' + ticon('check','#4ade80',11) + ' <span style="color:#555;"> Nenhum erro nesta sessão.</span>'); blank(); break }
+          richOut('  ' + ticon('info','#ff5555',14) + ` <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> ERROS (${errs.length})</span>`)
+          sep(44)
+          errs.slice(-15).forEach(e => out('  '+e.message, '#888'))
+          sep(44); blank(); break
+        }
+
+        case 'logs': {
+          const n = Math.min(parseInt(args[1]||'10',10)||10,50)
+          const last = this.logEntries.slice(-n); blank()
+          if (!last.length) { out('  Nenhum log.', '#444'); blank(); break }
+          richOut('  ' + ticon('file','#555',14) + ` <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> ÚLTIMAS ${n} ENTRADAS</span>`)
+          sep(44)
+          last.forEach(e => out('  '+e.message,'#777'))
+          sep(44); blank(); break
+        }
+
+        case 'history': {
+          const hist = (this as any).metricsHistory as any[]; blank()
+          if (!hist?.length) { out('  Nenhuma questão respondida.', '#444'); blank(); break }
+          richOut('  ' + ticon('clock','#555',14) + ` <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> HISTÓRICO (${hist.length})</span>`)
+          sep(58)
+          row(['#','Questão','Tempo','Modelo'],[3,38,7,10],['#555','#aaa','#888','#777'])
+          out('  '+'┈'.repeat(58),'#222')
+          hist.slice(-15).forEach((r: any,i: number)=>
+            row([String(i+1),(r.questionTitle||'Questão').slice(0,37),(r.durationMs?(r.durationMs/1000).toFixed(1)+'s':'--'),(r.model||'--').slice(0,9)],[3,38,7,10],['#555','#ccc','#888','#777']))
+          sep(58); blank(); break
+        }
+
+        case 'reset':
+          this.clearLogs(); blank()
+          richOut('  ' + ticon('check','#888',11) + ' <span style="color:#666;"> Logs e métricas resetados.</span>')
+          blank(); break
+
+        case 'copy': {
+          if (!termOutput) break
+          const lines2 = Array.from(termOutput.children)
+            .filter(el => el !== currentLine)
+            .map(el => (el as HTMLElement).textContent||'')
+          navigator.clipboard.writeText(lines2.join('\n')).then(() => {
+            richOut('  ' + ticon('copy','#888',11) + ' <span style="color:#666;"> Conteúdo copiado para a área de transferência.</span>')
+            this.showToast('Terminal copiado','success',2000)
+          })
+          break
+        }
+
+        case '': break
+
+        default:
+          blank()
+          richOut(`  <span style="color:#555;">Comando não reconhecido: </span><span style="color:#888;">&quot;${cmd}&quot;</span>`)
+          richOut(`  <span style="color:#333;">Digite </span><span style="color:#666;font-weight:600;">help</span><span style="color:#333;"> para ver os comandos.</span>`)
+          blank()
+      }
+
+      if (termOutput) termOutput.scrollTop = termOutput.scrollHeight
+    }
+
+    // ── Mode switcher ─────────────────────────────────────
     const switchMode = (mode: 'terminal' | 'output') => {
       this.terminalMode = mode
       const isT = mode === 'terminal'
       if (termPanel)   termPanel.style.display   = isT ? 'flex' : 'none'
       if (outputPanel) outputPanel.style.display  = isT ? 'none' : 'flex'
       if (outputBar)   outputBar.style.display    = isT ? 'none' : 'flex'
-      const tb = this.shadow.querySelector('#eq-term-mode-terminal') as HTMLElement | null
-      const ob = this.shadow.querySelector('#eq-term-mode-output')   as HTMLElement | null
-      if (tb) { tb.style.background = isT ? '#1a1a1a' : 'transparent'; tb.style.borderColor = isT ? '#333' : 'transparent'; tb.style.color = isT ? '#ddd' : '#555' }
-      if (ob) { ob.style.background = !isT ? '#1a1a1a' : 'transparent'; ob.style.borderColor = !isT ? '#333' : 'transparent'; ob.style.color = !isT ? '#ddd' : '#555' }
+      const tb = this.shadow.querySelector('#eq-term-mode-terminal') as HTMLElement|null
+      const ob = this.shadow.querySelector('#eq-term-mode-output')   as HTMLElement|null
+      if (tb) { tb.style.background = isT?'#181818':'transparent'; tb.style.borderColor = isT?'#2a2a2a':'transparent'; tb.style.color = isT?'#ddd':'#555' }
+      if (ob) { ob.style.background = !isT?'#181818':'transparent'; ob.style.borderColor = !isT?'#2a2a2a':'transparent'; ob.style.color = !isT?'#ddd':'#555' }
       if (!isT) this.renderTerminalEntries()
     }
 
+    // ── Reconnect contextbar buttons ──────────────────────
     this._reconnectContextbarBtns = () => {
-      const modeT = this.shadow.querySelector('#eq-term-mode-terminal') as HTMLElement | null
-      const modeO = this.shadow.querySelector('#eq-term-mode-output')   as HTMLElement | null
-      const cpB   = this.shadow.querySelector('#eq-term-copy-btn')      as HTMLElement | null
-      const clB   = this.shadow.querySelector('#eq-term-clear-btn')     as HTMLElement | null
+      const modeT = this.shadow.querySelector('#eq-term-mode-terminal') as HTMLElement|null
+      const modeO = this.shadow.querySelector('#eq-term-mode-output')   as HTMLElement|null
+      const cpB   = this.shadow.querySelector('#eq-term-copy-btn')      as HTMLElement|null
+      const clB   = this.shadow.querySelector('#eq-term-clear-btn')     as HTMLElement|null
       modeT?.addEventListener('click', () => switchMode('terminal'))
       modeO?.addEventListener('click', () => switchMode('output'))
       cpB?.addEventListener('click', () => {
         if (this.terminalMode === 'terminal') {
-          const tlines = Array.from(this.liveTerminalOutput?.children || []).map(el => (el as HTMLElement).textContent || '')
-          navigator.clipboard.writeText(tlines.join('\n')).then(() => this.showToast('Terminal copiado', 'success', 2000))
+          if (!termOutput) return
+          const lines2 = Array.from(termOutput.children).filter(e=>e!==currentLine).map(el=>(el as HTMLElement).textContent||'')
+          navigator.clipboard.writeText(lines2.join('\n')).then(()=>this.showToast('Terminal copiado','success',2000))
         } else {
-          navigator.clipboard.writeText(this.getFormattedLogs()).then(() => this.showToast('Output copiado', 'success', 2000))
+          navigator.clipboard.writeText(this.getFormattedLogs()).then(()=>this.showToast('Output copiado','success',2000))
         }
       })
       clB?.addEventListener('click', () => {
         if (this.terminalMode === 'terminal') {
-          if (this.liveTerminalOutput) this.liveTerminalOutput.replaceChildren()
-          this.appendTerminalLine('> [SYS] Terminal limpo.', 'text-blue')
-        } else {
-          this.clearLogs()
-        }
+          if (termOutput && currentLine) { [...termOutput.children].forEach(k=>{if(k!==currentLine)k.remove()}) }
+          if (typedEl) typedEl.textContent=''
+        } else { this.clearLogs() }
       })
     }
     this._reconnectContextbarBtns()
 
-    // Filter context menu
+    // ── Terminal keyboard input ───────────────────────────
+    const focusTerm = () => {
+      captureTA?.focus()
+      termOutput?.classList.remove('eq-term-unfocused')
+    }
+
+    termOutput?.addEventListener('mousedown', (e) => {
+      const sel = window.getSelection()
+      if (sel && sel.toString().length > 0) return // allow text selection
+      e.preventDefault()
+      focusTerm()
+    })
+
+    termOutput?.addEventListener('focus', () => termOutput.classList.remove('eq-term-unfocused'))
+
+    captureTA?.addEventListener('blur', () => termOutput?.classList.add('eq-term-unfocused'))
+    captureTA?.addEventListener('focus', () => termOutput?.classList.remove('eq-term-unfocused'))
+
+    captureTA?.addEventListener('keydown', (e) => {
+      if (!typedEl) return
+      const cur = typedEl.textContent || ''
+
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        const val = cur.trim()
+        typedEl.textContent = ''
+        this.terminalCmdHistoryIdx = -1
+        if (val) {
+          this.terminalCmdHistory.unshift(val)
+          if (this.terminalCmdHistory.length > 50) this.terminalCmdHistory.pop()
+        }
+        // Freeze current line as readonly output
+        if (currentLine) {
+          const frozen = document.createElement('div')
+          frozen.style.cssText = 'white-space:pre-wrap;overflow-wrap:break-word;'
+          frozen.innerHTML = `<span style="color:#fff;font-weight:700;">EasyQuiz_Legacy:&nbsp;</span><span style="color:#888;">${val}</span>`
+          termOutput?.insertBefore(frozen, currentLine)
+        }
+        if (val) execCmd(val)
+        if (termOutput) termOutput.scrollTop = termOutput.scrollHeight
+      } else if (e.key === 'Backspace') {
+        e.preventDefault()
+        typedEl.textContent = cur.slice(0, -1)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        this.terminalCmdHistoryIdx = Math.min(this.terminalCmdHistoryIdx+1, this.terminalCmdHistory.length-1)
+        if (this.terminalCmdHistoryIdx >= 0) typedEl.textContent = this.terminalCmdHistory[this.terminalCmdHistoryIdx]
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        this.terminalCmdHistoryIdx = Math.max(this.terminalCmdHistoryIdx-1, -1)
+        typedEl.textContent = this.terminalCmdHistoryIdx >= 0 ? this.terminalCmdHistory[this.terminalCmdHistoryIdx] : ''
+      } else if (e.key === 'l' && e.ctrlKey) {
+        e.preventDefault()
+        if (termOutput && currentLine) { [...termOutput.children].forEach(k=>{if(k!==currentLine)k.remove()}) }
+        typedEl.textContent = ''
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        typedEl.textContent = cur + e.key
+        if (termOutput) termOutput.scrollTop = termOutput.scrollHeight
+      }
+    })
+
+    // Paste support
+    captureTA?.addEventListener('paste', (e) => {
+      e.preventDefault()
+      const pasted = e.clipboardData?.getData('text') || ''
+      const newlineRe = /\n/g
+      if (typedEl) typedEl.textContent = (typedEl.textContent||'') + pasted.replace(newlineRe,' ')
+    })
+
+    // ── Filter context menu ───────────────────────────────
     filterBtn?.addEventListener('click', (e) => { e.stopPropagation(); if (filterMenu) filterMenu.hidden = !filterMenu.hidden })
     applyBtn?.addEventListener('click', () => {
-      const allChk   = (this.shadow.querySelector('#eq-fchk-all')   as HTMLInputElement)?.checked
-      const errChk   = (this.shadow.querySelector('#eq-fchk-error') as HTMLInputElement)?.checked
-      const aiChk    = (this.shadow.querySelector('#eq-fchk-ai')    as HTMLInputElement)?.checked
-      const domChk   = (this.shadow.querySelector('#eq-fchk-dom')   as HTMLInputElement)?.checked
-      if (allChk || (!errChk && !aiChk && !domChk)) this.activeLogFilter = 'all'
-      else if (errChk && !aiChk && !domChk) this.activeLogFilter = 'error'
-      else if (aiChk && !errChk && !domChk) this.activeLogFilter = 'ai'
-      else if (domChk && !errChk && !aiChk) this.activeLogFilter = 'dom'
+      const allChk  = (this.shadow.querySelector('#eq-fchk-all')   as HTMLInputElement)?.checked
+      const errChk  = (this.shadow.querySelector('#eq-fchk-error') as HTMLInputElement)?.checked
+      const aiChk   = (this.shadow.querySelector('#eq-fchk-ai')    as HTMLInputElement)?.checked
+      const domChk  = (this.shadow.querySelector('#eq-fchk-dom')   as HTMLInputElement)?.checked
+      // At least one must be selected
+      const anyChecked = allChk||errChk||aiChk||domChk
+      if (!anyChecked) { (this.shadow.querySelector('#eq-fchk-all') as HTMLInputElement).checked = true }
+      if (allChk||!anyChecked) this.activeLogFilter = 'all'
+      else if (errChk&&!aiChk&&!domChk) this.activeLogFilter = 'error'
+      else if (aiChk&&!errChk&&!domChk) this.activeLogFilter = 'ai'
+      else if (domChk&&!errChk&&!aiChk) this.activeLogFilter = 'dom'
       else this.activeLogFilter = 'all'
-      const lbl = this.shadow.querySelector('#eq-output-filter-label') as HTMLElement | null
+      const lbl = this.shadow.querySelector('#eq-output-filter-label') as HTMLElement|null
       if (lbl) lbl.textContent = 'Filtro: ' + this.activeLogFilter.toUpperCase()
       if (filterMenu) filterMenu.hidden = true
       this.renderTerminalEntries()
     })
-    document.addEventListener('click', () => { if (filterMenu) filterMenu.hidden = true })
+    // Close on outside click
+    document.addEventListener('mousedown', (e) => {
+      if (filterMenu && !filterMenu.contains(e.target as Node) && e.target !== filterBtn) {
+        filterMenu.hidden = true
+      }
+    })
 
-    // Search
+    // ── Search (Output mode) ──────────────────────────────
     searchEl?.addEventListener('input', () => {
       this.outputSearchQuery = searchEl.value
       if (searchClear) searchClear.style.display = searchEl.value ? 'inline' : 'none'
       this.renderTerminalEntries()
     })
     searchClear?.addEventListener('click', () => {
-      if (searchEl) searchEl.value = ''
-      this.outputSearchQuery = ''
-      if (searchClear) searchClear.style.display = 'none'
+      if (searchEl) searchEl.value=''
+      this.outputSearchQuery=''
+      if (searchClear) searchClear.style.display='none'
       this.renderTerminalEntries()
     })
 
-    // Auto-scroll
+    // Auto-scroll toggle
     this.shadow.querySelector('#eq-dbg-scroll-toggle')?.addEventListener('click', (e) => {
       this.autoScrollLogs = !this.autoScrollLogs
-      ;(e.currentTarget as HTMLElement).style.color = this.autoScrollLogs ? '#cccccc' : '#333'
-    })
-
-    // Input
-    inputLine?.addEventListener('click', () => this.terminalInputEl?.focus())
-    this.terminalInputEl?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        const val = this.terminalInputEl!.value.trim()
-        this.terminalInputEl!.value = ''
-        this.terminalCmdHistoryIdx = -1
-        if (val) {
-          this.terminalCmdHistory.unshift(val)
-          if (this.terminalCmdHistory.length > 50) this.terminalCmdHistory.pop()
-          const echo = document.createElement('div')
-          echo.style.cssText = 'padding:1px 0;color:#fff;font-weight:600;'
-          echo.textContent = 'EasyQuiz_Legacy: ' + val
-          this.liveTerminalOutput?.appendChild(echo)
-          this.executeTerminalCommand(val)
-        }
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        this.terminalCmdHistoryIdx = Math.min(this.terminalCmdHistoryIdx + 1, this.terminalCmdHistory.length - 1)
-        if (this.terminalCmdHistoryIdx >= 0) this.terminalInputEl!.value = this.terminalCmdHistory[this.terminalCmdHistoryIdx]
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        this.terminalCmdHistoryIdx = Math.max(this.terminalCmdHistoryIdx - 1, -1)
-        this.terminalInputEl!.value = this.terminalCmdHistoryIdx >= 0 ? this.terminalCmdHistory[this.terminalCmdHistoryIdx] : ''
-      }
+      ;(e.currentTarget as HTMLElement).style.color = this.autoScrollLogs ? '#aaaaaa' : '#333'
     })
 
     switchMode('terminal')
-    setTimeout(() => this.terminalInputEl?.focus(), 80)
+    setTimeout(() => focusTerm(), 80)
   }
 
   public clearLogs(): void {

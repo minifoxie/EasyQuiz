@@ -2657,5 +2657,38 @@ export const PANEL_STYLES = `
     background: rgba(241, 76, 76, 0.15);
     color: var(--eq-danger);
   }
+
+  /* ── Terminal block cursor ── */
+  .eq-term-cursor {
+    display: inline-block;
+    width: 0.58em;
+    height: 1.05em;
+    background: #ffffff;
+    animation: eq-term-blink 1.1s step-end infinite;
+    vertical-align: text-bottom;
+    margin-left: 1px;
+    border-radius: 1px;
+  }
+  @keyframes eq-term-blink {
+    0%, 100% { opacity: 1 }
+    50% { opacity: 0 }
+  }
+  #eq-term-output.eq-term-unfocused .eq-term-cursor {
+    opacity: 0.25;
+    animation-play-state: paused;
+  }
+  #eq-term-output { scrollbar-width: thin; scrollbar-color: #1e1e1e #0a0a0a; }
+  #eq-live-debug-terminal { scrollbar-width: thin; scrollbar-color: #1e1e1e #0a0a0a; }
+
+  /* ── Resolver + Output context menus — glassmorphism ── */
+  .eq-resolver-context-menu {
+    background: rgba(8, 8, 14, 0.72) !important;
+    backdrop-filter: blur(16px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(140%) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.75) !important;
+  }
+
 `
 
