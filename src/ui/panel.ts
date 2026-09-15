@@ -516,14 +516,14 @@ export class EasyQuizPanel {
 
               <!-- TAB 4: DEBUG OUTPUT & TERMINAL -->
               <div class="eq-view-pane" id="eq-view-debug" style="display: none;">
-                <!-- Cabeçalho da Aba -->
-                <div class="eq-operation-header" style="margin-bottom: 8px;">
-                  <div>
-                    <div class="eq-eyebrow">TERMINAL & AUDITORIA</div>
-                    <h1 class="eq-operation-title" style="font-size: 15px;">Debug Output</h1>
-                    <p class="eq-operation-subtitle">Logs em tempo real, métricas de tokens e payloads brutos.</p>
+                <!-- Header padronizado -->
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="display:inline-flex;color:#0098ff;opacity:0.85;">${ICONS.code}</span>
+                    <span style="font-size:12px;font-weight:700;color:#e0e0e0;letter-spacing:0.02em;">Debug Output</span>
+                    <span style="font-size:9px;color:#444;font-weight:500;">Terminal & Auditoria</span>
                   </div>
-                  <span class="eq-brand-badge" id="eq-debug-badge" style="background: rgba(0, 122, 204, 0.2); color: #0098ff;">ATIVO</span>
+                  <span id="eq-debug-badge" style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(0,152,255,0.13);border:1px solid rgba(0,152,255,0.25);color:#0098ff;letter-spacing:0.04em;">ATIVO</span>
                 </div>
 
                 <!-- Grid 4 Métricas de Tokens / Desempenho -->
@@ -2915,6 +2915,16 @@ export class EasyQuizPanel {
     const toggleBtn = this.shadow.querySelector('#eq-brain-canvas-toggle') as HTMLElement | null
     const copyBtn   = this.shadow.querySelector('#eq-copy-prompt-btn')     as HTMLElement | null
 
+    // Always sync icon — safe to do on every tab switch
+    if (toggleBtn) {
+      toggleBtn.innerHTML = this.brainCanvasHidden ? ICONS.eyeOff : ICONS.eye
+      toggleBtn.title = this.brainCanvasHidden ? 'Mostrar visualizador' : 'Ocultar visualizador'
+    }
+
+    // Guard: don't register resize+toggle listeners more than once
+    if ((this as any)._brainControlsInited) return
+    ;(this as any)._brainControlsInited = true
+
     if (handle && canvas) {
       let startY = 0, startH = 0
       handle.addEventListener('mousedown', (e) => {
@@ -2930,9 +2940,6 @@ export class EasyQuizPanel {
     }
 
     if (toggleBtn && canvas) {
-      // Sync icon to current state
-      toggleBtn.innerHTML = this.brainCanvasHidden ? ICONS.eyeOff : ICONS.eye
-      toggleBtn.title = this.brainCanvasHidden ? 'Mostrar visualizador' : 'Ocultar visualizador'
       toggleBtn.addEventListener('click', () => {
         this.brainCanvasHidden = !this.brainCanvasHidden
         if (this.brainCanvasHidden) {
@@ -4013,7 +4020,7 @@ export class EasyQuizPanel {
       indexBadge.style.cssText = 'flex-shrink:0;width:22px;height:22px;border-radius:5px;background:rgba(0,152,255,0.15);border:1px solid rgba(0,152,255,0.25);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#0098ff;'
       indexBadge.textContent = String(rec.questionIndex)
       const titleEl = document.createElement('div')
-      titleEl.style.cssText = 'flex:1;font-size:10.5px;color:#ccc;font-weight:600;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;'
+      titleEl.style.cssText = 'flex:1;font-size:10.5px;color:#ccc;font-weight:600;line-height:1.4;word-break:break-word;'
       titleEl.textContent = rec.questionTitle || ('Questão ' + rec.questionIndex)
       const durEl = document.createElement('div')
       durEl.style.cssText = 'flex-shrink:0;font-size:13px;font-weight:800;color:' + speedColor + ';font-family:monospace;font-variant-numeric:tabular-nums;'
