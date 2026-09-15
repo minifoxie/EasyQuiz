@@ -453,67 +453,65 @@ export class EasyQuizPanel {
 
 
               <!-- TAB 3: MÉTRICAS & CRONÔMETRO -->
-              <div class="eq-view-pane" id="eq-view-metrics" style="display: none;">
-                <div class="eq-operation-header">
-                  <div>
-                    <div class="eq-eyebrow">ESTATÍSTICAS & CRONÔMETRO</div>
-                    <h1 class="eq-operation-title" style="font-size: 15px;">Tempo e Rendimento</h1>
-                    <p class="eq-operation-subtitle">Monitore o tempo de resposta por questão e o rendimento total.</p>
+              <div class="eq-view-pane" id="eq-view-metrics" style="display: none; gap:0; padding: 0;">
+
+                <!-- Header compacto -->
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="display:inline-flex;color:#0098ff;opacity:0.85;">${ICONS.clock}</span>
+                    <span style="font-size:12px;font-weight:700;color:#e0e0e0;letter-spacing:0.02em;">Métricas & Cronômetro</span>
                   </div>
-                  <span class="eq-brand-badge" id="eq-metrics-total-badge" style="background: rgba(0, 122, 204, 0.2); color: #0098ff;">0 Questões</span>
+                  <span id="eq-metrics-total-badge" style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(0,152,255,0.13);border:1px solid rgba(0,152,255,0.25);color:#0098ff;letter-spacing:0.04em;">0 QUESTÕES</span>
                 </div>
 
-                <!-- Cronômetro em Tempo Real da Questão Atual -->
-                <div class="eq-live-stopwatch-box">
-                  <div class="eq-live-stopwatch-header">
-                    <span class="eq-live-stopwatch-label">CRONÔMETRO AO VIVO</span>
-                    <span class="eq-live-stopwatch-status" id="eq-metrics-live-status">Em espera</span>
+                <!-- Cronômetro ao vivo -->
+                <div style="padding:14px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.05);flex-shrink:0;background:rgba(0,152,255,0.03);">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                    <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;color:#555;">QUESTÃO ATUAL</span>
+                    <span id="eq-metrics-live-status" style="font-size:9px;padding:2px 8px;border-radius:8px;background:rgba(255,255,255,0.06);color:#666;font-weight:600;">Em espera</span>
                   </div>
-                  <div class="eq-live-stopwatch-time" id="eq-metrics-live-time">00:00.00</div>
-                  <div class="eq-live-stopwatch-hint">Tempo decorrido na questão ativa (0 tokens extras consumidos)</div>
+                  <div id="eq-metrics-live-time" style="font-size:36px;font-weight:800;letter-spacing:-0.02em;color:#fff;font-variant-numeric:tabular-nums;line-height:1;font-family:monospace;">00:00.00</div>
+                  <div style="font-size:9px;color:#444;margin-top:5px;">Cronômetro em tempo real · zero tokens consumidos</div>
                 </div>
 
-                <!-- Grade de Cartões de Resumo (3 Colunas) -->
-                <div class="eq-metrics-grid">
-                  <div class="eq-metric-card">
-                    <div class="eq-metric-card-title">Tempo Total</div>
-                    <div class="eq-metric-card-val" id="eq-metric-total-time">00:00</div>
-                    <div class="eq-metric-card-sub">Duração da sessão</div>
+                <!-- Cards de resumo (3 col) -->
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,0.05);flex-shrink:0;">
+                  <div style="background:#0c0c14;padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
+                    <div style="font-size:9px;color:#555;font-weight:600;letter-spacing:0.06em;">TEMPO TOTAL</div>
+                    <div id="eq-metric-total-time" style="font-size:20px;font-weight:800;color:#e0e0e0;font-variant-numeric:tabular-nums;font-family:monospace;">00:00</div>
+                    <div style="font-size:9px;color:#444;">Sessão atual</div>
                   </div>
-                  <div class="eq-metric-card">
-                    <div class="eq-metric-card-title">Média / Questão</div>
-                    <div class="eq-metric-card-val" id="eq-metric-avg-time">0.0s</div>
-                    <div class="eq-metric-card-sub">Ritmo médio</div>
+                  <div style="background:#0c0c14;padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
+                    <div style="font-size:9px;color:#555;font-weight:600;letter-spacing:0.06em;">MÉDIA / Q.</div>
+                    <div id="eq-metric-avg-time" style="font-size:20px;font-weight:800;color:#4ade80;font-variant-numeric:tabular-nums;font-family:monospace;">0.0s</div>
+                    <div style="font-size:9px;color:#444;">Ritmo médio</div>
                   </div>
-                  <div class="eq-metric-card">
-                    <div class="eq-metric-card-title">Respondidas</div>
-                    <div class="eq-metric-card-val" id="eq-metric-total-count">0</div>
-                    <div class="eq-metric-card-sub">Questões concluídas</div>
+                  <div style="background:#0c0c14;padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
+                    <div style="font-size:9px;color:#555;font-weight:600;letter-spacing:0.06em;">RESPONDIDAS</div>
+                    <div id="eq-metric-total-count" style="font-size:20px;font-weight:800;color:#fbbf24;font-variant-numeric:tabular-nums;font-family:monospace;">0</div>
+                    <div style="font-size:9px;color:#444;">Questões OK</div>
                   </div>
                 </div>
 
-                <!-- Barra de Ações Rápidas -->
-                <div class="eq-metrics-actions">
-                  <button class="eq-btn-secondary" id="eq-metrics-copy-btn" type="button">
-                    ${ICONS.copy} Copiar Relatório
+                <!-- Ações -->
+                <div style="display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.05);flex-shrink:0;">
+                  <button id="eq-metrics-copy-btn" type="button" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:5px;color:#aaa;font-size:10px;padding:5px 8px;cursor:pointer;transition:background 0.12s;">
+                    ${ICONS.copy} <span>Copiar Relatório</span>
                   </button>
-                  <button class="eq-btn-secondary danger" id="eq-metrics-reset-btn" type="button">
-                    ${ICONS.trash} Zerar Métricas
+                  <button id="eq-metrics-reset-btn" type="button" style="display:flex;align-items:center;justify-content:center;gap:5px;background:rgba(255,85,85,0.08);border:1px solid rgba(255,85,85,0.18);border-radius:5px;color:#ff8888;font-size:10px;padding:5px 10px;cursor:pointer;transition:background 0.12s;">
+                    ${ICONS.trash}
                   </button>
                 </div>
 
-                <!-- Histórico Detalhado de Respostas -->
-                <div class="eq-field-group" style="flex: 1; display: flex; flex-direction: column; min-height: 180px;">
-                  <div class="eq-section-title">
-                    <span>Histórico Detalhado por Questão</span>
-                    <span class="eq-item-badge" id="eq-metrics-history-count">0 registros</span>
-                  </div>
-                  <div class="eq-metrics-history-list" id="eq-metrics-history-list">
-                    <div class="eq-metrics-empty">Nenhuma questão respondida nesta sessão ainda.</div>
-                  </div>
+                <!-- Histórico -->
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px 5px;flex-shrink:0;">
+                  <span style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:#555;">HISTÓRICO POR QUESTÃO</span>
+                  <span id="eq-metrics-history-count" style="font-size:9px;color:#444;">0 registros</span>
+                </div>
+                <div id="eq-metrics-history-list" style="flex:1;overflow-y:auto;padding:0 10px 10px;">
+                  <div class="eq-metrics-empty">Nenhuma questão respondida nesta sessão ainda.</div>
                 </div>
 
-                <div class="eq-footer-note" style="margin-top: auto;">Métricas calculadas nativamente no navegador • 100% livre de consumo de tokens</div>
               </div>
 
               <!-- TAB 4: DEBUG OUTPUT & TERMINAL -->
@@ -3936,62 +3934,71 @@ export class EasyQuizPanel {
   private renderMetricsHistory(records: QuestionTimingRecord[]): void {
     if (!this.metricsHistoryList) return
     if (records.length === 0) {
-      this.metricsHistoryList.innerHTML = '<div class="eq-metrics-empty">Nenhuma questão respondida nesta sessão ainda.</div>'
+      this.metricsHistoryList.innerHTML = '<div style="text-align:center;padding:24px 0;color:#444;font-size:11px;">Nenhuma questão respondida ainda.</div>'
       return
     }
-
     this.metricsHistoryList.innerHTML = ''
     const reversed = [...records].reverse()
+    const maxDur = Math.max(...records.map(r => r.durationMs), 1)
     for (const rec of reversed) {
-      const item = document.createElement('div')
-      item.className = 'eq-metrics-item'
-
-      const left = document.createElement('div')
-      left.className = 'eq-metrics-item-left'
-
-      const badge = document.createElement('span')
-      badge.className = 'eq-metrics-badge'
-      badge.textContent = `Q${rec.questionIndex}`
-
-      const info = document.createElement('div')
-      info.className = 'eq-metrics-item-info'
-
-      const title = document.createElement('div')
-      title.className = 'eq-metrics-item-title'
-      title.textContent = rec.questionTitle || `Questão ${rec.questionIndex}`
-
-      const meta = document.createElement('div')
-      meta.className = 'eq-metrics-item-meta'
+      const durSec = rec.durationMs / 1000
+      const barPct = Math.round((rec.durationMs / maxDur) * 100)
+      const isOk = rec.status === 'verified' || rec.status === 'answered'
+      const isManual = rec.status === 'manual'
+      const statusColor = isOk ? '#4ade80' : isManual ? '#fbbf24' : '#666'
+      const statusLabel = isOk ? 'Injetado' : isManual ? 'Gabarito' : 'Pendente'
       const timeStr = new Date(rec.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      const modeStr = rec.mode ? rec.mode.replace('_', ' ') : 'auto'
-      meta.textContent = `${timeStr} • Modo: ${modeStr}${rec.actionsCount ? ` • ${rec.actionsCount} ação(ões)` : ''}`
+      const modeStr = rec.mode ? rec.mode.replace(/_/g, ' ') : 'auto'
+      const speedColor = durSec < 5 ? '#4ade80' : durSec < 15 ? '#fbbf24' : '#ef4444'
 
-      info.appendChild(title)
-      info.appendChild(meta)
-      left.appendChild(badge)
-      left.appendChild(info)
+      const item = document.createElement('div')
+      item.style.cssText = 'background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.055);border-radius:7px;padding:9px 10px;margin-bottom:5px;cursor:default;transition:background 0.1s;'
+      item.addEventListener('mouseenter', () => { item.style.background = 'rgba(255,255,255,0.045)' })
+      item.addEventListener('mouseleave', () => { item.style.background = 'rgba(255,255,255,0.025)' })
 
-      const right = document.createElement('div')
-      right.className = 'eq-metrics-item-right'
+      // Top row
+      const topRow = document.createElement('div')
+      topRow.style.cssText = 'display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;'
+      const indexBadge = document.createElement('div')
+      indexBadge.style.cssText = 'flex-shrink:0;width:22px;height:22px;border-radius:5px;background:rgba(0,152,255,0.15);border:1px solid rgba(0,152,255,0.25);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#0098ff;'
+      indexBadge.textContent = String(rec.questionIndex)
+      const titleEl = document.createElement('div')
+      titleEl.style.cssText = 'flex:1;font-size:10.5px;color:#ccc;font-weight:600;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;'
+      titleEl.textContent = rec.questionTitle || ('Questão ' + rec.questionIndex)
+      const durEl = document.createElement('div')
+      durEl.style.cssText = 'flex-shrink:0;font-size:13px;font-weight:800;color:' + speedColor + ';font-family:monospace;font-variant-numeric:tabular-nums;'
+      durEl.textContent = durSec < 60 ? (durSec.toFixed(1) + 's') : (Math.floor(durSec/60) + 'm' + String(Math.round(durSec%60)).padStart(2,'0') + 's')
+      topRow.appendChild(indexBadge); topRow.appendChild(titleEl); topRow.appendChild(durEl)
 
-      const dur = document.createElement('span')
-      dur.className = 'eq-metrics-item-dur'
-      dur.textContent = `${(rec.durationMs / 1000).toFixed(2)}s`
+      // Bar
+      const barWrap = document.createElement('div')
+      barWrap.style.cssText = 'height:2px;background:rgba(255,255,255,0.05);border-radius:1px;margin-bottom:6px;overflow:hidden;'
+      const bar = document.createElement('div')
+      bar.style.cssText = 'height:100%;width:' + barPct + '%;background:' + speedColor + ';border-radius:1px;transition:width 0.4s ease;'
+      barWrap.appendChild(bar)
 
-      const status = document.createElement('span')
-      status.className = `eq-metrics-item-status is-${rec.status}`
-      status.textContent = rec.status === 'verified' || rec.status === 'answered' ? ' Injetado' : rec.status === 'manual' ? 'Gabarito' : 'Pendente'
+      // Meta row
+      const metaRow = document.createElement('div')
+      metaRow.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;'
+      const mkChip = (text: string, col: string, alpha: string) => {
+        const c = document.createElement('span')
+        c.style.cssText = 'font-size:8.5px;font-weight:700;letter-spacing:0.04em;padding:1px 6px;border-radius:8px;background:rgba(' + alpha + ',0.12);color:' + col + ';'
+        c.textContent = text; return c
+      }
+      metaRow.appendChild(mkChip(statusLabel, statusColor, isOk ? '74,222,128' : isManual ? '251,191,36' : '102,102,102'))
+      metaRow.appendChild(mkChip(modeStr, '#888', '255,255,255'))
+      if (rec.actionsCount) metaRow.appendChild(mkChip(rec.actionsCount + ' ação' + (rec.actionsCount > 1 ? 'ões' : ''), '#888', '255,255,255'))
+      const timeChip = document.createElement('span')
+      timeChip.style.cssText = 'font-size:8.5px;color:#444;margin-left:auto;'
+      timeChip.textContent = timeStr
+      metaRow.appendChild(timeChip)
 
-      right.appendChild(dur)
-      right.appendChild(status)
-
-      item.appendChild(left)
-      item.appendChild(right)
+      item.appendChild(topRow); item.appendChild(barWrap); item.appendChild(metaRow)
       this.metricsHistoryList.appendChild(item)
     }
   }
 
-  private copyMetricsReport(): void {
+    private copyMetricsReport(): void {
     const data = loadActivityMetrics()
     const lines: string[] = []
     lines.push('# Relatório de Desempenho e Tempo — EasyQuiz')
