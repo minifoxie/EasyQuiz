@@ -3244,22 +3244,38 @@ export class EasyQuizPanel {
     const wrapper = document.createElement('div')
     wrapper.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;'
 
-    // Image area
+    // Image area with wheel zoom
     const imgArea = document.createElement('div')
-    imgArea.style.cssText = 'flex:0 0 auto;background:#0a0a0f;display:flex;align-items:center;justify-content:center;padding:10px;min-height:140px;max-height:55%;cursor:zoom-in;border-bottom:1px solid rgba(255,255,255,0.06);position:relative;'
+    imgArea.style.cssText = 'flex:0 0 auto;background:#0a0a0f;display:flex;align-items:center;justify-content:center;padding:10px;min-height:140px;max-height:55%;cursor:zoom-in;border-bottom:1px solid rgba(255,255,255,0.06);position:relative;overflow:hidden;'
 
     if (dataUri) {
       const imgEl = document.createElement('img')
       imgEl.src = dataUri
       imgEl.alt = img.alt || `Imagem ${index + 1}`
-      imgEl.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;'
+      imgEl.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;transform-origin:center center;transition:transform 0.12s ease;user-select:none;'
       imgArea.appendChild(imgEl)
-      imgArea.title = 'Clique para ampliar'
+
+      // Wheel zoom on canvas image
+      let scale = 1
+      const MIN_SCALE = 0.5, MAX_SCALE = 4
+      imgArea.addEventListener('wheel', (e: WheelEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const delta = e.deltaY > 0 ? -0.15 : 0.15
+        scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale + delta))
+        imgEl.style.transform = scale === 1 ? '' : `scale(${scale.toFixed(2)})`
+        imgArea.style.cursor = scale > 1 ? 'grab' : 'zoom-in'
+        // update hint
+        const hint = imgArea.querySelector('.eq-zoom-hint') as HTMLElement | null
+        if (hint) hint.textContent = scale !== 1 ? `${Math.round(scale * 100)}% · scroll para zoom · clique para ampliar` : 'scroll para zoom · clique para ampliar'
+      }, { passive: false })
+
       imgArea.addEventListener('click', () => this.openImageLightbox(index))
 
       const zoomHint = document.createElement('div')
+      zoomHint.className = 'eq-zoom-hint'
       zoomHint.style.cssText = 'position:absolute;bottom:6px;right:8px;font-size:9px;color:rgba(255,255,255,0.3);pointer-events:none;'
-      zoomHint.textContent = 'clique para ampliar'
+      zoomHint.textContent = 'scroll para zoom · clique para ampliar'
       imgArea.appendChild(zoomHint)
     } else {
       imgArea.style.cssText += 'color:#555;font-size:11px;'
@@ -3312,39 +3328,74 @@ export class EasyQuizPanel {
     // Remove existing lightbox
     this.shadow.querySelector('#eq-img-lightbox')?.remove()
 
+    // Overlay — click outside to close
     const overlay = document.createElement('div')
     overlay.id = 'eq-img-lightbox'
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;'
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;'
 
+    // Modal wrapper — NO overflow:hidden so close button isn't clipped
     const modal = document.createElement('div')
-    modal.style.cssText = 'display:flex;max-width:90vw;max-height:88vh;border-radius:10px;overflow:hidden;background:#0f0f17;border:1px solid rgba(255,255,255,0.1);box-shadow:0 24px 64px rgba(0,0,0,0.8);position:relative;'
+    modal.style.cssText = 'display:flex;width:min(90vw,1100px);max-height:90vh;border-radius:10px;background:#0f0f17;border:1px solid rgba(255,255,255,0.1);box-shadow:0 24px 64px rgba(0,0,0,0.8);position:relative;overflow:hidden;'
 
-    // Close button
+    // Close button — outside modal, floating top-right of overlay
     const closeBtn = document.createElement('button')
-    closeBtn.style.cssText = 'position:absolute;top:10px;right:12px;background:rgba(255,255,255,0.08);border:none;color:#ccc;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px;z-index:10;display:flex;align-items:center;justify-content:center;'
-    closeBtn.innerHTML = '×'
-    modal.appendChild(closeBtn)
+    closeBtn.style.cssText = 'position:fixed;top:16px;right:20px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.15);color:#ddd;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;z-index:2147483648;display:flex;align-items:center;justify-content:center;line-height:1;'
+    closeBtn.textContent = '×'
+    closeBtn.title = 'Fechar (ESC)'
 
-    // Image side
+    // Image side with wheel zoom
     const imgSide = document.createElement('div')
-    imgSide.style.cssText = 'flex:0 0 65%;display:flex;align-items:center;justify-content:center;background:#050508;padding:16px;min-width:0;'
+    imgSide.style.cssText = 'flex:0 0 65%;display:flex;align-items:center;justify-content:center;background:#050508;padding:16px;min-width:0;overflow:hidden;position:relative;'
+
     if (dataUri) {
       const imgEl = document.createElement('img')
       imgEl.src = dataUri
-      imgEl.style.cssText = 'max-width:100%;max-height:85vh;object-fit:contain;border-radius:4px;'
+      imgEl.style.cssText = 'max-width:100%;max-height:82vh;object-fit:contain;border-radius:4px;transform-origin:center center;transition:transform 0.1s ease;user-select:none;display:block;'
+
+      // Wheel zoom
+      let scale = 1
+      const MIN_SCALE = 0.3, MAX_SCALE = 6
+      imgSide.addEventListener('wheel', (e: WheelEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const delta = e.deltaY < 0 ? 0.18 : -0.18
+        scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale + delta))
+        imgEl.style.transform = `scale(${scale.toFixed(3)})`
+        imgEl.style.cursor = scale > 1 ? 'grab' : 'default'
+        zoomBadge.textContent = `${Math.round(scale * 100)}%`
+        zoomBadge.style.opacity = '1'
+        clearTimeout((imgSide as any)._zt)
+        ;(imgSide as any)._zt = setTimeout(() => { zoomBadge.style.opacity = '0' }, 1200)
+      }, { passive: false })
+
+      // Reset zoom on double-click
+      imgEl.addEventListener('dblclick', () => {
+        scale = 1
+        imgEl.style.transform = ''
+        imgEl.style.cursor = 'default'
+        zoomBadge.textContent = '100%'
+        zoomBadge.style.opacity = '1'
+        setTimeout(() => { zoomBadge.style.opacity = '0' }, 800)
+      })
+
+      const zoomBadge = document.createElement('div')
+      zoomBadge.style.cssText = 'position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#aaa;font-size:10px;padding:2px 8px;border-radius:10px;pointer-events:none;opacity:0;transition:opacity 0.3s;'
+      zoomBadge.textContent = '100%'
+
       imgSide.appendChild(imgEl)
+      imgSide.appendChild(zoomBadge)
     } else {
-      imgSide.innerHTML = '<div style="color:#555;font-size:12px;text-align:center;">Sem dados visuais</div>'
+      imgSide.innerHTML = '<div style="color:#555;font-size:12px;text-align:center;width:100%;">Sem dados visuais</div>'
     }
     modal.appendChild(imgSide)
 
     // Metadata side
     const metaSide = document.createElement('div')
-    metaSide.style.cssText = 'flex:0 0 35%;overflow-y:auto;padding:20px 16px;border-left:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;gap:8px;min-width:0;'
+    metaSide.style.cssText = 'flex:0 0 35%;overflow-y:auto;padding:20px 16px 20px;border-left:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;gap:8px;min-width:0;'
 
     const title = document.createElement('div')
-    title.style.cssText = 'font-size:12px;font-weight:700;color:#e0e0e0;margin-bottom:4px;padding-right:28px;'
-    title.textContent = `Imagem ${index + 1}`
+    title.style.cssText = 'font-size:13px;font-weight:700;color:#e0e0e0;margin-bottom:6px;'
+    title.textContent = `Imagem ${index + 1} de ${this.latestImages.length}`
     metaSide.appendChild(title)
 
     const statusColor = img.captureStatus === 'captured' ? '#4ade80' : img.captureStatus === 'text_only' ? '#fbbf24' : '#ef4444'
@@ -3364,6 +3415,11 @@ export class EasyQuizPanel {
     if (img.source) metaSide.appendChild(infoRow('Fonte', img.source))
     if (img.associatedLabel) metaSide.appendChild(infoRow('Rótulo', img.associatedLabel))
 
+    const hint = document.createElement('div')
+    hint.style.cssText = 'font-size:9px;color:#444;margin-top:4px;'
+    hint.textContent = 'Scroll na imagem para zoom · Duplo-clique para resetar'
+    metaSide.appendChild(hint)
+
     if (desc?.description) {
       const aiBlock = document.createElement('div')
       aiBlock.style.cssText = 'background:rgba(96,165,250,0.07);border:1px solid rgba(96,165,250,0.18);border-radius:5px;padding:8px;margin-top:4px;'
@@ -3379,10 +3435,12 @@ export class EasyQuizPanel {
 
     modal.appendChild(metaSide)
     overlay.appendChild(modal)
+    // Append both overlay and close button to shadow root
     this.shadow.appendChild(overlay)
+    this.shadow.appendChild(closeBtn)
 
-    const close = () => overlay.remove()
-    closeBtn.addEventListener('click', close)
+    const close = () => { overlay.remove(); closeBtn.remove() }
+    closeBtn.addEventListener('click', (e) => { e.stopPropagation(); close() })
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { close(); window.removeEventListener('keydown', onKey) } }
     window.addEventListener('keydown', onKey)
