@@ -80,7 +80,7 @@ export class EasyQuizPanel {
   private floatingAnswers: FloatingAnswersHud
   private initialSettings: EasyQuizSettings
   private isCollapsed: boolean = false
-  private activeTab: 'resolver' | 'brain' | 'media' | 'metrics' | 'debug' | 'settings' = 'resolver'
+  private activeTab: 'resolver' | 'brain' | 'metrics' | 'debug' | 'settings' = 'resolver'
   private isBusy: boolean = false
   private stopwatchInterval: any = null
   private stopwatchStartTime: number = 0
@@ -285,11 +285,6 @@ export class EasyQuizPanel {
                 <span class="eq-activity-icon">${ICONS.inspector}</span>
               </button>
 
-              <button class="eq-activity-btn" id="eq-tab-media" role="tab" title="Mídias & Imagens (Capturas enviadas à IA e Interpretações)">
-                <span class="eq-activity-indicator"></span>
-                <span class="eq-activity-icon">${ICONS.image}</span>
-              </button>
-
               <button class="eq-activity-btn" id="eq-tab-metrics" role="tab" title="Métricas & Cronômetro (Tempo por Questão e Histórico)">
                 <span class="eq-activity-indicator"></span>
                 <span class="eq-activity-icon">${ICONS.clock}</span>
@@ -456,26 +451,6 @@ export class EasyQuizPanel {
                 <div id="eq-insp-actions" style="display:none;"></div>
               </div><!-- FIX: FECHAMENTO eq-view-brain -->
 
-              <!-- TAB 2.5: MÍDIAS E IMAGENS -->
-              <div class="eq-view-pane" id="eq-view-media" style="display: none;">
-                <div class="eq-operation-header" style="margin-bottom: 8px;">
-                  <div>
-                    <div class="eq-eyebrow">CONTEXTO VISUAL</div>
-                    <h1 class="eq-operation-title" style="font-size: 15px;">Mídias da IA</h1>
-                    <p class="eq-operation-subtitle">Imagens capturadas e interpretação da IA para cada uma.</p>
-                  </div>
-                  <span class="eq-brand-badge" id="eq-media-count-badge" style="background: rgba(251,191,36,0.14); color: #fbbf24;">0 mídias</span>
-                </div>
-
-                <div id="eq-media-grid" style="display: flex; flex-direction: column; gap: 12px; flex: 1; overflow-y: auto;">
-                  <div class="text-muted" style="padding: 16px 0; text-align: center;">
-                    Nenhuma imagem capturada ainda.<br>
-                    <span style="font-size: 10px; opacity: 0.6;">Ative “Visão Computacional” nas configurações e execute uma análise.</span>
-                  </div>
-                </div>
-
-                <div class="eq-footer-note" style="margin-top: auto;">Capturas Visuais • Interpretação IA em Tempo Real</div>
-              </div>
 
               <!-- TAB 3: MÉTRICAS & CRONÔMETRO -->
               <div class="eq-view-pane" id="eq-view-metrics" style="display: none;">
@@ -945,7 +920,7 @@ export class EasyQuizPanel {
 
   private switchTab(tab: 'resolver' | 'brain' | 'media' | 'metrics' | 'debug' | 'settings') {
     this.activeTab = tab
-    const ALL_TABS = ['resolver', 'brain', 'media', 'metrics', 'debug', 'settings'] as const
+    const ALL_TABS = ['resolver', 'brain', 'metrics', 'debug', 'settings'] as const
     const wrapper = this.shadow.querySelector('.eq-views-wrapper') as HTMLElement | null
 
     // Toggle brain layout class on wrapper (zero-padding for brain, normal for others)
@@ -967,9 +942,6 @@ export class EasyQuizPanel {
         this.renderContextTree()
         this.refreshInspectorView()
         break
-      case 'media':
-        try { this.renderMediaTab() } catch {}
-        break
       case 'metrics':
         try { this.updateTimingMetrics() } catch {}
         break
@@ -986,7 +958,6 @@ export class EasyQuizPanel {
     // Abas do Activity Bar Vertical
     this.shadow.querySelector('#eq-tab-resolver')?.addEventListener('click', () => this.switchTab('resolver'))
     this.shadow.querySelector('#eq-tab-brain')?.addEventListener('click', () => this.switchTab('brain'))
-    this.shadow.querySelector('#eq-tab-media')?.addEventListener('click', () => this.switchTab('media'))
     this.shadow.querySelector('#eq-tab-metrics')?.addEventListener('click', () => this.switchTab('metrics'))
     this.shadow.querySelector('#eq-tab-debug')?.addEventListener('click', () => this.switchTab('debug'))
     this.shadow.querySelector('#eq-tab-settings')?.addEventListener('click', () => this.switchTab('settings'))
@@ -2131,7 +2102,6 @@ export class EasyQuizPanel {
       if (plan.imageDescriptions) {
         this.latestImageDescriptions = plan.imageDescriptions
         // Sincroniza a aba de Mídias com as interpretações da IA
-        this.renderMediaTab()
       }
     }
     if (this.activeTab === 'brain') {
@@ -2150,89 +2120,10 @@ export class EasyQuizPanel {
       this.renderContextTree()
       this.refreshBrainCanvas()
     }
-    if (this.activeTab === 'media' || images.length > 0) {
-      this.renderMediaTab()
+    // Images updated — refresh brain canvas if viewing media
+    if (this.activeTab === 'brain' && (this.brainSelectedFolder === 'media-images' || (this.brainActiveTab || '').startsWith('img-'))) {
+      this.refreshBrainCanvas()
     }
-  }
-
-  public renderMediaTab(): void {
-    const grid = this.shadow?.querySelector('#eq-media-grid') as HTMLElement | null
-    const badge = this.shadow?.querySelector('#eq-media-count-badge') as HTMLElement | null
-    if (!grid) return
-
-    const imgs = this.latestImages
-    const descs = this.latestImageDescriptions
-
-    if (badge) badge.textContent = `${imgs.length} mídias`
-
-    if (imgs.length === 0) {
-      grid.innerHTML = `
-        <div class="text-muted" style="padding: 16px 0; text-align: center;">
-          Nenhuma imagem capturada ainda.<br>
-          <span style="font-size: 10px; opacity: 0.6;">Ative “Visão Computacional” nas configurações e execute uma análise.</span>
-        </div>`
-      return
-    }
-
-    grid.innerHTML = ''
-    imgs.forEach((img, idx) => {
-      const desc = descs.find(d => d.index === idx)
-      const statusIcon = img.captureStatus === 'captured' ? '' : img.captureStatus === 'text_only' ? '' : ''
-      const statusLabel = img.captureStatus === 'captured' ? 'Visual' : img.captureStatus === 'text_only' ? 'Texto' : 'Falhou'
-      const isRelevant = desc?.relevant ?? true
-      const aiText = desc?.description ?? (img.textContext || 'Aguardando análise da IA...')
-
-      const card = document.createElement('div')
-      card.style.cssText = [
-        'background: rgba(255,255,255,0.04)',
-        'border: 1px solid rgba(255,255,255,0.08)',
-        'border-radius: 8px',
-        'overflow: hidden',
-        `border-left: 3px solid ${isRelevant ? '#fbbf24' : '#666'}`,
-      ].join(';')
-
-      const dataUri = img.base64 ? `data:${img.mediaType || 'image/jpeg'};base64,${img.base64}` : ''
-
-      // Thumbnail da imagem
-      let imgHtml = ''
-      if (dataUri) {
-        imgHtml = `
-          <div style="position: relative; background: #111; border-bottom: 1px solid rgba(255,255,255,0.06);">
-            <img src="${dataUri}" 
-              style="width: 100%; max-height: 180px; object-fit: contain; display: block; cursor: pointer;"
-              alt="Captura ${idx + 1}"
-              title="Clique para ampliar"
-              onclick="(function(el){ var ov=document.createElement('div'); ov.style='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;cursor:zoom-out;'; var img=document.createElement('img'); img.src=el.src; img.style='max-width:95vw;max-height:95vh;border-radius:6px;'; ov.appendChild(img); ov.onclick=function(){ov.remove();}; document.body.appendChild(ov); })(this)"
-            >
-            <div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.7);border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;color:#fff;">
-              ${statusIcon} ${statusLabel}
-            </div>
-          </div>`
-      } else {
-        imgHtml = `
-          <div style="background:#1a1a1a; padding:12px; text-align:center; color:#666; font-size:11px; border-bottom: 1px solid rgba(255,255,255,0.06);">
-            ${statusIcon} ${statusLabel} — sem dados de imagem
-          </div>`
-      }
-
-      // Metadados e descrição da IA
-      const relevanceBadge = isRelevant
-        ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(251,191,36,0.14);border:1px solid rgba(251,191,36,0.4);color:#fbbf24;">RELEVANTE</span>'
-        : '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(255,85,85,0.2);border:1px solid rgba(255,85,85,0.4);color:#ff5555;">IGNORADA</span>'
-
-      const metaHtml = `
-        <div style="padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size:11px;font-weight:700;color:#e0e0e0;">Imagem ${idx + 1}</span>
-            ${relevanceBadge}
-          </div>
-          <div style="font-size:10px;color:#aaa;line-height:1.5;">${aiText}</div>
-          ${img.textContext && dataUri ? `<div style="font-size:9px;color:#666;margin-top:2px;">Contexto textual: ${img.textContext.slice(0, 100)}${img.textContext.length > 100 ? '...' : ''}</div>` : ''}
-        </div>`
-
-      card.innerHTML = imgHtml + metaHtml
-      grid.appendChild(card)
-    })
   }
 
   public renderContextTree(): void {
@@ -2752,7 +2643,6 @@ export class EasyQuizPanel {
 
     if (plan.imageDescriptions && plan.imageDescriptions.length > 0) {
       this.latestImageDescriptions = plan.imageDescriptions
-      this.renderMediaTab()
     }
 
     // Atualiza Inspetor de IA e Debug em Tempo Real
@@ -2902,7 +2792,13 @@ export class EasyQuizPanel {
   private getBrainFolders() {
     const plan = this.latestPlan
     type BrainFile   = { id: string; label: string; icon: string }
-    type BrainFolder = { id: string; label: string; files: BrainFile[] }
+    type BrainSubfolder = { id: string; label: string; icon: string; files: BrainFile[] }
+    type BrainFolder = { id: string; label: string; files: BrainFile[]; subfolders?: BrainSubfolder[] }
+    const imgFiles: BrainFile[] = this.latestImages.map((img, i) => ({
+      id: 'img-' + i,
+      label: 'img-' + (i + 1) + '.' + (img.mediaType?.split('/')?.[1] || 'jpg'),
+      icon: 'image',
+    }))
     const F: BrainFolder[] = [
       { id: 'folder-ia',  label: 'Resposta da IA',    files: [
           { id: 'rationale',  label: 'rationale.md',   icon: 'file'     },
@@ -2925,6 +2821,17 @@ export class EasyQuizPanel {
         { id: 'exec-result', label: 'resultado.log', icon: 'file' },
       ] })
     }
+    F.push({
+      id: 'folder-media',
+      label: 'Mídia',
+      files: [],
+      subfolders: [{
+        id: 'media-images',
+        label: 'Imagens',
+        icon: 'image',
+        files: imgFiles,
+      }],
+    })
     return F
   }
 
@@ -2932,6 +2839,9 @@ export class EasyQuizPanel {
     if (!this.brainActiveTab) return null
     for (const f of this.getBrainFolders()) {
       if (f.files.some(fl => fl.id === this.brainActiveTab)) return f.id
+      for (const sf of (f.subfolders || [])) {
+        if (sf.files.some(fl => fl.id === this.brainActiveTab)) return sf.id
+      }
     }
     return null
   }
@@ -2998,6 +2908,23 @@ export class EasyQuizPanel {
 
   private getBrainFileText(fileId: string): string {
     if (fileId === this.GLOBAL_ID) return this.buildGlobalContext()
+    if (fileId.startsWith('img-')) {
+      const idx = parseInt(fileId.slice(4), 10)
+      const img = this.latestImages[idx]
+      if (!img) return 'Imagem não encontrada.'
+      const desc = this.latestImageDescriptions.find(d => d.index === idx)
+      return [
+        `Imagem ${idx + 1} de ${this.latestImages.length}`,
+        `Status: ${img.captureStatus || 'desconhecido'}`,
+        `Relevância: ${desc?.relevant ?? true ? 'Relevante' : 'Ignorada'}`,
+        `Tipo: ${img.mediaType || '--'}`,
+        img.alt ? `Alt: ${img.alt}` : '',
+        img.source ? `Fonte: ${img.source}` : '',
+        img.associatedLabel ? `Rótulo: ${img.associatedLabel}` : '',
+        desc?.description ? `\nAnálise IA: ${desc.description}` : '',
+        img.textContext ? `\nContexto textual: ${img.textContext}` : '',
+      ].filter(Boolean).join('\n')
+    }
     const plan = this.latestPlan
     const DATA: Record<string, string> = {
       rationale:      plan?.rationale || 'Aguardando raciocínio da IA (ou extração em andamento)...',
@@ -3119,8 +3046,9 @@ export class EasyQuizPanel {
       explorerEl.appendChild(folderRow)
 
       const childWrap = document.createElement('div')
+      const totalChildren = folder.files.length + (folder.subfolders?.reduce((s, sf) => s + sf.files.length + 1, 0) ?? 0)
       childWrap.className = 'eq-tree-children' + (isOpen ? ' is-open' : '')
-      childWrap.style.setProperty('--child-count', String(folder.files.length))
+      childWrap.style.setProperty('--child-count', String(totalChildren))
 
       for (const file of folder.files) {
         const color = this.getBrainFileColor(file.icon)
@@ -3130,6 +3058,65 @@ export class EasyQuizPanel {
         fileRow.addEventListener('click', (e) => { e.stopPropagation(); this.brainSelectedFolder = null; this.openBrainFile(file.id, file.label) })
         childWrap.appendChild(fileRow)
       }
+
+      // Render subfolders (one level deep)
+      for (const sf of (folder.subfolders || [])) {
+        const sfIsOpen = this.brainOpenFolders.has(sf.id)
+        const sfIsSel  = this.brainSelectedFolder === sf.id
+
+        const sfRow = document.createElement('div')
+        sfRow.className = 'eq-tree-folder eq-tree-subfolder' + (sfIsSel ? ' is-folder-sel' : '')
+        sfRow.style.paddingLeft = '18px'
+
+        const sfArrow = document.createElement('span')
+        sfArrow.className = 'eq-tree-arrow'
+        sfArrow.innerHTML = sfIsOpen ? ICONS.chevronDown : ICONS.chevronRight
+        sfArrow.addEventListener('click', (e) => {
+          e.stopPropagation()
+          if (this.brainOpenFolders.has(sf.id)) this.brainOpenFolders.delete(sf.id)
+          else this.brainOpenFolders.add(sf.id)
+          this.renderBrainExplorer()
+        })
+        sfRow.appendChild(sfArrow)
+
+        const sfIco = document.createElement('span'); sfIco.className = 'eq-tree-ficon'; sfIco.style.color = '#60a5fa'; sfIco.innerHTML = (ICONS as any)[sf.icon] || ICONS.folder
+        const sfLbl = document.createElement('span'); sfLbl.className = 'eq-tree-label'; sfLbl.textContent = sf.label
+        const sfBadge = document.createElement('span')
+        sfBadge.style.cssText = 'font-size:9px;color:#666;margin-left:4px;flex-shrink:0;'
+        sfBadge.textContent = String(sf.files.length)
+        sfRow.appendChild(sfIco); sfRow.appendChild(sfLbl); sfRow.appendChild(sfBadge)
+
+        sfRow.addEventListener('click', () => {
+          this.brainSelectedFolder = sf.id
+          this.brainActiveTab = null
+          this.brainOpenFolders.add(sf.id)
+          this.showSubfolderContent(sf)
+          this.renderBrainExplorer()
+          this.renderBrainTabs()
+        })
+        childWrap.appendChild(sfRow)
+
+        // Subfolder children
+        const sfChildWrap = document.createElement('div')
+        sfChildWrap.className = 'eq-tree-children' + (sfIsOpen ? ' is-open' : '')
+        sfChildWrap.style.setProperty('--child-count', String(sf.files.length))
+
+        for (const file of sf.files) {
+          const color = this.getBrainFileColor(file.icon)
+          const fileRow = document.createElement('div')
+          fileRow.className = 'eq-tree-file' + (this.brainActiveTab === file.id ? ' is-selected' : '')
+          fileRow.style.paddingLeft = '32px'
+          fileRow.innerHTML = `<span class="eq-tree-ficon" style="color:${color}">${(ICONS as any)[file.icon] || ICONS.file}</span><span class="eq-tree-label">${file.label}</span>`
+          fileRow.addEventListener('click', (e) => {
+            e.stopPropagation()
+            this.brainSelectedFolder = null
+            this.openBrainFile(file.id, file.label)
+          })
+          sfChildWrap.appendChild(fileRow)
+        }
+        childWrap.appendChild(sfChildWrap)
+      }
+
       explorerEl.appendChild(childWrap)
     }
   }
@@ -3162,7 +3149,246 @@ export class EasyQuizPanel {
     this.renderBrainExplorer(); this.renderBrainTabs(); this.renderBrainFileContent(fileId)
   }
 
-  private closeBrainTab(fileId: string): void {
+  private showSubfolderContent(sf: { id: string; label: string; icon: string; files: { id: string; label: string; icon: string }[] }): void {
+    if (sf.id === 'media-images') {
+      this.showMediaGrid()
+    } else {
+      // generic subfolder view (same as folder view)
+      this.showFolderContent(sf as any)
+    }
+  }
+
+  private showMediaGrid(): void {
+    const contentEl = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
+    if (!contentEl) return
+    contentEl.innerHTML = ''
+
+    const imgs = this.latestImages
+    const descs = this.latestImageDescriptions
+
+    const wrapper = document.createElement('div')
+    wrapper.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;'
+
+    const header = document.createElement('div')
+    header.style.cssText = 'padding:8px 12px;font-size:10px;color:#666;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;flex-shrink:0;'
+    header.innerHTML = `<span style="color:#60a5fa;font-weight:600;">Imagens</span><span>${imgs.length} captura${imgs.length !== 1 ? 's' : ''}</span>`
+    wrapper.appendChild(header)
+
+    const scroll = document.createElement('div')
+    scroll.style.cssText = 'flex:1;overflow-y:auto;padding:10px;'
+
+    if (imgs.length === 0) {
+      scroll.innerHTML = '<div style="text-align:center;padding:32px 0;color:#555;font-size:11px;">Nenhuma imagem capturada.<br><span style="opacity:0.6;font-size:10px;">Ative "Visão Computacional" nas configurações e execute uma análise.</span></div>'
+    } else {
+      const grid = document.createElement('div')
+      grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px;'
+
+      imgs.forEach((img, i) => {
+        const desc = descs.find(d => d.index === i)
+        const isRelevant = desc?.relevant ?? true
+        const dataUri = img.base64 ? `data:${img.mediaType || 'image/jpeg'};base64,${img.base64}` : ''
+
+        const cell = document.createElement('div')
+        cell.style.cssText = `position:relative;aspect-ratio:1;border-radius:5px;overflow:hidden;cursor:pointer;background:#111;border:2px solid ${isRelevant ? 'rgba(96,165,250,0.3)' : 'rgba(255,255,255,0.06)'};transition:border-color 0.15s,transform 0.12s;`
+
+        if (dataUri) {
+          const imgEl = document.createElement('img')
+          imgEl.src = dataUri
+          imgEl.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;'
+          cell.appendChild(imgEl)
+        } else {
+          const placeholder = document.createElement('div')
+          placeholder.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#555;font-size:10px;'
+          placeholder.textContent = 'Texto'
+          cell.appendChild(placeholder)
+        }
+
+        const badge = document.createElement('div')
+        badge.style.cssText = 'position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,0.75);border-radius:3px;padding:1px 4px;font-size:9px;color:#aaa;'
+        badge.textContent = String(i + 1)
+        cell.appendChild(badge)
+
+        cell.addEventListener('mouseenter', () => { cell.style.transform = 'scale(1.03)'; cell.style.borderColor = '#60a5fa' })
+        cell.addEventListener('mouseleave', () => { cell.style.transform = ''; cell.style.borderColor = isRelevant ? 'rgba(96,165,250,0.3)' : 'rgba(255,255,255,0.06)' })
+        cell.addEventListener('click', () => {
+          this.brainSelectedFolder = null
+          this.openBrainFile('img-' + i, 'img-' + (i + 1) + '.' + (img.mediaType?.split('/')?.[1] || 'jpg'))
+        })
+
+        grid.appendChild(cell)
+      })
+      scroll.appendChild(grid)
+    }
+
+    wrapper.appendChild(scroll)
+    contentEl.appendChild(wrapper)
+  }
+
+  private showImageFile(index: number): void {
+    const contentEl = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
+    if (!contentEl) return
+    contentEl.innerHTML = ''
+
+    const img = this.latestImages[index]
+    if (!img) {
+      contentEl.innerHTML = '<div style="padding:16px;color:#666;font-size:11px;">Imagem não encontrada.</div>'
+      return
+    }
+
+    const desc = this.latestImageDescriptions.find(d => d.index === index)
+    const dataUri = img.base64 ? `data:${img.mediaType || 'image/jpeg'};base64,${img.base64}` : ''
+    const isRelevant = desc?.relevant ?? true
+    const statusLabel = img.captureStatus === 'captured' ? 'Visual' : img.captureStatus === 'text_only' ? 'Texto' : 'Falhou'
+    const statusColor = img.captureStatus === 'captured' ? '#4ade80' : img.captureStatus === 'text_only' ? '#fbbf24' : '#ef4444'
+
+    const wrapper = document.createElement('div')
+    wrapper.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;'
+
+    // Image area
+    const imgArea = document.createElement('div')
+    imgArea.style.cssText = 'flex:0 0 auto;background:#0a0a0f;display:flex;align-items:center;justify-content:center;padding:10px;min-height:140px;max-height:55%;cursor:zoom-in;border-bottom:1px solid rgba(255,255,255,0.06);position:relative;'
+
+    if (dataUri) {
+      const imgEl = document.createElement('img')
+      imgEl.src = dataUri
+      imgEl.alt = img.alt || `Imagem ${index + 1}`
+      imgEl.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;'
+      imgArea.appendChild(imgEl)
+      imgArea.title = 'Clique para ampliar'
+      imgArea.addEventListener('click', () => this.openImageLightbox(index))
+
+      const zoomHint = document.createElement('div')
+      zoomHint.style.cssText = 'position:absolute;bottom:6px;right:8px;font-size:9px;color:rgba(255,255,255,0.3);pointer-events:none;'
+      zoomHint.textContent = 'clique para ampliar'
+      imgArea.appendChild(zoomHint)
+    } else {
+      imgArea.style.cssText += 'color:#555;font-size:11px;'
+      imgArea.textContent = 'Sem dados visuais — captura em modo texto'
+    }
+
+    wrapper.appendChild(imgArea)
+
+    // Metadata scrollable area
+    const metaScroll = document.createElement('div')
+    metaScroll.style.cssText = 'flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:7px;'
+
+    const row = (label: string, value: string, color = '#aaa') => {
+      const d = document.createElement('div')
+      d.style.cssText = 'display:flex;gap:8px;font-size:10.5px;'
+      d.innerHTML = `<span style="color:#555;min-width:72px;flex-shrink:0;">${label}</span><span style="color:${color};word-break:break-word;">${value}</span>`
+      return d
+    }
+
+    metaScroll.appendChild(row('Índice', `Imagem ${index + 1} de ${this.latestImages.length}`))
+    metaScroll.appendChild(row('Status', statusLabel, statusColor))
+    metaScroll.appendChild(row('Relevância', isRelevant ? 'Relevante' : 'Ignorada', isRelevant ? '#60a5fa' : '#666'))
+    metaScroll.appendChild(row('Tipo', img.mediaType || '--'))
+    if (img.alt) metaScroll.appendChild(row('Alt text', img.alt))
+    if (img.source) metaScroll.appendChild(row('Fonte', img.source))
+    if (img.associatedLabel) metaScroll.appendChild(row('Rótulo', img.associatedLabel))
+    if (desc?.description) {
+      const aiD = document.createElement('div')
+      aiD.style.cssText = 'background:rgba(96,165,250,0.06);border:1px solid rgba(96,165,250,0.15);border-radius:5px;padding:8px;'
+      aiD.innerHTML = `<div style="font-size:9px;color:#60a5fa;font-weight:600;margin-bottom:4px;">ANÁLISE DA IA</div><div style="font-size:10.5px;color:#ccc;line-height:1.55;">${desc.description}</div>`
+      metaScroll.appendChild(aiD)
+    }
+    if (img.textContext) {
+      const txtD = document.createElement('div')
+      txtD.style.cssText = 'background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.12);border-radius:5px;padding:8px;'
+      txtD.innerHTML = `<div style="font-size:9px;color:#fbbf24;font-weight:600;margin-bottom:4px;">CONTEXTO TEXTUAL</div><div style="font-size:10.5px;color:#ccc;line-height:1.55;">${img.textContext}</div>`
+      metaScroll.appendChild(txtD)
+    }
+
+    wrapper.appendChild(metaScroll)
+    contentEl.appendChild(wrapper)
+  }
+
+  private openImageLightbox(index: number): void {
+    const img = this.latestImages[index]
+    if (!img) return
+    const desc = this.latestImageDescriptions.find(d => d.index === index)
+    const dataUri = img.base64 ? `data:${img.mediaType || 'image/jpeg'};base64,${img.base64}` : ''
+
+    // Remove existing lightbox
+    this.shadow.querySelector('#eq-img-lightbox')?.remove()
+
+    const overlay = document.createElement('div')
+    overlay.id = 'eq-img-lightbox'
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;'
+
+    const modal = document.createElement('div')
+    modal.style.cssText = 'display:flex;max-width:90vw;max-height:88vh;border-radius:10px;overflow:hidden;background:#0f0f17;border:1px solid rgba(255,255,255,0.1);box-shadow:0 24px 64px rgba(0,0,0,0.8);position:relative;'
+
+    // Close button
+    const closeBtn = document.createElement('button')
+    closeBtn.style.cssText = 'position:absolute;top:10px;right:12px;background:rgba(255,255,255,0.08);border:none;color:#ccc;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px;z-index:10;display:flex;align-items:center;justify-content:center;'
+    closeBtn.innerHTML = '×'
+    modal.appendChild(closeBtn)
+
+    // Image side
+    const imgSide = document.createElement('div')
+    imgSide.style.cssText = 'flex:0 0 65%;display:flex;align-items:center;justify-content:center;background:#050508;padding:16px;min-width:0;'
+    if (dataUri) {
+      const imgEl = document.createElement('img')
+      imgEl.src = dataUri
+      imgEl.style.cssText = 'max-width:100%;max-height:85vh;object-fit:contain;border-radius:4px;'
+      imgSide.appendChild(imgEl)
+    } else {
+      imgSide.innerHTML = '<div style="color:#555;font-size:12px;text-align:center;">Sem dados visuais</div>'
+    }
+    modal.appendChild(imgSide)
+
+    // Metadata side
+    const metaSide = document.createElement('div')
+    metaSide.style.cssText = 'flex:0 0 35%;overflow-y:auto;padding:20px 16px;border-left:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;gap:8px;min-width:0;'
+
+    const title = document.createElement('div')
+    title.style.cssText = 'font-size:12px;font-weight:700;color:#e0e0e0;margin-bottom:4px;padding-right:28px;'
+    title.textContent = `Imagem ${index + 1}`
+    metaSide.appendChild(title)
+
+    const statusColor = img.captureStatus === 'captured' ? '#4ade80' : img.captureStatus === 'text_only' ? '#fbbf24' : '#ef4444'
+    const statusLabel = img.captureStatus === 'captured' ? 'Visual' : img.captureStatus === 'text_only' ? 'Texto' : 'Falhou'
+
+    const infoRow = (label: string, value: string, col = '#aaa') => {
+      const d = document.createElement('div')
+      d.style.cssText = 'display:flex;gap:6px;font-size:10px;'
+      d.innerHTML = `<span style="color:#555;min-width:64px;flex-shrink:0;">${label}</span><span style="color:${col};word-break:break-word;">${value}</span>`
+      return d
+    }
+
+    metaSide.appendChild(infoRow('Status', statusLabel, statusColor))
+    metaSide.appendChild(infoRow('Relevância', (desc?.relevant ?? true) ? 'Relevante' : 'Ignorada', (desc?.relevant ?? true) ? '#60a5fa' : '#666'))
+    metaSide.appendChild(infoRow('Tipo', img.mediaType || '--'))
+    if (img.alt) metaSide.appendChild(infoRow('Alt', img.alt))
+    if (img.source) metaSide.appendChild(infoRow('Fonte', img.source))
+    if (img.associatedLabel) metaSide.appendChild(infoRow('Rótulo', img.associatedLabel))
+
+    if (desc?.description) {
+      const aiBlock = document.createElement('div')
+      aiBlock.style.cssText = 'background:rgba(96,165,250,0.07);border:1px solid rgba(96,165,250,0.18);border-radius:5px;padding:8px;margin-top:4px;'
+      aiBlock.innerHTML = `<div style="font-size:9px;color:#60a5fa;font-weight:700;margin-bottom:5px;">ANÁLISE DA IA</div><div style="font-size:10px;color:#ccc;line-height:1.6;">${desc.description}</div>`
+      metaSide.appendChild(aiBlock)
+    }
+    if (img.textContext) {
+      const txtBlock = document.createElement('div')
+      txtBlock.style.cssText = 'background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.12);border-radius:5px;padding:8px;'
+      txtBlock.innerHTML = `<div style="font-size:9px;color:#fbbf24;font-weight:700;margin-bottom:5px;">CONTEXTO TEXTUAL</div><div style="font-size:10px;color:#ccc;line-height:1.6;">${img.textContext}</div>`
+      metaSide.appendChild(txtBlock)
+    }
+
+    modal.appendChild(metaSide)
+    overlay.appendChild(modal)
+    this.shadow.appendChild(overlay)
+
+    const close = () => overlay.remove()
+    closeBtn.addEventListener('click', close)
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { close(); window.removeEventListener('keydown', onKey) } }
+    window.addEventListener('keydown', onKey)
+  }
+
+    private closeBrainTab(fileId: string): void {
     const idx = this.brainOpenTabs.findIndex(t => t.id === fileId)
     if (idx === -1) return
     this.brainOpenTabs.splice(idx, 1)
@@ -3175,9 +3401,18 @@ export class EasyQuizPanel {
     if (this.brainActiveTab) {
       this.renderBrainFileContent(this.brainActiveTab)
     } else if (this.brainSelectedFolder) {
+      if (this.brainSelectedFolder === 'media-images') {
+        this.showMediaGrid()
+        return
+      }
+      // Check subfolders
+      for (const folder of this.getBrainFolders()) {
+        const sf = (folder.subfolders || []).find(s => s.id === this.brainSelectedFolder)
+        if (sf) { this.showSubfolderContent(sf); return }
+      }
       const folder = this.getBrainFolders().find(f => f.id === this.brainSelectedFolder)
       if (folder) {
-        this.showFolderContent(folder)
+        this.showFolderContent(folder as any)
       } else {
         const c = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
         if (c) c.innerHTML = '<div class="eq-brain-empty-canvas"><div style="margin-bottom:4px;opacity:0.5">Nada selecionado</div><div class="eq-brain-empty-sub">Selecione um arquivo no explorador abaixo para visualizá-lo</div></div>'
@@ -3208,6 +3443,11 @@ export class EasyQuizPanel {
   private renderBrainFileContent(fileId: string): void {
     const contentEl = this.shadow.querySelector('#eq-brain-content') as HTMLElement | null
     if (!contentEl) return
+
+    if (fileId.startsWith('img-')) {
+      this.showImageFile(parseInt(fileId.slice(4), 10))
+      return
+    }
 
     const raw = this.getBrainFileText(fileId)
     const safeEsc = (s: string) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
