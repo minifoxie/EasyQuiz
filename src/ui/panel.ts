@@ -529,7 +529,7 @@ export class EasyQuizPanel {
                 <div id="eq-output-toolbar" style="display:none;align-items:center;gap:5px;padding:5px 10px;background:#080808;border-bottom:1px solid #161616;flex-shrink:0;">
                   <div style="position:relative;display:inline-flex;">
                     <button id="eq-output-filter-btn" type="button" style="display:inline-flex;align-items:center;gap:4px;height:24px;font-size:9.5px;font-weight:600;padding:0 9px;border-radius:5px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#777;cursor:pointer;font-family:'Cascadia Code','Fira Code',monospace;white-space:nowrap;"><span id="eq-output-filter-label">Filtro: Todos</span><span style="display:inline-flex;width:10px;height:10px;color:#444;transform:rotate(90deg);">${ICONS.chevronRight}</span></button>
-                    <div id="eq-output-filter-menu" hidden style="position:absolute;top:calc(100% + 5px);left:0;z-index:9999;background:rgba(8,8,14,0.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:5px;min-width:172px;box-shadow:0 12px 32px rgba(0,0,0,0.75);">
+                    <div id="eq-output-filter-menu" style="display:none;position:absolute;top:calc(100% + 5px);left:0;z-index:9999;background:rgba(8,8,14,0.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:5px;min-width:172px;box-shadow:0 12px 32px rgba(0,0,0,0.75);">
                       <div style="padding:3px 8px 4px;font-size:8px;font-weight:700;letter-spacing:0.1em;color:#333;font-family:monospace;">CATEGORIAS</div>
                       <label class="eq-filter-lbl" id="eq-filter-opt-all"   style="display:flex;align-items:center;gap:7px;padding:5px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-all"   checked style="accent-color:#aaa;cursor:pointer;"> <span style="display:inline-flex;width:12px;height:12px;color:#777;">${ICONS.list}</span>     <span style="font-size:10px;color:#aaa;font-family:monospace;">Todos</span>    <span id="eq-dbg-count-all"   style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
                       <label class="eq-filter-lbl" id="eq-filter-opt-error" style="display:flex;align-items:center;gap:7px;padding:5px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(255,85,85,0.08)'"   onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-error"         style="accent-color:#ff5555;cursor:pointer;"> <span style="display:inline-flex;width:12px;height:12px;color:#ff5555;">${ICONS.info}</span>    <span style="font-size:10px;color:#aaa;font-family:monospace;">Erros</span>    <span id="eq-dbg-count-error" style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
@@ -537,10 +537,10 @@ export class EasyQuizPanel {
                       <label class="eq-filter-lbl" id="eq-filter-opt-dom"   style="display:flex;align-items:center;gap:7px;padding:5px 10px;cursor:pointer;border-radius:5px;transition:background 0.08s;" onmouseover="this.style.background='rgba(74,222,128,0.06)'"  onmouseout="this.style.background='transparent'"><input type="checkbox" id="eq-fchk-dom"          style="accent-color:#4ade80;cursor:pointer;"> <span style="display:inline-flex;width:12px;height:12px;color:#4ade80;">${ICONS.code}</span>    <span style="font-size:10px;color:#aaa;font-family:monospace;">DOM/Exec</span> <span id="eq-dbg-count-dom"   style="margin-left:auto;color:#333;font-size:8px;font-family:monospace;">0</span></label>
                     </div>
                   </div>
-                  <button id="eq-output-sort-btn" type="button" title="Ordenar (mais recente/mais antigo)" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:5px;color:#aaa;cursor:pointer;flex-shrink:0;transition:color 0.12s;"><span style="display:inline-flex;width:13px;height:13px;transform:rotate(270deg);transition:transform 0.2s;">${ICONS.chevronRight}</span></button>
+                  <button id="eq-output-sort-btn" type="button" title="Ordenar" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:5px;color:#aaa;cursor:pointer;flex-shrink:0;transition:color 0.12s;"><span id="eq-sort-arrow" style="display:inline-flex;width:13px;height:13px;transform:rotate(270deg);transition:transform 0.2s;">${ICONS.chevronRight}</span></button>
                   <div style="flex:1;display:flex;align-items:center;gap:5px;background:#0d0d0d;border:1px solid #1a1a1a;border-radius:5px;padding:0 8px;height:24px;"><input id="eq-output-search" type="text" placeholder="buscar logs..." autocomplete="off" style="flex:1;background:transparent;border:none;outline:none;color:#777;font-size:9.5px;font-family:'Cascadia Code','Fira Code',monospace;caret-color:#555;" /><button id="eq-output-search-clear" type="button" style="display:none;background:transparent;border:none;color:#333;cursor:pointer;font-size:9px;padding:0;line-height:1;">✕</button></div>
                   <button id="eq-dbg-scroll-toggle" type="button" title="Auto-scroll" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:5px;color:#aaa;cursor:pointer;flex-shrink:0;font-size:11px;">↓</button>
-                </div></div>
+                </div>
 
                 <!-- TERMINAL MODE — True terminal, no input bar -->
                 <div id="eq-term-panel-terminal" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;position:relative;">
@@ -2344,24 +2344,25 @@ export class EasyQuizPanel {
       if (lbl) lbl.textContent = 'Filtro: ' + (lblMap[this.activeLogFilter] || this.activeLogFilter)
       this.renderTerminalEntries()
     }
-    filterBtn?.addEventListener('click', (e) => { e.stopPropagation(); if (filterMenu) filterMenu.hidden = !filterMenu.hidden })
-    // Wire checkboxes — auto-apply on change, keep menu open
-    this.shadow.querySelectorAll('.eq-filter-lbl').forEach(lbl => {
-      lbl.addEventListener('mousedown', (e) => e.stopPropagation())
-      lbl.querySelector('input')?.addEventListener('change', () => applyFilters())
+    filterBtn?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      if (!filterMenu) return
+      const isOpen = filterMenu.style.display !== 'none'
+      filterMenu.style.display = isOpen ? 'none' : 'block'
     })
-    // Close on outside mousedown (not inside menu)
-    document.addEventListener('mousedown', (e) => {
-      if (!filterMenu || filterMenu.hidden) return
-      const t = e.target as Node
-      if (!filterMenu.contains(t) && t !== filterBtn && !(filterBtn as any)?.contains(t)) {
-        filterMenu.hidden = true
-      }
-    }, true)
+    // Wire checkboxes: stopPropagation inside menu prevents close, change applies filter
+    filterMenu?.addEventListener('mousedown', (e) => e.stopPropagation())
+    this.shadow.querySelectorAll('.eq-filter-lbl input[type=checkbox]').forEach(chk => {
+      chk.addEventListener('change', () => applyFilters())
+    })
+    // Close on click outside
+    document.addEventListener('mousedown', () => {
+      if (filterMenu && filterMenu.style.display !== 'none') filterMenu.style.display = 'none'
+    })
 
     // ── Sort button ──────────────────────────────────────
     const sortBtn2 = this.shadow.querySelector('#eq-output-sort-btn') as HTMLElement|null
-    const sortArrow2 = sortBtn2?.querySelector('span') as HTMLElement|null
+    const sortArrow2 = this.shadow.querySelector('#eq-sort-arrow') as HTMLElement|null
     if (sortArrow2) sortArrow2.style.transform = 'rotate(270deg)'
     sortBtn2?.addEventListener('click', () => {
       this.outputSortNewest = !this.outputSortNewest
