@@ -472,7 +472,7 @@ export class EasyQuizPanel {
 
                 <span id="eq-metrics-total-badge" style="display:none">0 QUESTÕES</span>
                 <!-- Cronômetro ao vivo -->
-                <div style="padding:14px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.05);flex-shrink:0;background:rgba(0,152,255,0.03);">
+                <div style="padding:14px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.05);flex-shrink:0;background:#000;">
                   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
                     <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;color:#555;">QUESTÃO ATUAL</span>
                     <span id="eq-metrics-live-status" style="font-size:9px;padding:2px 8px;border-radius:8px;background:rgba(255,255,255,0.06);color:#666;font-weight:600;">Em espera</span>
@@ -483,17 +483,17 @@ export class EasyQuizPanel {
 
                 <!-- Cards de resumo (3 col) -->
                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,0.05);flex-shrink:0;">
-                  <div style="background:#0c0c14;padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
+                  <div style="background:#000;padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
                     <div style="font-size:9px;color:#555;font-weight:600;letter-spacing:0.06em;">TEMPO TOTAL</div>
                     <div id="eq-metric-total-time" style="font-size:20px;font-weight:800;color:#e0e0e0;font-variant-numeric:tabular-nums;font-family:monospace;">00:00</div>
                     <div style="font-size:9px;color:#444;">Sessão atual</div>
                   </div>
-                  <div style="background:#0c0c14;padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
+                  <div style="background:#000;padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
                     <div style="font-size:9px;color:#555;font-weight:600;letter-spacing:0.06em;">MÉDIA / Q.</div>
                     <div id="eq-metric-avg-time" style="font-size:20px;font-weight:800;color:#4ade80;font-variant-numeric:tabular-nums;font-family:monospace;">0.0s</div>
                     <div style="font-size:9px;color:#444;">Ritmo médio</div>
                   </div>
-                  <div style="background:#0c0c14;padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
+                  <div style="background:#000;padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
                     <div style="font-size:9px;color:#555;font-weight:600;letter-spacing:0.06em;">RESPONDIDAS</div>
                     <div id="eq-metric-total-count" style="font-size:20px;font-weight:800;color:#fbbf24;font-variant-numeric:tabular-nums;font-family:monospace;">0</div>
                     <div style="font-size:9px;color:#444;">Questões OK</div>
@@ -997,7 +997,7 @@ export class EasyQuizPanel {
           const clBtn = document.createElement('button')
           clBtn.id = 'eq-term-clear-btn'; clBtn.type = 'button'; clBtn.title = 'Limpar'
           clBtn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,85,85,0.06);border:1px solid rgba(255,85,85,0.12);border-radius:4px;cursor:pointer;color:#ff5555;'
-          clBtn.innerHTML = ICONS.eraser
+          clBtn.innerHTML = ICONS.trash
           return [pill, cpBtn, clBtn]
         }
       },
@@ -4514,7 +4514,7 @@ export class EasyQuizPanel {
     modal.appendChild(metaSide)
     modal.appendChild(modalHeader)  // header with X lives inside modal
     overlay.appendChild(modal)
-    this.shadow.appendChild(overlay)
+    document.body.appendChild(overlay)
 
     const close = () => {
       overlay.remove()
