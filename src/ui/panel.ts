@@ -2247,41 +2247,52 @@ export class EasyQuizPanel {
       termOutput?.classList.remove('eq-term-unfocused')
     }
 
-    // ── Click position cursor (Cursor B) ────────────────────
+    // ── Click position cursor (Cursor B) & text selection ────
     const clickCursor = this.shadow.querySelector('#eq-click-cursor') as HTMLElement|null
+    let isSelecting = false
+
     termOutput?.addEventListener('mousedown', (e) => {
-      // Hide click cursor first
+      // NEVER call preventDefault here — it kills text selection
+      isSelecting = false
       if (clickCursor) clickCursor.style.display = 'none'
-      // Place cursor at click position using caretRangeFromPoint
-      const range = document.caretRangeFromPoint
-        ? document.caretRangeFromPoint(e.clientX, e.clientY)
-        : (document as any).caretPositionFromPoint
-          ? (() => {
-              const pos = (document as any).caretPositionFromPoint(e.clientX, e.clientY)
-              if (!pos) return null
-              const r = document.createRange()
-              r.setStart(pos.offsetNode, pos.offset)
-              return r
-            })()
-          : null
-      if (range && clickCursor) {
-        const rect = range.getBoundingClientRect()
-        if (rect.width === 0 && rect.height === 0) {
-          // Empty area — use mouse position
-          const lineH = parseFloat(getComputedStyle(termOutput!).lineHeight) || 19
-          clickCursor.style.left = e.clientX + 'px'
-          clickCursor.style.top  = (e.clientY - lineH * 0.85) + 'px'
-        } else {
-          clickCursor.style.left = rect.left + 'px'
-          clickCursor.style.top  = rect.top + 'px'
-        }
+      // Async focus so selection can start before focus moves
+      setTimeout(() => focusTerm(), 0)
+
+      // Place click cursor at mouse position (simple, reliable)
+      if (clickCursor) {
+        const lineH = parseFloat(getComputedStyle(termOutput!).lineHeight) || 19
+        // Try caretRangeFromPoint for text position, fallback to raw coords
+        let left = e.clientX, top = e.clientY - lineH * 0.85
+        try {
+          const range = document.caretRangeFromPoint
+            ? document.caretRangeFromPoint(e.clientX, e.clientY)
+            : null
+          if (range) {
+            const rect = range.getBoundingClientRect()
+            if (rect.height > 0) { left = rect.left; top = rect.top }
+          }
+        } catch(_) {}
+        clickCursor.style.left = left + 'px'
+        clickCursor.style.top  = top + 'px'
         clickCursor.style.display = 'block'
       }
-      const sel = window.getSelection()
-      if (sel && sel.toString().length > 0) return
-      e.preventDefault()
-      focusTerm()
     })
+
+    termOutput?.addEventListener('mousemove', (e) => {
+      if (e.buttons === 1) {
+        isSelecting = true
+        if (clickCursor) clickCursor.style.display = 'none'
+      }
+    })
+
+    termOutput?.addEventListener('mouseup', () => {
+      const sel = window.getSelection()
+      if (sel && sel.toString().length > 0) {
+        if (clickCursor) clickCursor.style.display = 'none'
+        isSelecting = false
+      }
+    })
+
     // Hide click cursor on any keydown
     captureTA?.addEventListener('keydown', () => { if (clickCursor) clickCursor.style.display = 'none' }, { passive: true })
 
@@ -2364,13 +2375,12 @@ export class EasyQuizPanel {
       const errChk  = (this.shadow.querySelector('#eq-fchk-error') as HTMLInputElement)?.checked
       const aiChk   = (this.shadow.querySelector('#eq-fchk-ai')    as HTMLInputElement)?.checked
       const domChk  = (this.shadow.querySelector('#eq-fchk-dom')   as HTMLInputElement)?.checked
-      const anyChecked = allChk || errChk || aiChk || domChk
-      if (!anyChecked) { const el = this.shadow.querySelector('#eq-fchk-all') as HTMLInputElement|null; if (el) el.checked = true; this.activeLogFilter = 'all' }
-      else if (allChk) this.activeLogFilter = 'all'
-      else if (errChk && !aiChk && !domChk) this.activeLogFilter = 'error'
-      else if (aiChk && !errChk && !domChk) this.activeLogFilter = 'ai'
-      else if (domChk && !errChk && !aiChk) this.activeLogFilter = 'dom'
-      else this.activeLogFilter = 'all'
+      // Determine filter
+      if (allChk) { this.activeLogFilter = 'all' }
+      else if (errChk && !aiChk && !domChk) { this.activeLogFilter = 'error' }
+      else if (aiChk && !errChk && !domChk) { this.activeLogFilter = 'ai' }
+      else if (domChk && !errChk && !aiChk) { this.activeLogFilter = 'dom' }
+      else { this.activeLogFilter = 'all' }
       const lbl = this.shadow.querySelector('#eq-output-filter-label') as HTMLElement|null
       const lblMap: Record<string,string> = { all:'Todos', error:'Erros', ai:'IA', dom:'DOM' }
       if (lbl) {
@@ -2392,10 +2402,35 @@ export class EasyQuizPanel {
       const isOpen = filterMenu.style.display !== 'none'
       filterMenu.style.display = isOpen ? 'none' : 'block'
     })
-    // Wire checkboxes: stopPropagation inside menu prevents close, change applies filter
+    // Wire checkboxes with Todos-exclusive logic
     filterMenu?.addEventListener('mousedown', (e) => e.stopPropagation())
-    this.shadow.querySelectorAll('.eq-filter-lbl input[type=checkbox]').forEach(chk => {
-      chk.addEventListener('change', () => applyFilters())
+    const allChkEl   = this.shadow.querySelector('#eq-fchk-all')   as HTMLInputElement|null
+    const errChkEl   = this.shadow.querySelector('#eq-fchk-error') as HTMLInputElement|null
+    const aiChkEl    = this.shadow.querySelector('#eq-fchk-ai')    as HTMLInputElement|null
+    const domChkEl   = this.shadow.querySelector('#eq-fchk-dom')   as HTMLInputElement|null
+    const catChkEls  = [errChkEl, aiChkEl, domChkEl].filter(Boolean) as HTMLInputElement[]
+
+    allChkEl?.addEventListener('change', () => {
+      if (allChkEl.checked) {
+        // Todos selected → uncheck all categories
+        catChkEls.forEach(c => { c.checked = false })
+      } else {
+        // Todos unchecked → force it back (can't have nothing)
+        allChkEl.checked = true
+      }
+      applyFilters()
+    })
+    catChkEls.forEach(chk => {
+      chk.addEventListener('change', () => {
+        if (chk.checked) {
+          // A category was selected → uncheck Todos
+          if (allChkEl) allChkEl.checked = false
+        }
+        // If all categories unchecked → go back to Todos
+        const anyCatChecked = catChkEls.some(c => c.checked)
+        if (!anyCatChecked && allChkEl) allChkEl.checked = true
+        applyFilters()
+      })
     })
     // Close on click outside
     document.addEventListener('mousedown', () => {
