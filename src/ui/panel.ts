@@ -538,7 +538,7 @@ export class EasyQuizPanel {
                 <div id="eq-term-panel-terminal" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;position:relative;">
                   <!-- Click position cursor -->
                   <div id="eq-click-cursor" style="position:absolute;pointer-events:none;display:none;z-index:10;background:rgba(255,255,255,0.75);mix-blend-mode:difference;"></div>
-                  <div id="eq-sel-overlay" style="position:absolute;background:rgba(255,255,255,0.18);pointer-events:none;display:none;z-index:9;border-radius:1px;"></div>
+                  <canvas id="eq-term-sel-canvas" style="position:absolute;top:0;left:0;pointer-events:none;z-index:8;mix-blend-mode:difference;opacity:1;"></canvas>
                   <!-- Hidden textarea captures keyboard input -->
                   <textarea id="eq-term-capture" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;resize:none;border:none;outline:none;"></textarea>
                   <!-- Output area: all lines + current prompt at bottom -->
@@ -2232,7 +2232,7 @@ export class EasyQuizPanel {
             navigator.clipboard.writeText(selText).then(() => { this.showToast('Seleção copiada', 'success', 2000); if (cpB) flash(cpB) })
           } else if (termOutput) {
             const tlines = Array.from(termOutput.children)
-              .filter(e => e !== currentLine && (e as HTMLElement).id !== 'eq-click-cursor' && (e as HTMLElement).id !== 'eq-sel-overlay')
+              .filter(e => e !== currentLine && (e as HTMLElement).id !== 'eq-click-cursor' && (e as HTMLElement).id !== 'eq-term-sel-canvas')
               .map(el => (el as HTMLElement).textContent?.trimEnd() || '')
             navigator.clipboard.writeText(tlines.join('\n')).then(() => { this.showToast('Terminal copiado', 'success', 2000); if (cpB) flash(cpB) })
           }
@@ -2306,86 +2306,133 @@ export class EasyQuizPanel {
       clickCursor.style.display = 'block'
     }
 
-    // ── Custom grid-based selection (works on empty cells, prompt, any char) ──
-    const selOverlay = this.shadow.querySelector('#eq-sel-overlay') as HTMLElement|null
+    // ── Canvas selection: xterm-style cell-by-cell, mix-blend-mode:difference ──
+    // The canvas renders white rectangles per-segment. mix-blend-mode:difference
+    // inverts the colors of content underneath → authentic terminal selection look.
+
+    const selCanvas = this.shadow.querySelector('#eq-term-sel-canvas') as HTMLCanvasElement|null
+    let selCtx: CanvasRenderingContext2D|null = null
+    if (selCanvas) {
+      selCtx = selCanvas.getContext('2d')
+    }
+
     let selStart: {row:number, col:number}|null = null
     let selEnd:   {row:number, col:number}|null = null
     let dragging = false
     let mdX = 0, mdY = 0
 
-    const xyToCell = (relX: number, relY: number) => {
-      const lh = getLineH()
-      return {
-        row: Math.max(0, Math.floor((relY - PAD_T) / lh)),
-        col: Math.max(0, Math.floor((relX - PAD_L) / charW)),
+    // Sync canvas size with termOutput dimensions
+    const syncCanvas = () => {
+      if (!selCanvas || !termOutput) return
+      const w = termOutput.scrollWidth
+      const h = Math.max(termOutput.scrollHeight, termOutput.clientHeight)
+      if (selCanvas.width !== w || selCanvas.height !== h) {
+        selCanvas.width  = w
+        selCanvas.height = h
+        selCanvas.style.width  = w + 'px'
+        selCanvas.style.height = h + 'px'
       }
     }
 
-    const renderSelOverlay = () => {
-      if (!selStart || !selEnd || !selOverlay) { if(selOverlay) selOverlay.style.display='none'; return }
-      const lh = getLineH()
-      const r1 = Math.min(selStart.row, selEnd.row)
-      const r2 = Math.max(selStart.row, selEnd.row)
-      const c1 = r1===r2 ? Math.min(selStart.col,selEnd.col) : (selStart.row<selEnd.row ? selStart.col : selEnd.col)
-      const c2 = r1===r2 ? Math.max(selStart.col,selEnd.col) : (selStart.row<selEnd.row ? selEnd.col : selStart.col)
-      // Simple rectangle: covers from min col to max col on single line, or full width on multi-line
+    // Draw xterm-style segmented selection (not a bounding box — actual segments)
+    const drawSel = () => {
+      if (!selCtx || !selCanvas) return
+      syncCanvas()
+      selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height)
+      if (!selStart || !selEnd) return
+
+      const lh    = getLineH()
+      const tW    = selCanvas.width   // total canvas width
+      // Normalize direction: always r1,c1 → r2,c2 in reading order
+      let r1 = selStart.row, c1 = selStart.col
+      let r2 = selEnd.row,   c2 = selEnd.col
+      if (r1 > r2 || (r1 === r2 && c1 > c2)) {
+        [r1,c1,r2,c2] = [r2,c2,r1,c1]
+      }
+
+      selCtx.fillStyle = 'white'  // white + mix-blend-mode:difference = color inversion
+
       if (r1 === r2) {
-        selOverlay.style.top    = (PAD_T + r1 * lh) + 'px'
-        selOverlay.style.left   = (PAD_L + Math.min(selStart.col,selEnd.col) * charW) + 'px'
-        selOverlay.style.width  = ((Math.abs(selEnd.col - selStart.col) + 1) * charW) + 'px'
-        selOverlay.style.height = lh + 'px'
+        // Single line: from c1 to c2
+        selCtx.fillRect(PAD_L + c1 * charW, PAD_T + r1 * lh, (c2 - c1 + 1) * charW, lh)
       } else {
-        // Multi-line: simple full-width bounding rect
-        selOverlay.style.top    = (PAD_T + r1 * lh) + 'px'
-        selOverlay.style.left   = '0px'
-        selOverlay.style.width  = '100%'
-        selOverlay.style.height = ((r2 - r1 + 1) * lh) + 'px'
+        // Multi-line xterm segments:
+        // First line: c1 to right edge
+        selCtx.fillRect(PAD_L + c1 * charW, PAD_T + r1 * lh, tW - PAD_L - c1 * charW, lh)
+        // Middle lines: full width
+        for (let r = r1 + 1; r < r2; r++) {
+          selCtx.fillRect(PAD_L, PAD_T + r * lh, tW - PAD_L, lh)
+        }
+        // Last line: left edge to c2
+        selCtx.fillRect(PAD_L, PAD_T + r2 * lh, (c2 + 1) * charW, lh)
       }
-      selOverlay.style.display = 'block'
     }
 
-    // Extract text from selected grid range (includes empty cells as spaces)
+    // Convert pixel coords (relative to termOutput) to grid cell
+    const xyToCell = (relX: number, relY: number) => ({
+      row: Math.max(0, Math.floor((relY - PAD_T) / getLineH())),
+      col: Math.max(0, Math.floor((relX - PAD_L) / charW)),
+    })
+
+    // Extract selected text (cell-accurate, incl. empty spaces)
     const getCustomSelText = (): string => {
       if (!selStart || !selEnd || !termOutput) return ''
-      const lh = getLineH()
-      const r1 = Math.min(selStart.row, selEnd.row)
-      const r2 = Math.max(selStart.row, selEnd.row)
-      const c1 = r1===r2 ? Math.min(selStart.col,selEnd.col) : 0
-      const c2 = r1===r2 ? Math.max(selStart.col,selEnd.col) : 9999
+      let r1 = selStart.row, c1 = selStart.col
+      let r2 = selEnd.row,   c2 = selEnd.col
+      if (r1 > r2 || (r1 === r2 && c1 > c2)) { [r1,c1,r2,c2] = [r2,c2,r1,c1] }
       const contentLines = Array.from(termOutput.children)
-        .filter(el => (el as HTMLElement).id !== 'eq-click-cursor' && (el as HTMLElement).id !== 'eq-sel-overlay' && el.id !== 'eq-term-current-line')
+        .filter(el => {
+          const id = (el as HTMLElement).id
+          return id !== 'eq-click-cursor' && id !== 'eq-term-sel-canvas' && id !== 'eq-term-current-line'
+        })
         .map(el => (el as HTMLElement).textContent?.replace(/\n/g,'') || '')
       const result: string[] = []
       for (let r = r1; r <= r2; r++) {
-        const line = r < contentLines.length ? contentLines[r] : ''
+        const raw = r < contentLines.length ? contentLines[r] : ''
         if (r1 === r2) {
-          result.push(line.slice(c1, c2 + 1).padEnd(c2 - c1 + 1, ' '))
+          // Single line: slice c1..c2, pad empty cells with space
+          result.push(raw.padEnd(c2 + 1, ' ').slice(c1, c2 + 1))
+        } else if (r === r1) {
+          result.push(raw.slice(c1))
+        } else if (r === r2) {
+          result.push(raw.padEnd(c2 + 1, ' ').slice(0, c2 + 1))
         } else {
-          result.push(line)
+          result.push(raw)
         }
       }
-      return result.join('\n').trimEnd()
+      return result.join('\n').replace(/\n+$/, '')
     }
 
-    // Store getter so copy button can access custom selection
+    // Expose to copy/Ctrl+C handlers
     ;(this as any)._getCustomSel = getCustomSelText
     ;(this as any)._clearCustomSel = () => {
       selStart = null; selEnd = null
-      if (selOverlay) selOverlay.style.display = 'none'
+      if (selCtx && selCanvas) selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height)
     }
 
+    // ResizeObserver: keep canvas in sync when termOutput changes height
+    if (selCanvas && termOutput) {
+      try {
+        const ro = new ResizeObserver(() => {
+          syncCanvas()
+          if (selStart && selEnd) drawSel()  // redraw after resize
+        })
+        ro.observe(termOutput)
+      } catch(_) {}
+    }
+
+    // ── Mouse events ──────────────────────────────────────
     termOutput?.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return
       mdX = e.clientX; mdY = e.clientY; dragging = false
       // Clear previous selection
       selStart = null; selEnd = null
-      if (selOverlay) selOverlay.style.display = 'none'
+      if (selCtx && selCanvas) selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height)
       if (clickCursor) clickCursor.style.display = 'none'
       const rect = termOutput!.getBoundingClientRect()
       const relX = e.clientX - rect.left + termOutput!.scrollLeft
       const relY = e.clientY - rect.top  + termOutput!.scrollTop
       showClickCursor(relX, relY)
-      // Focus after 80ms — if user starts dragging before 80ms, don't focus
       setTimeout(() => { if (!dragging) focusTerm() }, 80)
     })
 
@@ -2393,24 +2440,24 @@ export class EasyQuizPanel {
       if (e.buttons !== 1) return
       const dx = Math.abs(e.clientX - mdX), dy = Math.abs(e.clientY - mdY)
       if (dx > 2 || dy > 2) {
-        dragging = true
-        if (clickCursor) clickCursor.style.display = 'none'
+        if (!dragging) {
+          dragging = true
+          if (clickCursor) clickCursor.style.display = 'none'
+          // Capture selection start from mousedown position
+          const rect = termOutput!.getBoundingClientRect()
+          selStart = xyToCell(mdX - rect.left + termOutput!.scrollLeft, mdY - rect.top + termOutput!.scrollTop)
+        }
         const rect = termOutput!.getBoundingClientRect()
-        const relX = e.clientX - rect.left + termOutput!.scrollLeft
-        const relY = e.clientY - rect.top  + termOutput!.scrollTop
-        // Set selection start on first drag movement
-        if (!selStart) selStart = xyToCell(mdX - rect.left + termOutput!.scrollLeft, mdY - rect.top + termOutput!.scrollTop)
-        selEnd = xyToCell(relX, relY)
-        renderSelOverlay()
+        selEnd = xyToCell(e.clientX - rect.left + termOutput!.scrollLeft, e.clientY - rect.top + termOutput!.scrollTop)
+        drawSel()
       }
     })
 
     termOutput?.addEventListener('mouseup', () => {
       if (dragging) {
         dragging = false
-        // Selection stays — user can now Ctrl+C or click copy
-        // If no cells selected, focus for typing
         if (!selStart || !selEnd) focusTerm()
+        // else: keep selection visible until next mousedown or Ctrl+C
       }
     })
 
@@ -2639,7 +2686,18 @@ export class EasyQuizPanel {
     if (this.executionConsole) this.executionConsole.replaceChildren()
   }
 
-  public getFormattedLogs(): string {
+  // ── termBorder: purely visual outline around response blocks ─────────────
+  // Draws a CSS outline (not border) — no layout shift, no background.
+  // Characters inside stay perfectly on the monospace grid.
+  // Reusable: pass any content div to add a visual grouping border.
+  private termBorder(el: HTMLElement, color: string = '#1e1e1e', radius: number = 3): HTMLElement {
+    el.style.outline       = `1px solid ${color}`
+    el.style.outlineOffset = '-1px'
+    el.style.borderRadius  = radius + 'px'
+    return el
+  }
+
+    public getFormattedLogs(): string {
     const filtered = this.activeLogFilter === 'all'
       ? this.logEntries
       : this.logEntries.filter((e) => e.category === this.activeLogFilter)
