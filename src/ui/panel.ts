@@ -4405,11 +4405,20 @@ export class EasyQuizPanel {
     const modal = document.createElement('div')
     modal.style.cssText = 'display:flex;width:min(90vw,1100px);max-height:90vh;border-radius:10px;background:#0f0f17;border:1px solid rgba(255,255,255,0.1);box-shadow:0 24px 64px rgba(0,0,0,0.8);position:relative;overflow:hidden;'
 
-    // Close button INSIDE overlay but OUTSIDE modal — safe from overflow:hidden
+    // Modal header bar — title + X button, properly positioned inside modal
+    const modalHeader = document.createElement('div')
+    modalHeader.style.cssText = 'position:absolute;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);border-bottom:1px solid rgba(255,255,255,0.07);border-radius:10px 10px 0 0;'
+    const modalTitle = document.createElement('span')
+    modalTitle.style.cssText = 'font-size:11px;color:rgba(234,240,248,0.45);font-weight:600;letter-spacing:0.04em;user-select:none;'
+    modalTitle.textContent = 'Imagem ' + (index + 1) + ' de ' + this.latestImages.length
     const closeBtn = document.createElement('button')
-    closeBtn.style.cssText = 'position:absolute;top:10px;right:10px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.15);color:#ddd;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:18px;z-index:10;display:flex;align-items:center;justify-content:center;line-height:1;'
+    closeBtn.style.cssText = 'background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);color:rgba(234,240,248,0.65);width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;line-height:1;transition:background 0.15s,color 0.15s;flex-shrink:0;'
     closeBtn.textContent = '×'
     closeBtn.title = 'Fechar (ESC)'
+    closeBtn.addEventListener('mouseenter', () => { closeBtn.style.background = 'rgba(239,68,68,0.32)'; closeBtn.style.color = '#fff' })
+    closeBtn.addEventListener('mouseleave', () => { closeBtn.style.background = 'rgba(255,255,255,0.08)'; closeBtn.style.color = 'rgba(234,240,248,0.65)' })
+    modalHeader.appendChild(modalTitle)
+    modalHeader.appendChild(closeBtn)
 
     // Image side with wheel zoom
     const imgSide = document.createElement('div')
@@ -4455,6 +4464,7 @@ export class EasyQuizPanel {
     } else {
       imgSide.innerHTML = '<div style="color:#555;font-size:12px;text-align:center;width:100%;">Sem dados visuais</div>'
     }
+    imgSide.style.paddingTop = '44px'  // room for absolute header bar
     modal.appendChild(imgSide)
 
     // Metadata side
@@ -4502,14 +4512,27 @@ export class EasyQuizPanel {
     }
 
     modal.appendChild(metaSide)
-    overlay.appendChild(closeBtn)  // closeBtn is inside overlay, outside modal
+    modal.appendChild(modalHeader)  // header with X lives inside modal
     overlay.appendChild(modal)
     this.shadow.appendChild(overlay)
 
-    const close = () => overlay.remove()
+    const close = () => {
+      overlay.remove()
+      document.removeEventListener('click', onDocClick, true)
+      document.removeEventListener('keydown', onKey)
+      window.removeEventListener('keydown', onKey)
+    }
     closeBtn.addEventListener('click', (e) => { e.stopPropagation(); close() })
-    modal.addEventListener('click', (e) => e.stopPropagation())  // prevent modal clicks from bubbling to overlay
-    overlay.addEventListener('click', () => close())  // click anywhere on backdrop closes
+    modal.addEventListener('click', (e) => e.stopPropagation())
+    overlay.addEventListener('click', () => close())  // backdrop click closes
+
+    // Close when user clicks OUTSIDE the shadow host (on page background)
+    const onDocClick = (e: MouseEvent) => {
+      const host = this.shadow.host
+      if (host && !host.contains(e.target as Node)) close()
+    }
+    // Delay attach so current click (that opened lightbox) doesn't immediately close it
+    setTimeout(() => document.addEventListener('click', onDocClick, true), 0)
 
     // Prev/Next in lightbox
     const totalImgs = this.latestImages.length
@@ -4531,8 +4554,9 @@ export class EasyQuizPanel {
       overlay.appendChild(makeNav('prev'))
       overlay.appendChild(makeNav('next'))
     }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { close(); window.removeEventListener('keydown', onKey) } }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
     window.addEventListener('keydown', onKey)
+    document.addEventListener('keydown', onKey)
   }
 
     private closeBrainTab(fileId: string): void {
