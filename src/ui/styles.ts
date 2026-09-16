@@ -2378,7 +2378,7 @@ export const PANEL_STYLES = `
   .eq-operation-state { flex: none; padding: 4px 8px; border: 1px solid var(--eq-border); border-radius: 4px; color: var(--eq-muted); font: 600 11px/1 inherit; text-transform: uppercase; transition: all 0.2s ease; }
   .eq-operation-state.is-success { color: var(--eq-success); border-color: rgba(78, 201, 176, 0.4); background: rgba(78, 201, 176, 0.08); }
   .eq-operation-state.is-error { color: var(--eq-danger); border-color: rgba(241, 76, 76, 0.4); background: rgba(241, 76, 76, 0.08); }
-  .eq-operation-state.is-busy { color: #00ffcc; border-color: rgba(0, 255, 204, 0.4); background: rgba(0, 255, 204, 0.08); }
+  .eq-operation-state.is-busy { color: #aaa; border-color: rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.05); }
   .eq-operation-state.is-warning, .eq-operation-state.is-stopped { color: var(--eq-warning); border-color: rgba(215, 186, 125, 0.4); background: rgba(215, 186, 125, 0.08); }
   .eq-operation-state.is-info { color: var(--eq-accent); border-color: rgba(0, 122, 204, 0.4); background: rgba(0, 122, 204, 0.08); }
   .eq-operation-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -2437,8 +2437,8 @@ export const PANEL_STYLES = `
 
   /* ===== ABA DE MÉTRICAS & CRONÔMETRO ===== */
   .eq-live-stopwatch-box {
-    background: linear-gradient(135deg, rgba(0, 122, 204, 0.12), rgba(0, 255, 204, 0.08));
-    border: 1px solid rgba(0, 255, 204, 0.25);
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px;
     padding: 14px 16px;
     display: flex;
@@ -2455,7 +2455,7 @@ export const PANEL_STYLES = `
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.08em;
-    color: var(--eq-accent);
+    color: #555;
     text-transform: uppercase;
   }
   .eq-live-stopwatch-status {
@@ -2467,8 +2467,8 @@ export const PANEL_STYLES = `
     border-radius: 4px;
   }
   .eq-live-stopwatch-status.active {
-    color: #00ffcc;
-    background: rgba(0, 255, 204, 0.15);
+    color: #ccc;
+    background: rgba(255, 255, 255, 0.08);
     animation: eq-blink 1s infinite alternate;
   }
   .eq-live-stopwatch-status.is-warning {
@@ -2489,7 +2489,7 @@ export const PANEL_STYLES = `
     font-weight: 800;
     color: #ffffff;
     letter-spacing: 0.05em;
-    text-shadow: 0 0 12px rgba(0, 255, 204, 0.3);
+    text-shadow: none;
   }
   .eq-live-stopwatch-hint {
     font-size: 11px;
@@ -2635,7 +2635,7 @@ export const PANEL_STYLES = `
     font-family: 'JetBrains Mono', monospace;
     font-size: 12px;
     font-weight: 700;
-    color: #00ffcc;
+    color: #888;
   }
   .eq-metrics-item-status {
     font-size: 9px;
@@ -2661,13 +2661,12 @@ export const PANEL_STYLES = `
   /* ── Terminal block cursor ── */
   .eq-term-cursor {
     display: inline-block;
-    width: 0.58em;
-    height: 1.05em;
+    width: 0.6em;
+    height: 2px;
     background: #ffffff;
     animation: eq-term-blink 1.1s step-end infinite;
     vertical-align: text-bottom;
     margin-left: 1px;
-    border-radius: 1px;
   }
   @keyframes eq-term-blink {
     0%, 100% { opacity: 1 }
@@ -2679,6 +2678,11 @@ export const PANEL_STYLES = `
   }
   #eq-term-output { scrollbar-width: thin; scrollbar-color: #1e1e1e #0a0a0a; }
   #eq-live-debug-terminal { scrollbar-width: thin; scrollbar-color: #1e1e1e #0a0a0a; }
+  #eq-term-output ::selection,
+  #eq-live-debug-terminal ::selection {
+    background: rgba(255,255,255,0.85);
+    color: #0a0a0a;
+  }
 
   /* ── Resolver + Output context menus — glassmorphism ── */
   .eq-resolver-context-menu {

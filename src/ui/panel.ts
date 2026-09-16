@@ -517,15 +517,7 @@ export class EasyQuizPanel {
               <div class="eq-view-pane" id="eq-view-debug" style="display:none;flex-direction:column;">
                 <span id="eq-debug-badge" style="display:none">ATIVO</span>
 
-                <!-- Mode switcher: always visible in terminal tab -->
-                <div id="eq-term-mode-bar" style="display:flex;align-items:center;gap:4px;padding:5px 10px;background:#060606;border-bottom:1px solid #111;flex-shrink:0;">
-                  <div style="display:inline-flex;align-items:center;gap:1px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:5px;padding:2px;">
-                    <button id="eq-term-mode-terminal" type="button" style="font-size:9px;font-weight:600;padding:2px 10px;border-radius:3px;cursor:pointer;background:#1a1a1a;border:1px solid #333;color:#ddd;transition:all 0.12s;">Terminal</button>
-                    <button id="eq-term-mode-output"   type="button" style="font-size:9px;font-weight:600;padding:2px 10px;border-radius:3px;cursor:pointer;background:transparent;border:1px solid transparent;color:#444;transition:all 0.12s;">Output</button>
-                  </div>
-                </div>
-
-                <!-- Output toolbar — only in Output mode -->
+                <!-- Output toolbar — only in Output mode (mode pill is in contextbar) -->
                 <div id="eq-output-toolbar" style="display:none;align-items:center;gap:5px;padding:5px 10px;background:#080808;border-bottom:1px solid #161616;flex-shrink:0;">
                   <div style="position:relative;display:inline-flex;">
                     <button id="eq-output-filter-btn" type="button" style="display:inline-flex;align-items:center;gap:4px;height:24px;font-size:9.5px;font-weight:600;padding:0 9px;border-radius:5px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#777;cursor:pointer;font-family:'Cascadia Code','Fira Code',monospace;white-space:nowrap;"><span id="eq-output-filter-label">Filtro: Todos</span><span style="display:inline-flex;width:10px;height:10px;color:#444;transform:rotate(90deg);">${ICONS.chevronRight}</span></button>
@@ -539,17 +531,19 @@ export class EasyQuizPanel {
                   </div>
                   <button id="eq-output-sort-btn" type="button" title="Ordenar" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:5px;color:#aaa;cursor:pointer;flex-shrink:0;transition:color 0.12s;"><span id="eq-sort-arrow" style="display:inline-flex;width:13px;height:13px;transform:rotate(270deg);transition:transform 0.2s;">${ICONS.chevronRight}</span></button>
                   <div style="flex:1;display:flex;align-items:center;gap:5px;background:#0d0d0d;border:1px solid #1a1a1a;border-radius:5px;padding:0 8px;height:24px;"><input id="eq-output-search" type="text" placeholder="buscar logs..." autocomplete="off" style="flex:1;background:transparent;border:none;outline:none;color:#777;font-size:9.5px;font-family:'Cascadia Code','Fira Code',monospace;caret-color:#555;" /><button id="eq-output-search-clear" type="button" style="display:none;background:transparent;border:none;color:#333;cursor:pointer;font-size:9px;padding:0;line-height:1;">✕</button></div>
-                  <button id="eq-dbg-scroll-toggle" type="button" title="Auto-scroll" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:5px;color:#aaa;cursor:pointer;flex-shrink:0;font-size:11px;">↓</button>
+                  <button id="eq-dbg-scroll-toggle" type="button" title="Auto-scroll: ativo" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);border-radius:5px;color:#ddd;cursor:pointer;flex-shrink:0;font-size:12px;font-weight:700;">⤓</button>
                 </div>
 
                 <!-- TERMINAL MODE — True terminal, no input bar -->
                 <div id="eq-term-panel-terminal" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;position:relative;">
+                  <!-- Click position cursor -->
+                  <div id="eq-click-cursor" style="position:fixed;width:0.58em;height:1.1em;background:rgba(255,255,255,0.38);pointer-events:none;display:none;z-index:9999;border-radius:1px;"></div>
                   <!-- Hidden textarea captures keyboard input -->
                   <textarea id="eq-term-capture" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;resize:none;border:none;outline:none;"></textarea>
                   <!-- Output area: all lines + current prompt at bottom -->
                   <div id="eq-term-output" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 14px 6px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;background:#0a0a0a;color:#ddd;user-select:text;-webkit-user-select:text;cursor:text;outline:none;caret-color:transparent;">
-                    <div style="color:#444;padding:2px 0;"><span style="color:#666;font-weight:600;">EasyQuiz Terminal</span> <span style="color:#2a2a2a;">v${BUILD_VERSION}</span></div>
-                    <div style="color:#333;padding-bottom:6px;">Digite <span style="color:#aaa;font-weight:600;">help</span> para ver os comandos</div>
+                    <div data-perm="1" style="color:#444;padding:2px 0;"><span style="color:#666;font-weight:600;">EasyQuiz Terminal</span> <span style="color:#2a2a2a;">v${BUILD_VERSION}</span></div>
+                    <div data-perm="1" style="color:#333;padding-bottom:6px;">Digite <span style="color:#aaa;font-weight:600;">help</span> para ver os comandos</div>
                     <div style="height:4px;"></div>
                     <!-- Current input line — always last -->
                     <div id="eq-term-current-line" style="display:flex;align-items:baseline;overflow:hidden;flex-shrink:0;"><span style="color:#fff;font-weight:700;user-select:none;">EasyQuiz_Legacy:&nbsp;</span><span id="eq-term-typed" style="color:#e0e0e0;"></span><span class="eq-term-cursor"></span></div>
@@ -972,6 +966,15 @@ export class EasyQuizPanel {
       debug: {
         icon: ICONS.code, label: 'Terminal', sub: 'Comandos & logs', color: '#0098ff',
         actions: () => {
+          const pill = document.createElement('div')
+          pill.style.cssText = 'display:inline-flex;align-items:center;gap:1px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:2px;'
+          const mkModeBtn = (id: string, label: string, active: boolean) => {
+            const b = document.createElement('button'); b.id = id; b.type = 'button'; b.textContent = label
+            b.style.cssText = 'font-size:9px;font-weight:600;padding:2px 8px;border-radius:3px;cursor:pointer;transition:all 0.1s;background:' + (active ? '#1a1a1a' : 'transparent') + ';border:1px solid ' + (active ? '#333' : 'transparent') + ';color:' + (active ? '#ddd' : '#555') + ';'
+            return b
+          }
+          pill.appendChild(mkModeBtn('eq-term-mode-terminal', 'Terminal', true))
+          pill.appendChild(mkModeBtn('eq-term-mode-output', 'Output', false))
           const cpBtn = document.createElement('button')
           cpBtn.id = 'eq-term-copy-btn'; cpBtn.type = 'button'; cpBtn.title = 'Copiar'
           cpBtn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:4px;cursor:pointer;color:#888;'
@@ -980,7 +983,7 @@ export class EasyQuizPanel {
           clBtn.id = 'eq-term-clear-btn'; clBtn.type = 'button'; clBtn.title = 'Limpar'
           clBtn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,85,85,0.06);border:1px solid rgba(255,85,85,0.12);border-radius:4px;cursor:pointer;color:#ff5555;'
           clBtn.innerHTML = ICONS.eraser
-          return [cpBtn, clBtn]
+          return [pill, cpBtn, clBtn]
         }
       },
       settings: {
@@ -1046,7 +1049,7 @@ export class EasyQuizPanel {
     scrollToggleBtn?.addEventListener('click', () => {
       this.autoScrollLogs = !this.autoScrollLogs
       if (scrollToggleBtn) {
-        scrollToggleBtn.style.color = this.autoScrollLogs ? '#00ffcc' : '#858585'
+        scrollToggleBtn.style.color = this.autoScrollLogs ? '#ddd' : '#333'
         scrollToggleBtn.title = this.autoScrollLogs ? 'Auto-Scroll Ligado (Clique para desligar)' : 'Auto-Scroll Desligado (Clique para ligar)'
       }
       if (this.autoScrollLogs && this.liveDebugTerminal) {
@@ -2205,6 +2208,10 @@ export class EasyQuizPanel {
 
     // ── Reconnect contextbar buttons ──────────────────────
     this._reconnectContextbarBtns = () => {
+      const modeT = this.shadow.querySelector('#eq-term-mode-terminal') as HTMLElement|null
+      const modeO = this.shadow.querySelector('#eq-term-mode-output')   as HTMLElement|null
+      modeT?.addEventListener('click', () => switchMode('terminal'))
+      modeO?.addEventListener('click', () => switchMode('output'))
       const cpB   = this.shadow.querySelector('#eq-term-copy-btn')  as HTMLElement|null
       const clB   = this.shadow.querySelector('#eq-term-clear-btn') as HTMLElement|null
       cpB?.addEventListener('click', () => {
@@ -2227,18 +2234,12 @@ export class EasyQuizPanel {
       })
       clB?.addEventListener('click', () => {
         if (this.terminalMode === 'terminal') {
-          if (termOutput && currentLine) { [...termOutput.children].forEach(k=>{if(k!==currentLine)k.remove()}) }
+          if (termOutput && currentLine) { [...termOutput.children].forEach(k=>{ if(k!==currentLine && (k as HTMLElement).dataset?.perm !== '1') k.remove() }) }
           if (typedEl) typedEl.textContent=''
         } else { this.clearLogs() }
       })
     }
     this._reconnectContextbarBtns()
-
-    // ── Wire static mode pill ─────────────────────────────
-    const modeTermBtn = this.shadow.querySelector('#eq-term-mode-terminal') as HTMLElement|null
-    const modeOutBtn  = this.shadow.querySelector('#eq-term-mode-output')   as HTMLElement|null
-    modeTermBtn?.addEventListener('click', () => switchMode('terminal'))
-    modeOutBtn?.addEventListener('click',  () => switchMode('output'))
 
     // ── Terminal keyboard input ───────────────────────────
     const focusTerm = () => {
@@ -2246,12 +2247,43 @@ export class EasyQuizPanel {
       termOutput?.classList.remove('eq-term-unfocused')
     }
 
+    // ── Click position cursor (Cursor B) ────────────────────
+    const clickCursor = this.shadow.querySelector('#eq-click-cursor') as HTMLElement|null
     termOutput?.addEventListener('mousedown', (e) => {
+      // Hide click cursor first
+      if (clickCursor) clickCursor.style.display = 'none'
+      // Place cursor at click position using caretRangeFromPoint
+      const range = document.caretRangeFromPoint
+        ? document.caretRangeFromPoint(e.clientX, e.clientY)
+        : (document as any).caretPositionFromPoint
+          ? (() => {
+              const pos = (document as any).caretPositionFromPoint(e.clientX, e.clientY)
+              if (!pos) return null
+              const r = document.createRange()
+              r.setStart(pos.offsetNode, pos.offset)
+              return r
+            })()
+          : null
+      if (range && clickCursor) {
+        const rect = range.getBoundingClientRect()
+        if (rect.width === 0 && rect.height === 0) {
+          // Empty area — use mouse position
+          const lineH = parseFloat(getComputedStyle(termOutput!).lineHeight) || 19
+          clickCursor.style.left = e.clientX + 'px'
+          clickCursor.style.top  = (e.clientY - lineH * 0.85) + 'px'
+        } else {
+          clickCursor.style.left = rect.left + 'px'
+          clickCursor.style.top  = rect.top + 'px'
+        }
+        clickCursor.style.display = 'block'
+      }
       const sel = window.getSelection()
-      if (sel && sel.toString().length > 0) return // allow text selection
+      if (sel && sel.toString().length > 0) return
       e.preventDefault()
       focusTerm()
     })
+    // Hide click cursor on any keydown
+    captureTA?.addEventListener('keydown', () => { if (clickCursor) clickCursor.style.display = 'none' }, { passive: true })
 
     termOutput?.addEventListener('focus', () => termOutput.classList.remove('eq-term-unfocused'))
 
@@ -2308,7 +2340,7 @@ export class EasyQuizPanel {
         })
       } else if (e.key === 'l' && e.ctrlKey) {
         e.preventDefault()
-        if (termOutput && currentLine) { [...termOutput.children].forEach(k=>{if(k!==currentLine)k.remove()}) }
+        if (termOutput && currentLine) { [...termOutput.children].forEach(k=>{ if(k!==currentLine && (k as HTMLElement).dataset?.perm !== '1') k.remove() }) }
         typedEl.textContent = ''
       } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
         e.preventDefault()
@@ -2341,7 +2373,17 @@ export class EasyQuizPanel {
       else this.activeLogFilter = 'all'
       const lbl = this.shadow.querySelector('#eq-output-filter-label') as HTMLElement|null
       const lblMap: Record<string,string> = { all:'Todos', error:'Erros', ai:'IA', dom:'DOM' }
-      if (lbl) lbl.textContent = 'Filtro: ' + (lblMap[this.activeLogFilter] || this.activeLogFilter)
+      if (lbl) {
+        const lblMap2: Record<string,string> = { all:'Todos', error:'Erros', ai:'IA', dom:'DOM' }
+        const errC2  = (this.shadow.querySelector('#eq-fchk-error') as HTMLInputElement)?.checked
+        const aiC2   = (this.shadow.querySelector('#eq-fchk-ai')    as HTMLInputElement)?.checked
+        const domC2  = (this.shadow.querySelector('#eq-fchk-dom')   as HTMLInputElement)?.checked
+        const allC2  = (this.shadow.querySelector('#eq-fchk-all')   as HTMLInputElement)?.checked
+        const cnt = [errC2,aiC2,domC2].filter(Boolean).length
+        if (allC2 || cnt === 0) lbl.textContent = 'Todos'
+        else if (cnt === 1) lbl.textContent = lblMap2[this.activeLogFilter] || this.activeLogFilter
+        else lbl.textContent = '\u22ef (' + cnt + ')'
+      }
       this.renderTerminalEntries()
     }
     filterBtn?.addEventListener('click', (e) => {
@@ -2384,10 +2426,34 @@ export class EasyQuizPanel {
       this.renderTerminalEntries()
     })
 
-    // Auto-scroll toggle
+    // ── Smart auto-scroll: disable on manual scroll up, re-enable at bottom ──
+    if (this.liveDebugTerminal) {
+      let scrollTimer: ReturnType<typeof setTimeout>|null = null
+      this.liveDebugTerminal.addEventListener('scroll', () => {
+        if (scrollTimer) clearTimeout(scrollTimer)
+        scrollTimer = setTimeout(() => {
+          if (!this.liveDebugTerminal) return
+          const el = this.liveDebugTerminal
+          const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+          const btn = this.shadow.querySelector('#eq-dbg-scroll-toggle') as HTMLElement|null
+          if (distFromBottom > 40) {
+            this.autoScrollLogs = false
+            if (btn) { btn.style.color = '#333'; btn.style.borderColor = 'rgba(255,255,255,0.07)'; btn.title = 'Auto-scroll: desativado' }
+          } else if (distFromBottom < 10) {
+            this.autoScrollLogs = true
+            if (btn) { btn.style.color = '#ddd'; btn.style.borderColor = 'rgba(255,255,255,0.18)'; btn.title = 'Auto-scroll: ativo' }
+          }
+        }, 150)
+      })
+    }
+
+        // Auto-scroll toggle
     this.shadow.querySelector('#eq-dbg-scroll-toggle')?.addEventListener('click', (e) => {
       this.autoScrollLogs = !this.autoScrollLogs
-      ;(e.currentTarget as HTMLElement).style.color = this.autoScrollLogs ? '#aaaaaa' : '#333'
+      const stEl = e.currentTarget as HTMLElement
+      stEl.style.color = this.autoScrollLogs ? '#ddd' : '#333'
+      stEl.style.borderColor = this.autoScrollLogs ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)'
+      stEl.title = this.autoScrollLogs ? 'Auto-scroll: ativo' : 'Auto-scroll: desativado'
     })
 
     switchMode('terminal')
@@ -2400,7 +2466,7 @@ export class EasyQuizPanel {
     if (this.liveDebugTerminal) {
       this.liveDebugTerminal.replaceChildren()
       const init = document.createElement('div')
-      init.className = 'text-blue'
+      init.style.cssText = 'color:#333;'
       init.textContent = '> [SYS] Output limpo.'
       this.liveDebugTerminal.appendChild(init)
     }
