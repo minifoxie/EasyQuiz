@@ -517,6 +517,14 @@ export class EasyQuizPanel {
               <div class="eq-view-pane" id="eq-view-debug" style="display:none;flex-direction:column;">
                 <span id="eq-debug-badge" style="display:none">ATIVO</span>
 
+                <!-- Mode switcher: always visible in terminal tab -->
+                <div id="eq-term-mode-bar" style="display:flex;align-items:center;gap:4px;padding:5px 10px;background:#060606;border-bottom:1px solid #111;flex-shrink:0;">
+                  <div style="display:inline-flex;align-items:center;gap:1px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:5px;padding:2px;">
+                    <button id="eq-term-mode-terminal" type="button" style="font-size:9px;font-weight:600;padding:2px 10px;border-radius:3px;cursor:pointer;background:#1a1a1a;border:1px solid #333;color:#ddd;transition:all 0.12s;">Terminal</button>
+                    <button id="eq-term-mode-output"   type="button" style="font-size:9px;font-weight:600;padding:2px 10px;border-radius:3px;cursor:pointer;background:transparent;border:1px solid transparent;color:#444;transition:all 0.12s;">Output</button>
+                  </div>
+                </div>
+
                 <!-- Output toolbar — only in Output mode -->
                 <div id="eq-output-toolbar" style="display:none;align-items:center;gap:5px;padding:5px 10px;background:#080808;border-bottom:1px solid #161616;flex-shrink:0;">
                   <div style="position:relative;display:inline-flex;">
@@ -530,7 +538,7 @@ export class EasyQuizPanel {
                     </div>
                   </div>
                   <button id="eq-output-sort-btn" type="button" title="Ordenar (mais recente/mais antigo)" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:5px;color:#aaa;cursor:pointer;flex-shrink:0;transition:color 0.12s;"><span style="display:inline-flex;width:13px;height:13px;transform:rotate(270deg);transition:transform 0.2s;">${ICONS.chevronRight}</span></button>
-                  <div style="flex:1;display:flex;align-items:center;gap:5px;background:#0d0d0d;border:1px solid #1a1a1a;border-radius:5px;padding:0 8px;height:24px;"><span style="color:#2a2a2a;display:inline-flex;flex-shrink:0;width:10px;height:10px;">${ICONS.analyze}</span><input id="eq-output-search" type="text" placeholder="buscar logs..." autocomplete="off" style="flex:1;background:transparent;border:none;outline:none;color:#777;font-size:9.5px;font-family:'Cascadia Code','Fira Code',monospace;caret-color:#555;" /><button id="eq-output-search-clear" type="button" style="display:none;background:transparent;border:none;color:#333;cursor:pointer;font-size:9px;padding:0;line-height:1;">✕</button></div>
+                  <div style="flex:1;display:flex;align-items:center;gap:5px;background:#0d0d0d;border:1px solid #1a1a1a;border-radius:5px;padding:0 8px;height:24px;"><input id="eq-output-search" type="text" placeholder="buscar logs..." autocomplete="off" style="flex:1;background:transparent;border:none;outline:none;color:#777;font-size:9.5px;font-family:'Cascadia Code','Fira Code',monospace;caret-color:#555;" /><button id="eq-output-search-clear" type="button" style="display:none;background:transparent;border:none;color:#333;cursor:pointer;font-size:9px;padding:0;line-height:1;">✕</button></div>
                   <button id="eq-dbg-scroll-toggle" type="button" title="Auto-scroll" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:5px;color:#aaa;cursor:pointer;flex-shrink:0;font-size:11px;">↓</button>
                 </div></div>
 
@@ -539,14 +547,12 @@ export class EasyQuizPanel {
                   <!-- Hidden textarea captures keyboard input -->
                   <textarea id="eq-term-capture" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;resize:none;border:none;outline:none;"></textarea>
                   <!-- Output area: all lines + current prompt at bottom -->
-                  <div id="eq-term-output" tabindex="0" style="flex:1;overflow-y:auto;padding:10px 14px 6px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;background:#0a0a0a;color:#ddd;user-select:text;-webkit-user-select:text;cursor:text;outline:none;">
-                    <div style="color:#222;white-space:pre;">┌──────────────────────────────────────────────────┐</div>
-                    <div style="color:#222;white-space:pre;">│  <span style="color:#666;">EasyQuiz Terminal</span>  <span style="color:#333;">v${BUILD_VERSION}</span>                  │</div>
-                    <div style="color:#222;white-space:pre;">│  <span style="color:#555;">Digite </span><span style="color:#bbb;font-weight:600;">help</span><span style="color:#555;"> para ver os comandos disponíveis</span>  │</div>
-                    <div style="color:#222;white-space:pre;">└──────────────────────────────────────────────────┘</div>
+                  <div id="eq-term-output" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 14px 6px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;background:#0a0a0a;color:#ddd;user-select:text;-webkit-user-select:text;cursor:text;outline:none;caret-color:transparent;">
+                    <div style="color:#444;padding:2px 0;"><span style="color:#666;font-weight:600;">EasyQuiz Terminal</span> <span style="color:#2a2a2a;">v${BUILD_VERSION}</span></div>
+                    <div style="color:#333;padding-bottom:6px;">Digite <span style="color:#aaa;font-weight:600;">help</span> para ver os comandos</div>
                     <div style="height:4px;"></div>
                     <!-- Current input line — always last -->
-                    <div id="eq-term-current-line" style="display:flex;align-items:baseline;white-space:pre;"><span style="color:#fff;font-weight:700;user-select:none;">EasyQuiz_Legacy:&nbsp;</span><span id="eq-term-typed" style="color:#e0e0e0;"></span><span class="eq-term-cursor"></span></div>
+                    <div id="eq-term-current-line" style="display:flex;align-items:baseline;overflow:hidden;flex-shrink:0;"><span style="color:#fff;font-weight:700;user-select:none;">EasyQuiz_Legacy:&nbsp;</span><span id="eq-term-typed" style="color:#e0e0e0;"></span><span class="eq-term-cursor"></span></div>
                   </div>
                 </div>
 
@@ -966,28 +972,15 @@ export class EasyQuizPanel {
       debug: {
         icon: ICONS.code, label: 'Terminal', sub: 'Comandos & logs', color: '#0098ff',
         actions: () => {
-          // Mode switcher pill
-          const pill = document.createElement('div')
-          pill.style.cssText = 'display:inline-flex;align-items:center;gap:1px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:2px;'
-          const mkMode = (id: string, label: string, active: boolean) => {
-            const b = document.createElement('button')
-            b.id = id; b.type = 'button'; b.textContent = label
-            b.style.cssText = 'font-size:9px;font-weight:600;padding:2px 8px;border-radius:3px;cursor:pointer;transition:all 0.1s;background:' + (active ? '#1a1a1a' : 'transparent') + ';border:1px solid ' + (active ? '#333' : 'transparent') + ';color:' + (active ? '#ddd' : '#555') + ';'
-            return b
-          }
-          pill.appendChild(mkMode('eq-term-mode-terminal', 'Terminal', true))
-          pill.appendChild(mkMode('eq-term-mode-output', 'Output', false))
-          // Copy button
           const cpBtn = document.createElement('button')
           cpBtn.id = 'eq-term-copy-btn'; cpBtn.type = 'button'; cpBtn.title = 'Copiar'
           cpBtn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:4px;cursor:pointer;color:#888;'
           cpBtn.innerHTML = ICONS.copy
-          // Clear button
           const clBtn = document.createElement('button')
           clBtn.id = 'eq-term-clear-btn'; clBtn.type = 'button'; clBtn.title = 'Limpar'
           clBtn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,85,85,0.06);border:1px solid rgba(255,85,85,0.12);border-radius:4px;cursor:pointer;color:#ff5555;'
           clBtn.innerHTML = ICONS.eraser
-          return [pill, cpBtn, clBtn]
+          return [cpBtn, clBtn]
         }
       },
       settings: {
@@ -2212,12 +2205,8 @@ export class EasyQuizPanel {
 
     // ── Reconnect contextbar buttons ──────────────────────
     this._reconnectContextbarBtns = () => {
-      const modeT = this.shadow.querySelector('#eq-term-mode-terminal') as HTMLElement|null
-      const modeO = this.shadow.querySelector('#eq-term-mode-output')   as HTMLElement|null
-      const cpB   = this.shadow.querySelector('#eq-term-copy-btn')      as HTMLElement|null
-      const clB   = this.shadow.querySelector('#eq-term-clear-btn')     as HTMLElement|null
-      modeT?.addEventListener('click', () => switchMode('terminal'))
-      modeO?.addEventListener('click', () => switchMode('output'))
+      const cpB   = this.shadow.querySelector('#eq-term-copy-btn')  as HTMLElement|null
+      const clB   = this.shadow.querySelector('#eq-term-clear-btn') as HTMLElement|null
       cpB?.addEventListener('click', () => {
         const flash = (el: HTMLElement) => { const oc = el.style.color; el.style.color = '#4ade80'; setTimeout(() => el.style.color = oc, 400) }
         const selText = window.getSelection()?.toString() || ''
@@ -2244,6 +2233,12 @@ export class EasyQuizPanel {
       })
     }
     this._reconnectContextbarBtns()
+
+    // ── Wire static mode pill ─────────────────────────────
+    const modeTermBtn = this.shadow.querySelector('#eq-term-mode-terminal') as HTMLElement|null
+    const modeOutBtn  = this.shadow.querySelector('#eq-term-mode-output')   as HTMLElement|null
+    modeTermBtn?.addEventListener('click', () => switchMode('terminal'))
+    modeOutBtn?.addEventListener('click',  () => switchMode('output'))
 
     // ── Terminal keyboard input ───────────────────────────
     const focusTerm = () => {
@@ -2350,29 +2345,29 @@ export class EasyQuizPanel {
       this.renderTerminalEntries()
     }
     filterBtn?.addEventListener('click', (e) => { e.stopPropagation(); if (filterMenu) filterMenu.hidden = !filterMenu.hidden })
-    applyBtn?.addEventListener('click', () => {
-      const allChk  = (this.shadow.querySelector('#eq-fchk-all')   as HTMLInputElement)?.checked
-      const errChk  = (this.shadow.querySelector('#eq-fchk-error') as HTMLInputElement)?.checked
-      const aiChk   = (this.shadow.querySelector('#eq-fchk-ai')    as HTMLInputElement)?.checked
-      const domChk  = (this.shadow.querySelector('#eq-fchk-dom')   as HTMLInputElement)?.checked
-      // At least one must be selected
-      const anyChecked = allChk||errChk||aiChk||domChk
-      if (!anyChecked) { (this.shadow.querySelector('#eq-fchk-all') as HTMLInputElement).checked = true }
-      if (allChk||!anyChecked) this.activeLogFilter = 'all'
-      else if (errChk&&!aiChk&&!domChk) this.activeLogFilter = 'error'
-      else if (aiChk&&!errChk&&!domChk) this.activeLogFilter = 'ai'
-      else if (domChk&&!errChk&&!aiChk) this.activeLogFilter = 'dom'
-      else this.activeLogFilter = 'all'
-      const lbl = this.shadow.querySelector('#eq-output-filter-label') as HTMLElement|null
-      if (lbl) lbl.textContent = 'Filtro: ' + this.activeLogFilter.toUpperCase()
-      if (filterMenu) filterMenu.hidden = true
-      this.renderTerminalEntries()
+    // Wire checkboxes — auto-apply on change, keep menu open
+    this.shadow.querySelectorAll('.eq-filter-lbl').forEach(lbl => {
+      lbl.addEventListener('mousedown', (e) => e.stopPropagation())
+      lbl.querySelector('input')?.addEventListener('change', () => applyFilters())
     })
-    // Close on outside click
+    // Close on outside mousedown (not inside menu)
     document.addEventListener('mousedown', (e) => {
-      if (filterMenu && !filterMenu.contains(e.target as Node) && e.target !== filterBtn) {
+      if (!filterMenu || filterMenu.hidden) return
+      const t = e.target as Node
+      if (!filterMenu.contains(t) && t !== filterBtn && !(filterBtn as any)?.contains(t)) {
         filterMenu.hidden = true
       }
+    }, true)
+
+    // ── Sort button ──────────────────────────────────────
+    const sortBtn2 = this.shadow.querySelector('#eq-output-sort-btn') as HTMLElement|null
+    const sortArrow2 = sortBtn2?.querySelector('span') as HTMLElement|null
+    if (sortArrow2) sortArrow2.style.transform = 'rotate(270deg)'
+    sortBtn2?.addEventListener('click', () => {
+      this.outputSortNewest = !this.outputSortNewest
+      if (sortArrow2) sortArrow2.style.transform = this.outputSortNewest ? 'rotate(270deg)' : 'rotate(90deg)'
+      if (sortBtn2) sortBtn2.style.color = this.outputSortNewest ? '#aaa' : '#60a5fa'
+      this.renderTerminalEntries()
     })
 
     // ── Search (Output mode) ──────────────────────────────
