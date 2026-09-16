@@ -542,9 +542,18 @@ export class EasyQuizPanel {
                   <textarea id="eq-term-capture" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;resize:none;border:none;outline:none;"></textarea>
                   <!-- Output area: all lines + current prompt at bottom -->
                   <div id="eq-term-output" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 14px 6px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;background:#0a0a0a;color:#ddd;user-select:text;-webkit-user-select:text;cursor:text;outline:none;caret-color:transparent;">
-                    <div data-perm="1" style="color:#444;padding:2px 0;"><span style="color:#666;font-weight:600;">EasyQuiz Terminal</span> <span style="color:#2a2a2a;">v${BUILD_VERSION}</span></div>
-                    <div data-perm="1" style="color:#333;padding-bottom:6px;">Digite <span style="color:#aaa;font-weight:600;">help</span> para ver os comandos</div>
-                    <div style="height:4px;"></div>
+                    
+                    <div data-perm="1" style="white-space:pre;color:#1a1a1a;font-family:inherit;">╔══════════════════════════════════════╗</div>
+                    <div data-perm="1" style="white-space:pre;color:#1a1a1a;font-family:inherit;">║                                      ║</div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#333;">  ▄▄▄▄   ▄▄▄                    </span><span style="color:#1a1a1a;">║</span></div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#2a2a2a;">  █     █   █                   </span><span style="color:#1a1a1a;">║</span></div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#2a2a2a;">  ████  █   █  </span><span style="color:#555;">EasyQuiz Terminal  </span><span style="color:#1a1a1a;">║</span></div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#2a2a2a;">  █     █ ▄ █  </span><span style="color:#444;">v${BUILD_VERSION}                  </span><span style="color:#1a1a1a;">║</span></div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#2a2a2a;">  ▀▀▀▀   ▀▀▀                    </span><span style="color:#1a1a1a;">║</span></div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#2a2a2a;">          █                     </span><span style="color:#1a1a1a;">║</span></div>
+                    <div data-perm="1" style="white-space:pre;color:#1a1a1a;font-family:inherit;">║                                      ║</div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#444;">  Digite 'help' para ver os comandos  </span><span style="color:#1a1a1a;">║</span></div>
+                    <div data-perm="1" style="white-space:pre;color:#1a1a1a;font-family:inherit;">╚══════════════════════════════════════╝</div>
                     <!-- Current input line — always last -->
                     <div id="eq-term-current-line" style="display:flex;align-items:baseline;overflow:hidden;flex-shrink:0;"><span style="color:#fff;font-weight:700;user-select:none;">EasyQuiz_Legacy:&nbsp;</span><span id="eq-term-typed" style="color:#e0e0e0;"></span><span class="eq-term-cursor"></span></div>
                   </div>
