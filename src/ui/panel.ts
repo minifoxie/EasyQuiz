@@ -546,19 +546,20 @@ export class EasyQuizPanel {
                     
 
 
-                    <div data-perm="1" style="display:inline-block;border:1px solid #1e1e1e;border-radius:5px;padding:14px 18px;margin-bottom:6px;background:rgba(255,255,255,0.01);user-select:none;">
-                      <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;color:#2a2a2a;white-space:pre;">######   #### 
+                    <div data-perm="1" style="display:inline-block;border:1px solid #1a1a1a;border-radius:5px;padding:14px 20px;margin-bottom:6px;user-select:none;">
+                      <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.55;color:#2d2d2d;white-space:pre;letter-spacing:0.5px;">######   #### 
 #       #    #
 #####   #    #
 #       # ## #
 ######   #####
              #</div>
-                      <div style="margin-top:8px;padding-top:8px;border-top:1px solid #141414;">
-                        <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11px;color:#555;">EasyQuiz Terminal</div>
-                        <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10px;color:#333;">${BUILD_VERSION}</div>
+                      <div style="margin-top:10px;padding-top:8px;border-top:1px solid #141414;">
+                        <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;color:#888;font-weight:600;letter-spacing:0.04em;">EasyQuiz Terminal</div>
+                        <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10px;color:#333;margin-top:2px;">${BUILD_VERSION} · Motor Híbrido 4.0</div>
+                        <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:9px;color:#1e1e1e;margin-top:4px;letter-spacing:0.06em;">RAG · AST · VISION · MULTIMODAL</div>
                       </div>
                     </div>
-                    <div data-perm="1" style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10px;color:#333;padding:2px 0 6px;">Digite <span style="color:#666;">help</span> para ver os comandos</div>
+                    <div data-perm="1" style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10px;color:#222;padding:2px 0 6px;">Digite <span style="color:#555;font-weight:600;">help</span> <span style="color:#1a1a1a;">para listar os comandos disponíveis</span></div>
                     <!-- Current input line — always last -->
                     <div id="eq-term-current-line" style="display:flex;align-items:baseline;overflow:hidden;flex-shrink:0;"><span style="color:#fff;font-weight:700;user-select:none;">EasyQuiz_Legacy:&nbsp;</span><span id="eq-term-typed" style="color:#e0e0e0;"></span><span class="eq-term-cursor"></span></div>
                   </div>
@@ -1991,7 +1992,7 @@ export class EasyQuizPanel {
 
     // ── Icon helper for terminal ──────────────────────────
     const ticon = (name: string, color = '#888', size = 13) =>
-      `<span style="display:inline-flex;vertical-align:middle;width:${size}px;height:${size}px;color:${color};flex-shrink:0;">${(ICONS as any)[name] || ''}</span>`
+      `<span data-icon="1" aria-hidden="true" style="display:inline-flex;vertical-align:middle;width:${size}px;height:${size}px;color:${color};flex-shrink:0;isolation:isolate;">${(ICONS as any)[name] || ''}</span>`
 
     // ── Rich output (HTML) ────────────────────────────────
     const richOut = (html: string, extraStyle = '') => {
@@ -2012,35 +2013,73 @@ export class EasyQuizPanel {
       richOut('  ' + colored.join('  ') + '  ')
     }
 
+    // ── Text extraction (skips icon spans) ───────────────
+    const getElemText = (el: HTMLElement): string => {
+      let text = ''
+      el.childNodes.forEach(n => {
+        if (n.nodeType === Node.TEXT_NODE) { text += n.textContent || '' }
+        else if (n.nodeType === Node.ELEMENT_NODE) {
+          const ch = n as HTMLElement
+          if (!ch.dataset?.icon) text += getElemText(ch)  // skip data-icon spans
+        }
+      })
+      return text
+    }
+
+    // ── Block wrapper: runs fn(), then wraps all emitted divs in a bordered container ──
+    const withBlock = (fn: () => void, borderColor = '#1a1a1a', padX = 2) => {
+      if (!termOutput || !currentLine) { fn(); return }
+      // Remember sibling just before currentLine
+      const anchor = currentLine.previousSibling
+      fn()
+      // Collect everything emitted between anchor and currentLine
+      const toWrap: Element[] = []
+      let el: ChildNode | null = anchor ? anchor.nextSibling : termOutput.firstChild
+      while (el && el !== currentLine) {
+        toWrap.push(el as Element)
+        el = el.nextSibling
+      }
+      if (!toWrap.length) return
+      // Create container with CSS outline border (no layout impact on content)
+      const box = document.createElement('div')
+      box.style.cssText = `margin:${padX}px 4px;outline:1px solid ${borderColor};outline-offset:-1px;border-radius:3px;overflow:hidden;`
+      termOutput.insertBefore(box, currentLine)
+      toWrap.forEach(c => box.appendChild(c))
+    }
+
     // ── Command executor ──────────────────────────────────
     const execCmd = (raw: string) => {
-      const args = raw.trim().split(/s+/)
-      const cmd  = args[0].toLowerCase()
+      const args = raw.trim().replace(/\s+/g, ' ').split(' ')
+      const cmd  = args[0].toLowerCase().replace(/[^a-z0-9\-]/g, '')
 
       switch (cmd) {
         case 'help':
-          blank()
-          richOut('  ' + ticon('terminal','#555',14) + ' <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> COMANDOS DISPONÍVEIS</span>')
-          blank()
-          const cmds = [
-            ['help',     'lista todos os comandos',           'list',     '#666'],
-            ['status',   'estado atual do sistema',           'sparkles', '#666'],
-            ['version',  'versão e info do build',            'info',     '#666'],
-            ['info-api', 'dados da última requisição à API',  'chip',     '#666'],
-            ['tokens',   'tokens consumidos (detalhado)',     'code',     '#666'],
-            ['context',  'contexto da questão atual',         'eye',      '#666'],
-            ['controls', 'controles detectados (tabela)',     'list',     '#666'],
-            ['errors',   'erros recentes registrados',        'info',     '#666'],
-            ['logs [n]', 'últimas N entradas do output',      'file',     '#666'],
-            ['history',  'histórico de questões respondidas', 'clock',    '#666'],
-            ['reset',    'limpa logs e métricas',             'eraser',   '#666'],
-            ['clear',    'limpa o terminal',                  'trash',    '#666'],
-            ['copy',     'copia terminal para clipboard',     'copy',     '#666'],
-          ]
-          cmds.forEach(([name, desc, icon, c]) => {
-            richOut(`    ${ticon(icon,c,11)} <span style="color:#ccc;font-weight:600;min-width:72px;display:inline-block;">${name.padEnd(10)}</span> <span style="color:#555;">${desc}</span>`)
-          })
-          blank()
+          withBlock(() => {
+            blank()
+            richOut('  ' + ticon('terminal','#555',14) + ' <span style="color:#888;font-weight:700;letter-spacing:0.1em;font-size:10px;"> COMANDOS DO TERMINAL</span>')
+            blank()
+            const cmds = [
+              ['help',     'lista todos os comandos',            'list',     '#555'],
+              ['status',   'estado atual do sistema',            'sparkles', '#555'],
+              ['version',  'versão e info do build',             'info',     '#555'],
+              ['info-api', 'dados da última requisição à API',   'chip',     '#555'],
+              ['tokens',   'tokens consumidos (detalhado)',      'code',     '#555'],
+              ['context',  'contexto da questão atual',          'eye',      '#555'],
+              ['controls', 'controles detectados (tabela)',      'list',     '#555'],
+              ['errors',   'erros recentes registrados',         'info',     '#555'],
+              ['logs [n]', 'últimas N entradas do output',       'file',     '#555'],
+              ['history',  'histórico de questões respondidas',  'clock',    '#555'],
+              ['reset',    'limpa logs e métricas',              'eraser',   '#555'],
+              ['clear',    'limpa o terminal',                   'trash',    '#555'],
+              ['copy',     'copia terminal para clipboard',      'copy',     '#555'],
+            ]
+            cmds.forEach(([name, desc, icon, c]) => {
+              richOut(`    ${ticon(icon,c,11)} <span style="color:#aaa;font-weight:700;min-width:72px;display:inline-block;">${name}</span>  <span style="color:#444;">${desc}</span>`)
+            })
+            blank()
+            out('  Dica: ↑ ↓ para histórico de comandos', '#1e1e1e')
+            blank()
+          }, '#1a1a1a')
           break
 
         case 'clear':
@@ -2052,130 +2091,171 @@ export class EasyQuizPanel {
 
         case 'info-api': {
           const plan = this.latestPlan
-          blank()
-          richOut('  ' + ticon('chip','#555',14) + ' <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> INFORMAÇÕES DA API</span>')
-          sep(44)
-          const f = (ico: string, icoC: string, label: string, val: string, valC = '#aaa') =>
-            richOut(`  ${ticon(ico,icoC,11)}  <span style="color:#444;">${label.padEnd(16)}</span><span style="color:${valC};font-weight:600;">${val||'--'}</span>`)
-          f('sparkles','#888','Modelo',        plan?.usedModel || (this.initialSettings as any)?.model || '--', '#ccc')
-          f('clock',   '#888','Latência',      plan?.durationMs ? plan.durationMs+'ms' : '--', '#ccc')
-          f('code',    '#888','Prompt tokens', String(plan?.promptTokens??'--'))
-          f('code',    '#888','Resp. tokens',  String(plan?.candidatesTokens??'--'))
-          f('chip',    '#aaa','Total tokens',  String(plan?.tokensUsed??'--'), '#fff')
-          f('file',    '#888','Prompt chars',  this.latestPromptText?.length ? this.latestPromptText.length+' chars' : '--')
-          sep(44)
-          blank()
+          if (!plan) { blank(); out('  Nenhuma requisição à API ainda.', '#333'); blank(); break }
+          withBlock(() => {
+            blank()
+            richOut('  ' + ticon('chip','#444',14) + ' <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> API — ÚLTIMA REQUISIÇÃO</span>')
+            sep(44)
+            const f = (ico: string, icoC: string, label: string, val: string, valC = '#888') =>
+              richOut(`  ${ticon(ico,icoC,11)}  <span style="color:#444;">${label.padEnd(16)}</span><span style="color:${valC};font-weight:600;">${val||'--'}</span>`)
+            f('sparkles','#555','Modelo',        plan?.usedModel || (this.initialSettings as any)?.model || '--', '#bbb')
+            f('clock',   '#444','Latência',      plan?.durationMs ? plan.durationMs+'ms' : '--', '#888')
+            f('code',    '#444','Prompt tokens', String(plan?.promptTokens??'--'), '#777')
+            f('code',    '#444','Resp. tokens',  String(plan?.candidatesTokens??'--'), '#777')
+            f('chip',    '#555','Total tokens',  String(plan?.tokensUsed??'--'), '#aaa')
+            f('file',    '#444','Prompt chars',  this.latestPromptText?.length ? this.latestPromptText.length+' chars' : '--', '#777')
+            blank()
+          }, '#1a1a1a')
           break
         }
 
         case 'version':
-          blank()
-          richOut('  ' + ticon('sparkles','#888',14) + ` <span style="color:#ddd;font-weight:700;"> EasyQuiz ${typeof BUILD_VERSION!=='undefined'?BUILD_VERSION:'?'}</span>`)
-          out('  Motor: Híbrido 4.0  ·  RAG + AST + Vision + Multimodal', '#555')
-          out('  Build: ' + new Date().toLocaleDateString('pt-BR'), '#333')
-          blank()
+          withBlock(() => {
+            blank()
+            richOut('  ' + ticon('sparkles','#555',14) + ` <span style="color:#bbb;font-weight:700;letter-spacing:0.04em;"> EasyQuiz ${typeof BUILD_VERSION!=='undefined'?BUILD_VERSION:'?'}</span>`)
+            out('  Motor Híbrido 4.0  ·  RAG · AST · Vision · Multimodal', '#444')
+            out('  Build: ' + new Date().toLocaleDateString('pt-BR'), '#2a2a2a')
+            blank()
+          }, '#1a1a1a')
           break
 
         case 'status': {
           const plan = this.latestPlan; const ctx = this.latestContext
-          blank()
-          richOut('  ' + ticon('inspector','#555',14) + ' <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> STATUS DO SISTEMA</span>')
-          sep(44)
-          const s = (ico: string, icoC: string, label: string, val: string, valC = '#aaa') =>
-            richOut(`  ${ticon(ico,icoC,11)}  <span style="color:#444;">${label.padEnd(14)}</span><span style="color:${valC};">${val||'--'}</span>`)
-          s('sparkles','#888','Modelo',    plan?.usedModel||(this.initialSettings as any)?.model||'--', '#ccc')
-          s('play',    '#888','Modo',      plan?.mode||'aguardando')
-          s('clock',   '#888','Latência',  plan?.durationMs?plan.durationMs+'ms':'--', '#aaa')
-          s('chip',    '#888','Tokens',    String(plan?.tokensUsed??'--'))
-          s('analyze', '#888','Confiança', plan?Math.round(plan.confidence*100)+'%':'--')
-          s('eye',     '#888','Controles', ctx?String(ctx.controls.length):'--')
-          if (ctx) {
-            const snippet = '"'+ctx.questionText.slice(0,50)+(ctx.questionText.length>50?'...':'')+'"'
-            s('file', '#888', 'Contexto', snippet, '#666')
-          }
-          sep(44)
-          blank()
+          withBlock(() => {
+            blank()
+            richOut('  ' + ticon('inspector','#444',14) + ' <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> STATUS DO SISTEMA</span>')
+            sep(44)
+            const s = (ico: string, icoC: string, label: string, val: string, valC = '#aaa') =>
+              richOut(`  ${ticon(ico,icoC,11)}  <span style="color:#444;">${label.padEnd(14)}</span><span style="color:${valC};font-weight:600;">${val||'--'}</span>`)
+            s('sparkles','#666','Modelo',    plan?.usedModel||(this.initialSettings as any)?.model||'--', '#ccc')
+            const _mode = plan?.mode||'aguardando'
+            const _mc = _mode==='aguardando'?'#444':_mode.includes('error')?'#7a3333':'#4a6a4a'
+            s('play',    '#555','Modo',      _mode, _mc)
+            const _lat = plan?.durationMs
+            const _lc = !_lat?'#333':_lat<1000?'#4a6a4a':_lat<3000?'#888':'#7a5533'
+            s('clock',   '#555','Latência',  _lat?_lat+'ms':'--', _lc)
+            s('chip',    '#555','Tokens',    plan?.tokensUsed?String(plan.tokensUsed):'--', '#aaa')
+            const _conf = plan?Math.round((plan.confidence||0)*100):null
+            const _cc = !_conf?'#333':_conf>=80?'#4a6a4a':_conf>=50?'#888':'#7a5533'
+            s('analyze', '#555','Confiança', _conf!==null?_conf+'%':'--', _cc)
+            s('eye',     '#555','Controles', ctx?String(ctx.controls.length):'--', '#888')
+            if (ctx) {
+              sep(44)
+              out('  ' + ctx.questionText.slice(0,56)+(ctx.questionText.length>56?'…':''), '#333')
+            }
+            blank()
+          }, '#1a1a1a')
           break
         }
 
         case 'tokens': {
-          const plan = this.latestPlan; blank()
-          if (!plan) { out('  Nenhuma requisição ainda.', '#444'); blank(); break }
-          richOut('  ' + ticon('code','#555',14) + ' <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> TOKENS CONSUMIDOS</span>')
-          sep(38)
-          out(`  Prompt tokens    ${String(plan.promptTokens??'--').padStart(8)}`, '#888')
-          out(`  Response tokens  ${String(plan.candidatesTokens??'--').padStart(8)}`, '#888')
-          out('  ' + '┈'.repeat(28), '#222')
-          out(`  Total            ${String(plan.tokensUsed??'--').padStart(8)}`, '#ddd')
-          out(`  Latência         ${String(plan.durationMs?plan.durationMs+'ms':'--').padStart(8)}`, '#aaa')
-          sep(38)
-          blank(); break
+          const plan = this.latestPlan
+          if (!plan) { blank(); out('  Nenhuma requisição ainda.', '#333'); blank(); break }
+          withBlock(() => {
+            blank()
+            richOut('  ' + ticon('code','#444',14) + ' <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> TOKENS — ÚLTIMA REQUISIÇÃO</span>')
+            sep(38)
+            const _pt = plan.promptTokens||0, _rt = plan.candidatesTokens||0, _tot = (_pt+_rt)||1
+            const _pb = Math.round((_pt/_tot)*20), _rb = 20-_pb
+            out(`  Prompt tokens    ${String(_pt).padStart(8)}   [${'█'.repeat(_pb)}${'░'.repeat(_rb)}]`, '#555')
+            out(`  Response tokens  ${String(_rt).padStart(8)}   [${'░'.repeat(_pb)}${'█'.repeat(_rb)}]`, '#555')
+            out('  ' + '┈'.repeat(46), '#1e1e1e')
+            out(`  Total            ${String(plan.tokensUsed??'--').padStart(8)}`, '#aaa')
+            out(`  Latência         ${String(plan.durationMs?plan.durationMs+'ms':'--').padStart(8)}`, '#444')
+            blank()
+          }, '#1a1a1a')
+          break
         }
 
         case 'context': {
-          const ctx = this.latestContext; blank()
-          if (!ctx) { out('  Contexto não disponível.', '#444'); blank(); break }
-          richOut('  ' + ticon('eye','#555',14) + ' <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> CONTEXTO ATUAL</span>')
-          sep(44)
-          out('  Escopo    ' + ctx.scope.tagName.toLowerCase()+(ctx.scope.id?'#'+ctx.scope.id:''), '#aaa')
-          out('  Controles ' + ctx.controls.length, '#aaa')
-          out('  Texto     ' + ctx.questionText.slice(0,55)+(ctx.questionText.length>55?'...':''), '#888')
-          sep(44); blank(); break
+          const ctx = this.latestContext
+          if (!ctx) { blank(); out('  Contexto não disponível.', '#333'); blank(); break }
+          withBlock(() => {
+            blank()
+            richOut('  ' + ticon('eye','#444',14) + ' <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> CONTEXTO ATUAL</span>')
+            sep(44)
+            out('  Escopo     ' + ctx.scope.tagName.toLowerCase()+(ctx.scope.id?'#'+ctx.scope.id:''), '#666')
+            out('  Controles  ' + ctx.controls.length, '#555')
+            sep(44)
+            out('  ' + ctx.questionText.slice(0,58)+(ctx.questionText.length>58?'…':''), '#444')
+            blank()
+          }, '#1a1a1a')
+          break
         }
 
         case 'controls': {
-          const ctx = this.latestContext; blank()
-          if (!ctx?.controls.length) { out('  Nenhum controle detectado.', '#444'); blank(); break }
-          richOut('  ' + ticon('list','#555',14) + ` <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> CONTROLES (${ctx.controls.length})</span>`)
-          sep(55)
-          row(['#','Tipo','Label / ID','Valor'],[3,10,27,10],['#555','#777','#aaa','#888'])
-          out('  '+'┈'.repeat(53),'#222')
-          ctx.controls.forEach((c: any,i: number) =>
-            row([String(i+1),((c.type||c.tag||'?').toUpperCase()).slice(0,9),(c.label||c.id||c.name||'—').slice(0,26),(c.value||'—').slice(0,9)],[3,10,27,10],['#555','#777','#ccc','#888']))
-          sep(55); blank(); break
+          const ctx = this.latestContext
+          if (!ctx?.controls.length) { blank(); out('  Nenhum controle detectado.', '#333'); blank(); break }
+          withBlock(() => {
+            blank()
+            richOut('  ' + ticon('list','#444',14) + ` <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> CONTROLES (${ctx.controls.length})</span>`)
+            sep(55)
+            row(['#','Tipo','Label / ID','Valor'],[3,10,27,10],['#444','#555','#888','#666'])
+            out('  '+'┈'.repeat(53),'#1a1a1a')
+            ctx.controls.forEach((c: any,i: number) =>
+              row([String(i+1),((c.type||c.tag||'?').toUpperCase()).slice(0,9),(c.label||c.id||c.name||'—').slice(0,26),(c.value||'—').slice(0,9)],[3,10,27,10],['#444','#555','#999','#777']))
+            blank()
+          }, '#1a1a1a')
+          break
         }
 
         case 'errors': {
-          const errs = this.logEntries.filter(e => e.category === 'error'); blank()
-          if (!errs.length) { richOut('  ' + ticon('check','#4ade80',11) + ' <span style="color:#555;"> Nenhum erro nesta sessão.</span>'); blank(); break }
-          richOut('  ' + ticon('info','#ff5555',14) + ` <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> ERROS (${errs.length})</span>`)
-          sep(44)
-          errs.slice(-15).forEach(e => out('  '+e.message, '#888'))
-          sep(44); blank(); break
+          const errs = this.logEntries.filter(e => e.category === 'error')
+          if (!errs.length) {
+            blank()
+            richOut('  ' + ticon('check','#4a6a4a',13) + ' <span style="color:#4a6a4a;font-weight:600;"> Nenhum erro</span><span style="color:#2a3a2a;"> nesta sessão — tudo ok.</span>')
+            blank(); break
+          }
+          withBlock(() => {
+            blank()
+            richOut('  ' + ticon('info','#7a3333',14) + ` <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> ERROS (${errs.length})</span>`)
+            sep(44)
+            errs.slice(-15).forEach(e => out('  ' + e.message, '#666'))
+            blank()
+          }, '#2a1a1a')
+          break
         }
 
         case 'logs': {
           const n = Math.min(parseInt(args[1]||'10',10)||10,50)
-          const last = this.logEntries.slice(-n); blank()
-          if (!last.length) { out('  Nenhum log.', '#444'); blank(); break }
-          richOut('  ' + ticon('file','#555',14) + ` <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> ÚLTIMAS ${n} ENTRADAS</span>`)
-          sep(44)
-          last.forEach(e => out('  '+e.message,'#777'))
-          sep(44); blank(); break
+          const last = this.logEntries.slice(-n)
+          if (!last.length) { blank(); out('  Nenhum log registrado.', '#333'); blank(); break }
+          withBlock(() => {
+            blank()
+            richOut('  ' + ticon('file','#444',14) + ` <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> ÚLTIMAS ${n} ENTRADAS</span>`)
+            sep(44)
+            last.forEach(e => out('  '+e.message,'#555'))
+            blank()
+          }, '#1a1a1a')
+          break
         }
 
         case 'history': {
-          const hist = (this as any).metricsHistory as any[]; blank()
-          if (!hist?.length) { out('  Nenhuma questão respondida.', '#444'); blank(); break }
-          richOut('  ' + ticon('clock','#555',14) + ` <span style="color:#888;font-weight:700;letter-spacing:0.06em;"> HISTÓRICO (${hist.length})</span>`)
-          sep(58)
-          row(['#','Questão','Tempo','Modelo'],[3,38,7,10],['#555','#aaa','#888','#777'])
-          out('  '+'┈'.repeat(58),'#222')
-          hist.slice(-15).forEach((r: any,i: number)=>
-            row([String(i+1),(r.questionTitle||'Questão').slice(0,37),(r.durationMs?(r.durationMs/1000).toFixed(1)+'s':'--'),(r.model||'--').slice(0,9)],[3,38,7,10],['#555','#ccc','#888','#777']))
-          sep(58); blank(); break
+          const hist = (this as any).metricsHistory as any[]
+          if (!hist?.length) { blank(); out('  Nenhuma questão respondida ainda.', '#333'); blank(); break }
+          withBlock(() => {
+            blank()
+            richOut('  ' + ticon('clock','#444',14) + ` <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> HISTÓRICO (${hist.length})</span>`)
+            sep(58)
+            row(['#','Questão','Tempo','Modelo'],[3,38,7,10],['#444','#666','#555','#555'])
+            out('  '+'┈'.repeat(58),'#1a1a1a')
+            hist.slice(-15).forEach((r: any,i: number)=>
+              row([String(i+1),(r.questionTitle||'Questão').slice(0,37),(r.durationMs?(r.durationMs/1000).toFixed(1)+'s':'--'),(r.model||'--').slice(0,9)],[3,38,7,10],['#444','#aaa','#777','#666']))
+            blank()
+          }, '#1a1a1a')
+          break
         }
 
         case 'reset':
           this.clearLogs(); blank()
-          richOut('  ' + ticon('check','#888',11) + ' <span style="color:#666;"> Logs e métricas resetados.</span>')
+          richOut('  ' + ticon('check','#4a6a4a',13) + ' <span style="color:#4a6a4a;font-weight:600;"> Resetado</span><span style="color:#444;">  — logs e métricas zerados.</span>')
           blank(); break
 
         case 'copy': {
           if (!termOutput) break
           const lines2 = Array.from(termOutput.children)
-            .filter(el => el !== currentLine)
-            .map(el => (el as HTMLElement).textContent||'')
+            .filter(el => el !== currentLine && (el as HTMLElement).id !== 'eq-click-cursor' && (el as HTMLElement).id !== 'eq-term-sel-canvas')
+            .map(el => getElemText(el as HTMLElement).trimEnd())
           navigator.clipboard.writeText(lines2.join('\n')).then(() => {
             richOut('  ' + ticon('copy','#888',11) + ' <span style="color:#666;"> Conteúdo copiado para a área de transferência.</span>')
             this.showToast('Terminal copiado','success',2000)
@@ -2187,8 +2267,8 @@ export class EasyQuizPanel {
 
         default:
           blank()
-          richOut(`  <span style="color:#555;">Comando não reconhecido: </span><span style="color:#888;">&quot;${cmd}&quot;</span>`)
-          richOut(`  <span style="color:#333;">Digite </span><span style="color:#666;font-weight:600;">help</span><span style="color:#333;"> para ver os comandos.</span>`)
+          richOut(`  <span style="color:#555;">Comando desconhecido: </span><span style="color:#777;font-weight:600;">${cmd||'(vazio)'}</span>`)
+          out('  Digite help para ver os comandos.', '#2a2a2a')
           blank()
       }
 
@@ -2233,7 +2313,7 @@ export class EasyQuizPanel {
           } else if (termOutput) {
             const tlines = Array.from(termOutput.children)
               .filter(e => e !== currentLine && (e as HTMLElement).id !== 'eq-click-cursor' && (e as HTMLElement).id !== 'eq-term-sel-canvas')
-              .map(el => (el as HTMLElement).textContent?.trimEnd() || '')
+              .map(el => getElemText(el as HTMLElement).trimEnd())
             navigator.clipboard.writeText(tlines.join('\n')).then(() => { this.showToast('Terminal copiado', 'success', 2000); if (cpB) flash(cpB) })
           }
         } else {
@@ -2385,7 +2465,7 @@ export class EasyQuizPanel {
           const id = (el as HTMLElement).id
           return id !== 'eq-click-cursor' && id !== 'eq-term-sel-canvas' && id !== 'eq-term-current-line'
         })
-        .map(el => (el as HTMLElement).textContent?.replace(/\n/g,'') || '')
+        .map(el => getElemText(el as HTMLElement).replace(/\n/g,''))
       const result: string[] = []
       for (let r = r1; r <= r2; r++) {
         const raw = r < contentLines.length ? contentLines[r] : ''
