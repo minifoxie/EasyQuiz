@@ -543,14 +543,18 @@ export class EasyQuizPanel {
                   <!-- Output area: all lines + current prompt at bottom -->
                   <div id="eq-term-output" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 14px 6px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;background:#0a0a0a;color:#ddd;user-select:text;-webkit-user-select:text;cursor:text;outline:none;caret-color:transparent;">
                     
+
                     <div data-perm="1" style="white-space:pre;color:#1a1a1a;font-family:inherit;">╔══════════════════════════════════════╗</div>
                     <div data-perm="1" style="white-space:pre;color:#1a1a1a;font-family:inherit;">║                                      ║</div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#333;">  ▄▄▄▄   ▄▄▄                    </span><span style="color:#1a1a1a;">║</span></div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#2a2a2a;">  █     █   █                   </span><span style="color:#1a1a1a;">║</span></div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#2a2a2a;">  ████  █   █  </span><span style="color:#555;">EasyQuiz Terminal  </span><span style="color:#1a1a1a;">║</span></div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#2a2a2a;">  █     █ ▄ █  </span><span style="color:#444;">v${BUILD_VERSION}                  </span><span style="color:#1a1a1a;">║</span></div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#2a2a2a;">  ▀▀▀▀   ▀▀▀                    </span><span style="color:#1a1a1a;">║</span></div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#2a2a2a;">          █                     </span><span style="color:#1a1a1a;">║</span></div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║</span><span style="color:#1a1a1a;">            </span><span style="color:#2d2d2d;">######   #### </span><span style="color:#1a1a1a;">            </span><span style="color:#1a1a1a;">║</span></div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║</span><span style="color:#1a1a1a;">            </span><span style="color:#333;">#       #    #</span><span style="color:#1a1a1a;">            </span><span style="color:#1a1a1a;">║</span></div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║</span><span style="color:#1a1a1a;">            </span><span style="color:#333;">#####   #    #</span><span style="color:#1a1a1a;">            </span><span style="color:#1a1a1a;">║</span></div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║</span><span style="color:#1a1a1a;">            </span><span style="color:#333;">#       # ## #</span><span style="color:#1a1a1a;">            </span><span style="color:#1a1a1a;">║</span></div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║</span><span style="color:#1a1a1a;">            </span><span style="color:#2d2d2d;">######   #####</span><span style="color:#1a1a1a;">            </span><span style="color:#1a1a1a;">║</span></div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║</span><span style="color:#1a1a1a;">            </span><span style="color:#2a2a2a;">             #</span><span style="color:#1a1a1a;">            </span><span style="color:#1a1a1a;">║</span></div>
+                    <div data-perm="1" style="white-space:pre;color:#1a1a1a;font-family:inherit;">║                                      ║</div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║  </span><span style="color:#555;">EasyQuiz Terminal</span><span style="color:#1a1a1a;">                   ║</span></div>
+                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║  </span><span style="color:#444;">${BUILD_VERSION}                                  </span><span style="color:#1a1a1a;">║</span></div>
                     <div data-perm="1" style="white-space:pre;color:#1a1a1a;font-family:inherit;">║                                      ║</div>
                     <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#444;">  Digite 'help' para ver os comandos  </span><span style="color:#1a1a1a;">║</span></div>
                     <div data-perm="1" style="white-space:pre;color:#1a1a1a;font-family:inherit;">╚══════════════════════════════════════╝</div>
@@ -2272,7 +2276,8 @@ export class EasyQuizPanel {
       termOutput?.appendChild(clickCursor)
       clickCursor.style.position = 'absolute'
       clickCursor.style.width = charW + 'px'
-      clickCursor.style.height = getLineH() + 'px'
+      clickCursor.style.height = '2px'
+      clickCursor.style.animation = 'eq-term-blink 0.9s step-end infinite'
     }
 
     const showClickCursor = (relX: number, relY: number) => {
@@ -2284,36 +2289,43 @@ export class EasyQuizPanel {
       const snapX = col * charW + PAD_L
       const snapY = row * lh + PAD_T
       clickCursor.style.left = snapX + 'px'
-      clickCursor.style.top  = snapY + 'px'
+      clickCursor.style.top  = (snapY + lh - 2) + 'px'  // underline: base of cell
       clickCursor.style.width = charW + 'px'
-      clickCursor.style.height = lh + 'px'
+      clickCursor.style.height = '2px'
+      clickCursor.style.animation = 'eq-term-blink 0.9s step-end infinite'
       clickCursor.style.display = 'block'
     }
 
+    let mdX = 0, mdY = 0, dragging = false
     termOutput?.addEventListener('mousedown', (e) => {
-      // DO NOT preventDefault — must let browser handle native text selection
+      // NO preventDefault — let browser handle text selection naturally
+      mdX = e.clientX; mdY = e.clientY; dragging = false
       if (clickCursor) clickCursor.style.display = 'none'
       const rect = termOutput!.getBoundingClientRect()
       const relX = e.clientX - rect.left + termOutput!.scrollLeft
       const relY = e.clientY - rect.top  + termOutput!.scrollTop
       showClickCursor(relX, relY)
+      // Focus async — 80ms gives browser time to start a drag/selection if user moves mouse
+      setTimeout(() => { if (!dragging) focusTerm() }, 80)
     })
 
     termOutput?.addEventListener('mousemove', (e) => {
       if (e.buttons === 1) {
-        // User is dragging to select — hide click cursor
-        if (clickCursor) clickCursor.style.display = 'none'
+        const dx = Math.abs(e.clientX - mdX), dy = Math.abs(e.clientY - mdY)
+        if (dx > 2 || dy > 2) {
+          dragging = true
+          if (clickCursor) clickCursor.style.display = 'none'
+        }
       }
     })
 
     termOutput?.addEventListener('mouseup', () => {
-      const sel = window.getSelection()
-      const hasSelection = sel && !sel.isCollapsed && sel.toString().length > 0
-      if (!hasSelection) {
-        // No selection made → focus for typing
-        focusTerm()
+      if (dragging) {
+        dragging = false
+        const sel = window.getSelection()
+        const hasText = sel && sel.toString().trim().length > 0
+        if (!hasText) focusTerm()  // drag produced no text selection → just focus
       }
-      // If has selection → do NOT focus textarea (preserves browser selection for Ctrl+C)
     })
 
     // Hide click cursor on keydown
