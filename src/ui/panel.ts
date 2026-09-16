@@ -537,7 +537,7 @@ export class EasyQuizPanel {
                 <!-- TERMINAL MODE — True terminal, no input bar -->
                 <div id="eq-term-panel-terminal" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;position:relative;">
                   <!-- Click position cursor -->
-                  <div id="eq-click-cursor" style="position:fixed;width:0.58em;height:1.1em;background:rgba(255,255,255,0.38);pointer-events:none;display:none;z-index:9999;border-radius:1px;"></div>
+                  <div id="eq-click-cursor" style="position:absolute;width:6.9px;height:19px;background:rgba(255,255,255,0.35);pointer-events:none;display:none;z-index:10;border-radius:1px;"></div>
                   <!-- Hidden textarea captures keyboard input -->
                   <textarea id="eq-term-capture" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;resize:none;border:none;outline:none;"></textarea>
                   <!-- Output area: all lines + current prompt at bottom -->
@@ -1044,18 +1044,7 @@ export class EasyQuizPanel {
     this.shadow.querySelector('#eq-dbg-filter-ai')?.addEventListener('click', () => this.setLogFilter('ai'))
     this.shadow.querySelector('#eq-dbg-filter-dom')?.addEventListener('click', () => this.setLogFilter('dom'))
 
-    // Ações do Terminal de Debug
-    const scrollToggleBtn = this.shadow.querySelector('#eq-dbg-scroll-toggle') as HTMLButtonElement | null
-    scrollToggleBtn?.addEventListener('click', () => {
-      this.autoScrollLogs = !this.autoScrollLogs
-      if (scrollToggleBtn) {
-        scrollToggleBtn.style.color = this.autoScrollLogs ? '#ddd' : '#333'
-        scrollToggleBtn.title = this.autoScrollLogs ? 'Auto-Scroll Ligado (Clique para desligar)' : 'Auto-Scroll Desligado (Clique para ligar)'
-      }
-      if (this.autoScrollLogs && this.liveDebugTerminal) {
-        this.liveDebugTerminal.scrollTop = this.liveDebugTerminal.scrollHeight
-      }
-    })
+
 
     const copyDbgLogsBtn = this.shadow.querySelector('#eq-dbg-copy-logs') as HTMLButtonElement | null
     copyDbgLogsBtn?.addEventListener('click', () => {
@@ -2247,54 +2236,81 @@ export class EasyQuizPanel {
       termOutput?.classList.remove('eq-term-unfocused')
     }
 
-    // ── Click position cursor (Cursor B) & text selection ────
+    // ── Character grid terminal interaction ─────────────────
+    // In real terminals (xterm), every character occupies a fixed CELL on a grid.
+    // Click anywhere → snap to nearest character cell.
+    // Selection: browser native (user-select:text) + mouseup decision for focus.
+
+    // Measure character dimensions using canvas (monospace char width)
+    const measureCharW = (): number => {
+      try {
+        const cv = document.createElement('canvas')
+        const ctx = cv.getContext('2d')
+        if (!ctx) return 6.9
+        ctx.font = '11.5px "Cascadia Code","Fira Code","Courier New",monospace'
+        return ctx.measureText('X').width
+      } catch(_) { return 6.9 }
+    }
+    const charW = measureCharW()
+    const getLineH = () => parseFloat(getComputedStyle(termOutput!).lineHeight) || 19
+    const PAD_L = 14, PAD_T = 10 // match terminal padding
+
+    // Click cursor: position:absolute INSIDE termOutput (position:relative added below)
     const clickCursor = this.shadow.querySelector('#eq-click-cursor') as HTMLElement|null
-    let isSelecting = false
+    if (termOutput) termOutput.style.position = 'relative'
+    if (clickCursor) {
+      // Move cursor into termOutput so position:absolute works relative to it
+      termOutput?.appendChild(clickCursor)
+      clickCursor.style.position = 'absolute'
+      clickCursor.style.width = charW + 'px'
+      clickCursor.style.height = getLineH() + 'px'
+    }
+
+    const showClickCursor = (relX: number, relY: number) => {
+      if (!clickCursor || !termOutput) return
+      const lh = getLineH()
+      // Snap to character grid
+      const col = Math.max(0, Math.floor((relX - PAD_L) / charW))
+      const row = Math.max(0, Math.floor((relY - PAD_T) / lh))
+      const snapX = col * charW + PAD_L
+      const snapY = row * lh + PAD_T
+      clickCursor.style.left = snapX + 'px'
+      clickCursor.style.top  = snapY + 'px'
+      clickCursor.style.width = charW + 'px'
+      clickCursor.style.height = lh + 'px'
+      clickCursor.style.display = 'block'
+    }
 
     termOutput?.addEventListener('mousedown', (e) => {
-      // NEVER call preventDefault here — it kills text selection
-      isSelecting = false
+      // DO NOT preventDefault — must let browser handle native text selection
       if (clickCursor) clickCursor.style.display = 'none'
-      // Async focus so selection can start before focus moves
-      setTimeout(() => focusTerm(), 0)
-
-      // Place click cursor at mouse position (simple, reliable)
-      if (clickCursor) {
-        const lineH = parseFloat(getComputedStyle(termOutput!).lineHeight) || 19
-        // Try caretRangeFromPoint for text position, fallback to raw coords
-        let left = e.clientX, top = e.clientY - lineH * 0.85
-        try {
-          const range = document.caretRangeFromPoint
-            ? document.caretRangeFromPoint(e.clientX, e.clientY)
-            : null
-          if (range) {
-            const rect = range.getBoundingClientRect()
-            if (rect.height > 0) { left = rect.left; top = rect.top }
-          }
-        } catch(_) {}
-        clickCursor.style.left = left + 'px'
-        clickCursor.style.top  = top + 'px'
-        clickCursor.style.display = 'block'
-      }
+      const rect = termOutput!.getBoundingClientRect()
+      const relX = e.clientX - rect.left + termOutput!.scrollLeft
+      const relY = e.clientY - rect.top  + termOutput!.scrollTop
+      showClickCursor(relX, relY)
     })
 
     termOutput?.addEventListener('mousemove', (e) => {
       if (e.buttons === 1) {
-        isSelecting = true
+        // User is dragging to select — hide click cursor
         if (clickCursor) clickCursor.style.display = 'none'
       }
     })
 
     termOutput?.addEventListener('mouseup', () => {
       const sel = window.getSelection()
-      if (sel && sel.toString().length > 0) {
-        if (clickCursor) clickCursor.style.display = 'none'
-        isSelecting = false
+      const hasSelection = sel && !sel.isCollapsed && sel.toString().length > 0
+      if (!hasSelection) {
+        // No selection made → focus for typing
+        focusTerm()
       }
+      // If has selection → do NOT focus textarea (preserves browser selection for Ctrl+C)
     })
 
-    // Hide click cursor on any keydown
-    captureTA?.addEventListener('keydown', () => { if (clickCursor) clickCursor.style.display = 'none' }, { passive: true })
+    // Hide click cursor on keydown
+    captureTA?.addEventListener('keydown', () => {
+      if (clickCursor) clickCursor.style.display = 'none'
+    }, { passive: true })
 
     termOutput?.addEventListener('focus', () => termOutput.classList.remove('eq-term-unfocused'))
 
