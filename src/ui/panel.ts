@@ -537,27 +537,28 @@ export class EasyQuizPanel {
                 <!-- TERMINAL MODE — True terminal, no input bar -->
                 <div id="eq-term-panel-terminal" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;position:relative;">
                   <!-- Click position cursor -->
-                  <div id="eq-click-cursor" style="position:absolute;width:6.9px;height:19px;background:rgba(255,255,255,0.35);pointer-events:none;display:none;z-index:10;border-radius:1px;"></div>
+                  <div id="eq-click-cursor" style="position:absolute;pointer-events:none;display:none;z-index:10;background:rgba(255,255,255,0.75);mix-blend-mode:difference;"></div>
+                  <div id="eq-sel-overlay" style="position:absolute;background:rgba(255,255,255,0.18);pointer-events:none;display:none;z-index:9;border-radius:1px;"></div>
                   <!-- Hidden textarea captures keyboard input -->
                   <textarea id="eq-term-capture" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;resize:none;border:none;outline:none;"></textarea>
                   <!-- Output area: all lines + current prompt at bottom -->
                   <div id="eq-term-output" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 14px 6px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;background:#0a0a0a;color:#ddd;user-select:text;-webkit-user-select:text;cursor:text;outline:none;caret-color:transparent;">
                     
 
-                    <div data-perm="1" style="white-space:pre;color:#1a1a1a;font-family:inherit;">╔══════════════════════════════════════╗</div>
-                    <div data-perm="1" style="white-space:pre;color:#1a1a1a;font-family:inherit;">║                                      ║</div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║</span><span style="color:#1a1a1a;">            </span><span style="color:#2d2d2d;">######   #### </span><span style="color:#1a1a1a;">            </span><span style="color:#1a1a1a;">║</span></div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║</span><span style="color:#1a1a1a;">            </span><span style="color:#333;">#       #    #</span><span style="color:#1a1a1a;">            </span><span style="color:#1a1a1a;">║</span></div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║</span><span style="color:#1a1a1a;">            </span><span style="color:#333;">#####   #    #</span><span style="color:#1a1a1a;">            </span><span style="color:#1a1a1a;">║</span></div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║</span><span style="color:#1a1a1a;">            </span><span style="color:#333;">#       # ## #</span><span style="color:#1a1a1a;">            </span><span style="color:#1a1a1a;">║</span></div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║</span><span style="color:#1a1a1a;">            </span><span style="color:#2d2d2d;">######   #####</span><span style="color:#1a1a1a;">            </span><span style="color:#1a1a1a;">║</span></div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║</span><span style="color:#1a1a1a;">            </span><span style="color:#2a2a2a;">             #</span><span style="color:#1a1a1a;">            </span><span style="color:#1a1a1a;">║</span></div>
-                    <div data-perm="1" style="white-space:pre;color:#1a1a1a;font-family:inherit;">║                                      ║</div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║  </span><span style="color:#555;">EasyQuiz Terminal</span><span style="color:#1a1a1a;">                   ║</span></div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║  </span><span style="color:#444;">${BUILD_VERSION}                                  </span><span style="color:#1a1a1a;">║</span></div>
-                    <div data-perm="1" style="white-space:pre;color:#1a1a1a;font-family:inherit;">║                                      ║</div>
-                    <div data-perm="1" style="white-space:pre;font-family:inherit;"><span style="color:#1a1a1a;">║ </span><span style="color:#444;">  Digite 'help' para ver os comandos  </span><span style="color:#1a1a1a;">║</span></div>
-                    <div data-perm="1" style="white-space:pre;color:#1a1a1a;font-family:inherit;">╚══════════════════════════════════════╝</div>
+
+                    <div data-perm="1" style="display:inline-block;border:1px solid #1e1e1e;border-radius:5px;padding:14px 18px;margin-bottom:6px;background:rgba(255,255,255,0.01);user-select:none;">
+                      <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;color:#2a2a2a;white-space:pre;">######   #### 
+#       #    #
+#####   #    #
+#       # ## #
+######   #####
+             #</div>
+                      <div style="margin-top:8px;padding-top:8px;border-top:1px solid #141414;">
+                        <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11px;color:#555;">EasyQuiz Terminal</div>
+                        <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10px;color:#333;">${BUILD_VERSION}</div>
+                      </div>
+                    </div>
+                    <div data-perm="1" style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10px;color:#333;padding:2px 0 6px;">Digite <span style="color:#666;">help</span> para ver os comandos</div>
                     <!-- Current input line — always last -->
                     <div id="eq-term-current-line" style="display:flex;align-items:baseline;overflow:hidden;flex-shrink:0;"><span style="color:#fff;font-weight:700;user-select:none;">EasyQuiz_Legacy:&nbsp;</span><span id="eq-term-typed" style="color:#e0e0e0;"></span><span class="eq-term-cursor"></span></div>
                   </div>
@@ -2218,12 +2219,21 @@ export class EasyQuizPanel {
       const clB   = this.shadow.querySelector('#eq-term-clear-btn') as HTMLElement|null
       cpB?.addEventListener('click', () => {
         const flash = (el: HTMLElement) => { const oc = el.style.color; el.style.color = '#4ade80'; setTimeout(() => el.style.color = oc, 400) }
-        const selText = window.getSelection()?.toString() || ''
+        // Priority: 1. custom grid selection, 2. browser selection, 3. all content
+        const customSel = (this as any)._getCustomSel?.()
+        if (customSel && customSel.trim().length > 0) {
+          ;(this as any)._clearCustomSel?.()
+          navigator.clipboard.writeText(customSel).then(() => { this.showToast('Seleção copiada', 'success', 2000); if (cpB) flash(cpB) })
+          return
+        }
+        const selText = window.getSelection()?.toString()?.trim() || ''
         if (this.terminalMode === 'terminal') {
           if (selText) {
             navigator.clipboard.writeText(selText).then(() => { this.showToast('Seleção copiada', 'success', 2000); if (cpB) flash(cpB) })
           } else if (termOutput) {
-            const tlines = Array.from(termOutput.children).filter(e => e !== currentLine).map(el => (el as HTMLElement).textContent || '')
+            const tlines = Array.from(termOutput.children)
+              .filter(e => e !== currentLine && (e as HTMLElement).id !== 'eq-click-cursor' && (e as HTMLElement).id !== 'eq-sel-overlay')
+              .map(el => (el as HTMLElement).textContent?.trimEnd() || '')
             navigator.clipboard.writeText(tlines.join('\n')).then(() => { this.showToast('Terminal copiado', 'success', 2000); if (cpB) flash(cpB) })
           }
         } else {
@@ -2276,7 +2286,7 @@ export class EasyQuizPanel {
       termOutput?.appendChild(clickCursor)
       clickCursor.style.position = 'absolute'
       clickCursor.style.width = charW + 'px'
-      clickCursor.style.height = '2px'
+      clickCursor.style.height = getLineH() + 'px'   // full cell height = BLOCK cursor
       clickCursor.style.animation = 'eq-term-blink 0.9s step-end infinite'
     }
 
@@ -2288,43 +2298,119 @@ export class EasyQuizPanel {
       const row = Math.max(0, Math.floor((relY - PAD_T) / lh))
       const snapX = col * charW + PAD_L
       const snapY = row * lh + PAD_T
-      clickCursor.style.left = snapX + 'px'
-      clickCursor.style.top  = (snapY + lh - 2) + 'px'  // underline: base of cell
-      clickCursor.style.width = charW + 'px'
-      clickCursor.style.height = '2px'
+      clickCursor.style.left   = snapX + 'px'
+      clickCursor.style.top    = snapY + 'px'        // block: top of cell
+      clickCursor.style.width  = charW + 'px'
+      clickCursor.style.height = lh + 'px'            // block: full cell height
       clickCursor.style.animation = 'eq-term-blink 0.9s step-end infinite'
       clickCursor.style.display = 'block'
     }
 
-    let mdX = 0, mdY = 0, dragging = false
+    // ── Custom grid-based selection (works on empty cells, prompt, any char) ──
+    const selOverlay = this.shadow.querySelector('#eq-sel-overlay') as HTMLElement|null
+    let selStart: {row:number, col:number}|null = null
+    let selEnd:   {row:number, col:number}|null = null
+    let dragging = false
+    let mdX = 0, mdY = 0
+
+    const xyToCell = (relX: number, relY: number) => {
+      const lh = getLineH()
+      return {
+        row: Math.max(0, Math.floor((relY - PAD_T) / lh)),
+        col: Math.max(0, Math.floor((relX - PAD_L) / charW)),
+      }
+    }
+
+    const renderSelOverlay = () => {
+      if (!selStart || !selEnd || !selOverlay) { if(selOverlay) selOverlay.style.display='none'; return }
+      const lh = getLineH()
+      const r1 = Math.min(selStart.row, selEnd.row)
+      const r2 = Math.max(selStart.row, selEnd.row)
+      const c1 = r1===r2 ? Math.min(selStart.col,selEnd.col) : (selStart.row<selEnd.row ? selStart.col : selEnd.col)
+      const c2 = r1===r2 ? Math.max(selStart.col,selEnd.col) : (selStart.row<selEnd.row ? selEnd.col : selStart.col)
+      // Simple rectangle: covers from min col to max col on single line, or full width on multi-line
+      if (r1 === r2) {
+        selOverlay.style.top    = (PAD_T + r1 * lh) + 'px'
+        selOverlay.style.left   = (PAD_L + Math.min(selStart.col,selEnd.col) * charW) + 'px'
+        selOverlay.style.width  = ((Math.abs(selEnd.col - selStart.col) + 1) * charW) + 'px'
+        selOverlay.style.height = lh + 'px'
+      } else {
+        // Multi-line: simple full-width bounding rect
+        selOverlay.style.top    = (PAD_T + r1 * lh) + 'px'
+        selOverlay.style.left   = '0px'
+        selOverlay.style.width  = '100%'
+        selOverlay.style.height = ((r2 - r1 + 1) * lh) + 'px'
+      }
+      selOverlay.style.display = 'block'
+    }
+
+    // Extract text from selected grid range (includes empty cells as spaces)
+    const getCustomSelText = (): string => {
+      if (!selStart || !selEnd || !termOutput) return ''
+      const lh = getLineH()
+      const r1 = Math.min(selStart.row, selEnd.row)
+      const r2 = Math.max(selStart.row, selEnd.row)
+      const c1 = r1===r2 ? Math.min(selStart.col,selEnd.col) : 0
+      const c2 = r1===r2 ? Math.max(selStart.col,selEnd.col) : 9999
+      const contentLines = Array.from(termOutput.children)
+        .filter(el => (el as HTMLElement).id !== 'eq-click-cursor' && (el as HTMLElement).id !== 'eq-sel-overlay' && el.id !== 'eq-term-current-line')
+        .map(el => (el as HTMLElement).textContent?.replace(/\n/g,'') || '')
+      const result: string[] = []
+      for (let r = r1; r <= r2; r++) {
+        const line = r < contentLines.length ? contentLines[r] : ''
+        if (r1 === r2) {
+          result.push(line.slice(c1, c2 + 1).padEnd(c2 - c1 + 1, ' '))
+        } else {
+          result.push(line)
+        }
+      }
+      return result.join('\n').trimEnd()
+    }
+
+    // Store getter so copy button can access custom selection
+    ;(this as any)._getCustomSel = getCustomSelText
+    ;(this as any)._clearCustomSel = () => {
+      selStart = null; selEnd = null
+      if (selOverlay) selOverlay.style.display = 'none'
+    }
+
     termOutput?.addEventListener('mousedown', (e) => {
-      // NO preventDefault — let browser handle text selection naturally
+      if (e.button !== 0) return
       mdX = e.clientX; mdY = e.clientY; dragging = false
+      // Clear previous selection
+      selStart = null; selEnd = null
+      if (selOverlay) selOverlay.style.display = 'none'
       if (clickCursor) clickCursor.style.display = 'none'
       const rect = termOutput!.getBoundingClientRect()
       const relX = e.clientX - rect.left + termOutput!.scrollLeft
       const relY = e.clientY - rect.top  + termOutput!.scrollTop
       showClickCursor(relX, relY)
-      // Focus async — 80ms gives browser time to start a drag/selection if user moves mouse
+      // Focus after 80ms — if user starts dragging before 80ms, don't focus
       setTimeout(() => { if (!dragging) focusTerm() }, 80)
     })
 
     termOutput?.addEventListener('mousemove', (e) => {
-      if (e.buttons === 1) {
-        const dx = Math.abs(e.clientX - mdX), dy = Math.abs(e.clientY - mdY)
-        if (dx > 2 || dy > 2) {
-          dragging = true
-          if (clickCursor) clickCursor.style.display = 'none'
-        }
+      if (e.buttons !== 1) return
+      const dx = Math.abs(e.clientX - mdX), dy = Math.abs(e.clientY - mdY)
+      if (dx > 2 || dy > 2) {
+        dragging = true
+        if (clickCursor) clickCursor.style.display = 'none'
+        const rect = termOutput!.getBoundingClientRect()
+        const relX = e.clientX - rect.left + termOutput!.scrollLeft
+        const relY = e.clientY - rect.top  + termOutput!.scrollTop
+        // Set selection start on first drag movement
+        if (!selStart) selStart = xyToCell(mdX - rect.left + termOutput!.scrollLeft, mdY - rect.top + termOutput!.scrollTop)
+        selEnd = xyToCell(relX, relY)
+        renderSelOverlay()
       }
     })
 
     termOutput?.addEventListener('mouseup', () => {
       if (dragging) {
         dragging = false
-        const sel = window.getSelection()
-        const hasText = sel && sel.toString().trim().length > 0
-        if (!hasText) focusTerm()  // drag produced no text selection → just focus
+        // Selection stays — user can now Ctrl+C or click copy
+        // If no cells selected, focus for typing
+        if (!selStart || !selEnd) focusTerm()
       }
     })
 
@@ -2372,11 +2458,14 @@ export class EasyQuizPanel {
         this.terminalCmdHistoryIdx = Math.max(this.terminalCmdHistoryIdx-1, -1)
         typedEl.textContent = this.terminalCmdHistoryIdx >= 0 ? this.terminalCmdHistory[this.terminalCmdHistoryIdx] : ''
       } else if (e.key === 'c' && e.ctrlKey) {
-        const selStr = window.getSelection()?.toString() || ''
-        if (selStr) {
-          navigator.clipboard.writeText(selStr)
-        } else if (typedEl?.textContent) {
-          navigator.clipboard.writeText(typedEl.textContent)
+        const customSel = (this as any)._getCustomSel?.()
+        if (customSel && customSel.trim().length > 0) {
+          ;(this as any)._clearCustomSel?.()
+          navigator.clipboard.writeText(customSel)
+        } else {
+          const selStr = window.getSelection()?.toString() || ''
+          if (selStr) navigator.clipboard.writeText(selStr)
+          else if (typedEl?.textContent) navigator.clipboard.writeText(typedEl.textContent)
         }
         const cpFlash = this.shadow.querySelector('#eq-term-copy-btn') as HTMLElement|null
         if (cpFlash) { const oc = cpFlash.style.color; cpFlash.style.color = '#4ade80'; setTimeout(() => cpFlash.style.color = oc, 400) }
@@ -2470,8 +2559,12 @@ export class EasyQuizPanel {
       })
     })
     // Close on click outside
-    document.addEventListener('mousedown', () => {
+    document.addEventListener('mousedown', (e) => {
       if (filterMenu && filterMenu.style.display !== 'none') filterMenu.style.display = 'none'
+      // Clear custom terminal selection when clicking outside terminal
+      if (termOutput && !termOutput.contains(e.target as Node)) {
+        ;(this as any)._clearCustomSel?.()
+      }
     })
 
     // ── Sort button ──────────────────────────────────────
