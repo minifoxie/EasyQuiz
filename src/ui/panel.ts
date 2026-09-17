@@ -4785,7 +4785,7 @@ export class EasyQuizPanel {
     const popup = document.createElement('div')
     Object.assign(popup.style, {
       position: 'fixed', top: top + 'px', left: left + 'px', width: W + 'px',
-      zIndex: '2147483646', display: 'flex', flexDirection: 'column', gap: '1px', padding: '4px',
+      zIndex: '2147483647', display: 'flex', flexDirection: 'column', gap: '1px', padding: '4px',
       background: 'rgba(10,12,20,0.25)',
       backdropFilter: 'blur(28px) saturate(250%) brightness(0.92)',
       WebkitBackdropFilter: 'blur(28px) saturate(250%) brightness(0.92)',
