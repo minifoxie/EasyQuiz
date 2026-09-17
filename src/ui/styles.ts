@@ -676,7 +676,7 @@ export const PANEL_STYLES = `
     width: 50px;
     min-width: 50px;
     min-height: 50px;
-    background: transparent;
+    background: #ffffff;
     border: none;
     border-radius: 4px;
     color: #1a1a1a;
