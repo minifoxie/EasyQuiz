@@ -703,26 +703,7 @@ export const PANEL_STYLES = `
   .eq-resolve-menu svg { width: 18px; height: 18px; display: block; }
 
   /* ── CONTEXT MENU (transparent + backdrop blur) ── */
-  .eq-resolver-context-menu {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    min-width: 210px;
-    background: rgba(8,8,12,0.62);
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 0;
-    box-shadow: 0 14px 48px rgba(0,0,0,0.9);
-    padding: 5px;
-    z-index: 9999;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    backdrop-filter: blur(18px) saturate(200%);
-    -webkit-backdrop-filter: blur(18px) saturate(200%);
-    animation: eq-menu-appear 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    transform-origin: top right;
-    opacity: 0;
-  }
+  /* .eq-resolver-context-menu → replaced by .eq-ctx */
 
   .eq-resolver-context-menu[hidden] { display: none !important; }
 
@@ -733,28 +714,7 @@ export const PANEL_STYLES = `
     100% { opacity: 1; transform: translateY(0)    scale(1);    }
   }
 
-  .eq-menu-item {
-    appearance: none;
-    border: none;
-    background: transparent;
-    color: #bbb;
-    border-radius: 2px;
-    padding: 8px 12px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    text-align: left;
-    font-size: 12px;
-    font-weight: 600;
-    width: 100%;
-    transition: background 0.1s ease, color 0.1s ease;
-  }
-
-  .eq-menu-item:hover {
-    background: rgba(255,255,255,0.07);
-    color: #fff;
-  }
+  /* .eq-menu-item → replaced by .eq-ctx-item */
 
   .eq-btn-icon, .eq-menu-icon {
     display: inline-flex;
@@ -1085,48 +1045,13 @@ export const PANEL_STYLES = `
   }
 
   /* ===== CONTEXT MENU SUSPENSO DINÂMICO ===== */
-  .eq-context-menu {
-    width: 240px;
-    background: rgba(8,8,12,0.62);
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 0;
-    padding: 5px;
-    box-shadow: 0 14px 48px rgba(0,0,0,0.9);
-    z-index: 9999;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    animation: eq-menu-pop 0.18s cubic-bezier(0.16,1,0.3,1);
-    backdrop-filter: blur(18px) saturate(200%);
-    -webkit-backdrop-filter: blur(18px) saturate(200%);
-  }
+  /* .eq-context-menu → replaced by .eq-ctx */
 
   .eq-context-menu[hidden] {
     display: none !important;
   }
 
-  .eq-context-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    height: 30px;
-    padding: 0 10px;
-    background: transparent;
-    border: none;
-    border-radius: 2px;
-    color: #bbb;
-    font-family: inherit;
-    font-size: 12px;
-    text-align: left;
-    cursor: pointer;
-    transition: background 0.1s, color 0.1s;
-  }
-
-  .eq-context-item:hover {
-    background: rgba(255,255,255,0.07);
-    color: #fff;
-  }
+  /* .eq-context-item → replaced by .eq-ctx-item */
 
   .eq-context-item.danger {
     color: var(--eq-danger);
@@ -2689,19 +2614,65 @@ export const PANEL_STYLES = `
   .eq-item-icon svg { width:14px; height:14px; display:block; }
 
 
-  /* ── Shared context menu visual — applied to both menus via JS ──────────── */
-  .eq-ctx-unified {
-    background: rgba(8,8,12,0.62);
-    backdrop-filter: blur(18px) saturate(200%);
-    -webkit-backdrop-filter: blur(18px) saturate(200%);
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 0;
-    box-shadow: 0 14px 48px rgba(0,0,0,0.9);
-    padding: 5px;
+  /* ═══ UNIFIED CONTEXT MENU — .eq-ctx / .eq-ctx-item ═══════════════════════
+     Both the resolver menu and the settings menu use THESE classes only.
+     position:fixed is set by JS on open so backdrop-filter blur always works.
+  ══════════════════════════════════════════════════════════════════════════ */
+  .eq-ctx {
     display: flex;
     flex-direction: column;
     gap: 1px;
+    padding: 4px;
+    min-width: 200px;
+    background: rgba(8,10,16,0.40);
+    backdrop-filter: blur(22px) saturate(200%);
+    -webkit-backdrop-filter: blur(22px) saturate(200%);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 0;
+    box-shadow: 0 18px 56px rgba(0,0,0,0.96), 0 0 0 0.5px rgba(255,255,255,0.04);
   }
+  .eq-ctx[hidden] { display: none !important; }
+
+  .eq-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    height: 30px;
+    padding: 0 10px;
+    background: transparent;
+    border: none;
+    border-radius: 1px;
+    color: #aaa;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.08s, color 0.08s;
+  }
+  .eq-ctx-item:hover { background: rgba(255,255,255,0.09); color: #fff; }
+  .eq-ctx-item.danger { color: #f87171; }
+  .eq-ctx-item.danger:hover { background: rgba(255,80,80,0.12); color: #fca5a5; }
+
+  .eq-ctx-icon {
+    display: inline-flex;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.75;
+  }
+  .eq-ctx-icon svg { width: 13px; height: 13px; }
+  .eq-ctx-item:hover .eq-ctx-icon { opacity: 1; }
+  .eq-ctx-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 3px 6px; }
+  .eq-ctx-badge {
+    font-size: 9px; font-weight: 700; padding: 2px 6px;
+    background: rgba(255,255,255,0.07); color: #555; border-radius: 2px;
+    letter-spacing: 0.06em; margin-left: auto;
+  }
+
   /* Terminal wallpaper canvas — injected by JS in initTerminalWallpaper() */
   #eq-wallpaper-canvas { display:block; }
 

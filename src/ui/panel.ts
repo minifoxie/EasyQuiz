@@ -380,17 +380,17 @@ export class EasyQuizPanel {
                     <button class="eq-resolve-menu" id="eq-auto-menu-btn" type="button" aria-label="Mais opções" title="Mais opções">
                       <span class="eq-btn-icon">${ICONS.moreVertical}</span>
                     </button>
-                    <div class="eq-resolver-context-menu eq-ctx-unified" id="eq-auto-menu" hidden>
-                      <button type="button" class="eq-menu-item" data-auto-action="toggle">
-                        <span class="eq-menu-icon">${ICONS.sparkles}</span>
+                    <div class="eq-ctx" id="eq-auto-menu" hidden>
+                      <button type="button" class="eq-ctx-item" data-auto-action="toggle">
+                        <span class="eq-ctx-icon">${ICONS.sparkles}</span>
                         <span>Resolver Autopilot</span>
                       </button>
-                      <button type="button" class="eq-menu-item" data-auto-action="memory">
-                        <span class="eq-menu-icon">${ICONS.eraser}</span>
+                      <button type="button" class="eq-ctx-item" data-auto-action="memory">
+                        <span class="eq-ctx-icon">${ICONS.eraser}</span>
                         <span>Limpar memória</span>
                       </button>
-                      <button type="button" class="eq-menu-item" data-auto-action="status">
-                        <span class="eq-menu-icon">${ICONS.info}</span>
+                      <button type="button" class="eq-ctx-item" data-auto-action="status">
+                        <span class="eq-ctx-icon">${ICONS.info}</span>
                         <span>Mostrar status</span>
                       </button>
                     </div>
@@ -623,45 +623,45 @@ export class EasyQuizPanel {
                     </div>
 
                     <!-- Context Menu Suspenso Dinâmico -->
-                    <div class="eq-context-menu eq-ctx-unified" id="eq-key-context-menu" hidden>
-                      <button class="eq-context-item" id="eq-menu-prompt" type="button">
-                        <span class="eq-item-icon">${ICONS.edit}</span>
+                    <div class="eq-ctx" id="eq-key-context-menu" hidden>
+                      <button class="eq-ctx-item" id="eq-menu-prompt" type="button">
+                        <span class="eq-ctx-icon">${ICONS.edit}</span>
                         <span class="eq-item-text">Inserir via Janela Nativa</span>
-                        <span class="eq-item-badge">Bypass</span>
+                        <span class="eq-ctx-badge">Bypass</span>
                       </button>
-                      <button class="eq-context-item" id="eq-menu-paste" type="button">
-                        <span class="eq-item-icon">${ICONS.paste}</span>
+                      <button class="eq-ctx-item" id="eq-menu-paste" type="button">
+                        <span class="eq-ctx-icon">${ICONS.paste}</span>
                         <span class="eq-item-text">Colar da Área de Transferência</span>
                       </button>
-                      <button class="eq-context-item" id="eq-menu-toggle-vis" type="button">
-                        <span class="eq-item-icon" id="eq-menu-vis-icon">${ICONS.eye}</span>
+                      <button class="eq-ctx-item" id="eq-menu-toggle-vis" type="button">
+                        <span class="eq-ctx-icon" id="eq-menu-vis-icon">${ICONS.eye}</span>
                         <span class="eq-item-text" id="eq-menu-vis-text">Mostrar/Ocultar Campo</span>
                       </button>
-                      <button class="eq-context-item" id="eq-menu-clear" type="button">
-                        <span class="eq-item-icon">${ICONS.eraser}</span>
+                      <button class="eq-ctx-item" id="eq-menu-clear" type="button">
+                        <span class="eq-ctx-icon">${ICONS.eraser}</span>
                         <span class="eq-item-text">Limpar Campo</span>
                       </button>
-                      <div class="eq-context-divider"></div>
-                      <button class="eq-context-item" id="eq-menu-bulk" type="button">
-                        <span class="eq-item-icon">${ICONS.listPlus}</span>
+                      <div class="eq-ctx-divider"></div>
+                      <button class="eq-ctx-item" id="eq-menu-bulk" type="button">
+                        <span class="eq-ctx-icon">${ICONS.listPlus}</span>
                         <span class="eq-item-text">Importar Chaves em Lote</span>
-                        <span class="eq-item-badge">Novo</span>
+                        <span class="eq-ctx-badge">Novo</span>
                       </button>
-                      <button class="eq-context-item" id="eq-menu-edit-text" type="button">
-                        <span class="eq-item-icon">${ICONS.edit}</span>
+                      <button class="eq-ctx-item" id="eq-menu-edit-text" type="button">
+                        <span class="eq-ctx-icon">${ICONS.edit}</span>
                         <span class="eq-item-text">Ver / Editar Chaves como Texto</span>
                       </button>
-                      <div class="eq-context-divider"></div>
-                      <button class="eq-context-item" id="eq-menu-test" type="button">
-                        <span class="eq-item-icon">${ICONS.sparkles}</span>
+                      <div class="eq-ctx-divider"></div>
+                      <button class="eq-ctx-item" id="eq-menu-test" type="button">
+                        <span class="eq-ctx-icon">${ICONS.sparkles}</span>
                         <span class="eq-item-text">Testar Todas as Chaves</span>
                       </button>
-                      <button class="eq-context-item danger" id="eq-menu-delete-all" type="button">
-                        <span class="eq-item-icon">${ICONS.trash}</span>
+                      <button class="eq-ctx-item danger" id="eq-menu-delete-all" type="button">
+                        <span class="eq-ctx-icon">${ICONS.trash}</span>
                         <span class="eq-item-text">Apagar Todas as Chaves</span>
                       </button>
-                      <button class="eq-context-item danger" id="eq-menu-reset" type="button">
-                        <span class="eq-item-icon">${ICONS.trash}</span>
+                      <button class="eq-ctx-item danger" id="eq-menu-reset" type="button">
+                        <span class="eq-ctx-icon">${ICONS.trash}</span>
                         <span class="eq-item-text">Resetar Dados e Cache</span>
                       </button>
                     </div>
@@ -1197,6 +1197,14 @@ export class EasyQuizPanel {
       const wasHidden = autoMenu.hidden
       autoMenu.hidden = !wasHidden
       autoMenuBtn.classList.toggle('is-open', !autoMenu.hidden)
+      if (wasHidden) {
+        const r = autoMenuBtn.getBoundingClientRect()
+        autoMenu.style.position = 'fixed'
+        autoMenu.style.top      = (r.bottom + 4) + 'px'
+        autoMenu.style.left     = 'auto'
+        autoMenu.style.right    = (window.innerWidth - r.right) + 'px'
+        autoMenu.style.zIndex   = '2147483645'
+      }
     })
 
     autoMenu?.querySelectorAll('[data-auto-action]').forEach((item) => {
