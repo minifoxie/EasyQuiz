@@ -913,6 +913,7 @@ export class EasyQuizPanel {
         try { this.updateTimingMetrics() } catch {}
         break
       case 'debug':
+        this.terminalMode = 'terminal'  // Always default to terminal mode when switching to this tab
         try { this.refreshDebugView(); this.renderTerminalEntries(); this.initTerminalREPL() } catch {}
         break
       case 'settings':

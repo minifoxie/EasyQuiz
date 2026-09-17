@@ -2691,7 +2691,8 @@ export const PANEL_STYLES = `
     background-repeat: no-repeat;
     background-position: center center;
     background-size: auto 38%;
-    opacity: 0.055;
+    background-attachment: fixed;
+    opacity: 0.041;
     pointer-events: none;
     z-index: 0;
     filter: brightness(0) invert(1);  /* force all pixels to white */
@@ -2701,15 +2702,16 @@ export const PANEL_STYLES = `
     content: '';
     position: absolute; inset: 0;
     background-image:
-      linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
     background-size: 24px 24px;
+    background-attachment: fixed;
     pointer-events: none;
     z-index: 0;
     animation: eq-grid-pulse 9s ease-in-out infinite;
   }
   @keyframes eq-grid-pulse {
-    0%, 100% { opacity: 0.55 }
+    0%, 100% { opacity: 0.75 }
     50%       { opacity: 1    }
   }
   /* Ensure terminal content renders above wallpaper */
