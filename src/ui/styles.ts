@@ -9,10 +9,10 @@ export const PANEL_STYLES = `
     line-height: 1.5;
 
     /* === Tema Legacy: preto, branco e acento dourado do modo === */
-    --eq-bg:             #070707;
-    --eq-surface:        #111111;
-    --eq-surface-raised: #181818;
-    --eq-surface-hover:  #242424;
+    --eq-bg:             transparent;
+    --eq-surface:        transparent;
+    --eq-surface-raised: transparent;
+    --eq-surface-hover:  rgba(255,255,255,0.06);
     --eq-border:         rgba(255,255,255,0.14);
     --eq-text:           #bdbdbd;
     --eq-text-bright:    #ffffff;
@@ -180,7 +180,7 @@ export const PANEL_STYLES = `
     max-width: 95vw;
     height: 100vh;
     z-index: 2147483647;
-    background: rgba(13, 13, 13, 0.25);
+    background: transparent;
     border-left: 1px solid rgba(255,255,255,0.12);
     color: var(--eq-text);
     display: flex;
@@ -254,7 +254,7 @@ export const PANEL_STYLES = `
 
   .eq-activity-btn.active {
     color: #111111;
-    background: #ffffff;
+    background: transparent;
     border-color: rgba(255,255,255,0.25);
     box-shadow: none;
     animation: eq-activity-in 0.35s cubic-bezier(0.16,1,0.3,1);
@@ -297,7 +297,7 @@ export const PANEL_STYLES = `
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: rgba(17, 17, 17, 0.72);
+    background: transparent;
     overflow: hidden;
     min-width: 0;
     backdrop-filter: blur(18px) saturate(150%);
@@ -305,12 +305,14 @@ export const PANEL_STYLES = `
   }
 
   .eq-view-pane {
-    background: rgba(13,13,13,0.96);
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(28px) saturate(250%);
+    -webkit-backdrop-filter: blur(28px) saturate(250%);
   }
 
   /* Cabeçalho */
   .eq-header {
-    background: rgba(17,17,17,0.78);
+    background: transparent;
     border-bottom: 1px solid var(--eq-border);
     height: 58px;
     min-height: 58px;
@@ -351,7 +353,7 @@ export const PANEL_STYLES = `
   }
 
   #eq-view-resolver {
-    background: rgba(16, 18, 22, 0.9);
+    background: transparent;
     color: #f4f7fb;
     padding: 18px;
     border: 1px solid rgba(255,255,255,0.08);
@@ -433,7 +435,7 @@ export const PANEL_STYLES = `
     width: 38px;
     height: 38px;
     min-width: 38px;
-    background: #ffffff;
+    background: transparent;
     border: 1px solid rgba(15,15,15,0.12);
     color: #111111;
     display: flex;
@@ -678,7 +680,7 @@ export const PANEL_STYLES = `
     width: 50px;
     min-width: 50px;
     min-height: 50px;
-    background: #ffffff;
+    background: transparent;
     border: none;
     border-radius: 4px;
     color: #1a1a1a;
@@ -861,14 +863,14 @@ export const PANEL_STYLES = `
 
   #eq-view-resolver .eq-btn-primary,
   #eq-view-resolver .eq-btn-secondary {
-    background: #050505;
+    background: transparent;
     border-color: #050505;
     color: #ffffff;
   }
 
   #eq-view-resolver .eq-btn-primary:hover,
   #eq-view-resolver .eq-btn-secondary:hover {
-    background: #303030;
+    background: transparent;
     border-color: #303030;
   }
 
@@ -880,7 +882,7 @@ export const PANEL_STYLES = `
   }
 
   .eq-brand-badge {
-    background: #ffffff;
+    background: transparent;
     border: 1px solid #ffffff;
     color: #050505;
     font-size: 9px;
@@ -963,7 +965,9 @@ export const PANEL_STYLES = `
 
   /* scrollbar fina no pane (mesmo estilo do wrapper antigo) */
   .eq-view-pane::-webkit-scrollbar { width: 3px; }
-  .eq-view-pane::-webkit-scrollbar-track { background: transparent; }
+  .eq-view-pane::-webkit-scrollbar-track { background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(28px) saturate(250%);
+    -webkit-backdrop-filter: blur(28px) saturate(250%); }
   .eq-view-pane::-webkit-scrollbar-thumb { background: var(--eq-surface-hover); border-radius: 2px; }
 
 
@@ -1347,7 +1351,7 @@ export const PANEL_STYLES = `
   /* ===== BOTÕES DE AÇÃO ===== */
   .eq-btn-primary {
     height: 38px;
-    background: #050505;
+    background: transparent;
     border: none;
     border-radius: 4px;
     color: #fff;
@@ -1364,7 +1368,7 @@ export const PANEL_STYLES = `
   }
 
   .eq-btn-primary:hover {
-    background: #252525;
+    background: transparent;
     filter: brightness(1.08);
   }
 
@@ -1389,7 +1393,7 @@ export const PANEL_STYLES = `
 
   .eq-btn-secondary {
     height: 34px;
-    background: #050505;
+    background: transparent;
     border: 1px solid #050505;
     border-radius: 4px;
     color: #fff;
@@ -1405,7 +1409,7 @@ export const PANEL_STYLES = `
   }
 
   .eq-btn-secondary:hover {
-    background: #252525;
+    background: transparent;
     border-color: #252525;
     color: #fff;
   }
@@ -1680,7 +1684,7 @@ export const PANEL_STYLES = `
     font-family:'JetBrains Mono',Consolas,monospace; font-size:10.5px;
     background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:3px; color:#93c5fd;
   }
-  .eq-md-codeblock { background:rgba(0,0,0,0.25); border-radius:5px; margin:6px 0; overflow:hidden; border:1px solid rgba(255,255,255,0.06); }
+  .eq-md-codeblock { background: transparent; border-radius:5px; margin:6px 0; overflow:hidden; border:1px solid rgba(255,255,255,0.06); }
   .eq-md-codelang {
     font-size:9px; font-weight:700; color:rgba(234,240,248,0.28); text-transform:uppercase;
     letter-spacing:0.06em; padding:3px 10px; border-bottom:1px solid rgba(255,255,255,0.05);
@@ -1900,7 +1904,7 @@ export const PANEL_STYLES = `
     left: 25px;
     width: 390px;
     max-width: calc(100vw - 40px);
-    background: rgba(30, 30, 30, 0.95);
+    background: transparent;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--eq-border);
@@ -2590,7 +2594,7 @@ export const PANEL_STYLES = `
     display: inline-block;
     width: 0.6em;
     height: 2px;
-    background: #ffffff;
+    background: transparent;
     animation: eq-term-blink 1.1s step-end infinite;
     vertical-align: text-bottom;
     margin-left: 1px;
@@ -2707,7 +2711,7 @@ export const PANEL_STYLES = `
 
   /* ── Resolver + Output context menus — glassmorphism ── */
   .eq-resolver-context-menu {
-    background: rgba(8, 8, 14, 0.72) !important;
+    background: transparent !important;
     backdrop-filter: blur(16px) saturate(140%) !important;
     -webkit-backdrop-filter: blur(16px) saturate(140%) !important;
     border: 1px solid rgba(255,255,255,0.08) !important;
