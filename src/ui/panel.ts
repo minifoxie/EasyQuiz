@@ -133,6 +133,8 @@ export class EasyQuizPanel {
   private terminalCmdHistory: string[] = []
   private terminalCmdHistoryIdx: number = -1
   private terminalMode: 'terminal' | 'output' = 'terminal'
+  private _wallpaperRAF: number = 0
+  private _wlpWhiteLogo: HTMLCanvasElement | null = null
   private _terminalInited: boolean = false
   private liveTerminalOutput: HTMLElement | null = null
   private terminalInputEl: HTMLInputElement | null = null
@@ -542,7 +544,7 @@ export class EasyQuizPanel {
                   <!-- Hidden textarea captures keyboard input -->
                   <textarea id="eq-term-capture" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;resize:none;border:none;outline:none;"></textarea>
                   <!-- Output area: all lines + current prompt at bottom -->
-                  <div id="eq-term-output" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 14px 6px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;background:#0a0a0a;color:#ddd;user-select:text;-webkit-user-select:text;cursor:text;outline:none;caret-color:transparent;">
+                  <div id="eq-term-output" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 14px 6px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;background:transparent;color:#ddd;user-select:text;-webkit-user-select:text;cursor:text;outline:none;caret-color:transparent;position:relative;z-index:1;">
                     
 
 
@@ -567,7 +569,7 @@ export class EasyQuizPanel {
 
                 <!-- OUTPUT MODE -->
                 <div id="eq-term-panel-output" style="flex:1;display:none;flex-direction:column;overflow:hidden;min-height:0;">
-                  <div class="eq-terminal" id="eq-live-debug-terminal" style="flex:1;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10.5px;background:#0a0a0a;overflow-y:auto;padding:8px 14px;line-height:1.55;user-select:text;-webkit-user-select:text;color:#bbb;">
+                  <div class="eq-terminal" id="eq-live-debug-terminal" style="flex:1;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10.5px;background:transparent;overflow-y:auto;position:relative;z-index:1;padding:8px 14px;line-height:1.55;user-select:text;-webkit-user-select:text;color:#bbb;">
                     <div style="color:#333;">&gt; [SYS] Output de auditoria pronto.</div>
                   </div>
                 </div>
@@ -914,7 +916,7 @@ export class EasyQuizPanel {
         break
       case 'debug':
         this.terminalMode = 'terminal'  // Always default to terminal mode when switching to this tab
-        try { this.refreshDebugView(); this.renderTerminalEntries(); this.initTerminalREPL() } catch {}
+        try { this.refreshDebugView(); this.renderTerminalEntries(); this.initTerminalREPL(); this.initTerminalWallpaper() } catch {}
         break
       case 'settings':
         // Settings is static HTML — no special init needed
@@ -4661,7 +4663,82 @@ export class EasyQuizPanel {
     contentEl.appendChild(wrapper)
   }
 
-    public showFloatingAnswers(plan?: AnalysisPlan | null): void {
+  
+  private initTerminalWallpaper(): void {
+    const view = this.shadow.querySelector('#eq-view-debug') as HTMLElement | null
+    if (!view) return
+    view.style.position = 'relative'
+    this.shadow.querySelector('#eq-wallpaper-canvas')?.remove()
+    const canvas = document.createElement('canvas')
+    canvas.id = 'eq-wallpaper-canvas'
+    canvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:0;width:100%;height:100%;'
+    view.insertBefore(canvas, view.firstChild)
+    this._startWallpaperAnim(canvas)
+  }
+
+  private _startWallpaperAnim(canvas: HTMLCanvasElement): void {
+    cancelAnimationFrame(this._wallpaperRAF)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const CELL = 18, MAX_ALPHA = 0.065
+    const sources = [
+      { a: 0,               r: 0.28, s:  0.006 },
+      { a: Math.PI * 0.667, r: 0.22, s: -0.004 },
+      { a: Math.PI * 1.333, r: 0.32, s:  0.003 },
+    ]
+    if (!this._wlpWhiteLogo) {
+      const img = new Image()
+      img.onload = () => {
+        const off = document.createElement('canvas')
+        off.width = img.naturalWidth || img.width
+        off.height = img.naturalHeight || img.height
+        const oc = off.getContext('2d')!
+        oc.drawImage(img, 0, 0)
+        oc.globalCompositeOperation = 'source-atop'
+        oc.fillStyle = '#fff'
+        oc.fillRect(0, 0, off.width, off.height)
+        this._wlpWhiteLogo = off
+      }
+      img.src = ICONS.canvasLogo
+    }
+    let t = 0
+    const draw = () => {
+      const W = canvas.offsetWidth, H = canvas.offsetHeight
+      if (!W || !H) { this._wallpaperRAF = requestAnimationFrame(draw); return }
+      if (canvas.width !== W) canvas.width = W
+      if (canvas.height !== H) canvas.height = H
+      ctx.clearRect(0, 0, W, H)
+      t += 0.013
+      for (const s of sources) s.a += s.s
+      const cols = Math.ceil(W / CELL) + 1, rows = Math.ceil(H / CELL) + 1
+      const cx = cols * 0.5, cy = rows * 0.5
+      for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < cols; i++) {
+          let total = 0
+          for (const s of sources) {
+            const sx = cx + Math.cos(s.a) * cols * s.r
+            const sy = cy + Math.sin(s.a) * rows * s.r
+            const d = Math.sqrt((i - sx) ** 2 + (j - sy) ** 2)
+            total += Math.sin(d * 0.85 - t * 3.5) * Math.exp(-d * 0.09)
+          }
+          const alpha = Math.max(0, total / sources.length) * MAX_ALPHA
+          if (alpha < 0.003) continue
+          ctx.fillStyle = `rgba(255,255,255,${alpha.toFixed(3)})`
+          ctx.fillRect(i * CELL, j * CELL, CELL, CELL)
+        }
+      }
+      if (this._wlpWhiteLogo) {
+        const lh = H * 0.33, lw = lh * (this._wlpWhiteLogo.width / this._wlpWhiteLogo.height)
+        ctx.globalAlpha = 0.038
+        ctx.drawImage(this._wlpWhiteLogo, (W - lw) / 2, (H - lh) / 2, lw, lh)
+        ctx.globalAlpha = 1
+      }
+      this._wallpaperRAF = requestAnimationFrame(draw)
+    }
+    draw()
+  }
+
+  public showFloatingAnswers(plan?: AnalysisPlan | null): void {
     const target = plan || this.latestPlan
     if (target) {
       this.floatingAnswers.show(target)
