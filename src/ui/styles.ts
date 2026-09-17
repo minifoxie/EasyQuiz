@@ -1086,9 +1086,6 @@ export const PANEL_STYLES = `
 
   /* ===== CONTEXT MENU SUSPENSO DINÂMICO ===== */
   .eq-context-menu {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 6px);
     width: 240px;
     background: rgba(8,8,12,0.62);
     border: 1px solid rgba(255,255,255,0.07);

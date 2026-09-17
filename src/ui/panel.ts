@@ -1191,28 +1191,12 @@ export class EasyQuizPanel {
     if (autoMenu) autoMenu.hidden = true
     autoMenuBtn?.classList.remove('is-open')
 
-    // Move autoMenu to shadow root for proper backdrop-filter
-    if (autoMenu && autoMenu.parentElement !== this.shadow as any) {
-      this.shadow.appendChild(autoMenu)
-    }
-    if (autoMenu) {
-      autoMenu.style.position = 'fixed'
-      autoMenu.style.zIndex   = '2147483645'
-    }
-
     autoMenuBtn?.addEventListener('click', (e) => {
       e.stopPropagation()
       if (!autoMenu) return
       const wasHidden = autoMenu.hidden
       autoMenu.hidden = !wasHidden
       autoMenuBtn.classList.toggle('is-open', !autoMenu.hidden)
-      if (wasHidden) {
-        const rect = autoMenuBtn.getBoundingClientRect()
-        autoMenu.style.top   = (rect.bottom + 4) + 'px'
-        autoMenu.style.left  = 'auto'
-        autoMenu.style.right = (window.innerWidth - rect.right) + 'px'
-        autoMenu.style.minWidth = '210px'
-      }
     })
 
     autoMenu?.querySelectorAll('[data-auto-action]').forEach((item) => {
@@ -1292,23 +1276,20 @@ export class EasyQuizPanel {
       }
     })
 
-    // Move keyContextMenu to shadow root for proper backdrop-filter (escapes overflow ancestors)
-    if (this.keyContextMenu && this.keyContextMenu.parentElement !== this.shadow as any) {
-      this.shadow.appendChild(this.keyContextMenu)
-    }
-    this.keyContextMenu.style.cssText += ';position:fixed;z-index:2147483645;'
-
-    // Toggle do Menu de 3 Pontinhos (⋮) — reposition on open
+    // Toggle do Menu de 3 Pontinhos (⋮)
     this.keyMoreBtn.addEventListener('click', (e) => {
       e.stopPropagation()
       const wasHidden = this.keyContextMenu.hidden
       this.keyContextMenu.hidden = !wasHidden
       if (wasHidden) {
+        // position:fixed escapes overflow:auto ancestors (enabling backdrop-filter blur)
         const rect = this.keyMoreBtn.getBoundingClientRect()
-        this.keyContextMenu.style.top  = (rect.bottom + 4) + 'px'
-        this.keyContextMenu.style.left = 'auto'
-        this.keyContextMenu.style.right = (window.innerWidth - rect.right) + 'px'
-        this.keyContextMenu.style.width = '240px'
+        this.keyContextMenu.style.position = 'fixed'
+        this.keyContextMenu.style.top    = (rect.bottom + 4) + 'px'
+        this.keyContextMenu.style.left   = 'auto'
+        this.keyContextMenu.style.right  = (window.innerWidth - rect.right) + 'px'
+        this.keyContextMenu.style.width  = '240px'
+        this.keyContextMenu.style.zIndex = '2147483645'
       }
     })
 
