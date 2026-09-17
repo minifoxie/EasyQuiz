@@ -2690,6 +2690,19 @@ export const PANEL_STYLES = `
   /* eq-item-icon: used in list items and context items */
   .eq-item-icon { display:inline-flex; align-items:center; flex-shrink:0; width:15px; height:15px; }
   .eq-item-icon svg { width:14px; height:14px; display:block; }
+
+  /* ── Shared context menu base ── */
+  .eq-resolver-context-menu,
+  .eq-context-menu {
+    background: rgba(8,8,12,0.65) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 4px !important;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.85) !important;
+  }
+  .eq-menu-item, .eq-context-menu-item { border-radius: 2px !important; }
+
   /* Terminal wallpaper canvas — injected by JS in initTerminalWallpaper() */
   #eq-wallpaper-canvas { display:block; }
 
@@ -2714,6 +2727,7 @@ export const PANEL_STYLES = `
   .eq-activity-icon > svg { width:18px; height:18px; display:block; }
   .eq-menu-icon > svg, .eq-item-icon > svg { width:13px; height:13px; display:block; }
   .eq-brand-icon img, .eq-brand-mark img { width:20px; height:20px; display:block; }
+  .eq-resolver-brand .eq-brand-mark img { width:60px; height:auto; }
   #eq-term-output ::selection,
   #eq-live-debug-terminal ::selection {
     background: rgba(255,255,255,0.85);

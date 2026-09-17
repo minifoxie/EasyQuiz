@@ -544,24 +544,21 @@ export class EasyQuizPanel {
                   <!-- Hidden textarea captures keyboard input -->
                   <textarea id="eq-term-capture" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;resize:none;border:none;outline:none;"></textarea>
                   <!-- Output area: all lines + current prompt at bottom -->
-                  <div id="eq-term-output" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 14px 6px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;background:transparent;color:#ddd;user-select:text;-webkit-user-select:text;cursor:text;outline:none;caret-color:transparent;position:relative;z-index:1;">
+                  <div id="eq-term-output" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 14px 6px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;background:transparent;color:#ddd;user-select:text;-webkit-user-select:text;cursor:text;outline:none;caret-color:transparent;position:relative;z-index:9;">
                     
 
 
-                    <div data-perm="1" style="display:inline-block;border:1px solid #1a1a1a;border-radius:5px;padding:14px 20px;margin-bottom:6px;user-select:none;">
-                      <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.55;color:#2d2d2d;white-space:pre;letter-spacing:0.5px;">######   #### 
-#       #    #
-#####   #    #
-#       # ## #
-######   #####
-             #</div>
-                      <div style="margin-top:10px;padding-top:8px;border-top:1px solid #141414;">
-                        <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;color:#888;font-weight:600;letter-spacing:0.04em;">EasyQuiz Terminal</div>
-                        <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10px;color:#333;margin-top:2px;">${BUILD_VERSION} · Motor Híbrido 4.0</div>
-                        <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:9px;color:#1e1e1e;margin-top:4px;letter-spacing:0.06em;">RAG · AST · VISION · MULTIMODAL</div>
+                                        <div data-perm="1" style="display:inline-block;user-select:none;margin-bottom:8px;max-width:100%;">
+                      <div style="display:inline-flex;align-items:center;gap:14px;padding:12px 18px;outline:1px solid #1e1e1e;outline-offset:-1px;border-radius:3px;">
+                        <img src="${ICONS.canvasLogo}" alt="EQ" style="width:48px;height:auto;opacity:0.5;filter:brightness(0) invert(1);" />
+                        <div>
+                          <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:15px;font-weight:800;color:#3a3a3a;letter-spacing:0.14em;line-height:1;">EASYQUIZ</div>
+                          <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10px;color:#555;font-weight:600;letter-spacing:0.06em;margin-top:4px;">Terminal · Motor Híbrido 4.0</div>
+                          <div style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:9px;color:#2a2a2a;margin-top:5px;letter-spacing:0.04em;">${BUILD_VERSION} &nbsp;·&nbsp; RAG &middot; AST &middot; VISION &middot; MULTIMODAL</div>
+                        </div>
                       </div>
                     </div>
-                    <div data-perm="1" style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10px;color:#222;padding:2px 0 6px;">Digite <span style="color:#555;font-weight:600;">help</span> <span style="color:#1a1a1a;">para listar os comandos disponíveis</span></div>
+                    <div data-perm="1" style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10px;color:#2a2a2a;padding:2px 0 8px;">Digite <span style="color:#555;font-weight:700;">help</span> <span style="color:#222;">para listar comandos disponíveis</span></div>
                     <!-- Current input line — always last -->
                     <div id="eq-term-current-line" style="display:flex;align-items:baseline;overflow:hidden;flex-shrink:0;"><span style="color:#fff;font-weight:700;user-select:none;">EasyQuiz_Legacy:&nbsp;</span><span id="eq-term-typed" style="color:#e0e0e0;"></span><span class="eq-term-cursor"></span></div>
                   </div>
@@ -971,7 +968,7 @@ export class EasyQuizPanel {
           copyBtn3.title = 'Copiar relatório'
           copyBtn3.addEventListener('click', () => this.copyMetricsReport())
           const resetBtn = document.createElement('button')
-          resetBtn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,85,85,0.08);border:1px solid rgba(255,85,85,0.15);border-radius:4px;cursor:pointer;color:#ff8888;'
+          resetBtn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,85,85,0.07);border:1px solid rgba(255,85,85,0.13);border-radius:4px;cursor:pointer;color:#ff5555;'
           resetBtn.innerHTML = ICONS.trash
           resetBtn.title = 'Zerar métricas'
           resetBtn.addEventListener('click', () => {
@@ -999,7 +996,7 @@ export class EasyQuizPanel {
           cpBtn.innerHTML = ICONS.copy
           const clBtn = document.createElement('button')
           clBtn.id = 'eq-term-clear-btn'; clBtn.type = 'button'; clBtn.title = 'Limpar'
-          clBtn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,85,85,0.06);border:1px solid rgba(255,85,85,0.12);border-radius:4px;cursor:pointer;color:#ff5555;'
+          clBtn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,85,85,0.07);border:1px solid rgba(255,85,85,0.13);border-radius:4px;cursor:pointer;color:#ff5555;'
           clBtn.innerHTML = ICONS.trash
           return [pill, cpBtn, clBtn]
         }
@@ -2088,7 +2085,7 @@ export class EasyQuizPanel {
         case 'clear':
           if (termOutput && currentLine) {
             const kids = [...termOutput.children]
-            kids.forEach(k => { if (k !== currentLine) k.remove() })
+            kids.forEach(k => { if (k !== currentLine && (k as HTMLElement).dataset?.perm !== '1') k.remove() })
           }
           return
 
