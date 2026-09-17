@@ -431,7 +431,7 @@ export const PANEL_STYLES = `
     width: 38px;
     height: 38px;
     min-width: 38px;
-    background: transparent;
+    background: #ffffff;
     border: 1px solid rgba(15,15,15,0.12);
     color: #111111;
     display: flex;
@@ -857,18 +857,9 @@ export const PANEL_STYLES = `
   #eq-view-resolver .eq-operation-state.is-info    { color: #9dd1ff; background: rgba(147,197,253,0.10); border-color: rgba(147,197,253,0.20); }
 
 
-  #eq-view-resolver .eq-btn-primary,
-  #eq-view-resolver .eq-btn-secondary {
-    background: transparent;
-    border-color: #050505;
-    color: #ffffff;
-  }
+  
 
-  #eq-view-resolver .eq-btn-primary:hover,
-  #eq-view-resolver .eq-btn-secondary:hover {
-    background: transparent;
-    border-color: #303030;
-  }
+  
 
   .eq-brand-name {
     font-size: 13px;
@@ -2334,7 +2325,7 @@ export const PANEL_STYLES = `
     grid-template-columns: 48px minmax(0, 1fr);
     gap: 10px;
     padding: 8px 10px;
-    background: var(--eq-bg);
+    background: transparent;
     border: 1px solid var(--eq-border);
     border-radius: 6px;
     font-size: 12px;
@@ -2498,7 +2489,7 @@ export const PANEL_STYLES = `
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: var(--eq-surface);
+    background: transparent;
     border: 1px solid var(--eq-border);
     border-radius: 6px;
     padding: 8px 10px;
