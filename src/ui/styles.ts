@@ -352,9 +352,9 @@ export const PANEL_STYLES = `
     background: transparent;
     color: #f4f7fb;
     padding: 18px;
-    border: 1px solid rgba(255,255,255,0.08);
+    border: none;
     border-radius: 18px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    box-shadow: none;
     animation: eq-resolver-entry 0.35s cubic-bezier(0.16,1,0.3,1);
   }
 
@@ -2317,7 +2317,7 @@ export const PANEL_STYLES = `
     flex-direction: column;
     gap: 10px;
     padding: 12px;
-    background: var(--eq-surface);
+    background: transparent;
     border: 1px solid var(--eq-border);
     border-radius: 8px;
   }

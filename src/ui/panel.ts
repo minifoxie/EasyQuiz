@@ -4698,7 +4698,7 @@ export class EasyQuizPanel {
     cancelAnimationFrame(this._wallpaperRAF)
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    const CELL = 18, MAX_ALPHA = 0.065
+    const CELL = 18, MAX_ALPHA = 0.082
     const sources = [
       { a: 0,               r: 0.28, s:  0.006 },
       { a: Math.PI * 0.667, r: 0.22, s: -0.004 },
