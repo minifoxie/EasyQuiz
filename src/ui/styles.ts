@@ -142,6 +142,7 @@ export const PANEL_STYLES = `
     width: 22px;
     height: 22px;
     color: var(--eq-icon-accent);
+    display: block;
   }
 
   .eq-launcher-dot {
@@ -289,6 +290,7 @@ export const PANEL_STYLES = `
     width: 24px;
     height: 24px;
   }
+  .eq-activity-icon svg { width: 20px; height: 20px; display: block; flex-shrink: 0; }
 
   /* ===== CORPO DA SIDEBAR (PAINEL DIREITO) ===== */
   .eq-sidebar-body {
@@ -698,6 +700,7 @@ export const PANEL_STYLES = `
     background: #f0f0f0;
     box-shadow: 0 4px 14px rgba(0,0,0,0.18);
   }
+  .eq-resolve-menu svg { width: 18px; height: 18px; display: block; }
 
   /* ── CONTEXT MENU (transparent + backdrop blur) ── */
   .eq-resolver-context-menu {
@@ -762,6 +765,7 @@ export const PANEL_STYLES = `
     filter: brightness(1.2);
     transition: transform 0.25s ease;
   }
+  .eq-btn-icon svg, .eq-menu-icon svg { width: 14px; height: 14px; display: block; }
 
   /* ── STATUS BAR (always-minimal single line) ── */
   .eq-status-bar {
@@ -827,6 +831,7 @@ export const PANEL_STYLES = `
     flex-shrink: 0;
     color: #93c5fd;
   }
+  .eq-result-toggle-icon svg { width: 13px; height: 13px; display: block; }
 
   .eq-result-toggle.is-open .eq-result-toggle-icon {
     transform: rotate(90deg);
@@ -954,6 +959,7 @@ export const PANEL_STYLES = `
     cursor: pointer;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
   }
+  .eq-icon-btn svg { width: 16px; height: 16px; display: block; }
 
   .eq-icon-btn:hover {
     background: var(--eq-surface-hover);
@@ -1679,7 +1685,8 @@ export const PANEL_STYLES = `
   }
   .eq-brain-tab:hover { background:rgba(255,255,255,0.04); color:rgba(234,240,248,0.82); }
   .eq-brain-tab.is-active { background:rgba(255,255,255,0.06); color:rgba(234,240,248,0.96); border-bottom:2px solid #4285F4; }
-  .eq-brain-tab-icon { display:inline-flex; align-items:center; flex-shrink:0; opacity:0.45; }
+  .eq-brain-tab-icon { display:inline-flex; align-items:center; flex-shrink:0; opacity:0.45; width:13px; height:13px; }
+  .eq-brain-tab-icon svg { width:13px; height:13px; display:block; }
   .eq-brain-tab-label { overflow:hidden; text-overflow:ellipsis; flex:1; }
   .eq-brain-tab-close {
     background:none; border:none; color:inherit;
@@ -1823,8 +1830,8 @@ export const PANEL_STYLES = `
   }
   .eq-tree-arrow:hover { background:rgba(255,255,255,0.1); color:rgba(234,240,248,0.7); }
 
-  .eq-tree-ficon { display:inline-flex; align-items:center; flex-shrink:0; width:16px; transition:color 0.1s; }
-  .eq-tree-ficon svg { display:block; }
+  .eq-tree-ficon { display:inline-flex; align-items:center; flex-shrink:0; width:16px; height:16px; transition:color 0.1s; }
+  .eq-tree-ficon svg { display:block; width:14px; height:14px; }
 
   /* Smooth collapse */
   .eq-tree-children {
@@ -2679,6 +2686,10 @@ export const PANEL_STYLES = `
   #eq-term-output { scrollbar-width: thin; scrollbar-color: #1e1e1e #0a0a0a; }
   #eq-live-debug-terminal { scrollbar-width: thin; scrollbar-color: #1e1e1e #0a0a0a; }
 
+
+  /* eq-item-icon: used in list items and context items */
+  .eq-item-icon { display:inline-flex; align-items:center; flex-shrink:0; width:15px; height:15px; }
+  .eq-item-icon svg { width:14px; height:14px; display:block; }
   /* ── Terminal Wallpaper: Logo + Grid ─────────────────────── */
   #eq-term-output, #eq-live-debug-terminal {
     position: relative;
@@ -2697,21 +2708,25 @@ export const PANEL_STYLES = `
     z-index: 0;
     filter: brightness(0) invert(1);  /* force all pixels to white */
   }
-  /* Subtle grid overlay */
+  /* Pixel-wave blob overlay — soft cellular glow without visible borders */
   #eq-term-output::after, #eq-live-debug-terminal::after {
     content: '';
     position: absolute; inset: 0;
     background-image:
-      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
-    background-size: 24px 24px;
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.03) 42%, transparent 62%);
+    background-size: 20px 20px;
     background-attachment: fixed;
     pointer-events: none;
     z-index: 0;
-    animation: eq-grid-pulse 9s ease-in-out infinite;
+    animation: eq-wave-flow 7s ease-in-out infinite alternate;
   }
-  @keyframes eq-grid-pulse {
-    0%, 100% { opacity: 0.75 }
+  @keyframes eq-wave-flow {
+    0%   { background-position: 0 0;      opacity: 0.55; }
+    25%  { background-position: 10px 5px;  opacity: 0.90; }
+    50%  { background-position: 20px 10px; opacity: 0.65; }
+    75%  { background-position: 10px 15px; opacity: 0.95; }
+    100% { background-position: 0 20px;    opacity: 0.55; }
+  }
     50%       { opacity: 1    }
   }
   /* Ensure terminal content renders above wallpaper */
