@@ -1334,7 +1334,7 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
     max-width: 95vw;
     height: 100vh;
     z-index: 2147483647;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.375);
     border-left: 1px solid rgba(255,255,255,0.12);
     color: var(--eq-text);
     display: flex;
@@ -1343,8 +1343,8 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
     transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
     transform: translateX(0);
     overflow: visible;
-    backdrop-filter: blur(40px) saturate(250%) brightness(0.9);
-    -webkit-backdrop-filter: blur(40px) saturate(250%) brightness(0.9);
+    backdrop-filter: blur(30px) saturate(250%) brightness(0.9);
+    -webkit-backdrop-filter: blur(30px) saturate(250%) brightness(0.9);
   }
 
   .eq-sidebar.eq-collapsed {
@@ -1360,7 +1360,7 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
     width: 52px;
     min-width: 52px;
     background: transparent;
-    border-right: 1px solid var(--eq-border);
+    border-right: none;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -1407,8 +1407,8 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
   }
 
   .eq-activity-btn.active {
-    color: #ffffff;
-    background: rgba(255,255,255,0.14);
+    color: #000000;
+    background: #ffffff;
     border-color: rgba(255,255,255,0.28);
     box-shadow: 0 2px 8px rgba(0,0,0,0.22);
     animation: eq-activity-in 0.35s cubic-bezier(0.16,1,0.3,1);
@@ -1425,7 +1425,7 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
     top: 6px;
     bottom: 6px;
     width: 3px;
-    background: #f7c94d;
+    background: transparent;
     border-radius: 0;
     opacity: 0;
     transform: scaleY(0.4);
@@ -2436,7 +2436,7 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
 
   /* ===== CARD DE STATUS ===== */
   .eq-status-card {
-    background: var(--eq-surface);
+    background: transparent;
     border: 1px solid var(--eq-border);
     border-radius: 8px;
     padding: 12px 14px;
@@ -3518,7 +3518,7 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
 
   /* ===== ABA DE M\xC9TRICAS &amp; CRON\xD4METRO ===== */
   .eq-live-stopwatch-box {
-    background: rgba(255,255,255,0.03);
+    background: transparent;
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px;
     padding: 14px 16px;
@@ -3584,7 +3584,7 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
     margin-bottom: 12px;
   }
   .eq-metric-card {
-    background: var(--eq-surface);
+    background: transparent;
     border: 1px solid var(--eq-border);
     border-radius: 6px;
     padding: 10px;
@@ -3869,7 +3869,7 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
     box-shadow: 0 12px 36px rgba(0,0,0,0.75) !important;
   }
 
-`;var qe=&quot;v3.4.1&quot;;var bn=(()=&gt;{try{if(typeof window.trustedTypes?.createPolicy==&quot;function&quot;)return window.trustedTypes.createPolicy(&quot;easyquiz-ui#html&quot;,{createHTML:n=&gt;n})}catch{}return null})();function ao(n,t){try{if(bn){n.innerHTML=bn.createHTML(t);return}}catch{}try{if(typeof n.setHTMLUnsafe==&quot;function&quot;){n.setHTMLUnsafe(t);return}}catch{}n.innerHTML=t}var io=[{value:&quot;&quot;,label:&quot;Detec\xE7\xE3o Autom\xE1tica&quot;},{value:&quot;escolha_unica&quot;,label:&quot;M\xFAltipla Escolha (\xDAnica)&quot;},{value:&quot;escolha_multipla&quot;,label:&quot;M\xFAltipla Escolha (V\xE1rias)&quot;},{value:&quot;categorizacao&quot;,label:&quot;Categoriza\xE7\xE3o / Grupos&quot;},{value:&quot;arrastar_soltar&quot;,label:&quot;Arrastar e Soltar (Drag &amp; Drop)&quot;},{value:&quot;ordenacao&quot;,label:&quot;Ordena\xE7\xE3o / Sequ\xEAncia&quot;},{value:&quot;verdadeiro_falso&quot;,label:&quot;Verdadeiro / Falso&quot;},{value:&quot;texto_livre&quot;,label:&quot;Texto Livre / Dissertativa&quot;},{value:&quot;preenchimento&quot;,label:&quot;Preenchimento de Lacunas&quot;}],so=[{value:&quot;smart&quot;,label:&quot;Inteligente (Auto-H\xEDbrido)&quot;},{value:&quot;command&quot;,label:&quot;Apenas Comando (Seguro)&quot;},{value:&quot;javascript&quot;,label:&quot;Apenas JS Nativo (Avan\xE7ado)&quot;}],ut=class{host;shadow;callbacks;autopilot;floatingAnswers;initialSettings;isCollapsed=!1;activeTab=&quot;resolver&quot;;isBusy=!1;stopwatchInterval=null;stopwatchStartTime=0;latestPlan=null;latestContext=null;latestImages=[];latestImageDescriptions=[];latestPromptText=&quot;&quot;;metricsLiveTime;metricsLiveStatus;metricsTotalBadge;metricTotalTime;metricAvgTime;metricTotalCount;metricsHistoryList;metricsHistoryCount;metricsCopyBtn;metricsResetBtn;currentQuestionStartTime=0;questionLiveTimerInterval=null;liveDebugTerminal;dbgModel;dbgLatency;dbgSplitTokens;dbgTotalTokens;dbgErrorCard;dbgErrorText;dbgPromptLen;dbgPromptView;dbgContextView;dbgRawRespView;dbgCountAll;dbgCountError;dbgCountAi;dbgCountDom;logEntries=[];activeLogFilter=&quot;all&quot;;autoScrollLogs=!0;lastErrorMsg=null;terminalCmdHistory=[];terminalCmdHistoryIdx=-1;terminalMode=&quot;terminal&quot;;_wallpaperRAF=0;_wlpWhiteLogo=null;_terminalInited=!1;liveTerminalOutput=null;terminalInputEl=null;outputSearchQuery=&quot;&quot;;outputSortNewest=!0;_reconnectContextbarBtns=()=&gt;{};_autopilotAnalyzingShown=!1;progressContainer;progressBar;progressLabel;progressVal;contextTreeContainer;launcherBtn;launcherDot;dockToggleBtn;sidebarEl;apToggleBtn;apConsole;executionConsole;dotPulseAp;statusTextAp;stopwatchAp;dotPulseAdv;statusTextAdv;stopwatchAdv;inspModel;inspLatency;inspTokens;inspPrompt;inspRationale;inspActions;copyPromptBtn=null;apiKeyInput;keyContextMenu;_ctxPopup=null;_ctxCloseH=null;keyMoreBtn;keysListEl;keysBadgeEl;modelSelect;modeSelect;engineSelect;dryRunCheckbox;autoApplyCheckbox;autoAdvanceCheckbox;hostDarkModeCheckbox;useVisionCheckbox;toastStackingCheckbox;analyzeBtn;applyBtn;resultContainer;constructor(t,e){this.initialSettings=t,this.callbacks=e,this.autopilot=new dt({onStatusChange:(i,c,l)=&gt;{this.logToConsole(c,l),i===&quot;analyzing&quot;?this._autopilotAnalyzingShown||(this._autopilotAnalyzingShown=!0,this.setBusy(!0,&quot;Autopilot: IA analisando...&quot;)):i===&quot;advancing&quot;||i===&quot;waiting&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!0)):i===&quot;idle&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),c.includes(&quot;conclus\xE3o&quot;)||c.includes(&quot;finalizada&quot;)||c.includes(&quot;Parab\xE9ns&quot;)?this.setStatus(&quot;Atividade conclu\xEDda. Resolver Autopilot finalizado com sucesso.&quot;,&quot;success&quot;):this.setStatus(&quot;Resolver Autopilot pausado e aguardando nova a\xE7\xE3o.&quot;,&quot;info&quot;)):i===&quot;error&quot;&amp;&amp;(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),this.setStatus(&quot;Resolver Autopilot interrompido por erro.&quot;,&quot;error&quot;))},onRequestAnalysis:async(i,c)=&gt;{try{return await this.callbacks.onAnalyze(i,c,!0)||null}catch{return null}},isManualModeActive:()=&gt;this.floatingAnswers?.isOpen()??!1,onPageAdvance:()=&gt;{this.floatingAnswers?.hide()}}),this.host=document.createElement(&quot;div&quot;),this.host.id=&quot;easyquiz-shadow-root&quot;,this.host.style.position=&quot;fixed&quot;,this.host.style.top=&quot;0&quot;,this.host.style.left=&quot;0&quot;,this.host.style.width=&quot;100vw&quot;,this.host.style.height=&quot;100vh&quot;,this.host.style.zIndex=&quot;2147483647&quot;,this.host.style.pointerEvents=&quot;none&quot;,this.shadow=this.host.attachShadow({mode:&quot;open&quot;}),ao(this.shadow,`
+`;var qe=&quot;v3.4.2&quot;;var bn=(()=&gt;{try{if(typeof window.trustedTypes?.createPolicy==&quot;function&quot;)return window.trustedTypes.createPolicy(&quot;easyquiz-ui#html&quot;,{createHTML:n=&gt;n})}catch{}return null})();function ao(n,t){try{if(bn){n.innerHTML=bn.createHTML(t);return}}catch{}try{if(typeof n.setHTMLUnsafe==&quot;function&quot;){n.setHTMLUnsafe(t);return}}catch{}n.innerHTML=t}var io=[{value:&quot;&quot;,label:&quot;Detec\xE7\xE3o Autom\xE1tica&quot;},{value:&quot;escolha_unica&quot;,label:&quot;M\xFAltipla Escolha (\xDAnica)&quot;},{value:&quot;escolha_multipla&quot;,label:&quot;M\xFAltipla Escolha (V\xE1rias)&quot;},{value:&quot;categorizacao&quot;,label:&quot;Categoriza\xE7\xE3o / Grupos&quot;},{value:&quot;arrastar_soltar&quot;,label:&quot;Arrastar e Soltar (Drag &amp; Drop)&quot;},{value:&quot;ordenacao&quot;,label:&quot;Ordena\xE7\xE3o / Sequ\xEAncia&quot;},{value:&quot;verdadeiro_falso&quot;,label:&quot;Verdadeiro / Falso&quot;},{value:&quot;texto_livre&quot;,label:&quot;Texto Livre / Dissertativa&quot;},{value:&quot;preenchimento&quot;,label:&quot;Preenchimento de Lacunas&quot;}],so=[{value:&quot;smart&quot;,label:&quot;Inteligente (Auto-H\xEDbrido)&quot;},{value:&quot;command&quot;,label:&quot;Apenas Comando (Seguro)&quot;},{value:&quot;javascript&quot;,label:&quot;Apenas JS Nativo (Avan\xE7ado)&quot;}],ut=class{host;shadow;callbacks;autopilot;floatingAnswers;initialSettings;isCollapsed=!1;activeTab=&quot;resolver&quot;;isBusy=!1;stopwatchInterval=null;stopwatchStartTime=0;latestPlan=null;latestContext=null;latestImages=[];latestImageDescriptions=[];latestPromptText=&quot;&quot;;metricsLiveTime;metricsLiveStatus;metricsTotalBadge;metricTotalTime;metricAvgTime;metricTotalCount;metricsHistoryList;metricsHistoryCount;metricsCopyBtn;metricsResetBtn;currentQuestionStartTime=0;questionLiveTimerInterval=null;liveDebugTerminal;dbgModel;dbgLatency;dbgSplitTokens;dbgTotalTokens;dbgErrorCard;dbgErrorText;dbgPromptLen;dbgPromptView;dbgContextView;dbgRawRespView;dbgCountAll;dbgCountError;dbgCountAi;dbgCountDom;logEntries=[];activeLogFilter=&quot;all&quot;;autoScrollLogs=!0;lastErrorMsg=null;terminalCmdHistory=[];terminalCmdHistoryIdx=-1;terminalMode=&quot;terminal&quot;;_wallpaperRAF=0;_wlpWhiteLogo=null;_terminalInited=!1;liveTerminalOutput=null;terminalInputEl=null;outputSearchQuery=&quot;&quot;;outputSortNewest=!0;_reconnectContextbarBtns=()=&gt;{};_autopilotAnalyzingShown=!1;progressContainer;progressBar;progressLabel;progressVal;contextTreeContainer;launcherBtn;launcherDot;dockToggleBtn;sidebarEl;apToggleBtn;apConsole;executionConsole;dotPulseAp;statusTextAp;stopwatchAp;dotPulseAdv;statusTextAdv;stopwatchAdv;inspModel;inspLatency;inspTokens;inspPrompt;inspRationale;inspActions;copyPromptBtn=null;apiKeyInput;keyContextMenu;_ctxPopup=null;_ctxCloseH=null;keyMoreBtn;keysListEl;keysBadgeEl;modelSelect;modeSelect;engineSelect;dryRunCheckbox;autoApplyCheckbox;autoAdvanceCheckbox;hostDarkModeCheckbox;useVisionCheckbox;toastStackingCheckbox;analyzeBtn;applyBtn;resultContainer;constructor(t,e){this.initialSettings=t,this.callbacks=e,this.autopilot=new dt({onStatusChange:(i,c,l)=&gt;{this.logToConsole(c,l),i===&quot;analyzing&quot;?this._autopilotAnalyzingShown||(this._autopilotAnalyzingShown=!0,this.setBusy(!0,&quot;Autopilot: IA analisando...&quot;)):i===&quot;advancing&quot;||i===&quot;waiting&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!0)):i===&quot;idle&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),c.includes(&quot;conclus\xE3o&quot;)||c.includes(&quot;finalizada&quot;)||c.includes(&quot;Parab\xE9ns&quot;)?this.setStatus(&quot;Atividade conclu\xEDda. Resolver Autopilot finalizado com sucesso.&quot;,&quot;success&quot;):this.setStatus(&quot;Resolver Autopilot pausado e aguardando nova a\xE7\xE3o.&quot;,&quot;info&quot;)):i===&quot;error&quot;&amp;&amp;(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),this.setStatus(&quot;Resolver Autopilot interrompido por erro.&quot;,&quot;error&quot;))},onRequestAnalysis:async(i,c)=&gt;{try{return await this.callbacks.onAnalyze(i,c,!0)||null}catch{return null}},isManualModeActive:()=&gt;this.floatingAnswers?.isOpen()??!1,onPageAdvance:()=&gt;{this.floatingAnswers?.hide()}}),this.host=document.createElement(&quot;div&quot;),this.host.id=&quot;easyquiz-shadow-root&quot;,this.host.style.position=&quot;fixed&quot;,this.host.style.top=&quot;0&quot;,this.host.style.left=&quot;0&quot;,this.host.style.width=&quot;100vw&quot;,this.host.style.height=&quot;100vh&quot;,this.host.style.zIndex=&quot;2147483647&quot;,this.host.style.pointerEvents=&quot;none&quot;,this.shadow=this.host.attachShadow({mode:&quot;open&quot;}),ao(this.shadow,`
       &lt;svg width=&quot;0&quot; height=&quot;0&quot; style=&quot;position:absolute;&quot;&gt;
         &lt;defs&gt;
           &lt;linearGradient id=&quot;geminiGradient&quot; x1=&quot;0%&quot; y1=&quot;0%&quot; x2=&quot;100%&quot; y2=&quot;100%&quot;&gt;

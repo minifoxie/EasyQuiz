@@ -180,7 +180,7 @@ export const PANEL_STYLES = `
     max-width: 95vw;
     height: 100vh;
     z-index: 2147483647;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.375);
     border-left: 1px solid rgba(255,255,255,0.12);
     color: var(--eq-text);
     display: flex;
@@ -189,8 +189,8 @@ export const PANEL_STYLES = `
     transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
     transform: translateX(0);
     overflow: visible;
-    backdrop-filter: blur(40px) saturate(250%) brightness(0.9);
-    -webkit-backdrop-filter: blur(40px) saturate(250%) brightness(0.9);
+    backdrop-filter: blur(30px) saturate(250%) brightness(0.9);
+    -webkit-backdrop-filter: blur(30px) saturate(250%) brightness(0.9);
   }
 
   .eq-sidebar.eq-collapsed {
@@ -206,7 +206,7 @@ export const PANEL_STYLES = `
     width: 52px;
     min-width: 52px;
     background: transparent;
-    border-right: 1px solid var(--eq-border);
+    border-right: none;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -253,8 +253,8 @@ export const PANEL_STYLES = `
   }
 
   .eq-activity-btn.active {
-    color: #ffffff;
-    background: rgba(255,255,255,0.14);
+    color: #000000;
+    background: #ffffff;
     border-color: rgba(255,255,255,0.28);
     box-shadow: 0 2px 8px rgba(0,0,0,0.22);
     animation: eq-activity-in 0.35s cubic-bezier(0.16,1,0.3,1);
@@ -271,7 +271,7 @@ export const PANEL_STYLES = `
     top: 6px;
     bottom: 6px;
     width: 3px;
-    background: #f7c94d;
+    background: transparent;
     border-radius: 0;
     opacity: 0;
     transform: scaleY(0.4);
@@ -1282,7 +1282,7 @@ export const PANEL_STYLES = `
 
   /* ===== CARD DE STATUS ===== */
   .eq-status-card {
-    background: var(--eq-surface);
+    background: transparent;
     border: 1px solid var(--eq-border);
     border-radius: 8px;
     padding: 12px 14px;
@@ -2364,7 +2364,7 @@ export const PANEL_STYLES = `
 
   /* ===== ABA DE MÉTRICAS & CRONÔMETRO ===== */
   .eq-live-stopwatch-box {
-    background: rgba(255,255,255,0.03);
+    background: transparent;
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px;
     padding: 14px 16px;
@@ -2430,7 +2430,7 @@ export const PANEL_STYLES = `
     margin-bottom: 12px;
   }
   .eq-metric-card {
-    background: var(--eq-surface);
+    background: transparent;
     border: 1px solid var(--eq-border);
     border-radius: 6px;
     padding: 10px;
