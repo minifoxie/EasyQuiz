@@ -1294,12 +1294,12 @@ export class EasyQuizPanel {
         { ic:'paste',     label:'Colar da Área de Transferência',                       onClick: () => _q('#eq-menu-paste')?.click() },
         { ic:'eye',       label:'Mostrar/Ocultar Campo',                               onClick: () => _q('#eq-menu-toggle-vis')?.click() },
         { ic:'eraser',    label:'Limpar Campo',                                        onClick: () => _q('#eq-menu-clear')?.click() },
-        { ic:'listPlus',  label:'Importar Chaves em Lote',                             onClick: () => _q('#eq-menu-bulk')?.click() },
+        { ic:'upload',    label:'Importar Chaves em Lote',                             onClick: () => _q('#eq-menu-bulk')?.click() },
         { ic:'code',      label:'Ver/Editar Chaves como Texto',                        onClick: () => _q('#eq-menu-edit-text')?.click() },
-        { ic:'analyze',   label:'Testar Todas as Chaves',                              onClick: () => _q('#eq-menu-test')?.click() },
+        { ic:'zap',       label:'Testar Todas as Chaves',                              onClick: () => _q('#eq-menu-test')?.click() },
         { divider:true, label:'', onClick: () => {} },
         { ic:'trash',     label:'Apagar Todas as Chaves',  danger:true,                onClick: () => _q('#eq-menu-delete-all')?.click() },
-        { ic:'refresh',   label:'Resetar Todos os Dados',  danger:true,                onClick: () => _q('#eq-menu-reset')?.click() },
+        { ic:'refreshCw', label:'Resetar Todos os Dados',  danger:true,                onClick: () => _q('#eq-menu-reset')?.click() },
       ])
     })
 

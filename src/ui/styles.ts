@@ -180,7 +180,7 @@ export const PANEL_STYLES = `
     max-width: 95vw;
     height: 100vh;
     z-index: 2147483647;
-    background: transparent;
+    background: rgba(0, 0, 0, 0.5);
     border-left: 1px solid rgba(255,255,255,0.12);
     color: var(--eq-text);
     display: flex;
@@ -189,8 +189,8 @@ export const PANEL_STYLES = `
     transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
     transform: translateX(0);
     overflow: visible;
-    backdrop-filter: blur(18px) saturate(160%) brightness(0.9);
-    -webkit-backdrop-filter: blur(18px) saturate(160%) brightness(0.9);
+    backdrop-filter: blur(40px) saturate(250%) brightness(0.9);
+    -webkit-backdrop-filter: blur(40px) saturate(250%) brightness(0.9);
   }
 
   .eq-sidebar.eq-collapsed {
@@ -205,7 +205,7 @@ export const PANEL_STYLES = `
   .eq-activity-bar {
     width: 52px;
     min-width: 52px;
-    background: var(--eq-bg);
+    background: transparent;
     border-right: 1px solid var(--eq-border);
     display: flex;
     flex-direction: column;
