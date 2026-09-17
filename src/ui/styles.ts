@@ -708,18 +708,18 @@ export const PANEL_STYLES = `
     top: calc(100% + 6px);
     right: 0;
     min-width: 210px;
-    background: rgba(12, 12, 14, 0.50);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 6px;
-    box-shadow: 0 12px 36px rgba(0,0,0,0.55);
-    padding: 6px;
+    background: rgba(8,8,12,0.62);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 0;
+    box-shadow: 0 14px 48px rgba(0,0,0,0.9);
+    padding: 5px;
     z-index: 9999;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    backdrop-filter: blur(24px) saturate(150%);
-    -webkit-backdrop-filter: blur(24px) saturate(150%);
-    animation: eq-menu-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    gap: 1px;
+    backdrop-filter: blur(18px) saturate(200%);
+    -webkit-backdrop-filter: blur(18px) saturate(200%);
+    animation: eq-menu-appear 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     transform-origin: top right;
     opacity: 0;
   }
@@ -735,11 +735,11 @@ export const PANEL_STYLES = `
 
   .eq-menu-item {
     appearance: none;
-    border: 1px solid transparent;
+    border: none;
     background: transparent;
-    color: #d8dde8;
-    border-radius: 4px;
-    padding: 9px 12px;
+    color: #bbb;
+    border-radius: 2px;
+    padding: 8px 12px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -747,7 +747,8 @@ export const PANEL_STYLES = `
     text-align: left;
     font-size: 12px;
     font-weight: 600;
-    transition: background 0.15s ease, color 0.15s ease;
+    width: 100%;
+    transition: background 0.1s ease, color 0.1s ease;
   }
 
   .eq-menu-item:hover {
@@ -1089,18 +1090,18 @@ export const PANEL_STYLES = `
     right: 0;
     top: calc(100% + 6px);
     width: 240px;
-    background: rgba(18,18,18,0.94);
-    border: 1px solid var(--eq-border);
-    border-radius: 10px;
-    padding: 6px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    z-index: 100;
+    background: rgba(8,8,12,0.62);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 0;
+    padding: 5px;
+    box-shadow: 0 14px 48px rgba(0,0,0,0.9);
+    z-index: 9999;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    animation: eq-menu-pop 0.24s cubic-bezier(0.16,1,0.3,1);
-    backdrop-filter: blur(22px) saturate(140%);
-    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    gap: 1px;
+    animation: eq-menu-pop 0.18s cubic-bezier(0.16,1,0.3,1);
+    backdrop-filter: blur(18px) saturate(200%);
+    -webkit-backdrop-filter: blur(18px) saturate(200%);
   }
 
   .eq-context-menu[hidden] {
@@ -1112,23 +1113,22 @@ export const PANEL_STYLES = `
     align-items: center;
     gap: 8px;
     width: 100%;
-    height: 32px;
+    height: 30px;
     padding: 0 10px;
     background: transparent;
     border: none;
-    border-radius: 4px;
-    color: var(--eq-text);
+    border-radius: 2px;
+    color: #bbb;
     font-family: inherit;
     font-size: 12px;
     text-align: left;
     cursor: pointer;
-    transition: background 0.2s, color 0.2s, transform 0.2s;
+    transition: background 0.1s, color 0.1s;
   }
 
   .eq-context-item:hover {
-    background: rgba(251,191,36,0.16);
-    color: var(--eq-text-bright);
-    transform: translateX(3px);
+    background: rgba(255,255,255,0.07);
+    color: #fff;
   }
 
   .eq-context-item.danger {
@@ -2690,18 +2690,6 @@ export const PANEL_STYLES = `
   /* eq-item-icon: used in list items and context items */
   .eq-item-icon { display:inline-flex; align-items:center; flex-shrink:0; width:15px; height:15px; }
   .eq-item-icon svg { width:14px; height:14px; display:block; }
-
-  /* ── Shared context menu base ── */
-  .eq-resolver-context-menu,
-  .eq-context-menu {
-    background: rgba(8,8,12,0.65) !important;
-    backdrop-filter: blur(16px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-    border-radius: 4px !important;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.85) !important;
-  }
-  .eq-menu-item, .eq-context-menu-item { border-radius: 2px !important; }
 
   /* Terminal wallpaper canvas — injected by JS in initTerminalWallpaper() */
   #eq-wallpaper-canvas { display:block; }

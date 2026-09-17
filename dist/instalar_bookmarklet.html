@@ -1847,18 +1847,18 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
     top: calc(100% + 6px);
     right: 0;
     min-width: 210px;
-    background: rgba(12, 12, 14, 0.50);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 6px;
-    box-shadow: 0 12px 36px rgba(0,0,0,0.55);
-    padding: 6px;
+    background: rgba(8,8,12,0.62);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 0;
+    box-shadow: 0 14px 48px rgba(0,0,0,0.9);
+    padding: 5px;
     z-index: 9999;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    backdrop-filter: blur(24px) saturate(150%);
-    -webkit-backdrop-filter: blur(24px) saturate(150%);
-    animation: eq-menu-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    gap: 1px;
+    backdrop-filter: blur(18px) saturate(200%);
+    -webkit-backdrop-filter: blur(18px) saturate(200%);
+    animation: eq-menu-appear 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     transform-origin: top right;
     opacity: 0;
   }
@@ -1874,11 +1874,11 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
 
   .eq-menu-item {
     appearance: none;
-    border: 1px solid transparent;
+    border: none;
     background: transparent;
-    color: #d8dde8;
-    border-radius: 4px;
-    padding: 9px 12px;
+    color: #bbb;
+    border-radius: 2px;
+    padding: 8px 12px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1886,7 +1886,8 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
     text-align: left;
     font-size: 12px;
     font-weight: 600;
-    transition: background 0.15s ease, color 0.15s ease;
+    width: 100%;
+    transition: background 0.1s ease, color 0.1s ease;
   }
 
   .eq-menu-item:hover {
@@ -2228,18 +2229,18 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
     right: 0;
     top: calc(100% + 6px);
     width: 240px;
-    background: rgba(18,18,18,0.94);
-    border: 1px solid var(--eq-border);
-    border-radius: 10px;
-    padding: 6px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    z-index: 100;
+    background: rgba(8,8,12,0.62);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 0;
+    padding: 5px;
+    box-shadow: 0 14px 48px rgba(0,0,0,0.9);
+    z-index: 9999;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    animation: eq-menu-pop 0.24s cubic-bezier(0.16,1,0.3,1);
-    backdrop-filter: blur(22px) saturate(140%);
-    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    gap: 1px;
+    animation: eq-menu-pop 0.18s cubic-bezier(0.16,1,0.3,1);
+    backdrop-filter: blur(18px) saturate(200%);
+    -webkit-backdrop-filter: blur(18px) saturate(200%);
   }
 
   .eq-context-menu[hidden] {
@@ -2251,23 +2252,22 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
     align-items: center;
     gap: 8px;
     width: 100%;
-    height: 32px;
+    height: 30px;
     padding: 0 10px;
     background: transparent;
     border: none;
-    border-radius: 4px;
-    color: var(--eq-text);
+    border-radius: 2px;
+    color: #bbb;
     font-family: inherit;
     font-size: 12px;
     text-align: left;
     cursor: pointer;
-    transition: background 0.2s, color 0.2s, transform 0.2s;
+    transition: background 0.1s, color 0.1s;
   }
 
   .eq-context-item:hover {
-    background: rgba(251,191,36,0.16);
-    color: var(--eq-text-bright);
-    transform: translateX(3px);
+    background: rgba(255,255,255,0.07);
+    color: #fff;
   }
 
   .eq-context-item.danger {
@@ -3830,18 +3830,6 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
   .eq-item-icon { display:inline-flex; align-items:center; flex-shrink:0; width:15px; height:15px; }
   .eq-item-icon svg { width:14px; height:14px; display:block; }
 
-  /* \u2500\u2500 Shared context menu base \u2500\u2500 */
-  .eq-resolver-context-menu,
-  .eq-context-menu {
-    background: rgba(8,8,12,0.65) !important;
-    backdrop-filter: blur(16px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-    border-radius: 4px !important;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.85) !important;
-  }
-  .eq-menu-item, .eq-context-menu-item { border-radius: 2px !important; }
-
   /* Terminal wallpaper canvas \u2014 injected by JS in initTerminalWallpaper() */
   #eq-wallpaper-canvas { display:block; }
 
@@ -3883,7 +3871,7 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
     box-shadow: 0 12px 36px rgba(0,0,0,0.75) !important;
   }
 
-`;var qe=&quot;v3.3.0&quot;;var bn=(()=&gt;{try{if(typeof window.trustedTypes?.createPolicy==&quot;function&quot;)return window.trustedTypes.createPolicy(&quot;easyquiz-ui#html&quot;,{createHTML:n=&gt;n})}catch{}return null})();function ao(n,t){try{if(bn){n.innerHTML=bn.createHTML(t);return}}catch{}try{if(typeof n.setHTMLUnsafe==&quot;function&quot;){n.setHTMLUnsafe(t);return}}catch{}n.innerHTML=t}var io=[{value:&quot;&quot;,label:&quot;Detec\xE7\xE3o Autom\xE1tica&quot;},{value:&quot;escolha_unica&quot;,label:&quot;M\xFAltipla Escolha (\xDAnica)&quot;},{value:&quot;escolha_multipla&quot;,label:&quot;M\xFAltipla Escolha (V\xE1rias)&quot;},{value:&quot;categorizacao&quot;,label:&quot;Categoriza\xE7\xE3o / Grupos&quot;},{value:&quot;arrastar_soltar&quot;,label:&quot;Arrastar e Soltar (Drag &amp; Drop)&quot;},{value:&quot;ordenacao&quot;,label:&quot;Ordena\xE7\xE3o / Sequ\xEAncia&quot;},{value:&quot;verdadeiro_falso&quot;,label:&quot;Verdadeiro / Falso&quot;},{value:&quot;texto_livre&quot;,label:&quot;Texto Livre / Dissertativa&quot;},{value:&quot;preenchimento&quot;,label:&quot;Preenchimento de Lacunas&quot;}],so=[{value:&quot;smart&quot;,label:&quot;Inteligente (Auto-H\xEDbrido)&quot;},{value:&quot;command&quot;,label:&quot;Apenas Comando (Seguro)&quot;},{value:&quot;javascript&quot;,label:&quot;Apenas JS Nativo (Avan\xE7ado)&quot;}],pt=class{host;shadow;callbacks;autopilot;floatingAnswers;initialSettings;isCollapsed=!1;activeTab=&quot;resolver&quot;;isBusy=!1;stopwatchInterval=null;stopwatchStartTime=0;latestPlan=null;latestContext=null;latestImages=[];latestImageDescriptions=[];latestPromptText=&quot;&quot;;metricsLiveTime;metricsLiveStatus;metricsTotalBadge;metricTotalTime;metricAvgTime;metricTotalCount;metricsHistoryList;metricsHistoryCount;metricsCopyBtn;metricsResetBtn;currentQuestionStartTime=0;questionLiveTimerInterval=null;liveDebugTerminal;dbgModel;dbgLatency;dbgSplitTokens;dbgTotalTokens;dbgErrorCard;dbgErrorText;dbgPromptLen;dbgPromptView;dbgContextView;dbgRawRespView;dbgCountAll;dbgCountError;dbgCountAi;dbgCountDom;logEntries=[];activeLogFilter=&quot;all&quot;;autoScrollLogs=!0;lastErrorMsg=null;terminalCmdHistory=[];terminalCmdHistoryIdx=-1;terminalMode=&quot;terminal&quot;;_wallpaperRAF=0;_wlpWhiteLogo=null;_terminalInited=!1;liveTerminalOutput=null;terminalInputEl=null;outputSearchQuery=&quot;&quot;;outputSortNewest=!0;_reconnectContextbarBtns=()=&gt;{};_autopilotAnalyzingShown=!1;progressContainer;progressBar;progressLabel;progressVal;contextTreeContainer;launcherBtn;launcherDot;dockToggleBtn;sidebarEl;apToggleBtn;apConsole;executionConsole;dotPulseAp;statusTextAp;stopwatchAp;dotPulseAdv;statusTextAdv;stopwatchAdv;inspModel;inspLatency;inspTokens;inspPrompt;inspRationale;inspActions;copyPromptBtn=null;apiKeyInput;keyContextMenu;keyMoreBtn;keysListEl;keysBadgeEl;modelSelect;modeSelect;engineSelect;dryRunCheckbox;autoApplyCheckbox;autoAdvanceCheckbox;hostDarkModeCheckbox;useVisionCheckbox;toastStackingCheckbox;analyzeBtn;applyBtn;resultContainer;constructor(t,e){this.initialSettings=t,this.callbacks=e,this.autopilot=new dt({onStatusChange:(i,c,l)=&gt;{this.logToConsole(c,l),i===&quot;analyzing&quot;?this._autopilotAnalyzingShown||(this._autopilotAnalyzingShown=!0,this.setBusy(!0,&quot;Autopilot: IA analisando...&quot;)):i===&quot;advancing&quot;||i===&quot;waiting&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!0)):i===&quot;idle&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),c.includes(&quot;conclus\xE3o&quot;)||c.includes(&quot;finalizada&quot;)||c.includes(&quot;Parab\xE9ns&quot;)?this.setStatus(&quot;Atividade conclu\xEDda. Resolver Autopilot finalizado com sucesso.&quot;,&quot;success&quot;):this.setStatus(&quot;Resolver Autopilot pausado e aguardando nova a\xE7\xE3o.&quot;,&quot;info&quot;)):i===&quot;error&quot;&amp;&amp;(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),this.setStatus(&quot;Resolver Autopilot interrompido por erro.&quot;,&quot;error&quot;))},onRequestAnalysis:async(i,c)=&gt;{try{return await this.callbacks.onAnalyze(i,c,!0)||null}catch{return null}},isManualModeActive:()=&gt;this.floatingAnswers?.isOpen()??!1,onPageAdvance:()=&gt;{this.floatingAnswers?.hide()}}),this.host=document.createElement(&quot;div&quot;),this.host.id=&quot;easyquiz-shadow-root&quot;,this.host.style.position=&quot;fixed&quot;,this.host.style.top=&quot;0&quot;,this.host.style.left=&quot;0&quot;,this.host.style.width=&quot;100vw&quot;,this.host.style.height=&quot;100vh&quot;,this.host.style.zIndex=&quot;2147483647&quot;,this.host.style.pointerEvents=&quot;none&quot;,this.shadow=this.host.attachShadow({mode:&quot;open&quot;}),ao(this.shadow,`
+`;var qe=&quot;v3.3.1&quot;;var bn=(()=&gt;{try{if(typeof window.trustedTypes?.createPolicy==&quot;function&quot;)return window.trustedTypes.createPolicy(&quot;easyquiz-ui#html&quot;,{createHTML:n=&gt;n})}catch{}return null})();function ao(n,t){try{if(bn){n.innerHTML=bn.createHTML(t);return}}catch{}try{if(typeof n.setHTMLUnsafe==&quot;function&quot;){n.setHTMLUnsafe(t);return}}catch{}n.innerHTML=t}var io=[{value:&quot;&quot;,label:&quot;Detec\xE7\xE3o Autom\xE1tica&quot;},{value:&quot;escolha_unica&quot;,label:&quot;M\xFAltipla Escolha (\xDAnica)&quot;},{value:&quot;escolha_multipla&quot;,label:&quot;M\xFAltipla Escolha (V\xE1rias)&quot;},{value:&quot;categorizacao&quot;,label:&quot;Categoriza\xE7\xE3o / Grupos&quot;},{value:&quot;arrastar_soltar&quot;,label:&quot;Arrastar e Soltar (Drag &amp; Drop)&quot;},{value:&quot;ordenacao&quot;,label:&quot;Ordena\xE7\xE3o / Sequ\xEAncia&quot;},{value:&quot;verdadeiro_falso&quot;,label:&quot;Verdadeiro / Falso&quot;},{value:&quot;texto_livre&quot;,label:&quot;Texto Livre / Dissertativa&quot;},{value:&quot;preenchimento&quot;,label:&quot;Preenchimento de Lacunas&quot;}],so=[{value:&quot;smart&quot;,label:&quot;Inteligente (Auto-H\xEDbrido)&quot;},{value:&quot;command&quot;,label:&quot;Apenas Comando (Seguro)&quot;},{value:&quot;javascript&quot;,label:&quot;Apenas JS Nativo (Avan\xE7ado)&quot;}],pt=class{host;shadow;callbacks;autopilot;floatingAnswers;initialSettings;isCollapsed=!1;activeTab=&quot;resolver&quot;;isBusy=!1;stopwatchInterval=null;stopwatchStartTime=0;latestPlan=null;latestContext=null;latestImages=[];latestImageDescriptions=[];latestPromptText=&quot;&quot;;metricsLiveTime;metricsLiveStatus;metricsTotalBadge;metricTotalTime;metricAvgTime;metricTotalCount;metricsHistoryList;metricsHistoryCount;metricsCopyBtn;metricsResetBtn;currentQuestionStartTime=0;questionLiveTimerInterval=null;liveDebugTerminal;dbgModel;dbgLatency;dbgSplitTokens;dbgTotalTokens;dbgErrorCard;dbgErrorText;dbgPromptLen;dbgPromptView;dbgContextView;dbgRawRespView;dbgCountAll;dbgCountError;dbgCountAi;dbgCountDom;logEntries=[];activeLogFilter=&quot;all&quot;;autoScrollLogs=!0;lastErrorMsg=null;terminalCmdHistory=[];terminalCmdHistoryIdx=-1;terminalMode=&quot;terminal&quot;;_wallpaperRAF=0;_wlpWhiteLogo=null;_terminalInited=!1;liveTerminalOutput=null;terminalInputEl=null;outputSearchQuery=&quot;&quot;;outputSortNewest=!0;_reconnectContextbarBtns=()=&gt;{};_autopilotAnalyzingShown=!1;progressContainer;progressBar;progressLabel;progressVal;contextTreeContainer;launcherBtn;launcherDot;dockToggleBtn;sidebarEl;apToggleBtn;apConsole;executionConsole;dotPulseAp;statusTextAp;stopwatchAp;dotPulseAdv;statusTextAdv;stopwatchAdv;inspModel;inspLatency;inspTokens;inspPrompt;inspRationale;inspActions;copyPromptBtn=null;apiKeyInput;keyContextMenu;keyMoreBtn;keysListEl;keysBadgeEl;modelSelect;modeSelect;engineSelect;dryRunCheckbox;autoApplyCheckbox;autoAdvanceCheckbox;hostDarkModeCheckbox;useVisionCheckbox;toastStackingCheckbox;analyzeBtn;applyBtn;resultContainer;constructor(t,e){this.initialSettings=t,this.callbacks=e,this.autopilot=new dt({onStatusChange:(i,c,l)=&gt;{this.logToConsole(c,l),i===&quot;analyzing&quot;?this._autopilotAnalyzingShown||(this._autopilotAnalyzingShown=!0,this.setBusy(!0,&quot;Autopilot: IA analisando...&quot;)):i===&quot;advancing&quot;||i===&quot;waiting&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!0)):i===&quot;idle&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),c.includes(&quot;conclus\xE3o&quot;)||c.includes(&quot;finalizada&quot;)||c.includes(&quot;Parab\xE9ns&quot;)?this.setStatus(&quot;Atividade conclu\xEDda. Resolver Autopilot finalizado com sucesso.&quot;,&quot;success&quot;):this.setStatus(&quot;Resolver Autopilot pausado e aguardando nova a\xE7\xE3o.&quot;,&quot;info&quot;)):i===&quot;error&quot;&amp;&amp;(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),this.setStatus(&quot;Resolver Autopilot interrompido por erro.&quot;,&quot;error&quot;))},onRequestAnalysis:async(i,c)=&gt;{try{return await this.callbacks.onAnalyze(i,c,!0)||null}catch{return null}},isManualModeActive:()=&gt;this.floatingAnswers?.isOpen()??!1,onPageAdvance:()=&gt;{this.floatingAnswers?.hide()}}),this.host=document.createElement(&quot;div&quot;),this.host.id=&quot;easyquiz-shadow-root&quot;,this.host.style.position=&quot;fixed&quot;,this.host.style.top=&quot;0&quot;,this.host.style.left=&quot;0&quot;,this.host.style.width=&quot;100vw&quot;,this.host.style.height=&quot;100vh&quot;,this.host.style.zIndex=&quot;2147483647&quot;,this.host.style.pointerEvents=&quot;none&quot;,this.shadow=this.host.attachShadow({mode:&quot;open&quot;}),ao(this.shadow,`
       &lt;svg width=&quot;0&quot; height=&quot;0&quot; style=&quot;position:absolute;&quot;&gt;
         &lt;defs&gt;
           &lt;linearGradient id=&quot;geminiGradient&quot; x1=&quot;0%&quot; y1=&quot;0%&quot; x2=&quot;100%&quot; y2=&quot;100%&quot;&gt;
