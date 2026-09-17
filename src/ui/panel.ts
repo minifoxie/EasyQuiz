@@ -1199,10 +1199,13 @@ export class EasyQuizPanel {
       autoMenuBtn.classList.toggle('is-open', !autoMenu.hidden)
       if (wasHidden) {
         const r = autoMenuBtn.getBoundingClientRect()
+        const mW = 220
         autoMenu.style.position = 'fixed'
         autoMenu.style.top      = (r.bottom + 4) + 'px'
-        autoMenu.style.left     = 'auto'
-        autoMenu.style.right    = (window.innerWidth - r.right) + 'px'
+        // Align right edge with button right edge, clamp to not overflow
+        autoMenu.style.left  = Math.max(4, r.right - mW) + 'px'
+        autoMenu.style.right = 'auto'
+        autoMenu.style.width = mW + 'px'
         autoMenu.style.zIndex   = '2147483645'
       }
     })
@@ -1292,11 +1295,13 @@ export class EasyQuizPanel {
       if (wasHidden) {
         // position:fixed escapes overflow:auto ancestors (enabling backdrop-filter blur)
         const rect = this.keyMoreBtn.getBoundingClientRect()
+        const kW = 240
         this.keyContextMenu.style.position = 'fixed'
         this.keyContextMenu.style.top    = (rect.bottom + 4) + 'px'
-        this.keyContextMenu.style.left   = 'auto'
-        this.keyContextMenu.style.right  = (window.innerWidth - rect.right) + 'px'
-        this.keyContextMenu.style.width  = '240px'
+        // Align right edge with button right edge, clamp to not overflow
+        this.keyContextMenu.style.left   = Math.max(4, rect.right - kW) + 'px'
+        this.keyContextMenu.style.right  = 'auto'
+        this.keyContextMenu.style.width  = kW + 'px'
         this.keyContextMenu.style.zIndex = '2147483645'
       }
     })

@@ -305,9 +305,7 @@ export const PANEL_STYLES = `
   }
 
   .eq-view-pane {
-    background: rgba(13,13,13,0.2);
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    background: rgba(13,13,13,0.96);
   }
 
   /* Cabeçalho */
@@ -2624,12 +2622,15 @@ export const PANEL_STYLES = `
     gap: 1px;
     padding: 4px;
     min-width: 200px;
-    background: rgba(8,10,16,0.40);
-    backdrop-filter: blur(22px) saturate(200%);
-    -webkit-backdrop-filter: blur(22px) saturate(200%);
-    border: 1px solid rgba(255,255,255,0.07);
+    /* Very transparent so blurred content behind is clearly visible */
+    background: rgba(10,12,20,0.22);
+    backdrop-filter: blur(28px) saturate(250%) brightness(0.95);
+    -webkit-backdrop-filter: blur(28px) saturate(250%) brightness(0.95);
+    border: 1px solid rgba(255,255,255,0.10);
     border-radius: 0;
-    box-shadow: 0 18px 56px rgba(0,0,0,0.96), 0 0 0 0.5px rgba(255,255,255,0.04);
+    box-shadow: 0 18px 56px rgba(0,0,0,0.96), 0 0 0 0.5px rgba(255,255,255,0.06);
+    /* isolation:isolate creates own stacking context for backdrop-filter */
+    isolation: isolate;
   }
   .eq-ctx[hidden] { display: none !important; }
 
