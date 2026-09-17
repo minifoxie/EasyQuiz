@@ -253,10 +253,10 @@ export const PANEL_STYLES = `
   }
 
   .eq-activity-btn.active {
-    color: #111111;
-    background: transparent;
-    border-color: rgba(255,255,255,0.25);
-    box-shadow: none;
+    color: #ffffff;
+    background: rgba(255,255,255,0.14);
+    border-color: rgba(255,255,255,0.28);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.22);
     animation: eq-activity-in 0.35s cubic-bezier(0.16,1,0.3,1);
   }
 
@@ -300,14 +300,10 @@ export const PANEL_STYLES = `
     background: transparent;
     overflow: hidden;
     min-width: 0;
-    backdrop-filter: blur(18px) saturate(150%);
-    -webkit-backdrop-filter: blur(18px) saturate(150%);
   }
 
   .eq-view-pane {
-    background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(28px) saturate(250%);
-    -webkit-backdrop-filter: blur(28px) saturate(250%);
+    background: transparent;
   }
 
   /* Cabeçalho */
@@ -882,9 +878,9 @@ export const PANEL_STYLES = `
   }
 
   .eq-brand-badge {
-    background: transparent;
-    border: 1px solid #ffffff;
-    color: #050505;
+    background: rgba(255,255,255,0.88);
+    border: 1px solid rgba(255,255,255,0.6);
+    color: #111111;
     font-size: 9px;
     font-weight: 800;
     padding: 2px 6px;
@@ -1624,7 +1620,7 @@ export const PANEL_STYLES = `
   /* Content */
   .eq-brain-content {
     flex:1; overflow-y:auto; overflow-x:hidden;
-    background:rgba(0,0,0,0.04);
+    background: transparent;
     scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.1) transparent;
   }
   .eq-brain-content::-webkit-scrollbar { width:3px; }
@@ -1657,7 +1653,7 @@ export const PANEL_STYLES = `
   .eq-brain-file-header {
     display:flex; align-items:center; padding:3px 12px;
     border-bottom:1px solid rgba(255,255,255,0.04);
-    background:rgba(0,0,0,0.08); flex-shrink:0;
+    background: transparent; flex-shrink:0;
   }
   .eq-brain-file-lang {
     font-size:9px; font-weight:700; color:rgba(234,240,248,0.22);

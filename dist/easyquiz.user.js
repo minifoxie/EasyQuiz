@@ -1392,10 +1392,10 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set(["question","info","start","conclusi
   }
 
   .eq-activity-btn.active {
-    color: #111111;
-    background: transparent;
-    border-color: rgba(255,255,255,0.25);
-    box-shadow: none;
+    color: #ffffff;
+    background: rgba(255,255,255,0.14);
+    border-color: rgba(255,255,255,0.28);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.22);
     animation: eq-activity-in 0.35s cubic-bezier(0.16,1,0.3,1);
   }
 
@@ -1439,14 +1439,10 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set(["question","info","start","conclusi
     background: transparent;
     overflow: hidden;
     min-width: 0;
-    backdrop-filter: blur(18px) saturate(150%);
-    -webkit-backdrop-filter: blur(18px) saturate(150%);
   }
 
   .eq-view-pane {
-    background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(28px) saturate(250%);
-    -webkit-backdrop-filter: blur(28px) saturate(250%);
+    background: transparent;
   }
 
   /* Cabe\xE7alho */
@@ -2021,9 +2017,9 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set(["question","info","start","conclusi
   }
 
   .eq-brand-badge {
-    background: transparent;
-    border: 1px solid #ffffff;
-    color: #050505;
+    background: rgba(255,255,255,0.88);
+    border: 1px solid rgba(255,255,255,0.6);
+    color: #111111;
     font-size: 9px;
     font-weight: 800;
     padding: 2px 6px;
@@ -2763,7 +2759,7 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set(["question","info","start","conclusi
   /* Content */
   .eq-brain-content {
     flex:1; overflow-y:auto; overflow-x:hidden;
-    background:rgba(0,0,0,0.04);
+    background: transparent;
     scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.1) transparent;
   }
   .eq-brain-content::-webkit-scrollbar { width:3px; }
@@ -2796,7 +2792,7 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set(["question","info","start","conclusi
   .eq-brain-file-header {
     display:flex; align-items:center; padding:3px 12px;
     border-bottom:1px solid rgba(255,255,255,0.04);
-    background:rgba(0,0,0,0.08); flex-shrink:0;
+    background: transparent; flex-shrink:0;
   }
   .eq-brain-file-lang {
     font-size:9px; font-weight:700; color:rgba(234,240,248,0.22);
@@ -3858,7 +3854,7 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set(["question","info","start","conclusi
     box-shadow: 0 12px 36px rgba(0,0,0,0.75) !important;
   }
 
-`;var qe="v3.4.0";var bn=(()=>{try{if(typeof window.trustedTypes?.createPolicy=="function")return window.trustedTypes.createPolicy("easyquiz-ui#html",{createHTML:n=>n})}catch{}return null})();function ao(n,t){try{if(bn){n.innerHTML=bn.createHTML(t);return}}catch{}try{if(typeof n.setHTMLUnsafe=="function"){n.setHTMLUnsafe(t);return}}catch{}n.innerHTML=t}var io=[{value:"",label:"Detec\xE7\xE3o Autom\xE1tica"},{value:"escolha_unica",label:"M\xFAltipla Escolha (\xDAnica)"},{value:"escolha_multipla",label:"M\xFAltipla Escolha (V\xE1rias)"},{value:"categorizacao",label:"Categoriza\xE7\xE3o / Grupos"},{value:"arrastar_soltar",label:"Arrastar e Soltar (Drag & Drop)"},{value:"ordenacao",label:"Ordena\xE7\xE3o / Sequ\xEAncia"},{value:"verdadeiro_falso",label:"Verdadeiro / Falso"},{value:"texto_livre",label:"Texto Livre / Dissertativa"},{value:"preenchimento",label:"Preenchimento de Lacunas"}],so=[{value:"smart",label:"Inteligente (Auto-H\xEDbrido)"},{value:"command",label:"Apenas Comando (Seguro)"},{value:"javascript",label:"Apenas JS Nativo (Avan\xE7ado)"}],ut=class{host;shadow;callbacks;autopilot;floatingAnswers;initialSettings;isCollapsed=!1;activeTab="resolver";isBusy=!1;stopwatchInterval=null;stopwatchStartTime=0;latestPlan=null;latestContext=null;latestImages=[];latestImageDescriptions=[];latestPromptText="";metricsLiveTime;metricsLiveStatus;metricsTotalBadge;metricTotalTime;metricAvgTime;metricTotalCount;metricsHistoryList;metricsHistoryCount;metricsCopyBtn;metricsResetBtn;currentQuestionStartTime=0;questionLiveTimerInterval=null;liveDebugTerminal;dbgModel;dbgLatency;dbgSplitTokens;dbgTotalTokens;dbgErrorCard;dbgErrorText;dbgPromptLen;dbgPromptView;dbgContextView;dbgRawRespView;dbgCountAll;dbgCountError;dbgCountAi;dbgCountDom;logEntries=[];activeLogFilter="all";autoScrollLogs=!0;lastErrorMsg=null;terminalCmdHistory=[];terminalCmdHistoryIdx=-1;terminalMode="terminal";_wallpaperRAF=0;_wlpWhiteLogo=null;_terminalInited=!1;liveTerminalOutput=null;terminalInputEl=null;outputSearchQuery="";outputSortNewest=!0;_reconnectContextbarBtns=()=>{};_autopilotAnalyzingShown=!1;progressContainer;progressBar;progressLabel;progressVal;contextTreeContainer;launcherBtn;launcherDot;dockToggleBtn;sidebarEl;apToggleBtn;apConsole;executionConsole;dotPulseAp;statusTextAp;stopwatchAp;dotPulseAdv;statusTextAdv;stopwatchAdv;inspModel;inspLatency;inspTokens;inspPrompt;inspRationale;inspActions;copyPromptBtn=null;apiKeyInput;keyContextMenu;_ctxPopup=null;_ctxCloseH=null;keyMoreBtn;keysListEl;keysBadgeEl;modelSelect;modeSelect;engineSelect;dryRunCheckbox;autoApplyCheckbox;autoAdvanceCheckbox;hostDarkModeCheckbox;useVisionCheckbox;toastStackingCheckbox;analyzeBtn;applyBtn;resultContainer;constructor(t,e){this.initialSettings=t,this.callbacks=e,this.autopilot=new dt({onStatusChange:(i,c,l)=>{this.logToConsole(c,l),i==="analyzing"?this._autopilotAnalyzingShown||(this._autopilotAnalyzingShown=!0,this.setBusy(!0,"Autopilot: IA analisando...")):i==="advancing"||i==="waiting"?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!0)):i==="idle"?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),c.includes("conclus\xE3o")||c.includes("finalizada")||c.includes("Parab\xE9ns")?this.setStatus("Atividade conclu\xEDda. Resolver Autopilot finalizado com sucesso.","success"):this.setStatus("Resolver Autopilot pausado e aguardando nova a\xE7\xE3o.","info")):i==="error"&&(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),this.setStatus("Resolver Autopilot interrompido por erro.","error"))},onRequestAnalysis:async(i,c)=>{try{return await this.callbacks.onAnalyze(i,c,!0)||null}catch{return null}},isManualModeActive:()=>this.floatingAnswers?.isOpen()??!1,onPageAdvance:()=>{this.floatingAnswers?.hide()}}),this.host=document.createElement("div"),this.host.id="easyquiz-shadow-root",this.host.style.position="fixed",this.host.style.top="0",this.host.style.left="0",this.host.style.width="100vw",this.host.style.height="100vh",this.host.style.zIndex="2147483647",this.host.style.pointerEvents="none",this.shadow=this.host.attachShadow({mode:"open"}),ao(this.shadow,`
+`;var qe="v3.4.1";var bn=(()=>{try{if(typeof window.trustedTypes?.createPolicy=="function")return window.trustedTypes.createPolicy("easyquiz-ui#html",{createHTML:n=>n})}catch{}return null})();function ao(n,t){try{if(bn){n.innerHTML=bn.createHTML(t);return}}catch{}try{if(typeof n.setHTMLUnsafe=="function"){n.setHTMLUnsafe(t);return}}catch{}n.innerHTML=t}var io=[{value:"",label:"Detec\xE7\xE3o Autom\xE1tica"},{value:"escolha_unica",label:"M\xFAltipla Escolha (\xDAnica)"},{value:"escolha_multipla",label:"M\xFAltipla Escolha (V\xE1rias)"},{value:"categorizacao",label:"Categoriza\xE7\xE3o / Grupos"},{value:"arrastar_soltar",label:"Arrastar e Soltar (Drag & Drop)"},{value:"ordenacao",label:"Ordena\xE7\xE3o / Sequ\xEAncia"},{value:"verdadeiro_falso",label:"Verdadeiro / Falso"},{value:"texto_livre",label:"Texto Livre / Dissertativa"},{value:"preenchimento",label:"Preenchimento de Lacunas"}],so=[{value:"smart",label:"Inteligente (Auto-H\xEDbrido)"},{value:"command",label:"Apenas Comando (Seguro)"},{value:"javascript",label:"Apenas JS Nativo (Avan\xE7ado)"}],ut=class{host;shadow;callbacks;autopilot;floatingAnswers;initialSettings;isCollapsed=!1;activeTab="resolver";isBusy=!1;stopwatchInterval=null;stopwatchStartTime=0;latestPlan=null;latestContext=null;latestImages=[];latestImageDescriptions=[];latestPromptText="";metricsLiveTime;metricsLiveStatus;metricsTotalBadge;metricTotalTime;metricAvgTime;metricTotalCount;metricsHistoryList;metricsHistoryCount;metricsCopyBtn;metricsResetBtn;currentQuestionStartTime=0;questionLiveTimerInterval=null;liveDebugTerminal;dbgModel;dbgLatency;dbgSplitTokens;dbgTotalTokens;dbgErrorCard;dbgErrorText;dbgPromptLen;dbgPromptView;dbgContextView;dbgRawRespView;dbgCountAll;dbgCountError;dbgCountAi;dbgCountDom;logEntries=[];activeLogFilter="all";autoScrollLogs=!0;lastErrorMsg=null;terminalCmdHistory=[];terminalCmdHistoryIdx=-1;terminalMode="terminal";_wallpaperRAF=0;_wlpWhiteLogo=null;_terminalInited=!1;liveTerminalOutput=null;terminalInputEl=null;outputSearchQuery="";outputSortNewest=!0;_reconnectContextbarBtns=()=>{};_autopilotAnalyzingShown=!1;progressContainer;progressBar;progressLabel;progressVal;contextTreeContainer;launcherBtn;launcherDot;dockToggleBtn;sidebarEl;apToggleBtn;apConsole;executionConsole;dotPulseAp;statusTextAp;stopwatchAp;dotPulseAdv;statusTextAdv;stopwatchAdv;inspModel;inspLatency;inspTokens;inspPrompt;inspRationale;inspActions;copyPromptBtn=null;apiKeyInput;keyContextMenu;_ctxPopup=null;_ctxCloseH=null;keyMoreBtn;keysListEl;keysBadgeEl;modelSelect;modeSelect;engineSelect;dryRunCheckbox;autoApplyCheckbox;autoAdvanceCheckbox;hostDarkModeCheckbox;useVisionCheckbox;toastStackingCheckbox;analyzeBtn;applyBtn;resultContainer;constructor(t,e){this.initialSettings=t,this.callbacks=e,this.autopilot=new dt({onStatusChange:(i,c,l)=>{this.logToConsole(c,l),i==="analyzing"?this._autopilotAnalyzingShown||(this._autopilotAnalyzingShown=!0,this.setBusy(!0,"Autopilot: IA analisando...")):i==="advancing"||i==="waiting"?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!0)):i==="idle"?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),c.includes("conclus\xE3o")||c.includes("finalizada")||c.includes("Parab\xE9ns")?this.setStatus("Atividade conclu\xEDda. Resolver Autopilot finalizado com sucesso.","success"):this.setStatus("Resolver Autopilot pausado e aguardando nova a\xE7\xE3o.","info")):i==="error"&&(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),this.setStatus("Resolver Autopilot interrompido por erro.","error"))},onRequestAnalysis:async(i,c)=>{try{return await this.callbacks.onAnalyze(i,c,!0)||null}catch{return null}},isManualModeActive:()=>this.floatingAnswers?.isOpen()??!1,onPageAdvance:()=>{this.floatingAnswers?.hide()}}),this.host=document.createElement("div"),this.host.id="easyquiz-shadow-root",this.host.style.position="fixed",this.host.style.top="0",this.host.style.left="0",this.host.style.width="100vw",this.host.style.height="100vh",this.host.style.zIndex="2147483647",this.host.style.pointerEvents="none",this.shadow=this.host.attachShadow({mode:"open"}),ao(this.shadow,`
       <svg width="0" height="0" style="position:absolute;">
         <defs>
           <linearGradient id="geminiGradient" x1="0%" y1="0%" x2="100%" y2="100%">

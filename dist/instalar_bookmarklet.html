@@ -1407,10 +1407,10 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
   }
 
   .eq-activity-btn.active {
-    color: #111111;
-    background: transparent;
-    border-color: rgba(255,255,255,0.25);
-    box-shadow: none;
+    color: #ffffff;
+    background: rgba(255,255,255,0.14);
+    border-color: rgba(255,255,255,0.28);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.22);
     animation: eq-activity-in 0.35s cubic-bezier(0.16,1,0.3,1);
   }
 
@@ -1454,14 +1454,10 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
     background: transparent;
     overflow: hidden;
     min-width: 0;
-    backdrop-filter: blur(18px) saturate(150%);
-    -webkit-backdrop-filter: blur(18px) saturate(150%);
   }
 
   .eq-view-pane {
-    background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(28px) saturate(250%);
-    -webkit-backdrop-filter: blur(28px) saturate(250%);
+    background: transparent;
   }
 
   /* Cabe\xE7alho */
@@ -2036,9 +2032,9 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
   }
 
   .eq-brand-badge {
-    background: transparent;
-    border: 1px solid #ffffff;
-    color: #050505;
+    background: rgba(255,255,255,0.88);
+    border: 1px solid rgba(255,255,255,0.6);
+    color: #111111;
     font-size: 9px;
     font-weight: 800;
     padding: 2px 6px;
@@ -2778,7 +2774,7 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
   /* Content */
   .eq-brain-content {
     flex:1; overflow-y:auto; overflow-x:hidden;
-    background:rgba(0,0,0,0.04);
+    background: transparent;
     scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.1) transparent;
   }
   .eq-brain-content::-webkit-scrollbar { width:3px; }
@@ -2811,7 +2807,7 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
   .eq-brain-file-header {
     display:flex; align-items:center; padding:3px 12px;
     border-bottom:1px solid rgba(255,255,255,0.04);
-    background:rgba(0,0,0,0.08); flex-shrink:0;
+    background: transparent; flex-shrink:0;
   }
   .eq-brain-file-lang {
     font-size:9px; font-weight:700; color:rgba(234,240,248,0.22);
@@ -3873,7 +3869,7 @@ Sa\xEDda em JSON v\xE1lido.`}var Sn=new Set([&quot;question&quot;,&quot;info&quo
     box-shadow: 0 12px 36px rgba(0,0,0,0.75) !important;
   }
 
-`;var qe=&quot;v3.4.0&quot;;var bn=(()=&gt;{try{if(typeof window.trustedTypes?.createPolicy==&quot;function&quot;)return window.trustedTypes.createPolicy(&quot;easyquiz-ui#html&quot;,{createHTML:n=&gt;n})}catch{}return null})();function ao(n,t){try{if(bn){n.innerHTML=bn.createHTML(t);return}}catch{}try{if(typeof n.setHTMLUnsafe==&quot;function&quot;){n.setHTMLUnsafe(t);return}}catch{}n.innerHTML=t}var io=[{value:&quot;&quot;,label:&quot;Detec\xE7\xE3o Autom\xE1tica&quot;},{value:&quot;escolha_unica&quot;,label:&quot;M\xFAltipla Escolha (\xDAnica)&quot;},{value:&quot;escolha_multipla&quot;,label:&quot;M\xFAltipla Escolha (V\xE1rias)&quot;},{value:&quot;categorizacao&quot;,label:&quot;Categoriza\xE7\xE3o / Grupos&quot;},{value:&quot;arrastar_soltar&quot;,label:&quot;Arrastar e Soltar (Drag &amp; Drop)&quot;},{value:&quot;ordenacao&quot;,label:&quot;Ordena\xE7\xE3o / Sequ\xEAncia&quot;},{value:&quot;verdadeiro_falso&quot;,label:&quot;Verdadeiro / Falso&quot;},{value:&quot;texto_livre&quot;,label:&quot;Texto Livre / Dissertativa&quot;},{value:&quot;preenchimento&quot;,label:&quot;Preenchimento de Lacunas&quot;}],so=[{value:&quot;smart&quot;,label:&quot;Inteligente (Auto-H\xEDbrido)&quot;},{value:&quot;command&quot;,label:&quot;Apenas Comando (Seguro)&quot;},{value:&quot;javascript&quot;,label:&quot;Apenas JS Nativo (Avan\xE7ado)&quot;}],ut=class{host;shadow;callbacks;autopilot;floatingAnswers;initialSettings;isCollapsed=!1;activeTab=&quot;resolver&quot;;isBusy=!1;stopwatchInterval=null;stopwatchStartTime=0;latestPlan=null;latestContext=null;latestImages=[];latestImageDescriptions=[];latestPromptText=&quot;&quot;;metricsLiveTime;metricsLiveStatus;metricsTotalBadge;metricTotalTime;metricAvgTime;metricTotalCount;metricsHistoryList;metricsHistoryCount;metricsCopyBtn;metricsResetBtn;currentQuestionStartTime=0;questionLiveTimerInterval=null;liveDebugTerminal;dbgModel;dbgLatency;dbgSplitTokens;dbgTotalTokens;dbgErrorCard;dbgErrorText;dbgPromptLen;dbgPromptView;dbgContextView;dbgRawRespView;dbgCountAll;dbgCountError;dbgCountAi;dbgCountDom;logEntries=[];activeLogFilter=&quot;all&quot;;autoScrollLogs=!0;lastErrorMsg=null;terminalCmdHistory=[];terminalCmdHistoryIdx=-1;terminalMode=&quot;terminal&quot;;_wallpaperRAF=0;_wlpWhiteLogo=null;_terminalInited=!1;liveTerminalOutput=null;terminalInputEl=null;outputSearchQuery=&quot;&quot;;outputSortNewest=!0;_reconnectContextbarBtns=()=&gt;{};_autopilotAnalyzingShown=!1;progressContainer;progressBar;progressLabel;progressVal;contextTreeContainer;launcherBtn;launcherDot;dockToggleBtn;sidebarEl;apToggleBtn;apConsole;executionConsole;dotPulseAp;statusTextAp;stopwatchAp;dotPulseAdv;statusTextAdv;stopwatchAdv;inspModel;inspLatency;inspTokens;inspPrompt;inspRationale;inspActions;copyPromptBtn=null;apiKeyInput;keyContextMenu;_ctxPopup=null;_ctxCloseH=null;keyMoreBtn;keysListEl;keysBadgeEl;modelSelect;modeSelect;engineSelect;dryRunCheckbox;autoApplyCheckbox;autoAdvanceCheckbox;hostDarkModeCheckbox;useVisionCheckbox;toastStackingCheckbox;analyzeBtn;applyBtn;resultContainer;constructor(t,e){this.initialSettings=t,this.callbacks=e,this.autopilot=new dt({onStatusChange:(i,c,l)=&gt;{this.logToConsole(c,l),i===&quot;analyzing&quot;?this._autopilotAnalyzingShown||(this._autopilotAnalyzingShown=!0,this.setBusy(!0,&quot;Autopilot: IA analisando...&quot;)):i===&quot;advancing&quot;||i===&quot;waiting&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!0)):i===&quot;idle&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),c.includes(&quot;conclus\xE3o&quot;)||c.includes(&quot;finalizada&quot;)||c.includes(&quot;Parab\xE9ns&quot;)?this.setStatus(&quot;Atividade conclu\xEDda. Resolver Autopilot finalizado com sucesso.&quot;,&quot;success&quot;):this.setStatus(&quot;Resolver Autopilot pausado e aguardando nova a\xE7\xE3o.&quot;,&quot;info&quot;)):i===&quot;error&quot;&amp;&amp;(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),this.setStatus(&quot;Resolver Autopilot interrompido por erro.&quot;,&quot;error&quot;))},onRequestAnalysis:async(i,c)=&gt;{try{return await this.callbacks.onAnalyze(i,c,!0)||null}catch{return null}},isManualModeActive:()=&gt;this.floatingAnswers?.isOpen()??!1,onPageAdvance:()=&gt;{this.floatingAnswers?.hide()}}),this.host=document.createElement(&quot;div&quot;),this.host.id=&quot;easyquiz-shadow-root&quot;,this.host.style.position=&quot;fixed&quot;,this.host.style.top=&quot;0&quot;,this.host.style.left=&quot;0&quot;,this.host.style.width=&quot;100vw&quot;,this.host.style.height=&quot;100vh&quot;,this.host.style.zIndex=&quot;2147483647&quot;,this.host.style.pointerEvents=&quot;none&quot;,this.shadow=this.host.attachShadow({mode:&quot;open&quot;}),ao(this.shadow,`
+`;var qe=&quot;v3.4.1&quot;;var bn=(()=&gt;{try{if(typeof window.trustedTypes?.createPolicy==&quot;function&quot;)return window.trustedTypes.createPolicy(&quot;easyquiz-ui#html&quot;,{createHTML:n=&gt;n})}catch{}return null})();function ao(n,t){try{if(bn){n.innerHTML=bn.createHTML(t);return}}catch{}try{if(typeof n.setHTMLUnsafe==&quot;function&quot;){n.setHTMLUnsafe(t);return}}catch{}n.innerHTML=t}var io=[{value:&quot;&quot;,label:&quot;Detec\xE7\xE3o Autom\xE1tica&quot;},{value:&quot;escolha_unica&quot;,label:&quot;M\xFAltipla Escolha (\xDAnica)&quot;},{value:&quot;escolha_multipla&quot;,label:&quot;M\xFAltipla Escolha (V\xE1rias)&quot;},{value:&quot;categorizacao&quot;,label:&quot;Categoriza\xE7\xE3o / Grupos&quot;},{value:&quot;arrastar_soltar&quot;,label:&quot;Arrastar e Soltar (Drag &amp; Drop)&quot;},{value:&quot;ordenacao&quot;,label:&quot;Ordena\xE7\xE3o / Sequ\xEAncia&quot;},{value:&quot;verdadeiro_falso&quot;,label:&quot;Verdadeiro / Falso&quot;},{value:&quot;texto_livre&quot;,label:&quot;Texto Livre / Dissertativa&quot;},{value:&quot;preenchimento&quot;,label:&quot;Preenchimento de Lacunas&quot;}],so=[{value:&quot;smart&quot;,label:&quot;Inteligente (Auto-H\xEDbrido)&quot;},{value:&quot;command&quot;,label:&quot;Apenas Comando (Seguro)&quot;},{value:&quot;javascript&quot;,label:&quot;Apenas JS Nativo (Avan\xE7ado)&quot;}],ut=class{host;shadow;callbacks;autopilot;floatingAnswers;initialSettings;isCollapsed=!1;activeTab=&quot;resolver&quot;;isBusy=!1;stopwatchInterval=null;stopwatchStartTime=0;latestPlan=null;latestContext=null;latestImages=[];latestImageDescriptions=[];latestPromptText=&quot;&quot;;metricsLiveTime;metricsLiveStatus;metricsTotalBadge;metricTotalTime;metricAvgTime;metricTotalCount;metricsHistoryList;metricsHistoryCount;metricsCopyBtn;metricsResetBtn;currentQuestionStartTime=0;questionLiveTimerInterval=null;liveDebugTerminal;dbgModel;dbgLatency;dbgSplitTokens;dbgTotalTokens;dbgErrorCard;dbgErrorText;dbgPromptLen;dbgPromptView;dbgContextView;dbgRawRespView;dbgCountAll;dbgCountError;dbgCountAi;dbgCountDom;logEntries=[];activeLogFilter=&quot;all&quot;;autoScrollLogs=!0;lastErrorMsg=null;terminalCmdHistory=[];terminalCmdHistoryIdx=-1;terminalMode=&quot;terminal&quot;;_wallpaperRAF=0;_wlpWhiteLogo=null;_terminalInited=!1;liveTerminalOutput=null;terminalInputEl=null;outputSearchQuery=&quot;&quot;;outputSortNewest=!0;_reconnectContextbarBtns=()=&gt;{};_autopilotAnalyzingShown=!1;progressContainer;progressBar;progressLabel;progressVal;contextTreeContainer;launcherBtn;launcherDot;dockToggleBtn;sidebarEl;apToggleBtn;apConsole;executionConsole;dotPulseAp;statusTextAp;stopwatchAp;dotPulseAdv;statusTextAdv;stopwatchAdv;inspModel;inspLatency;inspTokens;inspPrompt;inspRationale;inspActions;copyPromptBtn=null;apiKeyInput;keyContextMenu;_ctxPopup=null;_ctxCloseH=null;keyMoreBtn;keysListEl;keysBadgeEl;modelSelect;modeSelect;engineSelect;dryRunCheckbox;autoApplyCheckbox;autoAdvanceCheckbox;hostDarkModeCheckbox;useVisionCheckbox;toastStackingCheckbox;analyzeBtn;applyBtn;resultContainer;constructor(t,e){this.initialSettings=t,this.callbacks=e,this.autopilot=new dt({onStatusChange:(i,c,l)=&gt;{this.logToConsole(c,l),i===&quot;analyzing&quot;?this._autopilotAnalyzingShown||(this._autopilotAnalyzingShown=!0,this.setBusy(!0,&quot;Autopilot: IA analisando...&quot;)):i===&quot;advancing&quot;||i===&quot;waiting&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!0)):i===&quot;idle&quot;?(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),c.includes(&quot;conclus\xE3o&quot;)||c.includes(&quot;finalizada&quot;)||c.includes(&quot;Parab\xE9ns&quot;)?this.setStatus(&quot;Atividade conclu\xEDda. Resolver Autopilot finalizado com sucesso.&quot;,&quot;success&quot;):this.setStatus(&quot;Resolver Autopilot pausado e aguardando nova a\xE7\xE3o.&quot;,&quot;info&quot;)):i===&quot;error&quot;&amp;&amp;(this._autopilotAnalyzingShown=!1,this.setBusy(!1),this.updateAutopilotUi(!1),this.setStatus(&quot;Resolver Autopilot interrompido por erro.&quot;,&quot;error&quot;))},onRequestAnalysis:async(i,c)=&gt;{try{return await this.callbacks.onAnalyze(i,c,!0)||null}catch{return null}},isManualModeActive:()=&gt;this.floatingAnswers?.isOpen()??!1,onPageAdvance:()=&gt;{this.floatingAnswers?.hide()}}),this.host=document.createElement(&quot;div&quot;),this.host.id=&quot;easyquiz-shadow-root&quot;,this.host.style.position=&quot;fixed&quot;,this.host.style.top=&quot;0&quot;,this.host.style.left=&quot;0&quot;,this.host.style.width=&quot;100vw&quot;,this.host.style.height=&quot;100vh&quot;,this.host.style.zIndex=&quot;2147483647&quot;,this.host.style.pointerEvents=&quot;none&quot;,this.shadow=this.host.attachShadow({mode:&quot;open&quot;}),ao(this.shadow,`
       &lt;svg width=&quot;0&quot; height=&quot;0&quot; style=&quot;position:absolute;&quot;&gt;
         &lt;defs&gt;
           &lt;linearGradient id=&quot;geminiGradient&quot; x1=&quot;0%&quot; y1=&quot;0%&quot; x2=&quot;100%&quot; y2=&quot;100%&quot;&gt;
