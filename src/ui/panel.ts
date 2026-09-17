@@ -380,7 +380,7 @@ export class EasyQuizPanel {
                     <button class="eq-resolve-menu" id="eq-auto-menu-btn" type="button" aria-label="Mais opções" title="Mais opções">
                       <span class="eq-btn-icon">${ICONS.moreVertical}</span>
                     </button>
-                    <div class="eq-resolver-context-menu" id="eq-auto-menu" hidden>
+                    <div class="eq-resolver-context-menu eq-ctx-unified" id="eq-auto-menu" hidden>
                       <button type="button" class="eq-menu-item" data-auto-action="toggle">
                         <span class="eq-menu-icon">${ICONS.sparkles}</span>
                         <span>Resolver Autopilot</span>
@@ -623,7 +623,7 @@ export class EasyQuizPanel {
                     </div>
 
                     <!-- Context Menu Suspenso Dinâmico -->
-                    <div class="eq-context-menu" id="eq-key-context-menu" hidden>
+                    <div class="eq-context-menu eq-ctx-unified" id="eq-key-context-menu" hidden>
                       <button class="eq-context-item" id="eq-menu-prompt" type="button">
                         <span class="eq-item-icon">${ICONS.edit}</span>
                         <span class="eq-item-text">Inserir via Janela Nativa</span>
@@ -1191,12 +1191,28 @@ export class EasyQuizPanel {
     if (autoMenu) autoMenu.hidden = true
     autoMenuBtn?.classList.remove('is-open')
 
+    // Move autoMenu to shadow root for proper backdrop-filter
+    if (autoMenu && autoMenu.parentElement !== this.shadow as any) {
+      this.shadow.appendChild(autoMenu)
+    }
+    if (autoMenu) {
+      autoMenu.style.position = 'fixed'
+      autoMenu.style.zIndex   = '2147483645'
+    }
+
     autoMenuBtn?.addEventListener('click', (e) => {
       e.stopPropagation()
       if (!autoMenu) return
       const wasHidden = autoMenu.hidden
       autoMenu.hidden = !wasHidden
       autoMenuBtn.classList.toggle('is-open', !autoMenu.hidden)
+      if (wasHidden) {
+        const rect = autoMenuBtn.getBoundingClientRect()
+        autoMenu.style.top   = (rect.bottom + 4) + 'px'
+        autoMenu.style.left  = 'auto'
+        autoMenu.style.right = (window.innerWidth - rect.right) + 'px'
+        autoMenu.style.minWidth = '210px'
+      }
     })
 
     autoMenu?.querySelectorAll('[data-auto-action]').forEach((item) => {
@@ -1276,10 +1292,24 @@ export class EasyQuizPanel {
       }
     })
 
-    // Toggle do Menu de 3 Pontinhos (⋮)
+    // Move keyContextMenu to shadow root for proper backdrop-filter (escapes overflow ancestors)
+    if (this.keyContextMenu && this.keyContextMenu.parentElement !== this.shadow as any) {
+      this.shadow.appendChild(this.keyContextMenu)
+    }
+    this.keyContextMenu.style.cssText += ';position:fixed;z-index:2147483645;'
+
+    // Toggle do Menu de 3 Pontinhos (⋮) — reposition on open
     this.keyMoreBtn.addEventListener('click', (e) => {
       e.stopPropagation()
-      this.keyContextMenu.hidden = !this.keyContextMenu.hidden
+      const wasHidden = this.keyContextMenu.hidden
+      this.keyContextMenu.hidden = !wasHidden
+      if (wasHidden) {
+        const rect = this.keyMoreBtn.getBoundingClientRect()
+        this.keyContextMenu.style.top  = (rect.bottom + 4) + 'px'
+        this.keyContextMenu.style.left = 'auto'
+        this.keyContextMenu.style.right = (window.innerWidth - rect.right) + 'px'
+        this.keyContextMenu.style.width = '240px'
+      }
     })
 
     // Fechar menu de 3 pontinhos se clicar fora

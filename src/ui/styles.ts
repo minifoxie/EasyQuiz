@@ -2691,6 +2691,20 @@ export const PANEL_STYLES = `
   .eq-item-icon { display:inline-flex; align-items:center; flex-shrink:0; width:15px; height:15px; }
   .eq-item-icon svg { width:14px; height:14px; display:block; }
 
+
+  /* ── Shared context menu visual — applied to both menus via JS ──────────── */
+  .eq-ctx-unified {
+    background: rgba(8,8,12,0.62);
+    backdrop-filter: blur(18px) saturate(200%);
+    -webkit-backdrop-filter: blur(18px) saturate(200%);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 0;
+    box-shadow: 0 14px 48px rgba(0,0,0,0.9);
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
   /* Terminal wallpaper canvas — injected by JS in initTerminalWallpaper() */
   #eq-wallpaper-canvas { display:block; }
 
