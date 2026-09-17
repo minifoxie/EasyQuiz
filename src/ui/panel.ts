@@ -1197,11 +1197,11 @@ export class EasyQuizPanel {
     autoMenuBtn?.addEventListener('click', (e) => {
       e.stopPropagation()
       if (!autoMenu) return
-      if (this._ctxPopup) { _closeCtx(); autoMenuBtn.classList.remove('is-open'); return }
+      if (this._ctxPopup) { this.closeCtxPopup(); autoMenuBtn.classList.remove('is-open'); return }
       autoMenuBtn.classList.add('is-open')
-      _showCtx(autoMenuBtn, [
+      this.showCtxPopup(autoMenuBtn, [
         { ic:'sparkles', label:'Resolver Autopilot', onClick: () => { autoMenuBtn.classList.remove('is-open'); ;(autoMenu.querySelector('[data-auto-action="toggle"]') as HTMLElement)?.click() } },
-        { ic:'eraser',   label:'Limpar memória',     onClick: () => { autoMenuBtn.classList.remove('is-open'); ;(autoMenu.querySelector('[data-auto-action="memory"]') as HTMLElement)?.click() } },
+        { ic:'eraser',   label:'Limpar mem\u00f3ria',     onClick: () => { autoMenuBtn.classList.remove('is-open'); ;(autoMenu.querySelector('[data-auto-action="memory"]') as HTMLElement)?.click() } },
         { ic:'info',     label:'Mostrar status',     onClick: () => { autoMenuBtn.classList.remove('is-open'); ;(autoMenu.querySelector('[data-auto-action="status"]') as HTMLElement)?.click() } },
       ])
     })
@@ -1284,86 +1284,12 @@ export class EasyQuizPanel {
     })
 
 
-    // ── Shared context popup (dynamic, appended to document.body) ─────────────
-    // This creates both the resolver and settings context menus. By appending to
-    // document.body (outside shadow DOM), position:fixed always works relative to
-    // the viewport and backdrop-filter blur is never clipped by overflow:auto.
-
-    const _closeCtx = () => {
-      this._ctxPopup?.remove()
-      this._ctxPopup = null
-      if (this._ctxCloseH) { document.removeEventListener('click', this._ctxCloseH); this._ctxCloseH = null }
-    }
-
-    const _showCtx = (btn: HTMLElement, items: Array<{
-      ic?: string; label: string; badge?: string; danger?: boolean; divider?: boolean; onClick: () => void
-    }>) => {
-      _closeCtx()
-      const W = 240
-      const r = btn.getBoundingClientRect()
-      const left = Math.min(Math.max(4, r.right - W), window.innerWidth - W - 4)
-      const top  = r.bottom + 4
-
-      const popup = document.createElement('div')
-      Object.assign(popup.style, {
-        position: 'fixed', top: top + 'px', left: left + 'px', width: W + 'px',
-        zIndex: '2147483646', display: 'flex', flexDirection: 'column', gap: '1px', padding: '4px',
-        background: 'rgba(10,12,20,0.25)',
-        backdropFilter: 'blur(28px) saturate(250%) brightness(0.92)',
-        WebkitBackdropFilter: 'blur(28px) saturate(250%) brightness(0.92)',
-        border: '1px solid rgba(255,255,255,0.09)', borderRadius: '0px',
-        boxShadow: '0 18px 56px rgba(0,0,0,0.96)',
-        fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
-      })
-
-      items.forEach(item => {
-        if (item.divider) {
-          const sep = document.createElement('div')
-          Object.assign(sep.style, { height:'1px', background:'rgba(255,255,255,0.06)', margin:'3px 6px' })
-          popup.appendChild(sep); return
-        }
-        const b = document.createElement('button')
-        b.type = 'button'
-        Object.assign(b.style, {
-          display:'flex', alignItems:'center', gap:'9px',
-          width:'100%', height:'30px', padding:'0 10px',
-          background:'transparent', border:'none', borderRadius:'1px',
-          color: item.danger ? '#f87171' : '#a0a0a0',
-          fontSize:'12px', fontWeight:'600', fontFamily:'inherit', textAlign:'left', cursor:'pointer',
-        })
-        b.addEventListener('mouseenter', () => { b.style.background = item.danger ? 'rgba(255,80,80,0.12)' : 'rgba(255,255,255,0.09)'; b.style.color = item.danger ? '#fca5a5' : '#fff' })
-        b.addEventListener('mouseleave', () => { b.style.background = 'transparent'; b.style.color = item.danger ? '#f87171' : '#a0a0a0' })
-        if (item.ic) {
-          const ic = document.createElement('span')
-          Object.assign(ic.style, { display:'inline-flex', width:'14px', height:'14px', flexShrink:'0', alignItems:'center', justifyContent:'center', opacity:'0.75' })
-          ic.innerHTML = (ICONS as Record<string,string>)[item.ic] || ''
-          const svg = ic.querySelector('svg'); if (svg) { svg.style.width='13px'; svg.style.height='13px' }
-          b.appendChild(ic)
-        }
-        const lbl = document.createElement('span'); lbl.style.flex = '1'; lbl.textContent = item.label; b.appendChild(lbl)
-        if (item.badge) {
-          const bdg = document.createElement('span'); bdg.textContent = item.badge
-          Object.assign(bdg.style, { fontSize:'9px', fontWeight:'700', padding:'2px 6px', background:'rgba(255,255,255,0.07)', color:'#555', borderRadius:'2px', letterSpacing:'0.06em', marginLeft:'auto' })
-          b.appendChild(bdg)
-        }
-        b.addEventListener('click', (ev) => { ev.stopPropagation(); _closeCtx(); item.onClick() })
-        popup.appendChild(b)
-      })
-
-      document.body.appendChild(popup)
-      this._ctxPopup = popup
-
-      const closeH = (ev: MouseEvent) => { if (!popup.contains(ev.target as Node)) _closeCtx() }
-      setTimeout(() => { document.addEventListener('click', closeH); this._ctxCloseH = closeH }, 0)
-    }
-    // ── END shared context popup ────────────────────────────────────────────────
-
-    // Toggle do Menu de 3 Pontinhos (⋮) — uses shared _showCtx popup
+    // Toggle do Menu de 3 Pontinhos (⋮) — uses shared showCtxPopup class method
     this.keyMoreBtn.addEventListener('click', (e) => {
       e.stopPropagation()
-      if (this._ctxPopup) { _closeCtx(); return }
+      if (this._ctxPopup) { this.closeCtxPopup(); return }
       const _q = (id: string) => (this.shadow.querySelector(id) as HTMLElement)
-      _showCtx(this.keyMoreBtn, [
+      this.showCtxPopup(this.keyMoreBtn, [
         { ic:'edit',      label:'Inserir via Janela Nativa',           badge:'Bypass', onClick: () => _q('#eq-menu-prompt')?.click() },
         { ic:'paste',     label:'Colar da Área de Transferência',                       onClick: () => _q('#eq-menu-paste')?.click() },
         { ic:'eye',       label:'Mostrar/Ocultar Campo',                               onClick: () => _q('#eq-menu-toggle-vis')?.click() },
@@ -4840,6 +4766,78 @@ export class EasyQuizPanel {
   public hideFloatingAnswers(): void {
     this.floatingAnswers.hide()
   }
+
+  // ── Context popup class methods (shared by resolver and settings menus) ──────
+  private closeCtxPopup(): void {
+    this._ctxPopup?.remove()
+    this._ctxPopup = null
+    if (this._ctxCloseH) { document.removeEventListener('click', this._ctxCloseH); this._ctxCloseH = null }
+  }
+
+  private showCtxPopup(btn: HTMLElement, items: Array<{
+    ic?: string; label: string; badge?: string; danger?: boolean; divider?: boolean; onClick: () => void
+  }>): void {
+    this.closeCtxPopup()
+    const W = 240
+    const r = btn.getBoundingClientRect()
+    const left = Math.min(Math.max(4, r.right - W), window.innerWidth - W - 4)
+    const top  = r.bottom + 4
+    const popup = document.createElement('div')
+    Object.assign(popup.style, {
+      position: 'fixed', top: top + 'px', left: left + 'px', width: W + 'px',
+      zIndex: '2147483646', display: 'flex', flexDirection: 'column', gap: '1px', padding: '4px',
+      background: 'rgba(10,12,20,0.25)',
+      backdropFilter: 'blur(28px) saturate(250%) brightness(0.92)',
+      WebkitBackdropFilter: 'blur(28px) saturate(250%) brightness(0.92)',
+      border: '1px solid rgba(255,255,255,0.09)', borderRadius: '0px',
+      boxShadow: '0 18px 56px rgba(0,0,0,0.96)',
+      fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+    })
+    items.forEach(item => {
+      if (item.divider) {
+        const sep = document.createElement('div')
+        Object.assign(sep.style, { height: '1px', background: 'rgba(255,255,255,0.06)', margin: '3px 6px' })
+        popup.appendChild(sep); return
+      }
+      const b = document.createElement('button')
+      b.type = 'button'
+      Object.assign(b.style, {
+        display: 'flex', alignItems: 'center', gap: '9px',
+        width: '100%', height: '30px', padding: '0 10px',
+        background: 'transparent', border: 'none', borderRadius: '1px',
+        color: item.danger ? '#f87171' : '#a0a0a0',
+        fontSize: '12px', fontWeight: '600', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer',
+      })
+      b.addEventListener('mouseenter', () => {
+        b.style.background = item.danger ? 'rgba(255,80,80,0.12)' : 'rgba(255,255,255,0.09)'
+        b.style.color = item.danger ? '#fca5a5' : '#fff'
+      })
+      b.addEventListener('mouseleave', () => {
+        b.style.background = 'transparent'
+        b.style.color = item.danger ? '#f87171' : '#a0a0a0'
+      })
+      if (item.ic) {
+        const ic = document.createElement('span')
+        Object.assign(ic.style, { display: 'inline-flex', width: '14px', height: '14px', flexShrink: '0', alignItems: 'center', justifyContent: 'center', opacity: '0.75' })
+        ic.innerHTML = (ICONS as Record<string, string>)[item.ic] || ''
+        const svg = ic.querySelector('svg'); if (svg) { svg.style.width = '13px'; svg.style.height = '13px' }
+        b.appendChild(ic)
+      }
+      const lbl = document.createElement('span'); lbl.style.flex = '1'; lbl.textContent = item.label; b.appendChild(lbl)
+      if (item.badge) {
+        const bdg = document.createElement('span'); bdg.textContent = item.badge
+        Object.assign(bdg.style, { fontSize: '9px', fontWeight: '700', padding: '2px 6px', background: 'rgba(255,255,255,0.07)', color: '#555', borderRadius: '2px', letterSpacing: '0.06em', marginLeft: 'auto' })
+        b.appendChild(bdg)
+      }
+      b.addEventListener('click', (ev) => { ev.stopPropagation(); this.closeCtxPopup(); item.onClick() })
+      popup.appendChild(b)
+    })
+    document.body.appendChild(popup)
+    this._ctxPopup = popup
+    const closeH = (ev: MouseEvent) => { if (!popup.contains(ev.target as Node)) this.closeCtxPopup() }
+    setTimeout(() => { document.addEventListener('click', closeH); this._ctxCloseH = closeH }, 0)
+  }
+  // ── END context popup class methods ──────────────────────────────────────────
 
   public renderKeysList(): void {
     if (!this.keysListEl) return
