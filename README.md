@@ -24,7 +24,7 @@
 
 ## O que é o EasyQuiz?
 
-O EasyQuiz é um bookmarklet: um favorito especial que carrega o script na página do quiz. Ele funciona no navegador, sem extensão e sem servidor próprio. A inteligência artificial é acessada pela API do Google Gemini.
+O EasyQuiz é um bookmarklet: um favorito especial que carrega o script na página do quiz. Ele funciona no navegador, sem extensão e sem servidor próprio. A inteligência artificial é acessada pela API do Google Gemini..
 
 ### Escolha um modo
 
