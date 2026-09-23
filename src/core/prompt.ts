@@ -218,9 +218,10 @@ WAYGROUND / QUIZIZZ — CLASSIFICAÇÃO:
   → Após classificar TODOS os items, use {t:"adv"}.
 
 KHAN ACADEMY / PERSEUS:
-  → Widgets podem não responder a eventos DOM simples.
-  → Primeiro tente chk/clk normal. Se falhar, use js via $eq.
-  → Ex: {t:"js",v:"$eq('seletor').click()"}
+  → Campos de matemática (.mq-editable-field) exigem notação LaTeX. Exemplo: frações como \\frac{1}{2}, raízes como \\sqrt{3}.
+  → Use \`val\` para campos de texto/matemática. O sistema injeta via MathQuill automaticamente.
+  → Use \`sel\` para dropdowns e \`chk\` ou \`clk\` para multipla escolha/checkbox.
+  → O motor fará o fallback automático para a API do React/Perseus, não emita ações \`js\` a menos que explicitamente exigido.
 
 DUOLINGO:
   → Tiles clicáveis com texto. Use clk pelo texto exato do tile.

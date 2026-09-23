@@ -97,6 +97,24 @@ export function clearHighlights(): void {
     try { scanOverlay.remove() } catch {}
     scanOverlay = null
   }
+
+  // Limpeza global de segurança: remover qualquer frame/badge órfão do document.body
+  // que possa ter sobrevivido a uma navegação SPA
+  try {
+    document.querySelectorAll('[data-easyquiz-image-frame]').forEach(el => { try { el.remove() } catch {} })
+    document.querySelectorAll('[data-easyquiz-capture-badge]').forEach(el => { try { el.remove() } catch {} })
+    document.querySelectorAll('[data-easyquiz-image-highlight]').forEach(el => {
+      try {
+        const h = el as HTMLElement
+        h.style.removeProperty('animation')
+        h.style.removeProperty('outline')
+        h.style.removeProperty('outline-offset')
+        h.style.removeProperty('box-shadow')
+        h.style.removeProperty('filter')
+        h.removeAttribute('data-easyquiz-image-highlight')
+      } catch {}
+    })
+  } catch {}
 }
 
 export function highlightAttachedImages(elements: Element[]): void {
@@ -177,18 +195,38 @@ export function highlightAttachedImages(elements: Element[]): void {
   }
 
   // Sincroniza posição das molduras com scroll e redimensionamento
+  // Também auto-remove frames órfãs cujo elemento já não está no DOM
   if (trackedPairs.length > 0 && !repositionListener && typeof window !== 'undefined') {
     repositionListener = () => {
-      for (const pair of trackedPairs) {
+      for (let i = trackedPairs.length - 1; i >= 0; i--) {
+        const pair = trackedPairs[i]
         try {
+          // Verificar se o elemento ainda existe no DOM e está visível
+          if (!document.contains(pair.element)) {
+            // Elemento foi removido (navegação SPA) — limpar frame órfã
+            try { pair.frame.remove() } catch {}
+            const frameIdx = imageFrames.indexOf(pair.frame)
+            if (frameIdx !== -1) imageFrames.splice(frameIdx, 1)
+            trackedPairs.splice(i, 1)
+            continue
+          }
           const r = pair.element.getBoundingClientRect()
           if (r.width > 0 && r.height > 0) {
             pair.frame.style.top = `${r.top + window.scrollY - 3}px`
             pair.frame.style.left = `${r.left + window.scrollX - 3}px`
             pair.frame.style.width = `${r.width + 6}px`
             pair.frame.style.height = `${r.height + 6}px`
+          } else {
+            // Elemento tem tamanho 0 (pode estar oculto) — esconder frame
+            pair.frame.style.display = 'none'
           }
         } catch {}
+      }
+      // Se todos os pares foram removidos, limpar o listener
+      if (trackedPairs.length === 0 && repositionListener) {
+        window.removeEventListener('scroll', repositionListener)
+        window.removeEventListener('resize', repositionListener)
+        repositionListener = null
       }
     }
     window.addEventListener('scroll', repositionListener, { passive: true })

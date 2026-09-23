@@ -21,6 +21,30 @@ function blobToBase64(blob: Blob): Promise<string> {
   })
 }
 
+function isCanvasBlank(canvas: HTMLCanvasElement): boolean {
+  try {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return true
+    // Verifica apenas um trecho para eficiência
+    const w = Math.min(canvas.width, 50)
+    const h = Math.min(canvas.height, 50)
+    if (w <= 0 || h <= 0) return true
+    const data = ctx.getImageData(0, 0, w, h).data
+    let whiteOrTransparentCount = 0
+    for (let i = 0; i < data.length; i += 4) {
+      // É transparente ou muito claro (branco/quase branco)
+      if (data[i + 3] === 0 || (data[i] > 250 && data[i + 1] > 250 && data[i + 2] > 250)) {
+        whiteOrTransparentCount++
+      }
+    }
+    const ratio = whiteOrTransparentCount / (data.length / 4)
+    return ratio > 0.95 // 95% branco ou transparente = consideramos blank
+  } catch {
+    // Se falhar de ler por CORS exception (excepcional), assumimos não-blank ou falha
+    return false
+  }
+}
+
 async function compressImage(source: HTMLImageElement | HTMLCanvasElement | ImageBitmap): Promise<Blob> {
   let width = 0
   let height = 0
@@ -162,6 +186,8 @@ async function rasterizeSvgElement(
       ctx.fillStyle = bgColor
       ctx.fillRect(0, 0, targetWidth, targetHeight)
       ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
+
+      if (isCanvasBlank(canvas)) return { base64: fallbackSvgBase64, mediaType: 'image/svg+xml' }
 
       const blob = await new Promise<Blob | null>((resolve) => {
         canvas.toBlob(resolve, 'image/jpeg', 0.92)
@@ -306,6 +332,8 @@ async function captureElementVisualSnapshot(node: HTMLElement): Promise<Captured
         ctx.fillStyle = bgColor
         ctx.fillRect(0, 0, targetW, targetH)
         ctx.drawImage(img, 0, 0, targetW, targetH)
+
+        if (isCanvasBlank(canvas)) throw new Error('ForeignObject gerou canvas em branco')
 
         const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.90))
         if (blob) {
@@ -535,15 +563,17 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
     // CORS bloqueado
   }
 
-  // Estratégia 3: Bypass via Proxies CORS Transparentes (concorrente com timeout rápido de 1500ms)
+  // Estratégia 3: Bypass via Proxies CORS Transparentes (concorrente com timeout rápido de 800ms)
   if (src.startsWith('http')) {
+    const encodedSrc = encodeURIComponent(src)
     const proxies = [
-      `https://corsproxy.io/?${encodeURIComponent(src)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(src)}`,
+      `https://corsproxy.io/?${encodedSrc}`,
+      `https://api.allorigins.win/raw?url=${encodedSrc}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodedSrc}`
     ]
     const tryProxy = async (proxyUrl: string): Promise<Response> => {
       const controller = new AbortController()
-      const tid = setTimeout(() => controller.abort(), 1500)
+      const tid = setTimeout(() => controller.abort(), 800)
       try {
         const res = await fetch(proxyUrl, { signal: controller.signal })
         clearTimeout(tid)

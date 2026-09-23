@@ -13,22 +13,23 @@ console.log('[EasyQuiz] Compilando bundle...')
 
 import { execSync } from 'child_process'
 
-let versionLabel = 'v3.4.9'
-let gitHash = 'main'
+let versionLabel = 'v0.0.0'
+let gitHash = 'unknown'
+
 try {
-  const pkgData = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf-8'))
-  if (pkgData.version) {
-    versionLabel = pkgData.version.startsWith('v') ? pkgData.version : `v${pkgData.version}`
-  }
+  gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim()
+  const count = execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim()
+  versionLabel = `v${String(count).split('').join('.')}`
 } catch {
   try {
-    gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim()
-    const count = execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim()
-    versionLabel = `v${count.split('').join('.')}`
+    const pkgData = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf-8'))
+    if (pkgData.version) {
+      versionLabel = pkgData.version.startsWith('v') ? pkgData.version : `v${pkgData.version}`
+    }
   } catch {}
 }
 
-const bannerText = `/* EasyQuiz ${versionLabel} — Resolução inteligente de quizzes sem servidor
+const bannerText = `/* EasyQuiz ${versionLabel} (${gitHash}) — Resolução inteligente de quizzes sem servidor
  * GitHub: https://github.com/minifoxie/EasyQuiz
  * 100% Client-side. Direct Google Gemini REST API.
  */`
@@ -37,10 +38,11 @@ const bannerText = `/* EasyQuiz ${versionLabel} — Resolução inteligente de q
 // Using a specific commit hash would pin them to the pre-push commit (stale).
 const canonicalGitHash = 'main'
 
-console.log(`[EasyQuiz] Version: ${versionLabel}`)
+console.log(`[EasyQuiz] Version: ${versionLabel} (${gitHash})`)
 
 const defineOptions = {
-  'process.env.EASYQUIZ_VERSION': JSON.stringify(versionLabel)
+  'process.env.EASYQUIZ_VERSION': JSON.stringify(versionLabel),
+  'process.env.EASYQUIZ_COMMIT': JSON.stringify(gitHash)
 }
 
 const buildOptions = {

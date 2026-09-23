@@ -5,6 +5,8 @@ import {
   CONTROL_SELECTOR,
   describeControl,
   isInsideEasyQuiz,
+  isKhanAcademyPage,
+  isKhanSidebarElement,
   isNavigationControl,
   isUtilityOrGamificationControl,
   isVisible,
@@ -51,8 +53,13 @@ const CANDIDATE_SELECTORS = [
 function scoreCandidate(element: HTMLElement): number {
   if (!isVisible(element)) return -Infinity
 
+  // Khan Academy: penalizar severamente elementos na sidebar/lista de tarefas
+  if (isKhanSidebarElement(element)) return -Infinity
+
   const rect = element.getBoundingClientRect()
-  const controls = Array.from(element.querySelectorAll(CONTROL_SELECTOR)).filter(isVisible)
+  const controls = Array.from(element.querySelectorAll(CONTROL_SELECTOR)).filter(
+    (el) => isVisible(el) && !isKhanSidebarElement(el)
+  )
   const textLength = cleanText(element.innerText || element.textContent || '', 4000).length
 
   // Não pontua se texto for vazio ou se não tiver controles nem texto explicativo
@@ -72,11 +79,15 @@ function scoreCandidate(element: HTMLElement): number {
   // Se o elemento estiver visível no viewport atual, ganha bônus
   const inViewportBonus = rect.top >= 0 && rect.bottom <= window.innerHeight ? 25 : 0
 
+  // Bônus para Perseus renderer (container canônico de questão no Khan Academy)
+  const perseusBonus = element.matches?.('.perseus-renderer, .framework-perseus, [data-test-id*="exercise" i]') ? 50 : 0
+
   return (
     controls.length * 15 +
     Math.min(60, textLength / 20) +
     hasSubstantialText +
-    inViewportBonus -
+    inViewportBonus +
+    perseusBonus -
     areaRatio * 20 -
     centerDistance * 10
   )
@@ -130,6 +141,102 @@ export function findTrueQuestionContainer(element: HTMLElement): HTMLElement {
   return curr
 }
 
+/**
+ * Extrai texto com consciência matemática: converte KaTeX/MathML para LaTeX legível.
+ * Usado em vez de `innerText` puro para preservar a formatação de fórmulas.
+ */
+export function extractMathAwareText(element: HTMLElement, maxLen = 16_000): string {
+  const clone = element.cloneNode(true) as HTMLElement
+
+  // 1. KaTeX: substituir <span class="katex"> pelo LaTeX source da <annotation>
+  const katexEls = Array.from(clone.querySelectorAll('.katex'))
+  for (const katex of katexEls) {
+    const annotation = katex.querySelector('annotation[encoding="application/x-tex"]')
+    if (annotation && annotation.textContent) {
+      const latexText = ` $${annotation.textContent.trim()}$ `
+      const replacement = document.createTextNode(latexText)
+      katex.replaceWith(replacement)
+    }
+  }
+
+  // 2. MathML <math>: linearizar frações, raízes, potências
+  const mathEls = Array.from(clone.querySelectorAll('math'))
+  for (const math of mathEls) {
+    try {
+      const linearized = linearizeMathML(math)
+      if (linearized) {
+        const replacement = document.createTextNode(` ${linearized} `)
+        math.replaceWith(replacement)
+      }
+    } catch {}
+  }
+
+  // 3. MathQuill: extrair texto linearizado
+  const mqEls = Array.from(clone.querySelectorAll('.mq-root-block, .mq-editable-field'))
+  for (const mq of mqEls) {
+    const textContent = mq.textContent?.trim()
+    if (textContent) {
+      mq.textContent = ` [math: ${textContent}] `
+    }
+  }
+
+  // 4. <sup> e <sub> → notação de potência/índice
+  const sups = Array.from(clone.querySelectorAll('sup'))
+  for (const sup of sups) {
+    sup.textContent = `^{${sup.textContent?.trim() || ''}}`
+  }
+  const subs = Array.from(clone.querySelectorAll('sub'))
+  for (const sub of subs) {
+    sub.textContent = `_{${sub.textContent?.trim() || ''}}`
+  }
+
+  const rawText = clone.innerText && clone.innerText.trim().length > 0 ? clone.innerText : clone.textContent || ''
+  return cleanText(rawText, maxLen)
+}
+
+/** Lineariza um elemento MathML para texto legível */
+function linearizeMathML(math: Element): string {
+  const parts: string[] = []
+  function walk(el: Element): void {
+    const tag = el.tagName?.toLowerCase()
+    if (tag === 'mfrac') {
+      const children = Array.from(el.children)
+      const num = children[0]?.textContent?.trim() || '?'
+      const den = children[1]?.textContent?.trim() || '?'
+      parts.push(`(${num}/${den})`)
+      return
+    }
+    if (tag === 'msqrt') {
+      parts.push(`sqrt(${el.textContent?.trim() || '?'})`)
+      return
+    }
+    if (tag === 'msup') {
+      const children = Array.from(el.children)
+      const base = children[0]?.textContent?.trim() || '?'
+      const exp = children[1]?.textContent?.trim() || '?'
+      parts.push(`${base}^{${exp}}`)
+      return
+    }
+    if (tag === 'msub') {
+      const children = Array.from(el.children)
+      const base = children[0]?.textContent?.trim() || '?'
+      const sub = children[1]?.textContent?.trim() || '?'
+      parts.push(`${base}_{${sub}}`)
+      return
+    }
+    if (tag === 'mn' || tag === 'mi' || tag === 'mo' || tag === 'mtext') {
+      parts.push(el.textContent?.trim() || '')
+      return
+    }
+    // Recursivo para containers como <mrow>, <mstyle>, etc.
+    for (const child of Array.from(el.children)) {
+      walk(child)
+    }
+  }
+  walk(math)
+  return parts.join(' ')
+}
+
 export function expandToGeneralSelection(scope: HTMLElement): HTMLElement {
   let curr = scope
   // Sobe procurando o container maior do exercício, artigo, formulário ou main
@@ -160,11 +267,36 @@ export function findActiveScope(): HTMLElement {
     return classificationWidget
   }
 
+  // 0.5 PRIORIDADE KHAN ACADEMY: buscar o Perseus renderer VISÍVEL e no VIEWPORT
+  // O Khan Academy renderiza múltiplos exercícios no mesmo DOM (sidebar de cards),
+  // mas apenas UM está ativo e visível. Este bloco garante que capturamos o correto.
+  if (isKhanAcademyPage()) {
+    const perseusRenderers = Array.from(
+      document.querySelectorAll('.perseus-renderer, .framework-perseus')
+    ) as HTMLElement[]
+    // Filtrar: visível no viewport, com dimensões reais, e NÃO na sidebar
+    const activeRenderers = perseusRenderers.filter((el) => {
+      if (!isVisible(el) || isKhanSidebarElement(el)) return false
+      const rect = el.getBoundingClientRect()
+      // Deve estar pelo menos parcialmente no viewport e ter tamanho razoável
+      return rect.width > 100 && rect.height > 50 && rect.bottom > 0 && rect.top < window.innerHeight
+    })
+    if (activeRenderers.length > 0) {
+      // Prefere o maior renderer visível (o que contém a questão ativa)
+      activeRenderers.sort((a, b) => {
+        const rA = a.getBoundingClientRect()
+        const rB = b.getBoundingClientRect()
+        return (rB.width * rB.height) - (rA.width * rA.height)
+      })
+      return findTrueQuestionContainer(activeRenderers[0])
+    }
+  }
+
   // 1. Verificar se o elemento com foco do usuário está dentro de uma questão candidata
   const active = document.activeElement as HTMLElement | null
   if (active && active !== document.body) {
     const focusedScope = active.closest(CANDIDATE_SELECTORS) as HTMLElement | null
-    if (focusedScope && scoreCandidate(focusedScope) > 0) {
+    if (focusedScope && !isKhanSidebarElement(focusedScope) && scoreCandidate(focusedScope) > 0) {
       return findTrueQuestionContainer(focusedScope)
     }
   }
@@ -172,6 +304,7 @@ export function findActiveScope(): HTMLElement {
   // 2. Pontuar todos os candidatos na página
   const candidates = Array.from(document.querySelectorAll(CANDIDATE_SELECTORS)) as HTMLElement[]
   const ranked = candidates
+    .filter((el) => !isKhanSidebarElement(el)) // Excluir sidebar do Khan Academy
     .map((element) => ({ element, score: scoreCandidate(element) }))
     .filter((item) => Number.isFinite(item.score))
     .sort((a, b) => b.score - a.score)
@@ -244,10 +377,13 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
   const allElements = Array.from(scope.querySelectorAll(CONTROL_SELECTOR)) as HTMLElement[]
   const handledInputs = new Set<HTMLElement>()
   const selectedElements: HTMLElement[] = []
+  const isKhan = isKhanAcademyPage()
 
   // 1ª passada: inputs nativos e selects
   for (const el of allElements) {
     if (!isVisible(el) || isNavigationControl(el) || isUtilityOrGamificationControl(el)) continue
+    // Khan Academy: excluir controles que estão na sidebar/lista de tarefas
+    if (isKhan && isKhanSidebarElement(el)) continue
     // Descarta botões de retrocesso ("Anterior", "Voltar", etc.) que não são barrados por isNavigationControl
     const elText = ((el as HTMLInputElement).value || el.textContent || '').trim()
     if (ANTI_NAVIGATION_PATTERN.test(elText)) continue
@@ -262,6 +398,8 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
   // 2ª passada: cards, labels e botões que representam opções customizadas (sem input interno já coletado)
   for (const el of allElements) {
     if (!isVisible(el) || isNavigationControl(el) || isUtilityOrGamificationControl(el)) continue
+    // Khan Academy: excluir controles da sidebar (2ª passada)
+    if (isKhan && isKhanSidebarElement(el)) continue
     // Descarta botões de retrocesso que escapam do isNavigationControl
     const elText2 = ((el as HTMLInputElement).value || el.textContent || '').trim()
     if (ANTI_NAVIGATION_PATTERN.test(elText2)) continue
@@ -499,11 +637,17 @@ export function captureCurrentContext(expanded = false): CapturedContext | null 
     navs = extractNavigationControls(document.body)
   }
 
-  // Captura de texto com limite inteligente para páginas extensas
-  const rawText = scope.innerText && scope.innerText.trim().length > 0 ? scope.innerText : scope.textContent || ''
-  const questionText = rawText.length > 40_000
-    ? cleanText(rawText.slice(0, 8000), 8000) + '\n[...conteúdo extenso truncado...]\n' + cleanText(rawText.slice(-2000), 2000)
-    : cleanText(rawText, 16_000)
+  // Captura de texto com consciência matemática (KaTeX/MathML) para Khan Academy
+  const hasMathContent = scope.querySelector('.katex, math, .mq-root-block, .mq-editable-field')
+  let questionText: string
+  if (hasMathContent) {
+    questionText = extractMathAwareText(scope, 16_000)
+  } else {
+    const rawText = scope.innerText && scope.innerText.trim().length > 0 ? scope.innerText : scope.textContent || ''
+    questionText = rawText.length > 40_000
+      ? cleanText(rawText.slice(0, 8000), 8000) + '\n[...conteúdo extenso truncado...]\n' + cleanText(rawText.slice(-2000), 2000)
+      : cleanText(rawText, 16_000)
+  }
   const controls = [...answers, ...navs].slice(0, 120)
 
   // Se tem texto explicativo relevante (> 30 chars), mesmo sem controles de resposta direta,

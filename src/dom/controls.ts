@@ -203,6 +203,41 @@ export function isInsideEasyQuiz(el: Element | null): boolean {
   )
 }
 
+/**
+ * Detecta se o elemento pertence à sidebar/lista de tarefas do Khan Academy
+ * (e não à questão ativa). Esses controles NÃO devem ser coletados como respostas.
+ */
+export function isKhanSidebarElement(el: Element | null): boolean {
+  if (!el) return false
+  // Khan Academy sidebar containers: task list, lesson navigation, mastery cards
+  const sidebarAncestor = el.closest(
+    'aside, nav, ' +
+    '[class*="task-list" i], [class*="lesson-list" i], [class*="mastery" i], ' +
+    '[class*="sidebar" i], [class*="side-bar" i], [class*="side_bar" i], ' +
+    '[class*="unit-nav" i], [class*="course-nav" i], ' +
+    '[data-testid*="sidebar" i], [data-testid*="task-list" i], ' +
+    '[class*="practice-tab" i], [class*="progress-nav" i], ' +
+    '[role="navigation"], [role="complementary"]'
+  )
+  if (sidebarAncestor) {
+    // Certifica que o ancestor não é o próprio exercício/Perseus renderer
+    const isInsideExercise = sidebarAncestor.querySelector('.perseus-renderer, .framework-perseus, [data-test-id*="exercise" i]')
+    if (!isInsideExercise) return true
+  }
+  return false
+}
+
+/**
+ * Detecta se a página atual é do Khan Academy via URL ou DOM markers.
+ */
+export function isKhanAcademyPage(): boolean {
+  try {
+    if (/khanacademy\.org/i.test(window.location.href)) return true
+    if (document.querySelector('.perseus-renderer, .framework-perseus')) return true
+  } catch {}
+  return false
+}
+
 export const UTILITY_CONTROL_PATTERN =
   /(leaderboard|scoreboard|placar|ranking|trophy|pause|pausar|mute|mutar|audio|sound|som|música|music|configuraç|settings|theme|ajuda|help|report|denunciar|feedback|power-?up|streak|coins|fullscreen|full-screen|read-?aloud|audio-?player|(?:audio|sound|som|media)[-_ ]*volume|volume[-_ ]*(?:slider|control|level|btn|button|icon|mute)|vol-slider)/i
 

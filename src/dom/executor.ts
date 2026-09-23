@@ -1,7 +1,7 @@
 import type { ActionExecutionReport, AnalysisPlan, DeclarativeAction } from '../core/types'
 import { assertActionAllowed, createExecutionPolicy, validateJavaScriptSource, type ExecutionPolicy } from '../core/policy'
 import { loadDomainCache, saveDomainCache } from '../core/storage'
-import { cleanText, isNavigationControl, isUtilityOrGamificationControl, isVisible, labelForControl, NAVIGATION_PATTERN, ANTI_NAVIGATION_PATTERN, safeCssEscape } from './controls'
+import { cleanText, isNavigationControl, isUtilityOrGamificationControl, isVisible, labelForControl, NAVIGATION_PATTERN, ANTI_NAVIGATION_PATTERN, safeCssEscape, isKhanAcademyPage } from './controls'
 import { findActiveScope } from './detector'
 
 export function isInsideEasyQuiz(el: HTMLElement | null): boolean {
@@ -1681,6 +1681,82 @@ if (typeof window !== 'undefined') {
   ;(window as any).$eq = EqAPI
 }
 
+// ---- ESTRATÉGIAS KHAN ACADEMY (PERSEUS) ----
+export async function executePerseusAction(action: DeclarativeAction, el: HTMLElement, valHint: string): Promise<boolean> {
+  if (!el) return false
+
+  // 1. MathQuill handler (.mq-editable-field)
+  if (action.t === 'val' && (el.classList.contains('mq-editable-field') || el.closest('.mq-editable-field'))) {
+    const target = el.classList.contains('mq-editable-field') ? el : el.closest('.mq-editable-field') as HTMLElement
+    if (target) {
+      try {
+        const controller = (target as any).__controller || (target as any).__mathquill_controller
+        if (controller && controller.API) {
+          controller.API.latex(valHint)
+          return true
+        }
+      } catch {}
+      // Fallback MathQuill: focus e simulação de teclado
+      try {
+        target.focus()
+        for (const char of valHint) {
+          const kEvent = { key: char, bubbles: true, cancelable: true }
+          target.dispatchEvent(new KeyboardEvent('keydown', kEvent))
+          target.dispatchEvent(new KeyboardEvent('keypress', kEvent))
+          document.execCommand?.('insertText', false, char)
+          target.dispatchEvent(new KeyboardEvent('keyup', kEvent))
+        }
+        return true
+      } catch {}
+    }
+  }
+
+  // 2. Perseus Dropdown handler
+  if (action.t === 'sel' && el.closest('.perseus-widget-container')) {
+    const btn = el.tagName === 'BUTTON' ? el : el.querySelector('button') || el.closest('button')
+    if (btn) {
+      try {
+        // Clica para abrir
+        simulatePointerClick(btn as HTMLElement)
+        await new Promise(r => setTimeout(r, 150)) // Aguarda portal React
+        // Procura opções em portais ou no próprio widget
+        const portals = Array.from(document.querySelectorAll('[data-reach-popover], [role="listbox"], .perseus-dropdown'))
+        for (const portal of portals) {
+          const opts = Array.from(portal.querySelectorAll('[role="option"], li, button'))
+          const match = opts.find(o => cleanSearchTerm(o.textContent).toLowerCase().includes(cleanSearchTerm(valHint).toLowerCase()))
+          if (match) {
+            simulatePointerClick(match as HTMLElement)
+            return true
+          }
+        }
+        // Se não achou na lista portal, tenta fechar (clica de novo) e re-lançar evento genérico
+        simulatePointerClick(btn as HTMLElement)
+      } catch {}
+    }
+  }
+
+  // 3. React Fiber Fallback para clicks em controles customizados (radio/checkbox)
+  if ((action.t === 'clk' || action.t === 'chk') && el.closest('.perseus-widget-container')) {
+    try {
+      const fiberKey = Object.keys(el).find(k => k.startsWith('__reactFiber$'))
+      const propsKey = Object.keys(el).find(k => k.startsWith('__reactProps$'))
+      if (propsKey && (el as any)[propsKey]) {
+        const props = (el as any)[propsKey]
+        if (typeof props.onClick === 'function') {
+          props.onClick({ preventDefault: () => {}, stopPropagation: () => {} })
+          return true
+        }
+        if (typeof props.onChange === 'function') {
+          props.onChange({ target: { checked: true, value: valHint }, preventDefault: () => {} })
+          return true
+        }
+      }
+    } catch {}
+  }
+
+  return false // Não foi tratado pelo Perseus engine, seguir fluxo normal
+}
+
 // ---- EXECUTOR DECLARATIVO ----
 export async function executeDeclarativeAction(action: DeclarativeAction, attempt = 1, policy = createExecutionPolicy()): Promise<void> {
   assertActionAllowed(action, policy)
@@ -1898,6 +1974,11 @@ export async function executeDeclarativeAction(action: DeclarativeAction, attemp
 
   if (!element && action.t !== 'adv') {
     throw new Error(`Alvo '${elId}' não encontrado no DOM para ação '${action.t}'.`)
+  }
+
+  if (isKhanAcademyPage() && element && action.t !== 'js' && action.t !== 'adv') {
+    const handled = await executePerseusAction(action, element, valHint)
+    if (handled) return
   }
 
   switch (action.t) {
