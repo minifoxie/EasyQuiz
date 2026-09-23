@@ -9,22 +9,29 @@ await mkdir(dist, { recursive: true })
 
 const isWatch = process.argv.includes('--watch')
 
-const bannerText = `/* EasyQuiz v1.0.0 — Resolução inteligente de quizzes sem servidor
- * GitHub: https://github.com/minifoxie/EasyQuiz
- * 100% Client-side. Direct Google Gemini REST API.
- */`
-
 console.log('[EasyQuiz] Compilando bundle...')
 
 import { execSync } from 'child_process'
 
-let versionLabel = 'v2.3.7'
+let versionLabel = 'v3.4.9'
 let gitHash = 'main'
 try {
-  gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim()
-  const count = execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim()
-  versionLabel = `v${count.split('').join('.')}`
-} catch {}
+  const pkgData = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf-8'))
+  if (pkgData.version) {
+    versionLabel = pkgData.version.startsWith('v') ? pkgData.version : `v${pkgData.version}`
+  }
+} catch {
+  try {
+    gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim()
+    const count = execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim()
+    versionLabel = `v${count.split('').join('.')}`
+  } catch {}
+}
+
+const bannerText = `/* EasyQuiz ${versionLabel} — Resolução inteligente de quizzes sem servidor
+ * GitHub: https://github.com/minifoxie/EasyQuiz
+ * 100% Client-side. Direct Google Gemini REST API.
+ */`
 
 // Always use 'main' so bookmarklets fetch the latest after every push.
 // Using a specific commit hash would pin them to the pre-push commit (stale).
@@ -70,7 +77,7 @@ const discreteBuildOptions = {
   legalComments: 'none',
   sourcemap: false,
   define: defineOptions,
-  banner: { js: `/* EasyQuiz Discreto v1.0.0 — Modo Stealth sem interface\n * 100% Client-side. Direct Google Gemini REST API.\n */` },
+  banner: { js: `/* EasyQuiz Discreto ${versionLabel} — Modo Stealth sem interface\n * 100% Client-side. Direct Google Gemini REST API.\n */` },
 }
 
 await build(discreteBuildOptions)

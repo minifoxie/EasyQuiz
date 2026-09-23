@@ -16,9 +16,15 @@ const indexHtml      = fs.readFileSync(indexPath,      'utf8');
 const legacyCode     = fs.readFileSync(path.join(distDir, 'easyquiz.js'), 'utf8');
 const discreteCode   = fs.readFileSync(path.join(distDir, 'discrete.js'), 'utf8');
 
-// Extract version (specifically vMAJOR.MINOR.PATCH where MAJOR >= 2)
-const verMatch = legacyCode.match(/v2\.\d+\.\d+/);
-const version  = verMatch ? verMatch[0] : 'unknown';
+// Extract version
+let version = 'v3.4.9';
+try {
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+  if (pkg.version) version = pkg.version.startsWith('v') ? pkg.version : `v${pkg.version}`;
+} catch {
+  const verMatch = legacyCode.match(/EasyQuiz\s+(v\d+\.\d+\.\d+)/);
+  if (verMatch) version = verMatch[1];
+}
 
 // Encode bundles as base64 — eliminates all CDN / cache problems
 const legacyB64   = Buffer.from(legacyCode,   'utf8').toString('base64');
@@ -30,10 +36,16 @@ const topbarHtml  = topbarMatch ? topbarMatch[0] : '';
 
 playgroundHtml = playgroundHtml
   .replace(/<header class="khan-topbar">[\s\S]*?<\/header>/, topbarHtml)
-  .replace(/class="nav-btn active"/, 'class="nav-btn"')
-  .replace(/<\/head>/, `  <link rel="stylesheet" href="css/style.css?v=5.9.9">\n  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>\n</head>`)
-  .replace(/<body>/, `<body>\n<div id="bg-dom"></div>\n<div class="global-backdrop" id="global-backdrop"></div>`)
-  .replace(/<title>.*?<\/title>/, '<title>Playground - EasyQuiz</title>');
+  .replace(/class="nav-btn active"/, 'class="nav-btn"');
+
+// Clean duplicate styles and scripts in head
+playgroundHtml = playgroundHtml.replace(/(?:\s*<link rel="stylesheet" href="css\/style\.css\?v=[^"]*">\s*<script src="https:\/\/unpkg\.com\/lucide[^"]*"><\/script>)+/g, '');
+playgroundHtml = playgroundHtml.replace(/<\/head>/, `  <link rel="stylesheet" href="css/style.css?v=5.9.9">\n  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>\n</head>`);
+
+// Clean duplicate backdrops
+playgroundHtml = playgroundHtml.replace(/(?:\s*<div id="bg-dom"><\/div>\s*<div class="global-backdrop" id="global-backdrop"><\/div>)+/g, '');
+playgroundHtml = playgroundHtml.replace(/<body>\s*/, `<body>\n<div id="bg-dom"></div>\n<div class="global-backdrop" id="global-backdrop"></div>\n`);
+playgroundHtml = playgroundHtml.replace(/<title>.*?<\/title>/, '<title>Playground - EasyQuiz</title>');
 
 // ── inline injector panel ─────────────────────────────────────────────────────
 const injectorPanel = `
@@ -97,8 +109,12 @@ function showPgToast(msg) {
 </script>
 `;
 
-// Remove existing injector panels to prevent duplication
+// Remove existing injector panels and inline bundles to prevent duplication
 playgroundHtml = playgroundHtml.replace(/<div class="mega-container glass"[\s\S]*?<\/script>/g, '');
+playgroundHtml = playgroundHtml.replace(/<script id="eq-inline-bundles">[\s\S]*?<\/script>/g, '');
+
+// Clean duplicate toasts
+playgroundHtml = playgroundHtml.replace(/(?:\s*<div id="toast">[\s\S]*?<\/script>\s*)+/g, '');
 
 // Insert before <main>
 playgroundHtml = playgroundHtml.replace(/<main class="quiz-main".*?>/, (m) => injectorPanel + '\n' + m);
@@ -110,7 +126,10 @@ playgroundHtml = playgroundHtml
 
 // Footer: toast + lucide init
 playgroundHtml = playgroundHtml.replace(/<\/body>/,
-  `<div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>\n<script>lucide.createIcons();</script>\n</body>`);
+  `\n<div id="toast"><i data-lucide="check-circle-2"></i><span class="toast-msg">Sucesso!</span></div>\n<script>lucide.createIcons();</script>\n</body>`);
+
+// Clean excessive blank lines
+playgroundHtml = playgroundHtml.replace(/\n{3,}/g, '\n\n');
 
 fs.writeFileSync(playgroundPath, playgroundHtml, 'utf8');
 const kb = (Buffer.byteLength(playgroundHtml, 'utf8') / 1024).toFixed(0);
