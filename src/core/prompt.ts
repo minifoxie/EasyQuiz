@@ -181,6 +181,17 @@ K. IMAGENS E GRÁFICOS — REGRAS OBRIGATÓRIAS:
      - Se relevant=true: descrição do conteúdo útil para a questão
    → Selecione a alternativa cujo gráfico/dados satisfaz matematicamente a questão.
 
+  M. IMAGEM AUSENTE MAS REFERENCIADA NO ENUNCIADO:
+    → Se [TEXTO] menciona "observe", "analise a imagem", "a figura mostra", "de acordo com o gráfico",
+      "veja o diagrama", "considere a imagem", "pela tabela", "no mapa" etc.
+      MAS [IMAGENS] está vazio, com status "FALHOU" ou "CONTEXTO_TEXTUAL" insuficiente:
+    → NUNCA adivinhe a resposta. Emita confidence: 0.15 máximo.
+    → rationale deve indicar: "Imagem do enunciado não disponível — resposta com baixa confiança"
+    → Ainda assim emita a MELHOR estimativa possível usando o contexto textual e memória.
+    → Se [IMAGEM_RELEVANTE_NÃO_CAPTURADA] aparece nas imagens, use todo o contexto textual associado.
+    → memoryToStore: "Questão dependia de imagem não capturada"
+    → Quando há imagem com status FALHOU mas com textContext rico, use esse textContext como substituto.
+
 ════════════════════════════════════════════════════════════
 PLATAFORMAS ESPECÍFICAS — REGRAS OBRIGATÓRIAS
 ════════════════════════════════════════════════════════════
@@ -458,10 +469,32 @@ ${
 [IMAGENS E GRÁFICOS ANEXADOS (${images.length})]:
 ${
   (() => {
-    if (images.length === 0) return 'Nenhum anexo visual.'
-    return images.map((img, idx) => {
+    if (images.length === 0) {
+      // Detecta se o enunciado referencia conteúdo visual sem ter imagens capturadas
+      const visualRefPattern = /\b(observ[ea]|analis[ea]|figur[a]|gráfic[o]|diagram[a]|image[mn]|mapa|tabela|veja|conforme|de acordo com|pela|ilustra|representa|mostr[a]|exib[ea]|consider[ea]\s+(a|o)\s+(image|figur|gráfic|diagram|tabela|mapa))\b/i
+      const hasVisualRef = visualRefPattern.test(context.questionText)
+      if (hasVisualRef) {
+        return '[AVISO CRÍTICO]: O enunciado referencia conteúdo visual (gráfico/imagem/figura/diagrama) mas NENHUMA imagem foi capturada. Sua confiança DEVE ser ≤0.15. NÃO adivinhe — use apenas o contexto textual disponível.'
+      }
+      return 'Nenhum anexo visual.'
+    }
+    // Verifica se alguma imagem relevante falhou na captura
+    const failedRelevant = images.filter(img => img.captureStatus === 'failed_relevant')
+    const visualRefPattern = /\b(observ[ea]|analis[ea]|figur[a]|gráfic[o]|diagram[a]|image[mn]|mapa|tabela|veja|conforme|de acordo com|pela|ilustra|representa|mostr[a])\b/i
+    const hasVisualRef = visualRefPattern.test(context.questionText)
+    const allFailed = images.every(img => img.captureStatus !== 'captured')
+
+    let warning = ''
+    if (failedRelevant.length > 0 || (hasVisualRef && allFailed)) {
+      warning = '\n  [AVISO]: Imagem(s) relevante(s) do enunciado NÃO puderam ser capturadas visualmente. Use o contexto textual abaixo como substituto. Confiança deve ser reduzida.\n'
+    }
+
+    return warning + images.map((img, idx) => {
       const label = img.associatedLabel || 'Gráfico da Questão'
       const altInfo = img.alt ? ` | alt: "${img.alt}"` : ''
+      if (img.captureStatus === 'failed_relevant') {
+        return `  - Imagem ${idx + 1} [IMAGEM_RELEVANTE_NÃO_CAPTURADA]: ${label}${altInfo} | ${img.textContext || 'sem contexto adicional'} | src: ${(img.source || '').slice(0, 100)}`
+      }
       if (img.captureStatus === 'text_only') {
         return `  - Imagem ${idx + 1} [CONTEXTO_TEXTUAL]: ${label}${altInfo} | ${img.textContext || 'sem contexto adicional'}`
       }

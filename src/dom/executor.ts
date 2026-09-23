@@ -612,6 +612,85 @@ function setNativeValue(element: HTMLElement, value: string): void {
     if (forInput) target = forInput
   }
 
+  // ── PERSEUS/KHAN: MathQuill field detection ──────────────────────
+  // MathQuill usa <span class="mq-editable-field"> com API interna
+  const mqField = target.classList?.contains('mq-editable-field') || target.classList?.contains('mq-root-block')
+    ? target
+    : target.querySelector('.mq-editable-field, .mq-root-block') as HTMLElement | null
+  if (mqField) {
+    try {
+      // Tentativa 1: API MathQuill direta
+      const mqApi = (mqField as any).__mathquill || (mqField as any).mathquill
+      if (mqApi && typeof mqApi.latex === 'function') {
+        mqApi.latex(value)
+        mqField.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
+        mqField.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
+        return
+      }
+
+      // Tentativa 2: window.MathQuill API global
+      const MQ = (window as any).MathQuill?.getInterface?.(2) || (window as any).MathQuill?.getInterface?.(1)
+      if (MQ) {
+        const mqInstance = MQ(mqField)
+        if (mqInstance && typeof mqInstance.latex === 'function') {
+          mqInstance.latex(value)
+          mqField.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
+          return
+        }
+      }
+
+      // Tentativa 3: Digitação simulada char-a-char (fallback universal)
+      mqField.focus?.()
+      // Limpa o campo antes
+      mqField.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', ctrlKey: true, bubbles: true }))
+      mqField.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', code: 'Backspace', bubbles: true }))
+      // Digita cada caractere
+      for (const char of value) {
+        mqField.dispatchEvent(new KeyboardEvent('keydown', { key: char, code: `Key${char.toUpperCase()}`, bubbles: true, cancelable: true }))
+        mqField.dispatchEvent(new KeyboardEvent('keypress', { key: char, code: `Key${char.toUpperCase()}`, bubbles: true, cancelable: true }))
+        mqField.dispatchEvent(new InputEvent('input', { data: char, inputType: 'insertText', bubbles: true, cancelable: true, composed: true }))
+        mqField.dispatchEvent(new KeyboardEvent('keyup', { key: char, code: `Key${char.toUpperCase()}`, bubbles: true, cancelable: true }))
+      }
+      mqField.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
+      return
+    } catch (e) {
+      console.warn('[EasyQuiz] MathQuill fill falhou, continuando com fallback padrão:', e)
+    }
+  }
+
+  // ── PERSEUS/KHAN: Custom dropdown (não-nativo) ──────────────────────
+  const perseusDropdown = target.matches?.('[class*="perseus-dropdown" i], [class*="perseus"] [role="combobox"]')
+    ? target
+    : target.querySelector('[class*="perseus-dropdown" i], [class*="perseus"] [role="combobox"]') as HTMLElement | null
+  if (perseusDropdown) {
+    try {
+      // Abre o dropdown clicando
+      simulatePointerClick(perseusDropdown)
+      // Aguarda o portal React renderizar as opções
+      setTimeout(() => {
+        const normValue = value.trim().toLowerCase()
+        // Busca opções em portals no body (React renderiza fora do scope)
+        const portalOptions = Array.from(document.querySelectorAll(
+          '[role="option"], [role="listbox"] [role="option"], [class*="dropdown"] [role="option"], ' +
+          '[class*="perseus"] [class*="option"], .dropdown-option, [class*="select-option"]'
+        )).filter(opt => {
+          const el = opt as HTMLElement
+          if (!isVisible(el) || isInsideEasyQuiz(el)) return false
+          const txt = (el.textContent || '').trim().toLowerCase()
+          const val = el.getAttribute('data-value')?.toLowerCase() || ''
+          return txt === normValue || val === normValue || txt.includes(normValue) || (normValue.length > 2 && normValue.includes(txt))
+        }) as HTMLElement[]
+
+        if (portalOptions.length > 0) {
+          simulatePointerClick(portalOptions[0])
+        }
+      }, 250)
+      return
+    } catch (e) {
+      console.warn('[EasyQuiz] Perseus dropdown fill falhou:', e)
+    }
+  }
+
   // Se o elemento ou alvo for um <select> ou combobox/listbox customizado, redireciona diretamente
   const isSelectTarget =
     (typeof HTMLSelectElement !== 'undefined' && target instanceof HTMLSelectElement) ||
@@ -1771,6 +1850,48 @@ export async function executeDeclarativeAction(action: DeclarativeAction, attemp
           )
         })
         element = match || (activeInputs.length === 1 ? activeInputs[0] : null)
+      }
+    }
+  }
+
+  // ── FALLBACK PERSEUS: Quando nenhum método padrão encontrou o alvo ──
+  if (!element && action.t !== 'adv') {
+    const perseusRoot = document.querySelector('.perseus-renderer, .framework-perseus, .perseus-widget-container') as HTMLElement | null
+    if (perseusRoot) {
+      const clean = cleanSearchTerm(elId).toLowerCase()
+      // Tenta encontrar dentro do Perseus: MathQuill, radios, dropdowns, inputs
+      const perseusTargets = Array.from(perseusRoot.querySelectorAll(
+        '.mq-editable-field, [role="radio"], [role="checkbox"], [role="combobox"], ' +
+        'input:not([type="hidden"]), textarea, select, [role="button"], [role="option"]'
+      )).filter(el => isVisible(el as HTMLElement) && !isInsideEasyQuiz(el as HTMLElement)) as HTMLElement[]
+
+      // Busca por texto, id, aria-label, value
+      element = perseusTargets.find(t => {
+        const txt = (t.textContent || '').trim().toLowerCase()
+        const id = (t.id || '').toLowerCase()
+        const aria = (t.getAttribute('aria-label') || '').toLowerCase()
+        const val = ((t as any).value || t.getAttribute('data-value') || '').toLowerCase()
+        return id === clean || txt === clean || aria === clean || val === clean ||
+          (clean.length >= 3 && (txt.includes(clean) || aria.includes(clean)))
+      }) || null
+
+      // Se nenhum match textual, usa fallback posicional para ações val (primeiro input editável)
+      if (!element && (action.t === 'val') && perseusTargets.length > 0) {
+        const editableTargets = perseusTargets.filter(t =>
+          t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement ||
+          t.classList.contains('mq-editable-field') || t.classList.contains('mq-root-block') ||
+          t.isContentEditable
+        )
+        if (editableTargets.length > 0) {
+          // Se elId é numérico, usa como índice
+          const numMatch = clean.match(/^#?_?([0-9]+)$/)
+          if (numMatch) {
+            const idx = parseInt(numMatch[1], 10)
+            element = editableTargets[Math.min(idx - 1, editableTargets.length - 1)] || editableTargets[0]
+          } else {
+            element = editableTargets[0]
+          }
+        }
       }
     }
   }

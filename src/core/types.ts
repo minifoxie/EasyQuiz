@@ -46,8 +46,8 @@ export interface CapturedImage {
   associatedLabel?: string
   targetControlId?: string
   element?: Element
-  /** Status da captura: captured=imagem base64 ok, text_only=só contexto textual, failed=sem nada */
-  captureStatus?: 'captured' | 'text_only' | 'failed'
+  /** Status da captura: captured=imagem base64 ok, text_only=só contexto textual, failed=sem nada, failed_relevant=falhou mas é imagem relevante para a questão */
+  captureStatus?: 'captured' | 'text_only' | 'failed' | 'failed_relevant'
   /** Contexto textual extraído quando captura visual falhou (alt, figcaption, aria-label, texto vizinho) */
   textContext?: string
 }

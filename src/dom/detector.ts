@@ -396,6 +396,55 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
     }
   }
 
+  // 5ª passada: Perseus / Khan Academy widgets especializados
+  // Ativa quando nenhum controle real foi encontrado OU quando os controles encontrados são
+  // apenas labels/textos sem inputs nativos — Perseus renderiza tudo como <div>s com React handlers
+  if (selectedElements.length === 0 || (selectedElements.length > 0 && !hasRealInputs && !selectedElements.some(el =>
+    el.getAttribute('role') === 'radio' || el.getAttribute('role') === 'checkbox' ||
+    el.classList.contains('mq-editable-field') || el.closest('.perseus-widget-container')
+  ))) {
+    const perseusRoot = document.querySelector('.perseus-renderer, .framework-perseus') as HTMLElement | null
+    const perseusScope = perseusRoot || scope
+
+    // 5.1 MathQuill fields (expression input)
+    const mqFields = Array.from(perseusScope.querySelectorAll('.mq-editable-field, .mq-root-block, [class*="expression-editor" i], [class*="math-input" i]')) as HTMLElement[]
+    for (const mq of mqFields) {
+      if (!isVisible(mq) || isInsideEasyQuiz(mq)) continue
+      if (!selectedElements.includes(mq)) selectedElements.push(mq)
+    }
+
+    // 5.2 Perseus dropdowns (custom select with React portal)
+    const perseusDropdowns = Array.from(perseusScope.querySelectorAll('[class*="perseus-dropdown" i], .perseus-widget-container select, .perseus-widget-container [role="combobox"], .perseus-widget-container [role="listbox"]')) as HTMLElement[]
+    for (const dd of perseusDropdowns) {
+      if (!isVisible(dd) || isInsideEasyQuiz(dd)) continue
+      if (!selectedElements.includes(dd)) selectedElements.push(dd)
+    }
+
+    // 5.3 Perseus radios (div[role="radio"] without native input)
+    const perseusRadios = Array.from(perseusScope.querySelectorAll('[class*="perseus-radio" i] [role="radio"], .perseus-widget-container [role="radio"], .perseus-widget-container [role="checkbox"]')) as HTMLElement[]
+    for (const pr of perseusRadios) {
+      if (!isVisible(pr) || isInsideEasyQuiz(pr)) continue
+      // Evita duplicatas com inputs nativos já coletados
+      if (pr.querySelector('input[type="radio"], input[type="checkbox"]')) continue
+      if (!selectedElements.includes(pr)) selectedElements.push(pr)
+    }
+
+    // 5.4 Perseus interactive widgets (sortable, number-line, interactive-graph)
+    const perseusInteractive = Array.from(perseusScope.querySelectorAll('.perseus-widget-container [role="button"], .number-line [role="slider"], [class*="interactive-graph" i] [role="button"]')) as HTMLElement[]
+    for (const pi of perseusInteractive) {
+      if (!isVisible(pi) || isInsideEasyQuiz(pi) || isNavigationControl(pi)) continue
+      if (!selectedElements.includes(pi)) selectedElements.push(pi)
+    }
+
+    // 5.5 Perseus native inputs/selects inside widget containers
+    const perseusInputs = Array.from(perseusScope.querySelectorAll('.perseus-widget-container input:not([type="hidden"]), .perseus-widget-container textarea, .perseus-widget-container select')) as HTMLElement[]
+    for (const pi of perseusInputs) {
+      if (!isVisible(pi) || isInsideEasyQuiz(pi)) continue
+      if (handledInputs.has(pi)) continue
+      if (!selectedElements.includes(pi)) selectedElements.push(pi)
+    }
+  }
+
   return selectedElements
     .slice(0, 100)
     .map((el) => describeControl(el, 'answer'))

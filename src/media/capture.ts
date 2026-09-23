@@ -369,16 +369,30 @@ export function validateImageRelevance(el: Element, alt: string, width: number, 
   const role = el.getAttribute('role')
   const srcStr = el instanceof HTMLImageElement ? (el.src || '') : ''
 
-  if (ariaHidden === 'true') return false
-  if (role === 'presentation' || role === 'none') return false
+  // 4.1. WHITELIST: Imagens dentro de containers de questão/exercício são SEMPRE relevantes
+  //      (mesmo com aria-hidden, alt vazio, ou role presentation — sites como Khan Academy
+  //       usam esses atributos em imagens de conteúdo)
+  const insideQuestionScope = Boolean(el.closest(
+    '.perseus-renderer, .framework-perseus, [data-test-id*="exercise" i], [data-testid*="exercise" i], ' +
+    '.perseus-widget-container, [class*="problem" i], [class*="exercise" i], ' +
+    '[data-question], [class*="question-content" i], [class*="stimulus" i], ' +
+    '[class*="enunciado" i], [class*="statement" i], figure, .problem, .exercise'
+  ))
+
+  // Se está dentro de container de questão E tem dimensões razoáveis (≥60x60), é relevante
+  if (insideQuestionScope && width >= 60 && height >= 60) return true
+
+  if (ariaHidden === 'true' && !insideQuestionScope) return false
+  if ((role === 'presentation' || role === 'none') && !insideQuestionScope) return false
 
   const decorativePatterns = /\b(icon|logo|avatar|badge|emoji|decoration|ornament|spinner|loading|thumbnail|profile|photo)\b/i
   if (decorativePatterns.test(classStr)) return false
   if (alt && decorativePatterns.test(alt)) return false
   if (srcStr && /\/icons?\/|\/logos?\/|\/avatars?\/|\/badges?\/|\/emojis?\//i.test(srcStr)) return false
 
-  // 5. Alt text vazio ou apresentacional geralmente = decoração
-  if (alt === '' || alt === ' ' || alt === '-') return false
+  // 5. Alt text vazio ou apresentacional — NÃO rejeitar se dentro de container de questão
+  if ((alt === '' || alt === ' ' || alt === '-') && !insideQuestionScope) return false
+  // Se alt vazio mas dentro de questão: aceitar (Khan Academy usa alt="" em imagens de conteúdo)
 
   // 6. Imagens que claramente são de conteúdo (gráficos, tabelas, mapas, diagramas)
   const contentPatterns = /\b(graph|chart|diagram|table|map|formula|equation|figure|plot|curve|histogram|scatter|matrix|image|foto|imagem|gráfico|tabela|mapa|fórmula|questão|enunciado|stimulus)\b/i
@@ -390,7 +404,17 @@ export function validateImageRelevance(el: Element, alt: string, width: number, 
   )
   if (questionContainer) return true
 
-  // 8. Por padrão: aceita se dimensão razoável (≥80x80)
+  // 8. Imagens na vizinhança de texto de questão (verificação por irmãos textuais)
+  try {
+    const parent = el.parentElement
+    if (parent) {
+      const siblingText = (parent.textContent || '').toLowerCase()
+      const questionIndicators = /\?|calcul|determin|observ|analis|image|figur|gráfic|diagram/i
+      if (questionIndicators.test(siblingText) && width >= 60 && height >= 60) return true
+    }
+  } catch {}
+
+  // 9. Por padrão: aceita se dimensão razoável (≥80x80)
   return width >= 80 && height >= 80
 }
 
@@ -458,6 +482,12 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
   const src = img.currentSrc || img.src
   if (!src) return null
   const alt = (img.alt || img.getAttribute('aria-label') || 'Imagem da questão').slice(0, 500)
+
+  // Determina se esta imagem é potencialmente relevante para o conteúdo da questão
+  const rect = img.getBoundingClientRect()
+  const w = img.naturalWidth || rect.width || img.width || 0
+  const h = img.naturalHeight || rect.height || img.height || 0
+  const isLikelyRelevant = validateImageRelevance(img, alt, w, h)
 
   // Estratégia 1: Canvas direto (funciona para mesma origem, data: e blob:)
   if (img.complete && img.naturalWidth > 0) {
@@ -559,8 +589,21 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
       base64: '',
       alt,
       source: src.slice(0, 2000),
-      captureStatus: 'text_only',
+      // Se a imagem é relevante para a questão mas não pôde ser capturada, sinaliza explicitamente
+      captureStatus: isLikelyRelevant ? 'failed_relevant' : 'text_only',
       textContext: textCtx || `Imagem da questão (src: ${src.slice(0, 100)})`,
+    }
+  }
+
+  // Estratégia 6: Se a imagem é relevante mas nenhuma estratégia funcionou, emite failed_relevant
+  if (isLikelyRelevant && src) {
+    return {
+      mediaType: 'image/jpeg',
+      base64: '',
+      alt: alt || 'Imagem relevante não capturada',
+      source: src.slice(0, 2000),
+      captureStatus: 'failed_relevant',
+      textContext: `IMAGEM RELEVANTE NÃO CAPTURADA. Src: ${src.slice(0, 200)}. ${extractTextContextForImage(img)}`,
     }
   }
 
@@ -672,12 +715,22 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
   }
 
   // Procura no escopo e no container da questão (caso o escopo detectado tenha sido apenas a grade de opções)
+  // Também expande para containers Perseus/Khan Academy que podem conter imagens fora do scope estreito
   const roots: HTMLElement[] = [scope]
-  const container = scope.closest(
-    'article, .card, [class*="question" i], [class*="exercise" i], form, [data-test-id*="exercise" i], [data-testid*="exercise" i]',
-  ) as HTMLElement | null
+  const containerSelectors = [
+    'article', '.card', '[class*="question" i]', '[class*="exercise" i]', 'form',
+    '[data-test-id*="exercise" i]', '[data-testid*="exercise" i]',
+    '.perseus-renderer', '.framework-perseus', '[class*="perseus" i]',
+    '.perseus-widget-container', '[class*="problem" i]',
+  ].join(', ')
+  const container = scope.closest(containerSelectors) as HTMLElement | null
   if (container && container !== scope && container !== document.body && isVisible(container)) {
     roots.push(container)
+  }
+  // Também verifica Perseus renderer se existir no documento e não estiver nos roots
+  const perseusRoot = document.querySelector('.perseus-renderer, .framework-perseus') as HTMLElement | null
+  if (perseusRoot && !roots.includes(perseusRoot) && perseusRoot !== document.body && isVisible(perseusRoot)) {
+    roots.push(perseusRoot)
   }
 
   // 1. Imagens nativas (<img>)
@@ -829,6 +882,67 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
               const cap: CapturedImage = { mediaType: 'image/jpeg', base64: base64b, alt: 'Imagem CSS background', source: url.slice(0, 2000), captureStatus: 'captured' }
               if (pushCapture(cap, bgEl)) return captures
             }
+          }
+        } catch {}
+      }
+    }
+  }
+
+  // 5. Scan de background-image COMPUTADO (não apenas inline styles)
+  // Essencial para Khan Academy e sites que aplicam imagens via classes CSS compiladas
+  if (captures.filter(c => c.captureStatus === 'captured').length < MAX_IMAGES) {
+    const seenBgEls = new Set<HTMLElement>()
+    for (const root of roots) {
+      // Varre todos os elementos com dimensões significativas buscando background-image computado
+      const potentialBgEls = Array.from(root.querySelectorAll<HTMLElement>(
+        'div, span, section, figure, [class*="image" i], [class*="media" i], [class*="visual" i], [class*="graph" i], [class*="diagram" i], [class*="figure" i]'
+      )).filter(el => {
+        if (seenBgEls.has(el) || !isVisible(el) || isUtilityOrGamificationControl(el)) return false
+        const elRect = el.getBoundingClientRect()
+        return elRect.width >= 80 && elRect.height >= 60
+      })
+
+      for (const bgEl of potentialBgEls) {
+        seenBgEls.add(bgEl)
+        try {
+          const computedBg = window.getComputedStyle ? window.getComputedStyle(bgEl).backgroundImage : ''
+          if (!computedBg || computedBg === 'none' || !computedBg.includes('url(')) continue
+          // Já coberto pelo scan inline anterior? Verifica se o elemento já tinha style inline
+          if (bgEl.style.backgroundImage && bgEl.style.backgroundImage.includes('url(')) continue
+
+          const urlMatch = computedBg.match(/url\(["']?([^"')]+)["']?\)/)
+          if (!urlMatch || !urlMatch[1] || urlMatch[1].startsWith('data:image/svg+xml')) continue
+          const bgUrl = urlMatch[1]
+
+          const elRect = bgEl.getBoundingClientRect()
+          if (!validateImageRelevance(bgEl, bgEl.getAttribute('aria-label') || '', elRect.width, elRect.height)) continue
+
+          try {
+            const res = await fetch(bgUrl, { mode: 'cors' })
+            if (res.ok) {
+              const blob = await res.blob()
+              if (blob.type.startsWith('image/') || blob.size > 200) {
+                const bitmap = await createImageBitmap(blob)
+                const compressed = await compressImage(bitmap)
+                bitmap.close()
+                const base64 = await blobToBase64(compressed)
+                if (base64) {
+                  const cap: CapturedImage = {
+                    mediaType: 'image/jpeg',
+                    base64,
+                    alt: bgEl.getAttribute('aria-label') || 'Imagem CSS computada da questão',
+                    source: bgUrl.slice(0, 2000),
+                    captureStatus: 'captured',
+                    textContext: extractTextContextForImage(bgEl),
+                  }
+                  if (pushCapture(cap, bgEl)) return captures
+                }
+              }
+            }
+          } catch {
+            // Fallback: snapshot visual do container
+            const snapshot = await captureElementVisualSnapshot(bgEl)
+            if (snapshot && pushCapture(snapshot, bgEl)) return captures
           }
         } catch {}
       }

@@ -55,6 +55,21 @@ export const CONTROL_SELECTOR = [
   // Cards e tiles genéricos de quiz
   '[class*="card-option" i]',
   '[class*="tile" i][class*="option" i]',
+  // Perseus / Khan Academy widgets
+  '.mq-editable-field',
+  '.mq-root-block',
+  '[class*="expression-editor" i]',
+  '[class*="math-input" i]',
+  '[class*="perseus-dropdown" i]',
+  '[class*="perseus-radio" i]',
+  '[class*="perseus"] [role="listbox"]',
+  '[class*="perseus"] [role="radio"]',
+  '[class*="perseus"] [role="combobox"]',
+  '.perseus-widget-container [role="button"]',
+  '.perseus-widget-container input',
+  '.perseus-widget-container select',
+  '.number-line [role="slider"]',
+  '[class*="interactive-graph" i]',
 ].join(',')
 
 export const NAVIGATION_PATTERN =

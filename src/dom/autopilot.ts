@@ -103,6 +103,10 @@ export class Autopilot {
   private lastAttemptTime = 0              // timestamp da última tentativa
   /** Contador de re-planejamentos por questão (max 2 por contentSig) */
   private replanCount = new Map<string, number>()
+  /** Fase da questão atual: unanswered, answered (aguardando feedback), feedback (exibido), advanced (avançou) */
+  private questionPhase: 'unanswered' | 'answered' | 'feedback' | 'advanced' = 'unanswered'
+  /** Timestamp de quando a resposta foi submetida (para cooldown pós-verificação) */
+  private answerSubmittedAt = 0
 
   constructor(callbacks: AutopilotCallbacks) {
     this.callbacks = callbacks
@@ -159,6 +163,8 @@ export class Autopilot {
     this.advancedSigs.clear()
     this.hasPendingMutationDuringProcessing = false
     this.replanCount.clear()
+    this.questionPhase = 'unanswered'
+    this.answerSubmittedAt = 0
     this.callbacks.onStatusChange('idle', '> [SYS] Autopilot DESATIVADO pelo usuário.', 'text-yellow')
   }
 
@@ -218,7 +224,27 @@ export class Autopilot {
       // REGRA PRINCIPAL: só pular se já foi resolvido com SUCESSO
       // NÃO bloquear retries após falha — a condição anterior era incorreta
       if (this.resolvedSigs.has(contentSig)) {
-        return
+        // EXCEÇÃO: Se estamos na fase 'answered' ou 'feedback', VERIFICAR se apareceu
+        // um botão de avanço (feedback do quiz) — não bloquear nessa situação
+        if (this.questionPhase === 'answered' || this.questionPhase === 'feedback') {
+          const feedbackDetected = this.detectFeedbackOverlay()
+          if (feedbackDetected) {
+            this.questionPhase = 'feedback'
+            this.callbacks.onStatusChange('advancing', '> [SYS] Feedback detectado. Procurando botão de avanço...', 'text-green')
+            await this.handleFeedbackPhase()
+            return
+          }
+          // Se já passaram mais de 5s desde a submissão, forçar re-análise
+          if (Date.now() - this.answerSubmittedAt > 5000) {
+            this.resolvedSigs.delete(contentSig)
+            this.lastAttemptTime = 0
+            this.questionPhase = 'unanswered'
+          } else {
+            return
+          }
+        } else {
+          return
+        }
       }
 
       // Throttle leve: evitar re-análise em ráfaga da mesma página não-resolvida
@@ -232,6 +258,10 @@ export class Autopilot {
       // NOVA QUESTÃO DETECTADA ou primeira execução
       const isNewPage = contentSig !== this.lastContentSig
       if (isNewPage) {
+        // Reset da fase da questão para 'unanswered' quando a página muda
+        this.questionPhase = 'unanswered'
+        this.answerSubmittedAt = 0
+
         this.callbacks.onStatusChange('waiting', '> [SYS] Aguardando estabilização da página...', 'text-yellow')
         await this.sleep(600)
         if (!this.active) return
@@ -322,6 +352,16 @@ export class Autopilot {
           this.replanCount.set(contentSig, attempts)
           if (plan.actions.length > 0 || attempts >= 3) {
             this.resolvedSigs.add(contentSig)
+            // Marcar fase como 'answered' e registrar timestamp — inicia cooldown de feedback
+            this.questionPhase = 'answered'
+            this.answerSubmittedAt = Date.now()
+
+            // Pós-submissão: aguardar feedback do quiz e tentar avançar automaticamente
+            if (this.active) {
+              await this.sleep(1200)
+              if (!this.active) return
+              await this.handleFeedbackPhase()
+            }
           }
 
         } else {
@@ -414,6 +454,82 @@ export class Autopilot {
         window.setTimeout(() => void this.checkAndAnalyze(), hadPending ? 300 : 750)
       }
     }
+  }
+
+  // ---- DETECÇÃO DE OVERLAY DE FEEDBACK (Correto/Incorreto) ----
+  private detectFeedbackOverlay(): boolean {
+    if (typeof document === 'undefined') return false
+    // Khan Academy: ".correct", ".incorrect", ".perseus-message-renderer"
+    // Genérico: ".feedback", "[class*='feedback']", "[role='alert']"
+    const feedbackSelectors = [
+      '.correct', '.incorrect', '.perseus-message-renderer',
+      '[class*="feedback" i]', '[class*="resultado" i]', '[class*="result" i]',
+      '[role="alert"]', '[class*="check-answer" i][class*="result" i]',
+      '[class*="banner" i][class*="correct" i]', '[class*="banner" i][class*="incorrect" i]',
+    ].join(', ')
+    const feedbackEl = document.querySelector(feedbackSelectors) as HTMLElement | null
+    if (!feedbackEl) return false
+    // Verifica se está realmente visível
+    try {
+      const rect = feedbackEl.getBoundingClientRect()
+      if (rect.width <= 0 || rect.height <= 0) return false
+      const style = window.getComputedStyle(feedbackEl)
+      if (style.display === 'none' || style.visibility === 'hidden') return false
+    } catch {
+      return false
+    }
+    return true
+  }
+
+  // ---- FASE DE FEEDBACK: DETECTAR E AVANÇAR AUTOMATICAMENTE ----
+  private async handleFeedbackPhase(): Promise<void> {
+    if (!this.active) return
+
+    // Polling rápido por até 4s para detectar feedback e botão de avanço
+    for (let i = 0; i < 16; i++) {
+      if (!this.active) return
+
+      const hasFeedback = this.detectFeedbackOverlay()
+      if (hasFeedback) {
+        this.questionPhase = 'feedback'
+        this.callbacks.onStatusChange('advancing', '> [SYS] ✅ Feedback do quiz detectado. Buscando botão de avanço...', 'text-green')
+      }
+
+      // Procura botão de "Próxima", "Next", "Continuar" etc.
+      const navBtn = findBestNavigationButton()
+      if (navBtn) {
+        // Verifica se o botão é diferente do botão de "Verificar" (para não clicar duas vezes no mesmo)
+        const btnText = (navBtn.textContent || navBtn.getAttribute('aria-label') || '').trim().toLowerCase()
+        const isAdvanceButton = /(próxim|next|continuar|continue|avançar|prosseguir|próxima tarefa|next task|próxima pergunta|seguir)/i.test(btnText)
+
+        if (isAdvanceButton || (hasFeedback && !/(verificar|checar|check|conferir|responder)/i.test(btnText))) {
+          this.callbacks.onStatusChange('advancing', `> [SYS] ✅ Avançando: "${btnText.slice(0, 40)}"`, 'text-green')
+          simulatePointerClick(navBtn)
+          this.questionPhase = 'advanced'
+
+          // Aguarda transição e limpa sigs para permitir nova análise
+          await this.sleep(800)
+          if (!this.active) return
+
+          // Reset para detectar a próxima questão
+          this.questionPhase = 'unanswered'
+          this.lastContentSig = ''
+          this.lastAttemptSig = ''
+          this.lastAttemptTime = 0
+          this.answerSubmittedAt = 0
+          this.callbacks.onPageAdvance?.()
+          return
+        }
+      }
+
+      await this.sleep(250)
+    }
+
+    // Se após 4s não encontrou botão de avanço, resetar para permitir re-análise
+    this.questionPhase = 'unanswered'
+    this.resolvedSigs.delete(this.lastContentSig)
+    this.lastAttemptTime = 0
+    this.callbacks.onStatusChange('waiting', '> [SYS] Feedback não detectado ou sem botão de avanço. Re-analisando...', 'text-yellow')
   }
 }
 
