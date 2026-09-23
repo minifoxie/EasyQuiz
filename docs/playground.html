@@ -1,6 +1,21 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <script>
+    (function() {
+      try {
+        var v = "3.4.9";
+        var p = new URLSearchParams(window.location.search);
+        if (p.get('v') !== v) {
+          p.set('v', v);
+          window.location.replace(window.location.pathname + '?' + p.toString());
+        }
+      } catch(e) {}
+    })();
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Playground - EasyQuiz</title>
@@ -1108,22 +1123,22 @@
   <div class="section-heading" style="margin-bottom: 15px;">
     <h2 style="font-size: 1.2rem; display: flex; align-items: center; gap: 8px;">
       <i data-lucide="flask-conical"></i> Modo de Injecao
-      <span style="font-size:0.7rem;opacity:0.5;font-weight:400;margin-left:6px;">v3.4.9 embutido</span>
+      <span style="font-size:0.75rem;padding:2px 8px;border-radius:4px;background:rgba(251,191,36,0.15);color:#fbbf24;font-weight:600;margin-left:6px;">v3.4.9 mais recente</span>
     </h2>
   </div>
   <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem;">
-    Codigo embutido em tempo de build — sem fetch, sem CDN, sem cache.
+    Codigo embutido diretamente no HTML em tempo de build — sem fetch externo, sem CDN, sem cache desatualizado.
   </p>
   <div class="features-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
-    <div class="feature-card glass" style="padding: 15px; cursor: pointer;" onclick="injectBundle('legacy')">
+    <div class="feature-card glass" style="padding: 15px; cursor: pointer; border: 1px solid rgba(251,191,36,0.25);" onclick="injectBundle('legacy')">
       <div class="feature-icon"><i data-lucide="panel-top"></i></div>
       <h3 style="font-size: 1rem; margin-top: 10px;">Injetar Legacy Mode</h3>
-      <p style="font-size: 0.8rem;">Interface completa · v3.4.9</p>
+      <p style="font-size: 0.8rem; color: #fbbf24; font-weight: 600;">Interface completa · v3.4.9</p>
     </div>
-    <div class="feature-card glass" style="padding: 15px; cursor: pointer;" onclick="injectBundle('discrete')">
+    <div class="feature-card glass" style="padding: 15px; cursor: pointer; border: 1px solid rgba(168,85,247,0.25);" onclick="injectBundle('discrete')">
       <div class="feature-icon"><i data-lucide="eye-off"></i></div>
       <h3 style="font-size: 1rem; margin-top: 10px;">Injetar Discrete Mode</h3>
-      <p style="font-size: 0.8rem;">Modo invisivel · v3.4.9</p>
+      <p style="font-size: 0.8rem; color: #c084fc; font-weight: 600;">Modo invisivel · v3.4.9</p>
     </div>
   </div>
 </div>
@@ -1136,12 +1151,16 @@ var __EQ_B64 = {
 function injectBundle(name) {
   if (window.__easyquiz)   { try { window.__easyquiz.destroy();  } catch(e){} }
   if (window.__eqdiscrete) { try { window.__eqdiscrete.destroy();} catch(e){} }
+  var oldHost = document.getElementById('easyquiz-shadow-root');
+  if (oldHost) { try { oldHost.remove(); } catch(e){} }
+  var oldDisc = document.getElementById('eq-discrete-root');
+  if (oldDisc) { try { oldDisc.remove(); } catch(e){} }
   var b64 = __EQ_B64[name];
   if (!b64) { showPgToast('Bundle nao encontrado: ' + name); return; }
   try {
     var code = decodeURIComponent(escape(atob(b64)));
     ;(0, eval)(code);
-    showPgToast('Injetado ' + name + ' (v3.4.9)');
+    showPgToast('Injetado ' + name + ' (v3.4.9) com sucesso!');
   } catch(e) {
     showPgToast('Erro: ' + (e && e.message || String(e)));
     console.error('[EQ]', e);
