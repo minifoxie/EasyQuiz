@@ -263,9 +263,10 @@ export function expandToGeneralSelection(scope: HTMLElement): HTMLElement {
 // Invalida automaticamente se o seletor cached não pontua mais (troca de página/layout).
 const _scopeCache = new Map<string, { selector: string; timestamp: number }>()
 const SCOPE_CACHE_TTL = 30_000 // 30s — depois disso, refaz o scan completo
+const MIN_SCOPE_SCORE = 8 // Escopos fracos (ex: main, body vazio) não são cacheados
 
 function getCachedScopeSelector(): string | null {
-  const key = window.location.hostname
+  const key = window.location.href // Cache atrelado à URL exata (invalida ao mudar de questão em SPAs se a URL mudar)
   const cached = _scopeCache.get(key)
   if (!cached) return null
   if (Date.now() - cached.timestamp > SCOPE_CACHE_TTL) {
@@ -277,13 +278,18 @@ function getCachedScopeSelector(): string | null {
 
 function setCachedScopeSelector(element: HTMLElement): void {
   try {
-    // Constrói um seletor único para o elemento: tag + classes + id
+    if (scoreCandidate(element) < MIN_SCOPE_SCORE) return
+
+    // Constrói um seletor único para o elemento: tag + id + classes + easyquizId
     const tag = element.tagName.toLowerCase()
     const id = element.id ? `#${element.id}` : ''
+    const eqId = element.dataset.easyquizId ? `[data-easyquiz-id="${element.dataset.easyquizId}"]` : ''
     const cls = Array.from(element.classList).slice(0, 3).map(c => `.${c}`).join('')
-    const selector = `${tag}${id}${cls}`
+    const selector = `${tag}${id}${eqId}${cls}`
+    
+    // Nunca cacheia body ou html sem um identificador muito forte
     if (selector && selector !== 'body' && selector !== 'html') {
-      _scopeCache.set(window.location.hostname, { selector, timestamp: Date.now() })
+      _scopeCache.set(window.location.href, { selector, timestamp: Date.now() })
     }
   } catch {}
 }
@@ -294,12 +300,12 @@ export function findActiveScope(): HTMLElement {
   if (cachedSelector) {
     try {
       const cached = document.querySelector(cachedSelector) as HTMLElement | null
-      if (cached && isVisible(cached) && !isKhanSidebarElement(cached) && scoreCandidate(cached) > 0) {
+      if (cached && isVisible(cached) && !isKhanSidebarElement(cached) && scoreCandidate(cached) >= MIN_SCOPE_SCORE) {
         return findTrueQuestionContainer(cached)
       }
     } catch {}
     // Cache inválido — limpa e segue para scan completo
-    _scopeCache.delete(window.location.hostname)
+    _scopeCache.delete(window.location.href)
   }
 
   // 0. PRIORIDADE MÁXIMA: widget de classificação (Wayground/Quizizz) — escopo é o container completo

@@ -1849,7 +1849,7 @@ export class EasyQuizPanel {
         return
       }
 
-      const key = this.apiKeyInput.value.trim().replace(/^['"]|['"]$/g, '')
+      const key = keyManager.getBestKey() || this.apiKeyInput.value.trim().replace(/^['"]|['"]$/g, '')
       if (!key) {
         this.setStatus('Configure sua chave de API Gemini antes de ativar o Resolver Autopilot.', 'error')
         this.switchTab('settings')

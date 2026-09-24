@@ -11,6 +11,10 @@ let captureBadges: HTMLElement[] = []
 let scanOverlay: HTMLElement | null = null
 let repositionListener: (() => void) | null = null
 
+/** Dimensão mínima (px) para que um elemento receba highlight de imagem.
+ * Evita "highlights fantasma" em elementos invisíveis, br/span vazios, etc. */
+const MIN_HIGHLIGHT_AREA_PX = 40
+
 const IMAGE_PULSE_KEYFRAMES = `
 @keyframes eq-image-pulse-yellow-white {
   0%, 100% {
@@ -142,10 +146,11 @@ export function highlightAttachedImages(elements: Element[]): void {
     // Essa moldura é imune a cortes de overflow: hidden, especificações de SVG ou estilos do container
     try {
       const rect = el.getBoundingClientRect()
-      const effectiveW = rect.width || (el as HTMLElement).offsetWidth || 280
-      const effectiveH = rect.height || (el as HTMLElement).offsetHeight || 200
+      const effectiveW = rect.width || (el as HTMLElement).offsetWidth || 0
+      const effectiveH = rect.height || (el as HTMLElement).offsetHeight || 0
 
-      if (effectiveW > 10 && effectiveH > 10) {
+      // Guard contra highlights fantasma: elemento deve ter dimensão mínima real
+      if (effectiveW >= MIN_HIGHLIGHT_AREA_PX && effectiveH >= MIN_HIGHLIGHT_AREA_PX) {
         const frame = document.createElement('div')
         frame.setAttribute('data-easyquiz-image-frame', 'true')
         frame.style.cssText = `

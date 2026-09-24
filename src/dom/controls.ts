@@ -224,6 +224,18 @@ export function isKhanSidebarElement(el: Element | null): boolean {
     const isInsideExercise = sidebarAncestor.querySelector('.perseus-renderer, .framework-perseus, [data-test-id*="exercise" i]')
     if (!isInsideExercise) return true
   }
+  
+  // Heurística de posição: se estamos na Khan Academy e o elemento está muito à esquerda (< 35% da tela)
+  // E o centro da tela tem conteúdo principal, provável que seja a sidebar de atividades.
+  if (isKhanAcademyPage()) {
+    try {
+      const rect = el.getBoundingClientRect()
+      if (rect.width > 0 && rect.left >= 0 && rect.right < window.innerWidth * 0.35) {
+        return true
+      }
+    } catch {}
+  }
+  
   return false
 }
 

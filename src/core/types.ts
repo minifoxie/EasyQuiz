@@ -158,6 +158,20 @@ export interface EasyQuizSettings {
   useVision: boolean
   confidenceThreshold: number
   toastStacking: boolean
+  // Visual & Tema
+  theme: 'mega-black' | 'dark' | 'purple-neon' | 'gray-blue' | 'light'
+  panelOpacity: number
+  borderRadius: 'none' | 'soft' | 'rounded'
+  glowEffects: boolean
+  highlightColor: string
+  // IA
+  languageHint: string
+  maxRetries: number
+  showTokenUsage: boolean
+  // Sistema
+  autoScrollLogs: boolean
+  compactMode: boolean
+  enableSoundFeedback: boolean
 }
 
 export const DEFAULT_SETTINGS: EasyQuizSettings = {
@@ -174,6 +188,20 @@ export const DEFAULT_SETTINGS: EasyQuizSettings = {
   useVision: true,
   confidenceThreshold: 0.8,
   toastStacking: true,
+  // Visual & Tema
+  theme: 'mega-black',
+  panelOpacity: 0.65,
+  borderRadius: 'none',
+  glowEffects: false,
+  highlightColor: '#ffd600',
+  // IA
+  languageHint: 'auto',
+  maxRetries: 2,
+  showTokenUsage: true,
+  // Sistema
+  autoScrollLogs: true,
+  compactMode: false,
+  enableSoundFeedback: false,
 }
 
 export interface QuestionTimingRecord {
