@@ -7,7 +7,7 @@
   <script>
     (function() {
       try {
-        var v = "3.5.6";
+        var v = "3.6.0";
         var p = new URLSearchParams(window.location.search);
         if (p.get('v') !== v) {
           p.set('v', v);
@@ -1123,7 +1123,7 @@
   <div class="section-heading" style="margin-bottom: 15px;">
     <h2 style="font-size: 1.2rem; display: flex; align-items: center; gap: 8px;">
       <i data-lucide="flask-conical"></i> Modo de Injecao
-      <span style="font-size:0.75rem;padding:2px 8px;border-radius:4px;background:rgba(251,191,36,0.15);color:#fbbf24;font-weight:600;margin-left:6px;">v3.5.6 mais recente</span>
+      <span style="font-size:0.75rem;padding:2px 8px;border-radius:4px;background:rgba(251,191,36,0.15);color:#fbbf24;font-weight:600;margin-left:6px;">v3.6.0 mais recente</span>
     </h2>
   </div>
   <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem;">
@@ -1133,12 +1133,12 @@
     <div class="feature-card glass" style="padding: 15px; cursor: pointer; border: 1px solid rgba(251,191,36,0.25);" onclick="injectBundle('legacy')">
       <div class="feature-icon"><i data-lucide="panel-top"></i></div>
       <h3 style="font-size: 1rem; margin-top: 10px;">Injetar Legacy Mode</h3>
-      <p style="font-size: 0.8rem; color: #fbbf24; font-weight: 600;">Interface completa · v3.5.6</p>
+      <p style="font-size: 0.8rem; color: #fbbf24; font-weight: 600;">Interface completa · v3.6.0</p>
     </div>
     <div class="feature-card glass" style="padding: 15px; cursor: pointer; border: 1px solid rgba(168,85,247,0.25);" onclick="injectBundle('discrete')">
       <div class="feature-icon"><i data-lucide="eye-off"></i></div>
       <h3 style="font-size: 1rem; margin-top: 10px;">Injetar Discrete Mode</h3>
-      <p style="font-size: 0.8rem; color: #c084fc; font-weight: 600;">Modo invisivel · v3.5.6</p>
+      <p style="font-size: 0.8rem; color: #c084fc; font-weight: 600;">Modo invisivel · v3.6.0</p>
     </div>
   </div>
 </div>
@@ -1160,7 +1160,7 @@ function injectBundle(name) {
   try {
     var code = decodeURIComponent(escape(atob(b64)));
     ;(0, eval)(code);
-    showPgToast('Injetado ' + name + ' (v3.5.6) com sucesso!');
+    showPgToast('Injetado ' + name + ' (v3.6.0) com sucesso!');
   } catch(e) {
     showPgToast('Erro: ' + (e && e.message || String(e)));
     console.error('[EQ]', e);
