@@ -17,7 +17,7 @@ const legacyCode     = fs.readFileSync(path.join(distDir, 'easyquiz.js'), 'utf8'
 const discreteCode   = fs.readFileSync(path.join(distDir, 'discrete.js'), 'utf8');
 
 // Extract version
-let version = 'v3.4.9';
+let version = 'v3.5.5';
 try {
   const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
   if (pkg.version) version = pkg.version.startsWith('v') ? pkg.version : `v${pkg.version}`;

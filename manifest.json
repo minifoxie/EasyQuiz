@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EasyQuiz",
-  "version": "3.4.9",
+  "version": "3.5.5",
   "description": "Assistente inteligente de auto-resposta para formulários e quizzes com IA",
   "permissions": [
     "storage",
