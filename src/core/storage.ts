@@ -58,6 +58,23 @@ export function loadSettings(): EasyQuizSettings {
         typeof parsed.confidenceThreshold === 'number'
           ? parsed.confidenceThreshold
           : DEFAULT_SETTINGS.confidenceThreshold,
+      // Novos campos v3.5.7
+      toastStacking: parsed.toastStacking !== undefined ? Boolean(parsed.toastStacking) : DEFAULT_SETTINGS.toastStacking,
+      theme: (['mega-black', 'dark', 'purple-neon', 'gray-blue', 'light'].includes(parsed.theme as string)
+        ? parsed.theme
+        : DEFAULT_SETTINGS.theme) as EasyQuizSettings['theme'],
+      panelOpacity: typeof parsed.panelOpacity === 'number' ? parsed.panelOpacity : DEFAULT_SETTINGS.panelOpacity,
+      borderRadius: (['none', 'soft', 'rounded'].includes(parsed.borderRadius as string)
+        ? parsed.borderRadius
+        : DEFAULT_SETTINGS.borderRadius) as EasyQuizSettings['borderRadius'],
+      glowEffects: parsed.glowEffects !== undefined ? Boolean(parsed.glowEffects) : DEFAULT_SETTINGS.glowEffects,
+      highlightColor: typeof parsed.highlightColor === 'string' ? parsed.highlightColor : DEFAULT_SETTINGS.highlightColor,
+      languageHint: typeof parsed.languageHint === 'string' ? parsed.languageHint : DEFAULT_SETTINGS.languageHint,
+      maxRetries: typeof parsed.maxRetries === 'number' ? parsed.maxRetries : DEFAULT_SETTINGS.maxRetries,
+      showTokenUsage: parsed.showTokenUsage !== undefined ? Boolean(parsed.showTokenUsage) : DEFAULT_SETTINGS.showTokenUsage,
+      autoScrollLogs: parsed.autoScrollLogs !== undefined ? Boolean(parsed.autoScrollLogs) : DEFAULT_SETTINGS.autoScrollLogs,
+      compactMode: parsed.compactMode !== undefined ? Boolean(parsed.compactMode) : DEFAULT_SETTINGS.compactMode,
+      enableSoundFeedback: parsed.enableSoundFeedback !== undefined ? Boolean(parsed.enableSoundFeedback) : DEFAULT_SETTINGS.enableSoundFeedback,
     }
   } catch {
     return { ...DEFAULT_SETTINGS }

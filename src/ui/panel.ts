@@ -196,8 +196,14 @@ export class EasyQuizPanel {
   private hostDarkModeCheckbox: HTMLInputElement
   private useVisionCheckbox: HTMLInputElement
   private toastStackingCheckbox: HTMLInputElement
+  private showTokensCheckbox: HTMLInputElement
+  private soundFeedbackCheckbox: HTMLInputElement
+  private compactModeCheckbox: HTMLInputElement
+  private glowEffectsCheckbox: HTMLInputElement
+  private languageHintSelect: HTMLSelectElement
+  private autoScrollLogsCheckbox: HTMLInputElement
   private analyzeBtn: HTMLButtonElement
-  private applyBtn: HTMLButtonElement
+  private applyBtn: HTMLButtonElement | null = null
   private resultContainer: HTMLElement
 
   constructor(initialSettings: EasyQuizSettings, callbacks: PanelCallbacks) {
@@ -595,138 +601,250 @@ export class EasyQuizPanel {
               </div>
 
               <!-- TAB 4: CONFIGURAÇÕES -->
-              <div class="eq-view-pane" id="eq-view-settings" style="display: none;">
-                <!-- Seção Multi-API Keys Gemini com Gerenciamento Completo -->
-                <div class="eq-field-group">
-                  <div class="eq-section-title" id="eq-keys-section-header">
-                    <span style="display:flex;align-items:center;gap:6px;">
-                      <span id="eq-keys-chevron" style="display:inline-flex;transition:transform 0.2s;">${ICONS.chevronRight}</span>
-                      <span>Chaves Gemini</span>
-                    </span>
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                      <span id="eq-keys-badge" class="eq-key-badge ready">1 ativa</span>
-                      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: var(--eq-accent); text-decoration: none; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">
-                        + Obter ↗
-                      </a>
+              <div class="eq-view-pane" id="eq-view-settings" style="display: none; padding-top: 12px;">
+                <!-- Topbar de Categorias -->
+                <div class="eq-settings-topbar" id="eq-settings-topbar">
+                  <button type="button" class="eq-settings-cat-btn active" data-cat="general" title="Geral">
+                    ${ICONS.settings}<span>Geral</span>
+                  </button>
+                  <button type="button" class="eq-settings-cat-btn" data-cat="tokens" title="Tokens API">
+                    ${ICONS.key}<span>Tokens</span>
+                  </button>
+                  <button type="button" class="eq-settings-cat-btn" data-cat="visual" title="Visual e Temas">
+                    ${ICONS.palette}<span>Visual</span>
+                  </button>
+                  <button type="button" class="eq-settings-cat-btn" data-cat="ai" title="IA e Modelos">
+                    ${ICONS.sparkles}<span>IA</span>
+                  </button>
+                  <button type="button" class="eq-settings-cat-btn" data-cat="system" title="Sistema e Motor">
+                    ${ICONS.cpu}<span>Sistema</span>
+                  </button>
+                  <button type="button" class="eq-settings-cat-btn" data-cat="about" title="Sobre">
+                    ${ICONS.info}<span>Sobre</span>
+                  </button>
+                </div>
+
+                <!-- CATEGORIA: GERAL -->
+                <div class="eq-settings-cat-content" id="eq-cat-general" style="display: flex; flex-direction: column;">
+                  <div class="eq-cfg-row">
+                    <div class="eq-cfg-label">
+                      <span class="eq-cfg-label-title">${ICONS.checkCircle} Auto Aplicar</span>
+                      <span class="eq-cfg-label-desc">Aplica respostas automaticamente após a análise.</span>
                     </div>
+                    <label class="eq-toggle">
+                      <input id="eq-auto-apply" type="checkbox" />
+                      <div class="eq-toggle-track"><div class="eq-toggle-knob"></div></div>
+                    </label>
                   </div>
-
-                  <!-- Lista Dinâmica de Chaves Cadastradas (colapsável) -->
-                  <div id="eq-keys-collapsible" style="overflow: hidden; transition: max-height 0.25s ease;">
-                  <div id="eq-keys-list" class="eq-keys-list"></div>
+                  
+                  <div class="eq-cfg-row">
+                    <div class="eq-cfg-label">
+                      <span class="eq-cfg-label-title">${ICONS.chevronRight} Auto Avançar</span>
+                      <span class="eq-cfg-label-desc">Clica em "Próximo" ou "Verificar" automaticamente após injetar.</span>
+                    </div>
+                    <label class="eq-toggle">
+                      <input id="eq-auto-advance" type="checkbox" />
+                      <div class="eq-toggle-track"><div class="eq-toggle-knob"></div></div>
+                    </label>
                   </div>
+                  
+                  <div class="eq-cfg-row">
+                    <div class="eq-cfg-label">
+                      <span class="eq-cfg-label-title" style="color: var(--eq-warning);">${ICONS.flask} Modo Dry-Run (Simulação)</span>
+                      <span class="eq-cfg-label-desc">Analisa a questão mas NÃO aplica a resposta no DOM.</span>
+                    </div>
+                    <label class="eq-toggle">
+                      <input id="eq-dry-run" type="checkbox" />
+                      <div class="eq-toggle-track"><div class="eq-toggle-knob"></div></div>
+                    </label>
+                  </div>
+                  
+                  <div class="eq-cfg-row">
+                    <div class="eq-cfg-label">
+                      <span class="eq-cfg-label-title">${ICONS.moon} Dark Mode no Site Host</span>
+                      <span class="eq-cfg-label-desc">Força injeção de CSS para escurecer o site hospedeiro (ex: Moodle).</span>
+                    </div>
+                    <label class="eq-toggle">
+                      <input id="eq-host-dark" type="checkbox" />
+                      <div class="eq-toggle-track"><div class="eq-toggle-knob"></div></div>
+                    </label>
+                  </div>
+                  
+                  <div class="eq-cfg-row">
+                    <div class="eq-cfg-label">
+                      <span class="eq-cfg-label-title">${ICONS.bell} Notificações Empilhadas</span>
+                      <span class="eq-cfg-label-desc">Acumula histórico de toasts (mensagens).</span>
+                    </div>
+                    <label class="eq-toggle">
+                      <input id="eq-toast-stacking" type="checkbox" />
+                      <div class="eq-toggle-track"><div class="eq-toggle-knob"></div></div>
+                    </label>
+                  </div>
+                  
+                  <div class="eq-cfg-row">
+                    <div class="eq-cfg-label">
+                      <span class="eq-cfg-label-title">${ICONS.barChart} Exibir Uso de Tokens</span>
+                      <span class="eq-cfg-label-desc">Mostra tokens consumidos da API no terminal.</span>
+                    </div>
+                    <label class="eq-toggle">
+                      <input id="eq-show-tokens" type="checkbox" />
+                      <div class="eq-toggle-track"><div class="eq-toggle-knob"></div></div>
+                    </label>
+                  </div>
+                  
+                  <div class="eq-cfg-row">
+                    <div class="eq-cfg-label">
+                      <span class="eq-cfg-label-title">${ICONS.volume} Feedback Sonoro</span>
+                      <span class="eq-cfg-label-desc">Emite um bip curto ao completar a análise.</span>
+                    </div>
+                    <label class="eq-toggle">
+                      <input id="eq-sound-feedback" type="checkbox" />
+                      <div class="eq-toggle-track"><div class="eq-toggle-knob"></div></div>
+                    </label>
+                  </div>
+                  
+                  <div class="eq-cfg-row">
+                    <div class="eq-cfg-label">
+                      <span class="eq-cfg-label-title">${ICONS.minimize} Modo Compacto</span>
+                      <span class="eq-cfg-label-desc">Reduz paddings e tamanho de fontes do painel.</span>
+                    </div>
+                    <label class="eq-toggle">
+                      <input id="eq-compact-mode" type="checkbox" />
+                      <div class="eq-toggle-track"><div class="eq-toggle-knob"></div></div>
+                    </label>
+                  </div>
+                </div>
 
+                <!-- CATEGORIA: TOKENS -->
+                <div class="eq-settings-cat-content" id="eq-cat-tokens" style="display: none; flex-direction: column; gap: 12px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px; font-weight: 600;">Chaves de API (Gemini)</span>
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: var(--eq-accent); text-decoration: none; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">+ Obter Chave ↗</a>
+                  </div>
+                  
                   <!-- Formulário de Adição de Nova Chave -->
                   <div class="eq-key-input-container">
                     <div class="eq-input-wrap">
                       <span class="eq-input-prefix-icon">${ICONS.key}</span>
-                      <input id="eq-api-key" class="eq-input" type="password" placeholder="Adicionar nova chave AIzaSy..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+                      <input id="eq-api-key" class="eq-input" type="password" placeholder="AIzaSy..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
                       <button class="eq-icon-btn" id="eq-key-save" type="button" title="Adicionar Chave">${ICONS.plus}</button>
                       <button class="eq-icon-btn" id="eq-key-more-btn" type="button" title="Mais Opções das Chaves">${ICONS.moreVertical}</button>
                     </div>
+                  </div>
 
-                    <!-- Context Menu Suspenso Dinâmico -->
-                    <div class="eq-ctx" id="eq-key-context-menu" hidden>
-                      <button class="eq-ctx-item" id="eq-menu-prompt" type="button">
-                        <span class="eq-ctx-icon">${ICONS.edit}</span>
-                        <span class="eq-item-text">Inserir via Janela Nativa</span>
-                        <span class="eq-ctx-badge">Bypass</span>
-                      </button>
-                      <button class="eq-ctx-item" id="eq-menu-paste" type="button">
-                        <span class="eq-ctx-icon">${ICONS.paste}</span>
-                        <span class="eq-item-text">Colar da Área de Transferência</span>
-                      </button>
-                      <button class="eq-ctx-item" id="eq-menu-toggle-vis" type="button">
-                        <span class="eq-ctx-icon" id="eq-menu-vis-icon">${ICONS.eye}</span>
-                        <span class="eq-item-text" id="eq-menu-vis-text">Mostrar/Ocultar Campo</span>
-                      </button>
-                      <button class="eq-ctx-item" id="eq-menu-clear" type="button">
-                        <span class="eq-ctx-icon">${ICONS.eraser}</span>
-                        <span class="eq-item-text">Limpar Campo</span>
-                      </button>
-                      <div class="eq-ctx-divider"></div>
-                      <button class="eq-ctx-item" id="eq-menu-bulk" type="button">
-                        <span class="eq-ctx-icon">${ICONS.listPlus}</span>
-                        <span class="eq-item-text">Importar Chaves em Lote</span>
-                        <span class="eq-ctx-badge">Novo</span>
-                      </button>
-                      <button class="eq-ctx-item" id="eq-menu-edit-text" type="button">
-                        <span class="eq-ctx-icon">${ICONS.edit}</span>
-                        <span class="eq-item-text">Ver / Editar Chaves como Texto</span>
-                      </button>
-                      <div class="eq-ctx-divider"></div>
-                      <button class="eq-ctx-item" id="eq-menu-test" type="button">
-                        <span class="eq-ctx-icon">${ICONS.sparkles}</span>
-                        <span class="eq-item-text">Testar Todas as Chaves</span>
-                      </button>
-                      <button class="eq-ctx-item danger" id="eq-menu-delete-all" type="button">
-                        <span class="eq-ctx-icon">${ICONS.trash}</span>
-                        <span class="eq-item-text">Apagar Todas as Chaves</span>
-                      </button>
-                      <button class="eq-ctx-item danger" id="eq-menu-reset" type="button">
-                        <span class="eq-ctx-icon">${ICONS.trash}</span>
-                        <span class="eq-item-text">Resetar Dados e Cache</span>
-                      </button>
+                  <!-- Lista Dinâmica de Chaves Cadastradas -->
+                  <div id="eq-keys-list" class="eq-keys-list"></div>
+                </div>
+
+                <!-- CATEGORIA: VISUAL -->
+                <div class="eq-settings-cat-content" id="eq-cat-visual" style="display: none; flex-direction: column;">
+                  <div class="eq-section-title" style="margin-bottom: 4px;">Tema do Painel</div>
+                  <div class="eq-theme-cards-grid" id="eq-theme-grid">
+                    <!-- Themes will be generated by JS -->
+                  </div>
+                  
+                  <div class="eq-section-title" style="margin-top: 16px;">Opções Visuais</div>
+                  
+                  <div class="eq-cfg-row">
+                    <div class="eq-cfg-label">
+                      <span class="eq-cfg-label-title">Efeitos de Brilho (Glow)</span>
+                      <span class="eq-cfg-label-desc">Sombra colorida nos botões principais.</span>
                     </div>
+                    <label class="eq-toggle">
+                      <input id="eq-glow-effects" type="checkbox" />
+                      <div class="eq-toggle-track"><div class="eq-toggle-knob"></div></div>
+                    </label>
                   </div>
                 </div>
 
-                <!-- Model select hidden (controlled elsewhere) -->
-                <select id="eq-model-select" style="display:none;"></select>
-                
-                <div class="eq-grid-2">
+                <!-- CATEGORIA: IA -->
+                <div class="eq-settings-cat-content" id="eq-cat-ai" style="display: none; flex-direction: column; gap: 12px;">
                   <div class="eq-field-group">
-                    <div class="eq-section-title">Modo da Questão</div>
+                    <div class="eq-section-title">Modelo de Inteligência Artificial</div>
+                    <select id="eq-model-select" class="eq-select">
+                      <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
+                      <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                      <option value="gemini-3.5-pro">Gemini 3.5 Pro</option>
+                    </select>
+                  </div>
+                  
+                  <div class="eq-field-group">
+                    <div class="eq-section-title">Dica do Modo de Questão</div>
                     <select id="eq-mode-select" class="eq-select"></select>
                   </div>
+                  
                   <div class="eq-field-group">
-                    <div class="eq-section-title">Motor de Execução</div>
-                    <select id="eq-engine-select" class="eq-select"></select>
+                    <div class="eq-section-title">Dica de Idioma da Resposta</div>
+                    <select id="eq-language-hint" class="eq-select">
+                      <option value="auto">Auto-Detectar</option>
+                      <option value="pt">Português</option>
+                      <option value="en">English</option>
+                      <option value="es">Español</option>
+                      <option value="fr">Français</option>
+                    </select>
+                  </div>
+                  
+                  <div class="eq-cfg-row" style="margin-top: 8px;">
+                    <div class="eq-cfg-label">
+                      <span class="eq-cfg-label-title">${ICONS.image} Visão Computacional</span>
+                      <span class="eq-cfg-label-desc">Permite a IA capturar e analisar imagens e gráficos da questão na tela.</span>
+                    </div>
+                    <label class="eq-toggle">
+                      <input id="eq-use-vision" type="checkbox" />
+                      <div class="eq-toggle-track"><div class="eq-toggle-knob"></div></div>
+                    </label>
                   </div>
                 </div>
 
-                <!-- Preferências do Sistema -->
-                <div class="eq-grid-2" style="margin-top: 8px;">
-                  <label class="eq-checkbox-label">
-                    <input id="eq-dry-run" type="checkbox" />
-                    <span>Simular (Dry-Run)</span>
-                  </label>
-                  <label class="eq-checkbox-label">
-                    <input id="eq-auto-apply" type="checkbox" />
-                    <span>Auto Aplicar</span>
-                  </label>
-                </div>
-                
-                <label class="eq-checkbox-label">
-                  <input id="eq-auto-advance" type="checkbox" />
-                  <span>Auto Avançar Após Injetar</span>
-                </label>
-
-                <div class="eq-field-group" style="gap: 8px; margin-top: 8px;">
-                  <label class="eq-checkbox-label">
-                    <input id="eq-use-vision" type="checkbox" />
-                    <span>Visão Computacional (Imagens)</span>
-                  </label>
-
-                  <label class="eq-checkbox-label" style="margin-top: 6px;">
-                    <input id="eq-host-dark" type="checkbox" />
-                    <span style="color: #00ffcc;">Habilitar Smart Dark Mode no Site</span>
-                  </label>
-                  <label class="eq-checkbox-label" style="margin-top: 6px;">
-                    <input id="eq-toast-stacking" type="checkbox" />
-                    <span style="color: #fbbf24;">Acumular Toasts (Histórico de Notificações)</span>
-                  </label>
-                </div>
-
-                <!-- Zona de Redefinição -->
-                <div class="eq-field-group" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #282828;">
-                  <div class="eq-section-title" style="color: #ff5555;">Zona de Redefinição</div>
-                  <button class="eq-btn-secondary" id="eq-reset-all-btn" type="button" style="border-color: #662222; color: #ff8888;">
+                <!-- CATEGORIA: SISTEMA -->
+                <div class="eq-settings-cat-content" id="eq-cat-system" style="display: none; flex-direction: column; gap: 12px;">
+                  <div class="eq-field-group">
+                    <div class="eq-section-title">Motor de Execução (DOM)</div>
+                    <select id="eq-engine-select" class="eq-select"></select>
+                  </div>
+                  
+                  <div class="eq-cfg-row">
+                    <div class="eq-cfg-label">
+                      <span class="eq-cfg-label-title">${ICONS.list} Auto Scroll nos Logs</span>
+                      <span class="eq-cfg-label-desc">Rola o terminal para o final automaticamente.</span>
+                    </div>
+                    <label class="eq-toggle">
+                      <input id="eq-auto-scroll-logs" type="checkbox" />
+                      <div class="eq-toggle-track"><div class="eq-toggle-knob"></div></div>
+                    </label>
+                  </div>
+                  
+                  <div class="eq-section-title" style="margin-top: 12px;">Dados Locais</div>
+                  <div style="display: flex; gap: 8px;">
+                    <button type="button" class="eq-btn-secondary" id="eq-export-config-btn" style="flex: 1;">${ICONS.download} Exportar</button>
+                    <button type="button" class="eq-btn-secondary" id="eq-import-config-btn" style="flex: 1;">${ICONS.upload} Importar</button>
+                  </div>
+                  <input type="file" id="eq-import-file" accept=".json" style="display: none;" />
+                  
+                  <div class="eq-section-title" style="color: #ff5555; margin-top: 12px;">Zona de Risco</div>
+                  <button class="eq-btn-secondary" id="eq-reset-all-btn" type="button" style="border-color: rgba(255,85,85,0.3); color: #ff8888; background: rgba(255,85,85,0.05);">
                     ${ICONS.trash} Resetar Todos os Dados e Memória
                   </button>
                 </div>
+                
+                <!-- CATEGORIA: SOBRE -->
+                <div class="eq-settings-cat-content" id="eq-cat-about" style="display: none; flex-direction: column; gap: 16px; align-items: center; justify-content: center; padding-top: 20px;">
+                  <div style="text-align: center;">
+                    <div style="font-size: 24px; font-weight: 800; color: var(--eq-text-bright); letter-spacing: -0.5px;">EasyQuiz <span style="color: var(--eq-accent);">Legacy</span></div>
+                    <div style="font-size: 11px; color: var(--eq-muted); margin-top: 2px;">Versão: ${BUILD_VERSION}</div>
+                  </div>
+                  
+                  <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                    <a href="https://github.com/minifoxie/EasyQuiz" target="_blank" class="eq-btn-secondary" style="text-decoration: none; display: flex; justify-content: center; border: 1px solid var(--eq-border);">${ICONS.github} Repositório Oficial ↗</a>
+                  </div>
+                  
+                  <div style="font-size: 10px; color: var(--eq-muted); text-align: center; margin-top: 20px; opacity: 0.6;">
+                    MIT License &copy; minifoxie<br/>
+                    Construído com TypeScript & Web Components
+                  </div>
+                </div>
 
-                <div class="eq-footer-note" style="margin-top: auto;">Configurações salvas localmente no navegador • ${BUILD_VERSION}</div>
+                <div class="eq-footer-note" style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--eq-border);">Configurações salvas localmente no navegador</div>
               </div>
             </div>
           </main>
@@ -801,7 +919,12 @@ export class EasyQuizPanel {
     this.hostDarkModeCheckbox = this.shadow.querySelector('#eq-host-dark') as HTMLInputElement
     this.useVisionCheckbox = this.shadow.querySelector('#eq-use-vision') as HTMLInputElement
     this.toastStackingCheckbox = this.shadow.querySelector('#eq-toast-stacking') as HTMLInputElement
-    this.toastStackingCheckbox = this.shadow.querySelector('#eq-toast-stacking') as HTMLInputElement
+    this.showTokensCheckbox = this.shadow.querySelector('#eq-show-tokens') as HTMLInputElement
+    this.soundFeedbackCheckbox = this.shadow.querySelector('#eq-sound-feedback') as HTMLInputElement
+    this.compactModeCheckbox = this.shadow.querySelector('#eq-compact-mode') as HTMLInputElement
+    this.glowEffectsCheckbox = this.shadow.querySelector('#eq-glow-effects') as HTMLInputElement
+    this.languageHintSelect = this.shadow.querySelector('#eq-language-hint') as HTMLSelectElement
+    this.autoScrollLogsCheckbox = this.shadow.querySelector('#eq-auto-scroll-logs') as HTMLInputElement
     this.analyzeBtn = this.shadow.querySelector('#eq-analyze-btn') as HTMLButtonElement
     this.applyBtn = this.shadow.querySelector('#eq-apply-btn') as HTMLButtonElement | null
     if (this.applyBtn) this.applyBtn.disabled = true
@@ -834,7 +957,12 @@ export class EasyQuizPanel {
     this.hostDarkModeCheckbox.checked = initialSettings.hostDarkMode
     this.useVisionCheckbox.checked = initialSettings.useVision
     this.toastStackingCheckbox.checked = initialSettings.toastStacking ?? true
-    this.toastStackingCheckbox.checked = initialSettings.toastStacking ?? true
+    if (this.showTokensCheckbox) this.showTokensCheckbox.checked = initialSettings.showTokenUsage ?? true
+    if (this.soundFeedbackCheckbox) this.soundFeedbackCheckbox.checked = initialSettings.enableSoundFeedback ?? false
+    if (this.compactModeCheckbox) this.compactModeCheckbox.checked = initialSettings.compactMode ?? false
+    if (this.glowEffectsCheckbox) this.glowEffectsCheckbox.checked = initialSettings.glowEffects ?? false
+    if (this.languageHintSelect) this.languageHintSelect.value = initialSettings.languageHint ?? 'auto'
+    if (this.autoScrollLogsCheckbox) this.autoScrollLogsCheckbox.checked = initialSettings.autoScrollLogs ?? true
 
     // Elementos da Aba de Métricas & Cronômetro
     this.metricsLiveTime = this.shadow.querySelector('#eq-metrics-live-time') as HTMLElement
@@ -852,6 +980,11 @@ export class EasyQuizPanel {
     this.updateTimingMetrics()
     this.mountHost()
     this.applyHostDarkMode(initialSettings.hostDarkMode)
+
+    // Aplicar tema salvo (localStorage tem precedência, fallback para configurações)
+    const savedTheme = (() => { try { return localStorage.getItem('easyquiz_theme') || '' } catch { return '' } })()
+    const themeToApply = savedTheme || initialSettings.theme || 'mega-black'
+    this.shadow.host.setAttribute('data-eq-theme', themeToApply)
 
     // Inicializar Pool Multi-API Key
     const initialRawKeys = Array.isArray(initialSettings.apiKeys) && initialSettings.apiKeys.length > 0
@@ -919,7 +1052,8 @@ export class EasyQuizPanel {
         try { this.refreshDebugView(); this.renderTerminalEntries(); this.initTerminalREPL(); this.initTerminalWallpaper() } catch {}
         break
       case 'settings':
-        // Settings is static HTML — no special init needed
+        // Re-render theme grid to reflect current active theme
+        try { this.renderThemeGrid() } catch {}
         break
     }
   }
@@ -1023,6 +1157,77 @@ export class EasyQuizPanel {
     }
   }
 
+  private setupSettingsTabs(): void {
+    const btns = this.shadow.querySelectorAll('.eq-settings-cat-btn')
+    const contents = this.shadow.querySelectorAll('.eq-settings-cat-content')
+    
+    btns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const target = e.currentTarget as HTMLElement
+        const cat = target.dataset.cat
+        if (!cat) return
+        
+        // Remove active class from all
+        btns.forEach(b => b.classList.remove('active'))
+        contents.forEach(c => (c as HTMLElement).style.display = 'none')
+        
+        // Activate selected
+        target.classList.add('active')
+        const activeContent = this.shadow.querySelector(`#eq-cat-${cat}`) as HTMLElement
+        if (activeContent) {
+          activeContent.style.display = 'flex'
+        }
+      })
+    })
+
+    this.renderThemeGrid()
+  }
+
+  private renderThemeGrid(): void {
+    const grid = this.shadow.querySelector('#eq-theme-grid')
+    if (!grid) return
+
+    const themes = [
+      { id: 'mega-black', name: 'Mega Black', color: '#000000', border: 'rgba(255,255,255,0.14)' },
+      { id: 'dark', name: 'Dark', color: '#1c1c22', border: 'rgba(255,255,255,0.1)' },
+      { id: 'purple-neon', name: 'Purple Neon', color: '#120824', border: 'rgba(160,80,255,0.3)' },
+      { id: 'gray-blue', name: 'Gray Blue', color: '#282b30', border: 'rgba(88,101,242,0.22)' },
+      { id: 'light', name: 'Light', color: '#ffffff', border: 'rgba(0,0,0,0.1)' }
+    ]
+
+    const currentTheme = localStorage.getItem('easyquiz_theme') || 'mega-black'
+    this.shadow.host.setAttribute('data-eq-theme', currentTheme)
+
+    grid.innerHTML = themes.map(t => `
+      <div class="eq-theme-card ${t.id === currentTheme ? 'active' : ''}" data-theme-id="${t.id}">
+        <div class="eq-theme-card-preview" style="background:${t.color};border-color:${t.border}">
+          <div class="eq-theme-card-preview-bar" style="border-right:1px solid ${t.border}"></div>
+          <div class="eq-theme-card-preview-main">
+            <div class="eq-theme-card-preview-line" style="width:80%;"></div>
+            <div class="eq-theme-card-preview-line" style="width:40%;"></div>
+          </div>
+        </div>
+        <div class="eq-theme-card-label">${t.name}</div>
+      </div>
+    `).join('')
+
+    grid.querySelectorAll('.eq-theme-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        const target = e.currentTarget as HTMLElement
+        const id = target.dataset.themeId
+        if (!id) return
+        
+        localStorage.setItem('easyquiz_theme', id)
+        this.shadow.host.setAttribute('data-eq-theme', id)
+        
+        grid.querySelectorAll('.eq-theme-card').forEach(c => c.classList.remove('active'))
+        target.classList.add('active')
+        
+        this.setStatus(`Tema atualizado para ${id}`, 'info')
+      })
+    })
+  }
+
   private setupEventListeners(): void {
     // Abas do Activity Bar Vertical
     this.shadow.querySelector('#eq-tab-resolver')?.addEventListener('click', () => this.switchTab('resolver'))
@@ -1032,6 +1237,8 @@ export class EasyQuizPanel {
     this.shadow.querySelector('#eq-tab-metrics')?.addEventListener('click', () => this.switchTab('metrics'))
     this.shadow.querySelector('#eq-tab-debug')?.addEventListener('click', () => this.switchTab('debug'))
     this.shadow.querySelector('#eq-tab-settings')?.addEventListener('click', () => this.switchTab('settings'))
+
+    this.setupSettingsTabs()
 
     const statusCard = this.shadow.querySelector('#eq-status-card') as HTMLElement | null
     statusCard?.addEventListener('click', () => {
@@ -1836,6 +2043,15 @@ export class EasyQuizPanel {
       this.callbacks.onSettingsChange({ hostDarkMode: v })
       this.applyHostDarkMode(v)
     })
+
+    this.toastStackingCheckbox?.addEventListener('change', () => this.callbacks.onSettingsChange({ toastStacking: this.toastStackingCheckbox.checked }))
+    this.showTokensCheckbox?.addEventListener('change', () => this.callbacks.onSettingsChange({ showTokenUsage: this.showTokensCheckbox.checked }))
+    this.soundFeedbackCheckbox?.addEventListener('change', () => this.callbacks.onSettingsChange({ enableSoundFeedback: this.soundFeedbackCheckbox.checked }))
+    this.compactModeCheckbox?.addEventListener('change', () => this.callbacks.onSettingsChange({ compactMode: this.compactModeCheckbox.checked }))
+    this.glowEffectsCheckbox?.addEventListener('change', () => this.callbacks.onSettingsChange({ glowEffects: this.glowEffectsCheckbox.checked }))
+    this.languageHintSelect?.addEventListener('change', () => this.callbacks.onSettingsChange({ languageHint: this.languageHintSelect.value }))
+    this.autoScrollLogsCheckbox?.addEventListener('change', () => this.callbacks.onSettingsChange({ autoScrollLogs: this.autoScrollLogsCheckbox.checked }))
+
 
     this.analyzeBtn?.addEventListener('click', async () => {
       // If button is visually in 'stop' state, stop unconditionally regardless of internal flags
