@@ -174,6 +174,11 @@ async function rasterizeSvgElement(
   } catch {}
   bgColor = ensureLightBackground(bgColor)
 
+  // Jimmy's fix: Garante atributo xmlns obrigatório para conversão base64
+  if (!clone.getAttribute('xmlns')) {
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+  }
+
   const serializer = new XMLSerializer()
   const svgString = serializer.serializeToString(clone)
 

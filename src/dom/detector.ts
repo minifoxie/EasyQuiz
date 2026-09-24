@@ -163,6 +163,9 @@ export function findTrueQuestionContainer(element: HTMLElement): HTMLElement {
 export function extractMathAwareText(element: HTMLElement, maxLen = 16_000): string {
   const clone = element.cloneNode(true) as HTMLElement
 
+  // Isolamento Cirúrgico: Remover barras laterais, navegação e drawers do Khan Academy e similares
+  clone.querySelectorAll('nav, aside, [class*="sidebar" i], [class*="lesson" i], [class*="_ka-drawer_" i], [class*="navigation" i], [role="navigation"]').forEach(el => el.remove())
+
   // 1. KaTeX: substituir <span class="katex"> pelo LaTeX source da <annotation>
   const katexEls = Array.from(clone.querySelectorAll('.katex'))
   for (const katex of katexEls) {
