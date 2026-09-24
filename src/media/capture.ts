@@ -215,7 +215,8 @@ async function rasterizeSvgElement(
     canvas.height = targetHeight
     const ctx = canvas.getContext('2d', { alpha: false })
     if (ctx && img) {
-      ctx.fillStyle = bgColor
+      // FORÇA fundo branco (evita SVGs pretos na conversão)
+      ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, targetWidth, targetHeight)
       ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
 
@@ -807,7 +808,6 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
   }
 
   // Procura no escopo e no container da questão (caso o escopo detectado tenha sido apenas a grade de opções)
-  // Também expande para containers Perseus/Khan Academy que podem conter imagens fora do scope estreito
   const roots: HTMLElement[] = [scope]
   const containerSelectors = [
     'article', '.card', '[class*="question" i]', '[class*="exercise" i]', 'form',
@@ -818,11 +818,6 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
   const container = scope.closest(containerSelectors) as HTMLElement | null
   if (container && container !== scope && container !== document.body && isVisible(container)) {
     roots.push(container)
-  }
-  // Também verifica Perseus renderer se existir no documento e não estiver nos roots
-  const perseusRoot = document.querySelector('.perseus-renderer, .framework-perseus') as HTMLElement | null
-  if (perseusRoot && !roots.includes(perseusRoot) && perseusRoot !== document.body && isVisible(perseusRoot)) {
-    roots.push(perseusRoot)
   }
 
   // 1. Imagens nativas (<img>)
@@ -853,6 +848,10 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
   const seenSvgs = new Set<SVGElement>()
   for (const root of roots) {
     const svgs = Array.from(root.querySelectorAll('svg')).filter((svg) => {
+      // IGNORA SVGs de equações matemáticas KaTeX (evita SVGs inúteis ou pretos), 
+      // pois o texto da fórmula já é extraído em MathML/text no detector.ts
+      if (svg.closest('.katex') || svg.classList.contains('katex-mathml')) return false
+      
       if (!isVisible(svg) || isUtilityOrGamificationControl(svg) || seenSvgs.has(svg)) return false
       const rect = typeof svg.getBoundingClientRect === 'function' ? svg.getBoundingClientRect() : { width: 0, height: 0 }
       const width = rect.width || parseFloat(svg.getAttribute('width') || '0')
