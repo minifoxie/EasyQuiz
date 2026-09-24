@@ -258,12 +258,56 @@ export function expandToGeneralSelection(scope: HTMLElement): HTMLElement {
   return curr || document.body
 }
 
+// ---- CACHE DE LAYOUT INTELIGENTE ----
+// Memoriza o seletor do escopo que funcionou no último scan para evitar re-scan redundante.
+// Invalida automaticamente se o seletor cached não pontua mais (troca de página/layout).
+const _scopeCache = new Map<string, { selector: string; timestamp: number }>()
+const SCOPE_CACHE_TTL = 30_000 // 30s — depois disso, refaz o scan completo
+
+function getCachedScopeSelector(): string | null {
+  const key = window.location.hostname
+  const cached = _scopeCache.get(key)
+  if (!cached) return null
+  if (Date.now() - cached.timestamp > SCOPE_CACHE_TTL) {
+    _scopeCache.delete(key)
+    return null
+  }
+  return cached.selector
+}
+
+function setCachedScopeSelector(element: HTMLElement): void {
+  try {
+    // Constrói um seletor único para o elemento: tag + classes + id
+    const tag = element.tagName.toLowerCase()
+    const id = element.id ? `#${element.id}` : ''
+    const cls = Array.from(element.classList).slice(0, 3).map(c => `.${c}`).join('')
+    const selector = `${tag}${id}${cls}`
+    if (selector && selector !== 'body' && selector !== 'html') {
+      _scopeCache.set(window.location.hostname, { selector, timestamp: Date.now() })
+    }
+  } catch {}
+}
+
 export function findActiveScope(): HTMLElement {
+  // -1. CACHE: tenta o seletor memorizado do layout anterior (evita re-scan redundante)
+  const cachedSelector = getCachedScopeSelector()
+  if (cachedSelector) {
+    try {
+      const cached = document.querySelector(cachedSelector) as HTMLElement | null
+      if (cached && isVisible(cached) && !isKhanSidebarElement(cached) && scoreCandidate(cached) > 0) {
+        return findTrueQuestionContainer(cached)
+      }
+    } catch {}
+    // Cache inválido — limpa e segue para scan completo
+    _scopeCache.delete(window.location.hostname)
+  }
+
   // 0. PRIORIDADE MÁXIMA: widget de classificação (Wayground/Quizizz) — escopo é o container completo
   const classificationWidget = document.querySelector(
     '[class*="classification-layout" i], [class*="quiz-container" i][class*="classification" i]'
   ) as HTMLElement | null
   if (classificationWidget && isVisible(classificationWidget)) {
+    setCachedScopeSelector(classificationWidget)
     return classificationWidget
   }
 
@@ -288,7 +332,9 @@ export function findActiveScope(): HTMLElement {
         const rB = b.getBoundingClientRect()
         return (rB.width * rB.height) - (rA.width * rA.height)
       })
-      return findTrueQuestionContainer(activeRenderers[0])
+      const result = findTrueQuestionContainer(activeRenderers[0])
+      setCachedScopeSelector(result)
+      return result
     }
   }
 
@@ -297,7 +343,9 @@ export function findActiveScope(): HTMLElement {
   if (active && active !== document.body) {
     const focusedScope = active.closest(CANDIDATE_SELECTORS) as HTMLElement | null
     if (focusedScope && !isKhanSidebarElement(focusedScope) && scoreCandidate(focusedScope) > 0) {
-      return findTrueQuestionContainer(focusedScope)
+      const result = findTrueQuestionContainer(focusedScope)
+      setCachedScopeSelector(result)
+      return result
     }
   }
 
@@ -316,11 +364,15 @@ export function findActiveScope(): HTMLElement {
   })
 
   if (specific) {
-    return findTrueQuestionContainer(specific.element)
+    const result = findTrueQuestionContainer(specific.element)
+    setCachedScopeSelector(result)
+    return result
   }
 
   if (ranked.length > 0 && ranked[0].score > 0) {
-    return findTrueQuestionContainer(ranked[0].element)
+    const result = findTrueQuestionContainer(ranked[0].element)
+    setCachedScopeSelector(result)
+    return result
   }
 
   // 3. Fallback: procurar o formulário principal ou main

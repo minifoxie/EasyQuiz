@@ -2043,7 +2043,57 @@ export async function executeDeclarativeAction(action: DeclarativeAction, attemp
               : (action as any).val !== undefined
                 ? (action as any).val
                 : (action as any).text
-        const valString = actRawVal !== undefined && actRawVal !== null ? String(actRawVal) : ''
+        let valString = actRawVal !== undefined && actRawVal !== null ? String(actRawVal) : ''
+
+        // Validação de restrições do input (Bug: matrizes 3×3 recebiam valores inválidos)
+        const inputToValidate = targetInput || element
+        if (inputToValidate instanceof HTMLInputElement) {
+          const inputType = inputToValidate.type.toLowerCase()
+          const maxLength = inputToValidate.maxLength
+          const min = inputToValidate.min
+          const max = inputToValidate.max
+          const step = inputToValidate.step
+          const pattern = inputToValidate.pattern
+
+          // Truncar se maxlength definido
+          if (maxLength > 0 && valString.length > maxLength) {
+            valString = valString.slice(0, maxLength)
+          }
+
+          // Para inputs numéricos, clampar ao range min/max
+          if (inputType === 'number' || inputType === 'range') {
+            const numVal = parseFloat(valString)
+            if (!isNaN(numVal)) {
+              let clamped = numVal
+              if (min !== '' && !isNaN(parseFloat(min))) clamped = Math.max(clamped, parseFloat(min))
+              if (max !== '' && !isNaN(parseFloat(max))) clamped = Math.min(clamped, parseFloat(max))
+              // Respeitar step: arredondar ao step mais próximo
+              if (step !== '' && step !== 'any' && !isNaN(parseFloat(step))) {
+                const stepVal = parseFloat(step)
+                const base = min !== '' ? parseFloat(min) : 0
+                clamped = base + Math.round((clamped - base) / stepVal) * stepVal
+                // Re-clampar após arredondamento
+                if (min !== '' && !isNaN(parseFloat(min))) clamped = Math.max(clamped, parseFloat(min))
+                if (max !== '' && !isNaN(parseFloat(max))) clamped = Math.min(clamped, parseFloat(max))
+              }
+              valString = Number.isInteger(clamped) ? String(clamped) : String(parseFloat(clamped.toFixed(6)))
+            }
+          }
+
+          // Validar pattern regex — se o valor não casa, tentar extrair parte válida
+          if (pattern) {
+            try {
+              const rx = new RegExp(`^(?:${pattern})$`)
+              if (!rx.test(valString)) {
+                // Tenta extrair a parte numérica se o pattern aceita números
+                const numericExtract = valString.match(/-?\d+\.?\d*/)
+                if (numericExtract && rx.test(numericExtract[0])) {
+                  valString = numericExtract[0]
+                }
+              }
+            } catch {}
+          }
+        }
 
         if (targetInput) {
           setNativeValue(targetInput, valString)

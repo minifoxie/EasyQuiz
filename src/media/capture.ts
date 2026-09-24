@@ -25,24 +25,55 @@ function isCanvasBlank(canvas: HTMLCanvasElement): boolean {
   try {
     const ctx = canvas.getContext('2d')
     if (!ctx) return true
-    // Verifica apenas um trecho para eficiência
-    const w = Math.min(canvas.width, 50)
-    const h = Math.min(canvas.height, 50)
+    // Amostra em 3 regiões para robustez (centro, topo-esquerda, meio-baixo)
+    const w = canvas.width, h = canvas.height
     if (w <= 0 || h <= 0) return true
-    const data = ctx.getImageData(0, 0, w, h).data
-    let whiteOrTransparentCount = 0
-    for (let i = 0; i < data.length; i += 4) {
-      // É transparente ou muito claro (branco/quase branco)
-      if (data[i + 3] === 0 || (data[i] > 250 && data[i + 1] > 250 && data[i + 2] > 250)) {
-        whiteOrTransparentCount++
+    const sampleSize = Math.min(40, Math.floor(w / 3), Math.floor(h / 3))
+    if (sampleSize <= 0) return true
+    const regions = [
+      [0, 0], // topo-esquerda
+      [Math.floor(w / 2) - Math.floor(sampleSize / 2), Math.floor(h / 2) - Math.floor(sampleSize / 2)], // centro
+      [Math.floor(w / 3), Math.floor(h * 2 / 3)] // terço inferior
+    ]
+    let totalPixels = 0
+    let uniformPixels = 0
+    let firstR = -1, firstG = -1, firstB = -1
+    for (const [sx, sy] of regions) {
+      const rx = Math.max(0, Math.min(sx, w - sampleSize))
+      const ry = Math.max(0, Math.min(sy, h - sampleSize))
+      const data = ctx.getImageData(rx, ry, sampleSize, sampleSize).data
+      for (let i = 0; i < data.length; i += 4) {
+        totalPixels++
+        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3]
+        if (a === 0) { uniformPixels++; continue } // transparente
+        if (firstR === -1) { firstR = r; firstG = g; firstB = b }
+        // Pixel é "uniforme" se é muito próximo do primeiro pixel lido (monocromático)
+        if (Math.abs(r - firstR) < 8 && Math.abs(g - firstG) < 8 && Math.abs(b - firstB) < 8) {
+          uniformPixels++
+        }
       }
     }
-    const ratio = whiteOrTransparentCount / (data.length / 4)
-    return ratio > 0.95 // 95% branco ou transparente = consideramos blank
+    // Canvas blank = >97% dos pixels são uniformes (mesma cor ou transparentes)
+    // Isso diferencia "imagem real com fundo branco" de "canvas genuinamente vazio"
+    return totalPixels > 0 && (uniformPixels / totalPixels) > 0.97
   } catch {
-    // Se falhar de ler por CORS exception (excepcional), assumimos não-blank ou falha
     return false
   }
+}
+
+/** Força fundo branco quando a cor detectada é escura demais para renderização legível */
+function ensureLightBackground(detectedBg: string): string {
+  try {
+    // Detecta cores escuras: rgb(R,G,B) onde luminance < 0.15
+    const m = detectedBg.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/)
+    if (m) {
+      const [r, g, b] = [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])]
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+      if (luminance < 0.15) return '#ffffff' // Fundo muito escuro → força branco
+    }
+    if (detectedBg === 'transparent' || detectedBg === 'rgba(0, 0, 0, 0)') return '#ffffff'
+  } catch {}
+  return detectedBg
 }
 
 async function compressImage(source: HTMLImageElement | HTMLCanvasElement | ImageBitmap): Promise<Blob> {
@@ -128,7 +159,7 @@ async function rasterizeSvgElement(
   } catch {}
 
   // Detecta cor de fundo real do elemento ou da página para preservar contraste em temas escuros (ex: KhanMath)
-  let bgColor = '#ffffff'
+  let bgColor = '#ffffff' // fallback seguro
   try {
     let cur: HTMLElement | null = (svgEl.parentElement as HTMLElement) || (svgEl as any)
     while (cur && cur !== document.documentElement) {
@@ -141,6 +172,7 @@ async function rasterizeSvgElement(
       cur = cur.parentElement
     }
   } catch {}
+  bgColor = ensureLightBackground(bgColor)
 
   const serializer = new XMLSerializer()
   const svgString = serializer.serializeToString(clone)
@@ -259,7 +291,7 @@ async function captureElementVisualSnapshot(node: HTMLElement): Promise<Captured
       } catch {}
     }
 
-    // Detectar cor de fundo
+    // Detectar cor de fundo — força branco se o tema for escuro (PNG sem fundo ficaria preto)
     let bgColor = '#ffffff'
     try {
       let cur: HTMLElement | null = node
@@ -273,6 +305,7 @@ async function captureElementVisualSnapshot(node: HTMLElement): Promise<Captured
         cur = cur.parentElement
       }
     } catch {}
+    bgColor = ensureLightBackground(bgColor)
 
     const clone = node.cloneNode(true) as HTMLElement
     const origElements = Array.from(node.querySelectorAll('*'))
@@ -676,18 +709,35 @@ export function findAssociatedContextForMedia(
       const textLabel = cleanText(optionContainer.innerText || optionContainer.textContent || '', 120)
       const ariaLabel = optionContainer.getAttribute('aria-label') || optionContainer.getAttribute('title') || ''
 
+      // Numerar a posição da alternativa dentro do scope para contexto ordinal
+      let positionHint = ''
+      try {
+        const allSiblings = Array.from(scope.querySelectorAll(
+          '[data-easyquiz-id], [role="radio"], [role="checkbox"], [role="option"], .option-card, .quiz-option, .choice, .answer, [class*="option" i], [class*="choice" i]'
+        )).filter(s => isVisible(s as HTMLElement) && !isNavigationControl(s as HTMLElement))
+        const idx = allSiblings.indexOf(optionContainer)
+        if (idx >= 0) positionHint = ` (opção ${idx + 1} de ${allSiblings.length})`
+      } catch {}
+
       const bestLabel = textLabel || ariaLabel
       const idHint = controlId ? ` [id: ${controlId}]` : ''
 
       if (bestLabel) {
         return {
-          associatedLabel: `Alternativa/Opção: "${bestLabel}"${idHint}`,
+          associatedLabel: `Alternativa/Opção: "${bestLabel}"${idHint}${positionHint}`,
           targetControlId: controlId,
         }
       }
       if (controlId) {
         return {
-          associatedLabel: `Alternativa/Opção ${idHint}`,
+          associatedLabel: `Alternativa/Opção${idHint}${positionHint}`,
+          targetControlId: controlId,
+        }
+      }
+      // Mesmo sem texto, se está dentro de card com ID, associa pela posição
+      if (positionHint) {
+        return {
+          associatedLabel: `Imagem da Alternativa${positionHint}`,
           targetControlId: controlId,
         }
       }
@@ -710,6 +760,18 @@ export function findAssociatedContextForMedia(
       return { associatedLabel: `Gráfico do Enunciado: "${text}"` }
     }
   }
+
+  // 4. Numerar imagens do enunciado quando há múltiplas
+  try {
+    const allImages = Array.from(scope.querySelectorAll('img, svg, canvas, [style*="background-image"]'))
+      .filter(i => isVisible(i as HTMLElement))
+    if (allImages.length > 1) {
+      const idx = allImages.indexOf(el as HTMLElement)
+      if (idx >= 0) {
+        return { associatedLabel: `Imagem ${idx + 1} de ${allImages.length} do Enunciado` }
+      }
+    }
+  } catch {}
 
   return { associatedLabel: 'Gráfico/Imagem do Enunciado Principal' }
 }
