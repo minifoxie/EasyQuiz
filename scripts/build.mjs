@@ -19,7 +19,21 @@ let gitHash = 'unknown'
 try {
   gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim()
   const count = execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim()
-  versionLabel = `v${String(count).split('').join('.')}`
+  const parsedVersion = String(count).split('').join('.')
+  versionLabel = `v${parsedVersion}`
+  
+  try {
+    const pkgPath = path.join(root, 'package.json')
+    const pkgRaw = await readFile(pkgPath, 'utf-8')
+    const pkgData = JSON.parse(pkgRaw)
+    if (pkgData.version !== parsedVersion) {
+      pkgData.version = parsedVersion
+      await writeFile(pkgPath, JSON.stringify(pkgData, null, 2) + '\n', 'utf-8')
+      console.log(`[EasyQuiz] package.json atualizado automaticamente para a versão ${parsedVersion}`)
+    }
+  } catch (err) {
+    console.warn('[EasyQuiz] Falha ao sincronizar package.json', err)
+  }
 } catch {
   try {
     const pkgData = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf-8'))
