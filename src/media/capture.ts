@@ -139,21 +139,26 @@ async function rasterizeSvgElement(
   // Injetar estilos computados essenciais em todos os elementos filhos do SVG
   // para que cores, fontes e traços sejam idênticos mesmo sem CSS externo
   try {
-    const origElements = Array.from(svgEl.querySelectorAll('*'))
-    const cloneElements = Array.from(clone.querySelectorAll('*'))
+    const origElements = [svgEl, ...Array.from(svgEl.querySelectorAll('*'))] as SVGElement[]
+    const cloneElements = [clone, ...Array.from(clone.querySelectorAll('*'))] as SVGElement[]
+    
     for (let i = 0; i < Math.min(origElements.length, cloneElements.length); i++) {
-      const orig = origElements[i] as SVGElement
-      const dest = cloneElements[i] as SVGElement
+      const orig = origElements[i]
+      const dest = cloneElements[i]
       if (!orig || !dest || !dest.style) continue
+      
       const cs = window.getComputedStyle ? window.getComputedStyle(orig) : null
       if (cs) {
-        if (cs.fill && cs.fill !== 'none') dest.style.fill = cs.fill
-        if (cs.stroke && cs.stroke !== 'none') dest.style.stroke = cs.stroke
-        if (cs.strokeWidth) dest.style.strokeWidth = cs.strokeWidth
-        if (cs.fontFamily) dest.style.fontFamily = cs.fontFamily
-        if (cs.fontSize) dest.style.fontSize = cs.fontSize
-        if (cs.fontWeight) dest.style.fontWeight = cs.fontWeight
-        if (cs.color) dest.style.color = cs.color
+        const props = [
+          'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin',
+          'opacity', 'font-family', 'font-size', 'font-weight', 'color', 'transform', 'display', 'visibility'
+        ]
+        props.forEach(prop => {
+          const val = cs.getPropertyValue(prop)
+          if (val && val !== 'none' && val !== 'normal' && val !== 'auto') {
+            dest.style.setProperty(prop, val, 'important')
+          }
+        })
       }
     }
   } catch {}

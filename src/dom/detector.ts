@@ -205,8 +205,30 @@ export function extractMathAwareText(element: HTMLElement, maxLen = 16_000): str
     sub.textContent = `_{${sub.textContent?.trim() || ''}}`
   }
 
+  // 5. Extração de Dados de Acessibilidade (Screen Reader) para Gráficos
+  let srHiddenData = ''
+  clone.querySelectorAll('.sr-only, .visuallyhidden, .visually-hidden, [aria-label], [aria-describedby]').forEach(el => {
+    // Tenta capturar rótulos ocultos
+    const label = el.getAttribute('aria-label') || el.getAttribute('aria-describedby') || ''
+    const txt = el.textContent?.trim() || ''
+    
+    // Se não for um elemento de interface inútil
+    if (!el.closest('button, input, a')) {
+      if (label && !srHiddenData.includes(label)) {
+        srHiddenData += `\n[Dado do Gráfico/Imagem: ${label}]`
+      }
+      if (txt && !label && txt.length > 5 && !srHiddenData.includes(txt)) {
+        srHiddenData += `\n[Tabela Oculta do Gráfico: ${txt}]`
+      }
+    }
+  })
+
   const rawText = clone.innerText && clone.innerText.trim().length > 0 ? clone.innerText : clone.textContent || ''
-  return cleanText(rawText, maxLen)
+  
+  // Mescla o texto visível normal com os dados cruciais de acessibilidade que os leitores de tela leem
+  const finalText = rawText + (srHiddenData ? `\n\n--- DADOS OCULTOS DA QUESTÃO ---\n${srHiddenData}` : '')
+  
+  return cleanText(finalText, maxLen)
 }
 
 /** Lineariza um elemento MathML para texto legível */
