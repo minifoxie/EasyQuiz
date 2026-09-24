@@ -170,6 +170,20 @@ async function initEasyQuiz(): Promise<void> {
       panel.setStatus(`Questão localizada (${context.controls.length} controles). Preparando análise...`, 'info')
       panel.setProgress(40, `Consultando Gemini (${settings.model})...`)
       let images = await captureImages(context.scope, settings.useVision)
+
+      // SANITY CHECK RIGOROSO (Validação do Conteúdo Extraído)
+      console.log('================ [SANITY CHECK] ================')
+      console.log(`[DOM Scope]: ${context.scope.tagName.toLowerCase()}#${context.scope.id || 'N/A'}`)
+      console.log(`[Imagens Capturadas]: ${images.length}`)
+      console.log(`[Texto Extraído (Início)]: ${context.questionText.slice(0, 150).replace(/\n/g, ' ')}...`)
+      console.log('================================================')
+
+      if (context.questionText.trim().length < 10 && images.length === 0) {
+        panel.logToConsole('> [ERRO] Texto extraído muito curto e sem imagens. Abortando API.', 'text-red')
+        panel.setStatus('Falha de escopo: contêiner inválido ou vazio.', 'error')
+        return undefined
+      }
+
       if (images.length > 0) {
         // Só destacar elementos com imagem REAL capturada — evita highlights fantasma
         const realImages = images.filter(img =>

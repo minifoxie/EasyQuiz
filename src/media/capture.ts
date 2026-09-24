@@ -812,24 +812,15 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
     return visualCaptures >= MAX_IMAGES
   }
 
-  // Procura no escopo e no container da questão (caso o escopo detectado tenha sido apenas a grade de opções)
+  // MIRA A LASER: Procura estritamente dentro do escopo da questão isolado! 
+  // Removido o '.closest(containerSelectors)' que causava vazamento para o footer (ex: Google Play).
   const roots: HTMLElement[] = [scope]
-  const containerSelectors = [
-    'article', '.card', '[class*="question" i]', '[class*="exercise" i]', 'form',
-    '[data-test-id*="exercise" i]', '[data-testid*="exercise" i]',
-    '.perseus-renderer', '.framework-perseus', '[class*="perseus" i]',
-    '.perseus-widget-container', '[class*="problem" i]',
-  ].join(', ')
-  const container = scope.closest(containerSelectors) as HTMLElement | null
-  if (container && container !== scope && container !== document.body && isVisible(container)) {
-    roots.push(container)
-  }
 
   // 1. Imagens nativas (<img>)
   const seenImgs = new Set<HTMLImageElement>()
   for (const root of roots) {
     const images = Array.from(root.querySelectorAll('img')).filter(
-      (el) => isVisible(el) && !isUtilityOrGamificationControl(el) && !seenImgs.has(el),
+      (el) => isVisible(el) && !isUtilityOrGamificationControl(el) && !seenImgs.has(el) && !el.closest('footer, nav, aside, [class*="sidebar" i], [class*="lesson" i]')
     )
     for (const img of images) {
       seenImgs.add(img)
@@ -857,6 +848,9 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
       // pois o texto da fórmula já é extraído em MathML/text no detector.ts
       if (svg.closest('.katex') || svg.classList.contains('katex-mathml')) return false
       
+      // IGNORA SVGs que vazaram para rodapé/navegação
+      if (svg.closest('footer, nav, aside, [class*="sidebar" i], [class*="lesson" i]')) return false
+
       if (!isVisible(svg) || isUtilityOrGamificationControl(svg) || seenSvgs.has(svg)) return false
       const rect = typeof svg.getBoundingClientRect === 'function' ? svg.getBoundingClientRect() : { width: 0, height: 0 }
       const width = rect.width || parseFloat(svg.getAttribute('width') || '0')
