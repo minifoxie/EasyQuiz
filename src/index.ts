@@ -226,8 +226,13 @@ async function initEasyQuiz(): Promise<void> {
         panel.updateContext(context)
         images = await captureImages(context.scope, settings.useVision)
         if (images.length > 0) {
-          const attachedElements = images.map((img) => img.element).filter(Boolean) as Element[]
-          highlightAttachedImages(attachedElements)
+          const realImages = images.filter(img =>
+            img.captureStatus === 'captured' && img.base64 && img.base64.length > 100 && img.element
+          )
+          if (realImages.length > 0) {
+            const attachedElements = realImages.map((img) => img.element).filter(Boolean) as Element[]
+            highlightAttachedImages(attachedElements)
+          }
           panel.updateImages(images)
         }
         panel.setStatus(`Reconsultando IA com escopo ampliado (${context.controls.length} controles)...`, 'info')

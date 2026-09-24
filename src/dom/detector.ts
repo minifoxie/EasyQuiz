@@ -44,6 +44,10 @@ const CANDIDATE_SELECTORS = [
   '[class*="question" i]',
   '[class*="pergunta" i]',
   '[class*="categoriz" i]',
+  '[class*="card" i]',
+  '[class*="content" i]',
+  '[class*="wrapper" i]',
+  '[role="group"]',
   'article',
   'form',
   'section',
@@ -71,7 +75,9 @@ function scoreCandidate(element: HTMLElement): number {
   const areaRatio = Math.min(1, elementArea / viewportArea)
 
   const centerY = rect.top + rect.height / 2
-  const centerDistance = Math.abs(centerY - window.innerHeight / 2) / Math.max(1, window.innerHeight)
+  const centerX = rect.left + rect.width / 2
+  const centerDistanceY = Math.abs(centerY - window.innerHeight / 2) / Math.max(1, window.innerHeight)
+  const centerDistanceX = Math.abs(centerX - window.innerWidth / 2) / Math.max(1, window.innerWidth)
 
   // Bônus para elementos que agregam tanto o enunciado (texto > 40 chars) quanto controles
   const hasSubstantialText = textLength > 40 ? 35 : 0
@@ -79,17 +85,26 @@ function scoreCandidate(element: HTMLElement): number {
   // Se o elemento estiver visível no viewport atual, ganha bônus
   const inViewportBonus = rect.top >= 0 && rect.bottom <= window.innerHeight ? 25 : 0
 
+  // Penalidade severa para elementos que estão muito na lateral (prováveis sidebars)
+  const sidebarPenalty = centerDistanceX > 0.35 ? 150 : 0
+
+  // Penalidade para elementos que são praticamente a página toda
+  const massivePenalty = areaRatio > 0.85 ? 100 : 0
+
   // Bônus para Perseus renderer (container canônico de questão no Khan Academy)
   const perseusBonus = element.matches?.('.perseus-renderer, .framework-perseus, [data-test-id*="exercise" i]') ? 50 : 0
 
   return (
-    controls.length * 15 +
+    // Limita pontuação de controles para não favorecer o <body> só porque ele engloba todos os controles da página
+    Math.min(10, controls.length) * 15 +
     Math.min(60, textLength / 20) +
     hasSubstantialText +
     inViewportBonus +
     perseusBonus -
-    areaRatio * 20 -
-    centerDistance * 10
+    areaRatio * 30 -
+    centerDistanceY * 20 -
+    sidebarPenalty -
+    massivePenalty
   )
 }
 

@@ -129,28 +129,29 @@ export function highlightAttachedImages(elements: Element[]): void {
     if (!el || typeof (el as any).setAttribute !== 'function') continue
     const node = el as HTMLElement
 
-    // 1. Aplica destaque direto no elemento
-    try {
-      if ((node as any).style) {
-        node.style.outline = '3px solid #ffd600'
-        node.style.outlineOffset = '4px'
-        node.style.animation = 'eq-image-pulse-yellow-white 1.2s ease-in-out infinite'
-        node.style.boxShadow = '0 0 16px rgba(255, 214, 0, 0.7)'
-        node.style.filter = 'drop-shadow(0 0 8px rgba(255, 214, 0, 0.8))'
-      }
-      node.setAttribute('data-easyquiz-image-highlight', 'true')
-      highlightedImages.push(node)
-    } catch {}
-
-    // 2. Cria Moldura Flutuante Bounding-Box no document.body
-    // Essa moldura é imune a cortes de overflow: hidden, especificações de SVG ou estilos do container
     try {
       const rect = el.getBoundingClientRect()
-      const effectiveW = rect.width || (el as HTMLElement).offsetWidth || 0
-      const effectiveH = rect.height || (el as HTMLElement).offsetHeight || 0
+      const effectiveW = rect.width || node.offsetWidth || 0
+      const effectiveH = rect.height || node.offsetHeight || 0
 
       // Guard contra highlights fantasma: elemento deve ter dimensão mínima real
       if (effectiveW >= MIN_HIGHLIGHT_AREA_PX && effectiveH >= MIN_HIGHLIGHT_AREA_PX) {
+        
+        // 1. Aplica destaque direto no elemento
+        try {
+          if ((node as any).style) {
+            node.style.outline = '3px solid #ffd600'
+            node.style.outlineOffset = '4px'
+            node.style.animation = 'eq-image-pulse-yellow-white 1.2s ease-in-out infinite'
+            node.style.boxShadow = '0 0 16px rgba(255, 214, 0, 0.7)'
+            node.style.filter = 'drop-shadow(0 0 8px rgba(255, 214, 0, 0.8))'
+          }
+          node.setAttribute('data-easyquiz-image-highlight', 'true')
+          highlightedImages.push(node)
+        } catch {}
+
+        // 2. Cria Moldura Flutuante Bounding-Box no document.body
+        // Essa moldura é imune a cortes de overflow: hidden, especificações de SVG ou estilos do container
         const frame = document.createElement('div')
         frame.setAttribute('data-easyquiz-image-frame', 'true')
         frame.style.cssText = `
