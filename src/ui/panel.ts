@@ -180,7 +180,6 @@ export class EasyQuizPanel {
 
   // Form Controls
   private apiKeyInput: HTMLInputElement
-  private keyContextMenu: HTMLElement
   // Dynamic context popup (replaces static shadow-DOM menus for reliable blur + positioning)
   private _ctxPopup: HTMLElement | null = null
   private _ctxCloseH: ((e: MouseEvent) => void) | null = null
@@ -906,8 +905,7 @@ export class EasyQuizPanel {
 
     // Controles de Formulário e Chave
     this.apiKeyInput = this.shadow.querySelector('#eq-api-key') as HTMLInputElement
-    this.keyContextMenu = this.shadow.querySelector('#eq-key-context-menu') as HTMLElement
-    this.keyMoreBtn = this.shadow.querySelector('#eq-key-more-btn') as HTMLButtonElement
+        this.keyMoreBtn = this.shadow.querySelector('#eq-key-more-btn') as HTMLButtonElement
     this.keysListEl = this.shadow.querySelector('#eq-keys-list') as HTMLElement
     this.keysBadgeEl = this.shadow.querySelector('#eq-keys-badge') as HTMLElement
     this.modelSelect = this.shadow.querySelector('#eq-model-select') as HTMLSelectElement
@@ -1351,7 +1349,7 @@ export class EasyQuizPanel {
     // Permite eventos que se originam dentro do nosso Shadow DOM (inclui overlays de importação)
     const keyboardCaptureShield = (e: KeyboardEvent) => {
       const path = e.composedPath()
-      // Se o evento veio de dentro do shadow root, deixar fluir normalmente
+      // Se o evento veio de dentro do shadow root, deixar fluir normalmente na fase CAPTURE
       if (path.includes(this.shadow as any)) return
       if (path.includes(this.sidebarEl) || path.includes(this.host)) {
         e.stopImmediatePropagation()
@@ -1360,6 +1358,15 @@ export class EasyQuizPanel {
     window.addEventListener('keydown', keyboardCaptureShield, true)
     window.addEventListener('keyup', keyboardCaptureShield, true)
     window.addEventListener('keypress', keyboardCaptureShield, true)
+
+    // Impede que os eventos de digitação vazem para fora do Shadow DOM na fase BUBBLE e sejam cancelados pelo site
+    const stopBubbleShield = (e: Event) => e.stopPropagation()
+    this.shadow.addEventListener('keydown', stopBubbleShield)
+    this.shadow.addEventListener('keyup', stopBubbleShield)
+    this.shadow.addEventListener('keypress', stopBubbleShield)
+    this.shadow.addEventListener('paste', stopBubbleShield)
+    this.shadow.addEventListener('copy', stopBubbleShield)
+    this.shadow.addEventListener('cut', stopBubbleShield)
 
     // Sincronização e digitação livre do campo de chave
     this.apiKeyInput.addEventListener('input', () => {
@@ -1475,7 +1482,7 @@ export class EasyQuizPanel {
         applyCollapseState(false) // Auto-expande para garantir que o usuário veja a chave imediatamente
         try { localStorage.setItem('easyquiz_keys_collapsed', 'false') } catch {}
         this.renderKeysList()
-        this.keyContextMenu.hidden = true
+        
 
         // Valida em segundo plano
         testApiKey(cleanVal).then((testRes) => {
@@ -1500,13 +1507,13 @@ export class EasyQuizPanel {
     this.shadow.addEventListener('click', (e) => {
       const target = e.target as HTMLElement
       if (!target.closest('#eq-key-context-menu') && !target.closest('#eq-key-more-btn')) {
-        this.keyContextMenu.hidden = true
+        
       }
     })
 
     // 1. Inserir via Janela Nativa (Bypass total contra scripts de bloqueio)
     const doPrompt = () => {
-      this.keyContextMenu.hidden = true
+      
       const entered = window.prompt('Adicionar Nova Chave API do Google Gemini (AI Studio):')
       if (entered !== null && entered.trim()) {
         const clean = entered.trim().replace(/^["']|["']$/g, '')
@@ -1524,7 +1531,7 @@ export class EasyQuizPanel {
 
     // 2. Colar do Clipboard Nativo
     const doPaste = async () => {
-      this.keyContextMenu.hidden = true
+      
       try {
         const text = await navigator.clipboard.readText()
         if (text) {
@@ -1549,7 +1556,7 @@ export class EasyQuizPanel {
 
     // 3. Mostrar / Ocultar Chave
     const doToggleVis = () => {
-      this.keyContextMenu.hidden = true
+      
       const isPass = this.apiKeyInput.type === 'password'
       this.apiKeyInput.type = isPass ? 'text' : 'password'
       const iconEl = this.shadow.querySelector('#eq-menu-vis-icon') as HTMLElement
@@ -1560,7 +1567,7 @@ export class EasyQuizPanel {
 
     // 4. Limpar Campo
     const doClear = () => {
-      this.keyContextMenu.hidden = true
+      
       this.apiKeyInput.value = ''
       this.setStatus('Campo de inserção limpo.', 'info')
       this.apiKeyInput.focus()
@@ -1568,7 +1575,7 @@ export class EasyQuizPanel {
 
     // 5. Importar Chaves em Lote
     const doBulk = () => {
-      this.keyContextMenu.hidden = true
+      
 
       // Remove overlay anterior se existir
       this.shadow.querySelector('#eq-bulk-overlay')?.remove()
@@ -1653,12 +1660,11 @@ export class EasyQuizPanel {
         overlay.remove()
       }
 
-      // Event shielding em fase CAPTURE: bloqueia sites que usam capture:true antes do nosso modal
+      // Event shielding: impede que eventos de teclado escapem do modal e ativem coisas do site
       ;['keydown', 'keyup', 'keypress', 'paste', 'copy', 'cut'].forEach((evt) => {
         overlay.addEventListener(evt, (e) => {
           e.stopPropagation()
-          e.stopImmediatePropagation()
-        }, true) // capture:true — garante que interceptamos antes de qualquer listener do site
+        })
       })
 
       // Fechar com Escape
@@ -1773,7 +1779,7 @@ export class EasyQuizPanel {
 
     // 6. Ver / Editar Chaves como Texto
     const doEditText = () => {
-      this.keyContextMenu.hidden = true
+      
 
       // Remove overlay anterior se existir
       this.shadow.querySelector('#eq-text-editor-overlay')?.remove()
@@ -1879,7 +1885,7 @@ export class EasyQuizPanel {
 
     // 7. Apagar Todas as Chaves
     const doDeleteAll = () => {
-      this.keyContextMenu.hidden = true
+      
       const keys = keyManager.getAllKeys()
       if (keys.length === 0) return this.setStatus('Nenhuma chave para apagar.', 'info')
       if (confirm(`Apagar todas as ${keys.length} chave(s) permanentemente?`)) {
@@ -1893,7 +1899,7 @@ export class EasyQuizPanel {
     // 8. Testar Todas as Chaves — paralelo com validateModelFast
 
     const doTest = async () => {
-      this.keyContextMenu.hidden = true
+      
       const keys = keyManager.getAllKeys()
       if (keys.length === 0) return this.setStatus('Nenhuma chave cadastrada para testar.', 'error')
 
@@ -1925,7 +1931,7 @@ export class EasyQuizPanel {
 
     // 6. Resetar Todos os Dados
     const handleResetAll = () => {
-      this.keyContextMenu.hidden = true
+      
       const confirmed = window.confirm('Deseja realmente resetar todos os dados, chaves e memória de sessão do EasyQuiz?')
       if (confirmed) {
         if (this.autopilot.isActive()) {
