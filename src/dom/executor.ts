@@ -2032,7 +2032,7 @@ export async function executeDeclarativeAction(action: DeclarativeAction, attemp
     throw new Error(`Alvo '${elId}' não encontrado no DOM para ação '${action.t}'.`)
   }
 
-  if (isKhanAcademyPage() && element && action.t !== 'js' && action.t !== 'adv') {
+  if (isKhanAcademyPage() && element && action.t !== 'adv') {
     const handled = await executePerseusAction(action, element, valHint)
     if (handled) return
   }

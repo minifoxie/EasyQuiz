@@ -80,7 +80,7 @@ export class EasyQuizPanel {
   private floatingAnswers: FloatingAnswersHud
   private initialSettings: EasyQuizSettings
   private isCollapsed: boolean = false
-  private activeTab: 'resolver' | 'brain' | 'metrics' | 'debug' | 'settings' = 'resolver'
+  private activeTab: 'resolver' | 'brain' | 'media' | 'metrics' | 'debug' | 'settings' = 'resolver'
   private isBusy: boolean = false
   private stopwatchInterval: any = null
   private stopwatchStartTime: number = 0
@@ -856,7 +856,7 @@ export class EasyQuizPanel {
     this.launcherDot = this.shadow.querySelector('#eq-launcher-dot') as HTMLElement
     this.dockToggleBtn = this.shadow.querySelector('#eq-dock-toggle') as HTMLButtonElement
     this.sidebarEl = this.shadow.querySelector('.eq-sidebar') as HTMLElement
-    this.apToggleBtn = this.shadow.querySelector('#eq-ap-toggle-btn') as HTMLButtonElement | null
+    this.apToggleBtn = this.shadow.querySelector('#eq-ap-toggle-btn') as HTMLButtonElement
     this.apConsole = this.shadow.querySelector('#eq-ap-console') as HTMLElement
     this.executionConsole = this.shadow.querySelector('#eq-execution-console') as HTMLElement
 
@@ -1022,7 +1022,7 @@ export class EasyQuizPanel {
 
   private switchTab(tab: 'resolver' | 'brain' | 'media' | 'metrics' | 'debug' | 'settings') {
     this.activeTab = tab
-    const ALL_TABS = ['resolver', 'brain', 'metrics', 'debug', 'settings'] as const
+    const ALL_TABS = ['resolver', 'brain', 'media', 'metrics', 'debug', 'settings'] as const
     const wrapper = this.shadow.querySelector('.eq-views-wrapper') as HTMLElement | null
 
     // Toggle brain layout class on wrapper (zero-padding for brain, normal for others)
@@ -2023,7 +2023,7 @@ export class EasyQuizPanel {
         if (!this.copyPromptBtn) return
         const prev = this.copyPromptBtn.innerHTML
         this.copyPromptBtn.innerHTML = `${ICONS.check} Copiado!`
-        setTimeout(() => (this.copyPromptBtn.innerHTML = prev), 2000)
+        setTimeout(() => { if (this.copyPromptBtn) this.copyPromptBtn.innerHTML = prev }, 2000)
       })
     })
 
@@ -3927,9 +3927,9 @@ export class EasyQuizPanel {
 
     const inl = (line: string) => line
       .replace(/`([^`]+)`/g, (_: string, c: string) => `<code class="eq-md-inline">${esc(c)}</code>`)
-      .replace(/***([^*]+)***/g, (_: string, t: string) => `<strong><em>${esc(t)}</em></strong>`)
-      .replace(/**([^*]+)**/g, (_: string, t: string) => `<strong>${esc(t)}</strong>`)
-      .replace(/*([^*]+)*/g, (_: string, t: string) => `<em>${esc(t)}</em>`)
+      .replace(/\\*\\*\\*([^\\*]+)\\*\\*\\*/g, (_: string, t: string) => `<strong><em>${esc(t)}</em></strong>`)
+      .replace(/\\*\\*([^\\*]+)\\*\\*/g, (_: string, t: string) => `<strong>${esc(t)}</strong>`)
+      .replace(/\\*([^\\*]+)\\*/g, (_: string, t: string) => `<em>${esc(t)}</em>`)
       .replace(/~~([^~]+)~~/g, (_: string, t: string) => `<del>${esc(t)}</del>`)
 
     for (const line of lines) {
