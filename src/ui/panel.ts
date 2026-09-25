@@ -22,7 +22,7 @@ const _eqTT = (() => {
         createHTML: (s: string) => s,
       })
     }
-  } catch {}
+  } catch { }
   return null
 })()
 
@@ -33,14 +33,14 @@ export function setHTMLSafe(el: Element | ShadowRoot, html: string): void {
       el.innerHTML = _eqTT.createHTML(html)
       return
     }
-  } catch {}
+  } catch { }
   // Fallback 1: setHTMLUnsafe (Chrome 124+ nativo, bypassa Trusted Types check para shadow root)
   try {
     if (typeof (el as any).setHTMLUnsafe === 'function') {
-      ;(el as any).setHTMLUnsafe(html)
+      ; (el as any).setHTMLUnsafe(html)
       return
     }
-  } catch {}
+  } catch { }
   // Fallback 2: innerHTML direto (sites sem Trusted Types)
   el.innerHTML = html
 }
@@ -140,7 +140,7 @@ export class EasyQuizPanel {
   private terminalInputEl: HTMLInputElement | null = null
   private outputSearchQuery: string = ''
   private outputSortNewest: boolean = true
-  private _reconnectContextbarBtns: () => void = () => {}
+  private _reconnectContextbarBtns: () => void = () => { }
   private _autopilotAnalyzingShown: boolean = false  // evita spam de "IA analisando..." por ciclo
 
   // Barra de Progresso
@@ -905,7 +905,7 @@ export class EasyQuizPanel {
 
     // Controles de Formulário e Chave
     this.apiKeyInput = this.shadow.querySelector('#eq-api-key') as HTMLInputElement
-        this.keyMoreBtn = this.shadow.querySelector('#eq-key-more-btn') as HTMLButtonElement
+    this.keyMoreBtn = this.shadow.querySelector('#eq-key-more-btn') as HTMLButtonElement
     this.keysListEl = this.shadow.querySelector('#eq-keys-list') as HTMLElement
     this.keysBadgeEl = this.shadow.querySelector('#eq-keys-badge') as HTMLElement
     this.modelSelect = this.shadow.querySelector('#eq-model-select') as HTMLSelectElement
@@ -1002,7 +1002,7 @@ export class EasyQuizPanel {
       }
     }, 1000)
     if (typeof (cooldownInterval as any)?.unref === 'function') {
-      ;(cooldownInterval as any).unref()
+      ; (cooldownInterval as any).unref()
     }
 
     // Se chave existir, listar modelos da conta do usuário
@@ -1014,7 +1014,7 @@ export class EasyQuizPanel {
             this.updateModelSelect(models, initialSettings.model)
           }
         })
-        .catch(() => {})
+        .catch(() => { })
     }
   }
 
@@ -1028,7 +1028,7 @@ export class EasyQuizPanel {
 
     // Show active pane, hide all others
     for (const t of ALL_TABS) {
-      const btn  = this.shadow.querySelector(`#eq-tab-${t}`)  as HTMLElement | null
+      const btn = this.shadow.querySelector(`#eq-tab-${t}`) as HTMLElement | null
       const view = this.shadow.querySelector(`#eq-view-${t}`) as HTMLElement | null
       const active = t === tab
       btn?.classList.toggle('active', active)
@@ -1046,15 +1046,15 @@ export class EasyQuizPanel {
         this.refreshInspectorView()
         break
       case 'metrics':
-        try { this.updateTimingMetrics() } catch {}
+        try { this.updateTimingMetrics() } catch { }
         break
       case 'debug':
         this.terminalMode = 'terminal'  // Always default to terminal mode when switching to this tab
-        try { this.refreshDebugView(); this.renderTerminalEntries(); this.initTerminalREPL(); this.initTerminalWallpaper() } catch {}
+        try { this.refreshDebugView(); this.renderTerminalEntries(); this.initTerminalREPL(); this.initTerminalWallpaper() } catch { }
         break
       case 'settings':
         // Re-render theme grid to reflect current active theme
-        try { this.renderThemeGrid() } catch {}
+        try { this.renderThemeGrid() } catch { }
         break
     }
   }
@@ -1062,7 +1062,7 @@ export class EasyQuizPanel {
   private updateContextBar(tab: string): void {
     const icon = this.shadow.querySelector('#eq-ctxbar-icon') as HTMLElement | null
     const name = this.shadow.querySelector('#eq-ctxbar-name') as HTMLElement | null
-    const sub  = this.shadow.querySelector('#eq-ctxbar-sub')  as HTMLElement | null
+    const sub = this.shadow.querySelector('#eq-ctxbar-sub') as HTMLElement | null
     const acts = this.shadow.querySelector('#eq-ctxbar-actions') as HTMLElement | null
     if (!icon || !name || !sub || !acts) return
 
@@ -1161,17 +1161,17 @@ export class EasyQuizPanel {
   private setupSettingsTabs(): void {
     const btns = this.shadow.querySelectorAll('.eq-settings-cat-btn')
     const contents = this.shadow.querySelectorAll('.eq-settings-cat-content')
-    
+
     btns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         const target = e.currentTarget as HTMLElement
         const cat = target.dataset.cat
         if (!cat) return
-        
+
         // Remove active class from all
         btns.forEach(b => b.classList.remove('active'))
         contents.forEach(c => (c as HTMLElement).style.display = 'none')
-        
+
         // Activate selected
         target.classList.add('active')
         const activeContent = this.shadow.querySelector(`#eq-cat-${cat}`) as HTMLElement
@@ -1217,13 +1217,13 @@ export class EasyQuizPanel {
         const target = e.currentTarget as HTMLElement
         const id = target.dataset.themeId
         if (!id) return
-        
+
         localStorage.setItem('easyquiz_theme', id)
         this.shadow.host.setAttribute('data-eq-theme', id)
-        
+
         grid.querySelectorAll('.eq-theme-card').forEach(c => c.classList.remove('active'))
         target.classList.add('active')
-        
+
         this.setStatus(`Tema atualizado para ${id}`, 'info')
       })
     })
@@ -1394,7 +1394,7 @@ export class EasyQuizPanel {
 
     // Restaurar estado salvo (com guard para Node.js / ambientes sem localStorage)
     let savedCollapsed = false
-    try { savedCollapsed = localStorage.getItem('easyquiz_keys_collapsed') === 'true' } catch {}
+    try { savedCollapsed = localStorage.getItem('easyquiz_keys_collapsed') === 'true' } catch { }
     applyCollapseState(savedCollapsed)
 
     keysSectionHeader?.addEventListener('click', (e) => {
@@ -1402,7 +1402,7 @@ export class EasyQuizPanel {
       if ((e.target as HTMLElement)?.closest('a')) return
       const isNowCollapsed = keysCollapsible?.style.display === 'none'
       applyCollapseState(!isNowCollapsed)
-      try { localStorage.setItem('easyquiz_keys_collapsed', (!isNowCollapsed) ? 'true' : 'false') } catch {}
+      try { localStorage.setItem('easyquiz_keys_collapsed', (!isNowCollapsed) ? 'true' : 'false') } catch { }
     })
 
     const autoMenuBtn = this.shadow.querySelector('#eq-auto-menu-btn') as HTMLButtonElement | null
@@ -1417,9 +1417,9 @@ export class EasyQuizPanel {
       if (this._ctxPopup) { this.closeCtxPopup(); autoMenuBtn.classList.remove('is-open'); return }
       autoMenuBtn.classList.add('is-open')
       this.showCtxPopup(autoMenuBtn, [
-        { ic:'sparkles', label:'Resolver Autopilot', onClick: () => { autoMenuBtn.classList.remove('is-open'); ;(autoMenu.querySelector('[data-auto-action="toggle"]') as HTMLElement)?.click() } },
-        { ic:'eraser',   label:'Limpar mem\u00f3ria',     onClick: () => { autoMenuBtn.classList.remove('is-open'); ;(autoMenu.querySelector('[data-auto-action="memory"]') as HTMLElement)?.click() } },
-        { ic:'info',     label:'Mostrar status',     onClick: () => { autoMenuBtn.classList.remove('is-open'); ;(autoMenu.querySelector('[data-auto-action="status"]') as HTMLElement)?.click() } },
+        { ic: 'sparkles', label: 'Resolver Autopilot', onClick: () => { autoMenuBtn.classList.remove('is-open');; (autoMenu.querySelector('[data-auto-action="toggle"]') as HTMLElement)?.click() } },
+        { ic: 'eraser', label: 'Limpar mem\u00f3ria', onClick: () => { autoMenuBtn.classList.remove('is-open');; (autoMenu.querySelector('[data-auto-action="memory"]') as HTMLElement)?.click() } },
+        { ic: 'info', label: 'Mostrar status', onClick: () => { autoMenuBtn.classList.remove('is-open');; (autoMenu.querySelector('[data-auto-action="status"]') as HTMLElement)?.click() } },
       ])
     })
 
@@ -1480,9 +1480,9 @@ export class EasyQuizPanel {
         this.apiKeyInput.value = ''
         this.setStatus(` Nova chave adicionada com sucesso! (${rawKeys.length} chaves ativas no pool)`, 'success')
         applyCollapseState(false) // Auto-expande para garantir que o usuário veja a chave imediatamente
-        try { localStorage.setItem('easyquiz_keys_collapsed', 'false') } catch {}
+        try { localStorage.setItem('easyquiz_keys_collapsed', 'false') } catch { }
         this.renderKeysList()
-        
+
 
         // Valida em segundo plano
         testApiKey(cleanVal).then((testRes) => {
@@ -1494,7 +1494,7 @@ export class EasyQuizPanel {
             this.setStatus(`️ Chave cadastrada, mas aviso retornado: ${testRes.message}`, 'warning')
           }
           this.renderKeysList()
-        }).catch(() => {})
+        }).catch(() => { })
       } else {
         this.setStatus(res.message, 'warning')
       }
@@ -1507,13 +1507,13 @@ export class EasyQuizPanel {
     this.shadow.addEventListener('click', (e) => {
       const target = e.target as HTMLElement
       if (!target.closest('#eq-key-context-menu') && !target.closest('#eq-key-more-btn')) {
-        
+
       }
     })
 
     // 1. Inserir via Janela Nativa (Bypass total contra scripts de bloqueio)
     const doPrompt = () => {
-      
+
       const entered = window.prompt('Adicionar Nova Chave API do Google Gemini (AI Studio):')
       if (entered !== null && entered.trim()) {
         const clean = entered.trim().replace(/^["']|["']$/g, '')
@@ -1531,7 +1531,7 @@ export class EasyQuizPanel {
 
     // 2. Colar do Clipboard Nativo
     const doPaste = async () => {
-      
+
       try {
         const text = await navigator.clipboard.readText()
         if (text) {
@@ -1556,7 +1556,7 @@ export class EasyQuizPanel {
 
     // 3. Mostrar / Ocultar Chave
     const doToggleVis = () => {
-      
+
       const isPass = this.apiKeyInput.type === 'password'
       this.apiKeyInput.type = isPass ? 'text' : 'password'
       const iconEl = this.shadow.querySelector('#eq-menu-vis-icon') as HTMLElement
@@ -1567,7 +1567,7 @@ export class EasyQuizPanel {
 
     // 4. Limpar Campo
     const doClear = () => {
-      
+
       this.apiKeyInput.value = ''
       this.setStatus('Campo de inserção limpo.', 'info')
       this.apiKeyInput.focus()
@@ -1575,7 +1575,7 @@ export class EasyQuizPanel {
 
     // 5. Importar Chaves em Lote
     const doBulk = () => {
-      
+
 
       // Remove overlay anterior se existir
       this.shadow.querySelector('#eq-bulk-overlay')?.remove()
@@ -1660,12 +1660,12 @@ export class EasyQuizPanel {
         overlay.remove()
       }
 
-      // Event shielding: impede que eventos de teclado escapem do modal e ativem coisas do site
-      ;['keydown', 'keyup', 'keypress', 'paste', 'copy', 'cut'].forEach((evt) => {
-        overlay.addEventListener(evt, (e) => {
-          e.stopPropagation()
+        // Event shielding: impede que eventos de teclado escapem do modal e ativem coisas do site
+        ;['keydown', 'keyup', 'keypress', 'paste', 'copy', 'cut'].forEach((evt) => {
+          overlay.addEventListener(evt, (e) => {
+            e.stopPropagation()
+          })
         })
-      })
 
       // Fechar com Escape
       overlay.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -1748,7 +1748,7 @@ export class EasyQuizPanel {
           const rawKeys = keyManager.exportRawKeys()
           this.callbacks.onSettingsChange({ apiKey: rawKeys[0], apiKeys: rawKeys })
           applyCollapseState(false) // Auto-expande para o usuário ver
-          try { localStorage.setItem('easyquiz_keys_collapsed', 'false') } catch {}
+          try { localStorage.setItem('easyquiz_keys_collapsed', 'false') } catch { }
         }
 
         statusEl.textContent = `${added} adicionada(s), ${duplicates} duplicada(s). Validando modelo em paralelo...`
@@ -1779,7 +1779,7 @@ export class EasyQuizPanel {
 
     // 6. Ver / Editar Chaves como Texto
     const doEditText = () => {
-      
+
 
       // Remove overlay anterior se existir
       this.shadow.querySelector('#eq-text-editor-overlay')?.remove()
@@ -1839,10 +1839,10 @@ export class EasyQuizPanel {
 
       const close = () => overlay.remove()
 
-      // Event shielding
-      ;['keydown', 'keyup', 'keypress', 'paste', 'copy', 'cut'].forEach((evt) => {
-        overlay.addEventListener(evt, (e) => { e.stopPropagation(); e.stopImmediatePropagation() }, true)
-      })
+        // Event shielding
+        ;['keydown', 'keyup', 'keypress', 'paste', 'copy', 'cut'].forEach((evt) => {
+          overlay.addEventListener(evt, (e) => { e.stopPropagation(); e.stopImmediatePropagation() }, true)
+        })
       overlay.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Escape') close() })
       overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
 
@@ -1885,7 +1885,7 @@ export class EasyQuizPanel {
 
     // 7. Apagar Todas as Chaves
     const doDeleteAll = () => {
-      
+
       const keys = keyManager.getAllKeys()
       if (keys.length === 0) return this.setStatus('Nenhuma chave para apagar.', 'info')
       if (confirm(`Apagar todas as ${keys.length} chave(s) permanentemente?`)) {
@@ -1899,7 +1899,7 @@ export class EasyQuizPanel {
     // 8. Testar Todas as Chaves — paralelo com validateModelFast
 
     const doTest = async () => {
-      
+
       const keys = keyManager.getAllKeys()
       if (keys.length === 0) return this.setStatus('Nenhuma chave cadastrada para testar.', 'error')
 
@@ -1931,7 +1931,7 @@ export class EasyQuizPanel {
 
     // 6. Resetar Todos os Dados
     const handleResetAll = () => {
-      
+
       const confirmed = window.confirm('Deseja realmente resetar todos os dados, chaves e memória de sessão do EasyQuiz?')
       if (confirmed) {
         if (this.autopilot.isActive()) {
@@ -1963,16 +1963,16 @@ export class EasyQuizPanel {
       e.stopPropagation()
       if (this._ctxPopup) { this.closeCtxPopup(); return }
       this.showCtxPopup(this.keyMoreBtn, [
-        { ic:'edit',      label:'Inserir via Janela Nativa',           badge:'Bypass', onClick: () => doPrompt() },
-        { ic:'paste',     label:'Colar da Área de Transferência',                       onClick: () => doPaste() },
-        { ic:'eye',       label:'Mostrar/Ocultar Campo',                               onClick: () => doToggleVis() },
-        { ic:'eraser',    label:'Limpar Campo',                                        onClick: () => doClear() },
-        { ic:'upload',    label:'Importar Chaves em Lote',                             onClick: () => doBulk() },
-        { ic:'code',      label:'Ver/Editar Chaves como Texto',                        onClick: () => doEditText() },
-        { ic:'zap',       label:'Testar Todas as Chaves',                              onClick: () => doTest() },
-        { divider:true, label:'', onClick: () => {} },
-        { ic:'trash',     label:'Apagar Todas as Chaves',  danger:true,                onClick: () => doDeleteAll() },
-        { ic:'refreshCw', label:'Resetar Todos os Dados',  danger:true,                onClick: () => handleResetAll() },
+        { ic: 'edit', label: 'Inserir via Janela Nativa', badge: 'Bypass', onClick: () => doPrompt() },
+        { ic: 'paste', label: 'Colar da Área de Transferência', onClick: () => doPaste() },
+        { ic: 'eye', label: 'Mostrar/Ocultar Campo', onClick: () => doToggleVis() },
+        { ic: 'eraser', label: 'Limpar Campo', onClick: () => doClear() },
+        { ic: 'upload', label: 'Importar Chaves em Lote', onClick: () => doBulk() },
+        { ic: 'code', label: 'Ver/Editar Chaves como Texto', onClick: () => doEditText() },
+        { ic: 'zap', label: 'Testar Todas as Chaves', onClick: () => doTest() },
+        { divider: true, label: '', onClick: () => { } },
+        { ic: 'trash', label: 'Apagar Todas as Chaves', danger: true, onClick: () => doDeleteAll() },
+        { ic: 'refreshCw', label: 'Resetar Todos os Dados', danger: true, onClick: () => handleResetAll() },
       ])
     })
 
@@ -2199,10 +2199,10 @@ export class EasyQuizPanel {
     line.style.cssText = 'padding:0;white-space:pre-wrap;overflow-wrap:break-word;'
     line.textContent = text
     const c = colorClass === 'text-red' ? '#ff4444'
-             : colorClass === 'text-blue' ? '#888'
-             : colorClass === 'text-green' ? '#aaa'
-             : colorClass === 'text-yellow' ? '#888'
-             : 'var(--eq-text)'
+      : colorClass === 'text-blue' ? '#888'
+        : colorClass === 'text-green' ? '#aaa'
+          : colorClass === 'text-yellow' ? '#888'
+            : 'var(--eq-text)'
     line.style.color = c
     if (currentLine) {
       this.liveTerminalOutput.insertBefore(line, currentLine)
@@ -2227,18 +2227,18 @@ export class EasyQuizPanel {
     }
     this._terminalInited = true
 
-    const captureTA    = this.shadow.querySelector('#eq-term-capture') as HTMLTextAreaElement | null
-    const termOutput   = this.shadow.querySelector('#eq-term-output') as HTMLElement | null
-    const typedEl      = this.shadow.querySelector('#eq-term-typed') as HTMLElement | null
-    const currentLine  = this.shadow.querySelector('#eq-term-current-line') as HTMLElement | null
-    const termPanel    = this.shadow.querySelector('#eq-term-panel-terminal') as HTMLElement | null
-    const outputPanel  = this.shadow.querySelector('#eq-term-panel-output') as HTMLElement | null
-    const outputBar    = this.shadow.querySelector('#eq-output-toolbar') as HTMLElement | null
-    const searchEl     = this.shadow.querySelector('#eq-output-search') as HTMLInputElement | null
-    const searchClear  = this.shadow.querySelector('#eq-output-search-clear') as HTMLElement | null
-    const filterBtn    = this.shadow.querySelector('#eq-output-filter-btn') as HTMLElement | null
-    const filterMenu   = this.shadow.querySelector('#eq-output-filter-menu') as HTMLElement | null
-    const applyBtn     = this.shadow.querySelector('#eq-fchk-apply') as HTMLElement | null
+    const captureTA = this.shadow.querySelector('#eq-term-capture') as HTMLTextAreaElement | null
+    const termOutput = this.shadow.querySelector('#eq-term-output') as HTMLElement | null
+    const typedEl = this.shadow.querySelector('#eq-term-typed') as HTMLElement | null
+    const currentLine = this.shadow.querySelector('#eq-term-current-line') as HTMLElement | null
+    const termPanel = this.shadow.querySelector('#eq-term-panel-terminal') as HTMLElement | null
+    const outputPanel = this.shadow.querySelector('#eq-term-panel-output') as HTMLElement | null
+    const outputBar = this.shadow.querySelector('#eq-output-toolbar') as HTMLElement | null
+    const searchEl = this.shadow.querySelector('#eq-output-search') as HTMLInputElement | null
+    const searchClear = this.shadow.querySelector('#eq-output-search-clear') as HTMLElement | null
+    const filterBtn = this.shadow.querySelector('#eq-output-filter-btn') as HTMLElement | null
+    const filterMenu = this.shadow.querySelector('#eq-output-filter-menu') as HTMLElement | null
+    const applyBtn = this.shadow.querySelector('#eq-fchk-apply') as HTMLElement | null
 
     // ── Icon helper for terminal ──────────────────────────
     const ticon = (name: string, color = '#888', size = 13) =>
@@ -2259,7 +2259,7 @@ export class EasyQuizPanel {
     const sep = (w = 52) => out('  ' + '─'.repeat(w), '#222')
     const row = (cols: string[], widths: number[], colors?: string[]) => {
       const padded = cols.map((c, i) => c.padEnd(widths[i] || 0))
-      const colored = colors ? padded.map((t, i) => `<span style="color:${colors[i]||'#aaa'}">${t}</span>`) : padded.map(t => `<span style="color:#aaa">${t}</span>`)
+      const colored = colors ? padded.map((t, i) => `<span style="color:${colors[i] || '#aaa'}">${t}</span>`) : padded.map(t => `<span style="color:#aaa">${t}</span>`)
       richOut('  ' + colored.join('  ') + '  ')
     }
 
@@ -2300,31 +2300,31 @@ export class EasyQuizPanel {
     // ── Command executor ──────────────────────────────────
     const execCmd = (raw: string) => {
       const args = raw.trim().replace(/\s+/g, ' ').split(' ')
-      const cmd  = args[0].toLowerCase().replace(/[^a-z0-9\-]/g, '')
+      const cmd = args[0].toLowerCase().replace(/[^a-z0-9\-]/g, '')
 
       switch (cmd) {
         case 'help':
           withBlock(() => {
             blank()
-            richOut('  ' + ticon('terminal','#555',14) + ' <span style="color:#888;font-weight:700;letter-spacing:0.1em;font-size:10px;"> COMANDOS DO TERMINAL</span>')
+            richOut('  ' + ticon('terminal', '#555', 14) + ' <span style="color:#888;font-weight:700;letter-spacing:0.1em;font-size:10px;"> COMANDOS DO TERMINAL</span>')
             blank()
             const cmds = [
-              ['help',     'lista todos os comandos',            'list',     '#555'],
-              ['status',   'estado atual do sistema',            'sparkles', '#555'],
-              ['version',  'versão e info do build',             'info',     '#555'],
-              ['info-api', 'dados da última requisição à API',   'chip',     '#555'],
-              ['tokens',   'tokens consumidos (detalhado)',      'code',     '#555'],
-              ['context',  'contexto da questão atual',          'eye',      '#555'],
-              ['controls', 'controles detectados (tabela)',      'list',     '#555'],
-              ['errors',   'erros recentes registrados',         'info',     '#555'],
-              ['logs [n]', 'últimas N entradas do output',       'file',     '#555'],
-              ['history',  'histórico de questões respondidas',  'clock',    '#555'],
-              ['reset',    'limpa logs e métricas',              'eraser',   '#555'],
-              ['clear',    'limpa o terminal',                   'trash',    '#555'],
-              ['copy',     'copia terminal para clipboard',      'copy',     '#555'],
+              ['help', 'lista todos os comandos', 'list', '#555'],
+              ['status', 'estado atual do sistema', 'sparkles', '#555'],
+              ['version', 'versão e info do build', 'info', '#555'],
+              ['info-api', 'dados da última requisição à API', 'chip', '#555'],
+              ['tokens', 'tokens consumidos (detalhado)', 'code', '#555'],
+              ['context', 'contexto da questão atual', 'eye', '#555'],
+              ['controls', 'controles detectados (tabela)', 'list', '#555'],
+              ['errors', 'erros recentes registrados', 'info', '#555'],
+              ['logs [n]', 'últimas N entradas do output', 'file', '#555'],
+              ['history', 'histórico de questões respondidas', 'clock', '#555'],
+              ['reset', 'limpa logs e métricas', 'eraser', '#555'],
+              ['clear', 'limpa o terminal', 'trash', '#555'],
+              ['copy', 'copia terminal para clipboard', 'copy', '#555'],
             ]
             cmds.forEach(([name, desc, icon, c]) => {
-              richOut(`    ${ticon(icon,c,11)} <span style="color:#aaa;font-weight:700;min-width:72px;display:inline-block;">${name}</span>  <span style="color:#444;">${desc}</span>`)
+              richOut(`    ${ticon(icon, c, 11)} <span style="color:#aaa;font-weight:700;min-width:72px;display:inline-block;">${name}</span>  <span style="color:#444;">${desc}</span>`)
             })
             blank()
             out('  Dica: ↑ ↓ para histórico de comandos', '#1e1e1e')
@@ -2344,16 +2344,16 @@ export class EasyQuizPanel {
           if (!plan) { blank(); out('  Nenhuma requisição à API ainda.', '#333'); blank(); break }
           withBlock(() => {
             blank()
-            richOut('  ' + ticon('chip','#444',14) + ' <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> API — ÚLTIMA REQUISIÇÃO</span>')
+            richOut('  ' + ticon('chip', '#444', 14) + ' <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> API — ÚLTIMA REQUISIÇÃO</span>')
             sep(44)
             const f = (ico: string, icoC: string, label: string, val: string, valC = '#888') =>
-              richOut(`  ${ticon(ico,icoC,11)}  <span style="color:#444;">${label.padEnd(16)}</span><span style="color:${valC};font-weight:600;">${val||'--'}</span>`)
-            f('sparkles','#555','Modelo',        plan?.usedModel || (this.initialSettings as any)?.model || '--', '#bbb')
-            f('clock',   '#444','Latência',      plan?.durationMs ? plan.durationMs+'ms' : '--', '#888')
-            f('code',    '#444','Prompt tokens', String(plan?.promptTokens??'--'), '#777')
-            f('code',    '#444','Resp. tokens',  String(plan?.candidatesTokens??'--'), '#777')
-            f('chip',    '#555','Total tokens',  String(plan?.tokensUsed??'--'), '#aaa')
-            f('file',    '#444','Prompt chars',  this.latestPromptText?.length ? this.latestPromptText.length+' chars' : '--', '#777')
+              richOut(`  ${ticon(ico, icoC, 11)}  <span style="color:#444;">${label.padEnd(16)}</span><span style="color:${valC};font-weight:600;">${val || '--'}</span>`)
+            f('sparkles', '#555', 'Modelo', plan?.usedModel || (this.initialSettings as any)?.model || '--', '#bbb')
+            f('clock', '#444', 'Latência', plan?.durationMs ? plan.durationMs + 'ms' : '--', '#888')
+            f('code', '#444', 'Prompt tokens', String(plan?.promptTokens ?? '--'), '#777')
+            f('code', '#444', 'Resp. tokens', String(plan?.candidatesTokens ?? '--'), '#777')
+            f('chip', '#555', 'Total tokens', String(plan?.tokensUsed ?? '--'), '#aaa')
+            f('file', '#444', 'Prompt chars', this.latestPromptText?.length ? this.latestPromptText.length + ' chars' : '--', '#777')
             blank()
           }, '#1a1a1a')
           break
@@ -2362,7 +2362,7 @@ export class EasyQuizPanel {
         case 'version':
           withBlock(() => {
             blank()
-            richOut('  ' + ticon('sparkles','#555',14) + ` <span style="color:#bbb;font-weight:700;letter-spacing:0.04em;"> EasyQuiz ${typeof BUILD_VERSION!=='undefined'?BUILD_VERSION:'?'}</span>`)
+            richOut('  ' + ticon('sparkles', '#555', 14) + ` <span style="color:#bbb;font-weight:700;letter-spacing:0.04em;"> EasyQuiz ${typeof BUILD_VERSION !== 'undefined' ? BUILD_VERSION : '?'}</span>`)
             out('  Motor Híbrido 4.0  ·  RAG · AST · Vision · Multimodal', '#444')
             out('  Build: ' + new Date().toLocaleDateString('pt-BR'), '#2a2a2a')
             blank()
@@ -2373,25 +2373,25 @@ export class EasyQuizPanel {
           const plan = this.latestPlan; const ctx = this.latestContext
           withBlock(() => {
             blank()
-            richOut('  ' + ticon('inspector','#444',14) + ' <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> STATUS DO SISTEMA</span>')
+            richOut('  ' + ticon('inspector', '#444', 14) + ' <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> STATUS DO SISTEMA</span>')
             sep(44)
             const s = (ico: string, icoC: string, label: string, val: string, valC = '#aaa') =>
-              richOut(`  ${ticon(ico,icoC,11)}  <span style="color:#444;">${label.padEnd(14)}</span><span style="color:${valC};font-weight:600;">${val||'--'}</span>`)
-            s('sparkles','#666','Modelo',    plan?.usedModel||(this.initialSettings as any)?.model||'--', 'var(--eq-text)')
-            const _mode = plan?.mode||'aguardando'
-            const _mc = _mode==='aguardando'?'#444':_mode.includes('error')?'#7a3333':'#4a6a4a'
-            s('play',    '#555','Modo',      _mode, _mc)
+              richOut(`  ${ticon(ico, icoC, 11)}  <span style="color:#444;">${label.padEnd(14)}</span><span style="color:${valC};font-weight:600;">${val || '--'}</span>`)
+            s('sparkles', '#666', 'Modelo', plan?.usedModel || (this.initialSettings as any)?.model || '--', 'var(--eq-text)')
+            const _mode = plan?.mode || 'aguardando'
+            const _mc = _mode === 'aguardando' ? '#444' : _mode.includes('error') ? '#7a3333' : '#4a6a4a'
+            s('play', '#555', 'Modo', _mode, _mc)
             const _lat = plan?.durationMs
-            const _lc = !_lat?'#333':_lat<1000?'#4a6a4a':_lat<3000?'#888':'#7a5533'
-            s('clock',   '#555','Latência',  _lat?_lat+'ms':'--', _lc)
-            s('chip',    '#555','Tokens',    plan?.tokensUsed?String(plan.tokensUsed):'--', '#aaa')
-            const _conf = plan?Math.round((plan.confidence||0)*100):null
-            const _cc = !_conf?'#333':_conf>=80?'#4a6a4a':_conf>=50?'#888':'#7a5533'
-            s('analyze', '#555','Confiança', _conf!==null?_conf+'%':'--', _cc)
-            s('eye',     '#555','Controles', ctx?String(ctx.controls.length):'--', '#888')
+            const _lc = !_lat ? '#333' : _lat < 1000 ? '#4a6a4a' : _lat < 3000 ? '#888' : '#7a5533'
+            s('clock', '#555', 'Latência', _lat ? _lat + 'ms' : '--', _lc)
+            s('chip', '#555', 'Tokens', plan?.tokensUsed ? String(plan.tokensUsed) : '--', '#aaa')
+            const _conf = plan ? Math.round((plan.confidence || 0) * 100) : null
+            const _cc = !_conf ? '#333' : _conf >= 80 ? '#4a6a4a' : _conf >= 50 ? '#888' : '#7a5533'
+            s('analyze', '#555', 'Confiança', _conf !== null ? _conf + '%' : '--', _cc)
+            s('eye', '#555', 'Controles', ctx ? String(ctx.controls.length) : '--', '#888')
             if (ctx) {
               sep(44)
-              out('  ' + ctx.questionText.slice(0,56)+(ctx.questionText.length>56?'…':''), '#333')
+              out('  ' + ctx.questionText.slice(0, 56) + (ctx.questionText.length > 56 ? '…' : ''), '#333')
             }
             blank()
           }, '#1a1a1a')
@@ -2403,15 +2403,15 @@ export class EasyQuizPanel {
           if (!plan) { blank(); out('  Nenhuma requisição ainda.', '#333'); blank(); break }
           withBlock(() => {
             blank()
-            richOut('  ' + ticon('code','#444',14) + ' <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> TOKENS — ÚLTIMA REQUISIÇÃO</span>')
+            richOut('  ' + ticon('code', '#444', 14) + ' <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> TOKENS — ÚLTIMA REQUISIÇÃO</span>')
             sep(38)
-            const _pt = plan.promptTokens||0, _rt = plan.candidatesTokens||0, _tot = (_pt+_rt)||1
-            const _pb = Math.round((_pt/_tot)*20), _rb = 20-_pb
+            const _pt = plan.promptTokens || 0, _rt = plan.candidatesTokens || 0, _tot = (_pt + _rt) || 1
+            const _pb = Math.round((_pt / _tot) * 20), _rb = 20 - _pb
             out(`  Prompt tokens    ${String(_pt).padStart(8)}   [${'█'.repeat(_pb)}${'░'.repeat(_rb)}]`, '#555')
             out(`  Response tokens  ${String(_rt).padStart(8)}   [${'░'.repeat(_pb)}${'█'.repeat(_rb)}]`, '#555')
             out('  ' + '┈'.repeat(46), '#1e1e1e')
-            out(`  Total            ${String(plan.tokensUsed??'--').padStart(8)}`, '#aaa')
-            out(`  Latência         ${String(plan.durationMs?plan.durationMs+'ms':'--').padStart(8)}`, '#444')
+            out(`  Total            ${String(plan.tokensUsed ?? '--').padStart(8)}`, '#aaa')
+            out(`  Latência         ${String(plan.durationMs ? plan.durationMs + 'ms' : '--').padStart(8)}`, '#444')
             blank()
           }, '#1a1a1a')
           break
@@ -2422,12 +2422,12 @@ export class EasyQuizPanel {
           if (!ctx) { blank(); out('  Contexto não disponível.', '#333'); blank(); break }
           withBlock(() => {
             blank()
-            richOut('  ' + ticon('eye','#444',14) + ' <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> CONTEXTO ATUAL</span>')
+            richOut('  ' + ticon('eye', '#444', 14) + ' <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> CONTEXTO ATUAL</span>')
             sep(44)
-            out('  Escopo     ' + ctx.scope.tagName.toLowerCase()+(ctx.scope.id?'#'+ctx.scope.id:''), '#666')
+            out('  Escopo     ' + ctx.scope.tagName.toLowerCase() + (ctx.scope.id ? '#' + ctx.scope.id : ''), '#666')
             out('  Controles  ' + ctx.controls.length, '#555')
             sep(44)
-            out('  ' + ctx.questionText.slice(0,58)+(ctx.questionText.length>58?'…':''), '#444')
+            out('  ' + ctx.questionText.slice(0, 58) + (ctx.questionText.length > 58 ? '…' : ''), '#444')
             blank()
           }, '#1a1a1a')
           break
@@ -2438,12 +2438,12 @@ export class EasyQuizPanel {
           if (!ctx?.controls.length) { blank(); out('  Nenhum controle detectado.', '#333'); blank(); break }
           withBlock(() => {
             blank()
-            richOut('  ' + ticon('list','#444',14) + ` <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> CONTROLES (${ctx.controls.length})</span>`)
+            richOut('  ' + ticon('list', '#444', 14) + ` <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> CONTROLES (${ctx.controls.length})</span>`)
             sep(55)
-            row(['#','Tipo','Label / ID','Valor'],[3,10,27,10],['#444','#555','#888','#666'])
-            out('  '+'┈'.repeat(53),'#1a1a1a')
-            ctx.controls.forEach((c: any,i: number) =>
-              row([String(i+1),((c.type||c.tag||'?').toUpperCase()).slice(0,9),(c.label||c.id||c.name||'—').slice(0,26),(c.value||'—').slice(0,9)],[3,10,27,10],['#444','#555','#999','#777']))
+            row(['#', 'Tipo', 'Label / ID', 'Valor'], [3, 10, 27, 10], ['#444', '#555', '#888', '#666'])
+            out('  ' + '┈'.repeat(53), '#1a1a1a')
+            ctx.controls.forEach((c: any, i: number) =>
+              row([String(i + 1), ((c.type || c.tag || '?').toUpperCase()).slice(0, 9), (c.label || c.id || c.name || '—').slice(0, 26), (c.value || '—').slice(0, 9)], [3, 10, 27, 10], ['#444', '#555', '#999', '#777']))
             blank()
           }, '#1a1a1a')
           break
@@ -2453,12 +2453,12 @@ export class EasyQuizPanel {
           const errs = this.logEntries.filter(e => e.category === 'error')
           if (!errs.length) {
             blank()
-            richOut('  ' + ticon('check','#4a6a4a',13) + ' <span style="color:#4a6a4a;font-weight:600;"> Nenhum erro</span><span style="color:#2a3a2a;"> nesta sessão — tudo ok.</span>')
+            richOut('  ' + ticon('check', '#4a6a4a', 13) + ' <span style="color:#4a6a4a;font-weight:600;"> Nenhum erro</span><span style="color:#2a3a2a;"> nesta sessão — tudo ok.</span>')
             blank(); break
           }
           withBlock(() => {
             blank()
-            richOut('  ' + ticon('info','#7a3333',14) + ` <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> ERROS (${errs.length})</span>`)
+            richOut('  ' + ticon('info', '#7a3333', 14) + ` <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> ERROS (${errs.length})</span>`)
             sep(44)
             errs.slice(-15).forEach(e => out('  ' + e.message, '#666'))
             blank()
@@ -2467,14 +2467,14 @@ export class EasyQuizPanel {
         }
 
         case 'logs': {
-          const n = Math.min(parseInt(args[1]||'10',10)||10,50)
+          const n = Math.min(parseInt(args[1] || '10', 10) || 10, 50)
           const last = this.logEntries.slice(-n)
           if (!last.length) { blank(); out('  Nenhum log registrado.', '#333'); blank(); break }
           withBlock(() => {
             blank()
-            richOut('  ' + ticon('file','#444',14) + ` <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> ÚLTIMAS ${n} ENTRADAS</span>`)
+            richOut('  ' + ticon('file', '#444', 14) + ` <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> ÚLTIMAS ${n} ENTRADAS</span>`)
             sep(44)
-            last.forEach(e => out('  '+e.message,'#555'))
+            last.forEach(e => out('  ' + e.message, '#555'))
             blank()
           }, '#1a1a1a')
           break
@@ -2485,12 +2485,12 @@ export class EasyQuizPanel {
           if (!hist?.length) { blank(); out('  Nenhuma questão respondida ainda.', '#333'); blank(); break }
           withBlock(() => {
             blank()
-            richOut('  ' + ticon('clock','#444',14) + ` <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> HISTÓRICO (${hist.length})</span>`)
+            richOut('  ' + ticon('clock', '#444', 14) + ` <span style="color:#777;font-weight:700;letter-spacing:0.08em;font-size:10px;"> HISTÓRICO (${hist.length})</span>`)
             sep(58)
-            row(['#','Questão','Tempo','Modelo'],[3,38,7,10],['#444','#666','#555','#555'])
-            out('  '+'┈'.repeat(58),'#1a1a1a')
-            hist.slice(-15).forEach((r: any,i: number)=>
-              row([String(i+1),(r.questionTitle||'Questão').slice(0,37),(r.durationMs?(r.durationMs/1000).toFixed(1)+'s':'--'),(r.model||'--').slice(0,9)],[3,38,7,10],['#444','#aaa','#777','#666']))
+            row(['#', 'Questão', 'Tempo', 'Modelo'], [3, 38, 7, 10], ['#444', '#666', '#555', '#555'])
+            out('  ' + '┈'.repeat(58), '#1a1a1a')
+            hist.slice(-15).forEach((r: any, i: number) =>
+              row([String(i + 1), (r.questionTitle || 'Questão').slice(0, 37), (r.durationMs ? (r.durationMs / 1000).toFixed(1) + 's' : '--'), (r.model || '--').slice(0, 9)], [3, 38, 7, 10], ['#444', '#aaa', '#777', '#666']))
             blank()
           }, '#1a1a1a')
           break
@@ -2498,7 +2498,7 @@ export class EasyQuizPanel {
 
         case 'reset':
           this.clearLogs(); blank()
-          richOut('  ' + ticon('check','#4a6a4a',13) + ' <span style="color:#4a6a4a;font-weight:600;"> Resetado</span><span style="color:#444;">  — logs e métricas zerados.</span>')
+          richOut('  ' + ticon('check', '#4a6a4a', 13) + ' <span style="color:#4a6a4a;font-weight:600;"> Resetado</span><span style="color:#444;">  — logs e métricas zerados.</span>')
           blank(); break
 
         case 'copy': {
@@ -2507,8 +2507,8 @@ export class EasyQuizPanel {
             .filter(el => el !== currentLine && (el as HTMLElement).id !== 'eq-click-cursor' && (el as HTMLElement).id !== 'eq-term-sel-canvas')
             .map(el => getElemText(el as HTMLElement).trimEnd())
           navigator.clipboard.writeText(lines2.join('\n')).then(() => {
-            richOut('  ' + ticon('copy','#888',11) + ' <span style="color:#666;"> Conteúdo copiado para a área de transferência.</span>')
-            this.showToast('Terminal copiado','success',2000)
+            richOut('  ' + ticon('copy', '#888', 11) + ' <span style="color:#666;"> Conteúdo copiado para a área de transferência.</span>')
+            this.showToast('Terminal copiado', 'success', 2000)
           })
           break
         }
@@ -2517,7 +2517,7 @@ export class EasyQuizPanel {
 
         default:
           blank()
-          richOut(`  <span style="color:#555;">Comando desconhecido: </span><span style="color:#777;font-weight:600;">${cmd||'(vazio)'}</span>`)
+          richOut(`  <span style="color:#555;">Comando desconhecido: </span><span style="color:#777;font-weight:600;">${cmd || '(vazio)'}</span>`)
           out('  Digite help para ver os comandos.', '#2a2a2a')
           blank()
       }
@@ -2529,30 +2529,30 @@ export class EasyQuizPanel {
     const switchMode = (mode: 'terminal' | 'output') => {
       this.terminalMode = mode
       const isT = mode === 'terminal'
-      if (termPanel)   termPanel.style.display   = isT ? 'flex' : 'none'
-      if (outputPanel) outputPanel.style.display  = isT ? 'none' : 'flex'
-      if (outputBar)   outputBar.style.display    = isT ? 'none' : 'flex'
-      const tb = this.shadow.querySelector('#eq-term-mode-terminal') as HTMLElement|null
-      const ob = this.shadow.querySelector('#eq-term-mode-output')   as HTMLElement|null
-      if (tb) { tb.style.background = isT?'#181818':'transparent'; tb.style.borderColor = isT?'#2a2a2a':'transparent'; tb.style.color = isT?'var(--eq-text-bright)':'#555' }
-      if (ob) { ob.style.background = !isT?'#181818':'transparent'; ob.style.borderColor = !isT?'#2a2a2a':'transparent'; ob.style.color = !isT?'var(--eq-text-bright)':'#555' }
+      if (termPanel) termPanel.style.display = isT ? 'flex' : 'none'
+      if (outputPanel) outputPanel.style.display = isT ? 'none' : 'flex'
+      if (outputBar) outputBar.style.display = isT ? 'none' : 'flex'
+      const tb = this.shadow.querySelector('#eq-term-mode-terminal') as HTMLElement | null
+      const ob = this.shadow.querySelector('#eq-term-mode-output') as HTMLElement | null
+      if (tb) { tb.style.background = isT ? '#181818' : 'transparent'; tb.style.borderColor = isT ? '#2a2a2a' : 'transparent'; tb.style.color = isT ? 'var(--eq-text-bright)' : '#555' }
+      if (ob) { ob.style.background = !isT ? '#181818' : 'transparent'; ob.style.borderColor = !isT ? '#2a2a2a' : 'transparent'; ob.style.color = !isT ? 'var(--eq-text-bright)' : '#555' }
       if (!isT) this.renderTerminalEntries()
     }
 
     // ── Reconnect contextbar buttons ──────────────────────
     this._reconnectContextbarBtns = () => {
-      const modeT = this.shadow.querySelector('#eq-term-mode-terminal') as HTMLElement|null
-      const modeO = this.shadow.querySelector('#eq-term-mode-output')   as HTMLElement|null
+      const modeT = this.shadow.querySelector('#eq-term-mode-terminal') as HTMLElement | null
+      const modeO = this.shadow.querySelector('#eq-term-mode-output') as HTMLElement | null
       modeT?.addEventListener('click', () => switchMode('terminal'))
       modeO?.addEventListener('click', () => switchMode('output'))
-      const cpB   = this.shadow.querySelector('#eq-term-copy-btn')  as HTMLElement|null
-      const clB   = this.shadow.querySelector('#eq-term-clear-btn') as HTMLElement|null
+      const cpB = this.shadow.querySelector('#eq-term-copy-btn') as HTMLElement | null
+      const clB = this.shadow.querySelector('#eq-term-clear-btn') as HTMLElement | null
       cpB?.addEventListener('click', () => {
         const flash = (el: HTMLElement) => { const oc = el.style.color; el.style.color = '#4ade80'; setTimeout(() => el.style.color = oc, 400) }
         // Priority: 1. custom grid selection, 2. browser selection, 3. all content
         const customSel = (this as any)._getCustomSel?.()
         if (customSel && customSel.trim().length > 0) {
-          ;(this as any)._clearCustomSel?.()
+          ; (this as any)._clearCustomSel?.()
           navigator.clipboard.writeText(customSel).then(() => { this.showToast('Seleção copiada', 'success', 2000); if (cpB) flash(cpB) })
           return
         }
@@ -2576,8 +2576,8 @@ export class EasyQuizPanel {
       })
       clB?.addEventListener('click', () => {
         if (this.terminalMode === 'terminal') {
-          if (termOutput && currentLine) { [...termOutput.children].forEach(k=>{ if(k!==currentLine && (k as HTMLElement).dataset?.perm !== '1') k.remove() }) }
-          if (typedEl) typedEl.textContent=''
+          if (termOutput && currentLine) { [...termOutput.children].forEach(k => { if (k !== currentLine && (k as HTMLElement).dataset?.perm !== '1') k.remove() }) }
+          if (typedEl) typedEl.textContent = ''
         } else { this.clearLogs() }
       })
     }
@@ -2602,14 +2602,14 @@ export class EasyQuizPanel {
         if (!ctx) return 6.9
         ctx.font = '11.5px "Cascadia Code","Fira Code","Courier New",monospace'
         return ctx.measureText('X').width
-      } catch(_) { return 6.9 }
+      } catch (_) { return 6.9 }
     }
     const charW = measureCharW()
     const getLineH = () => parseFloat(getComputedStyle(termOutput!).lineHeight) || 19
     const PAD_L = 14, PAD_T = 10 // match terminal padding
 
     // Click cursor: position:absolute INSIDE termOutput (position:relative added below)
-    const clickCursor = this.shadow.querySelector('#eq-click-cursor') as HTMLElement|null
+    const clickCursor = this.shadow.querySelector('#eq-click-cursor') as HTMLElement | null
     if (termOutput) termOutput.style.position = 'relative'
     if (clickCursor) {
       // Move cursor into termOutput so position:absolute works relative to it
@@ -2628,9 +2628,9 @@ export class EasyQuizPanel {
       const row = Math.max(0, Math.floor((relY - PAD_T) / lh))
       const snapX = col * charW + PAD_L
       const snapY = row * lh + PAD_T
-      clickCursor.style.left   = snapX + 'px'
-      clickCursor.style.top    = snapY + 'px'        // block: top of cell
-      clickCursor.style.width  = charW + 'px'
+      clickCursor.style.left = snapX + 'px'
+      clickCursor.style.top = snapY + 'px'        // block: top of cell
+      clickCursor.style.width = charW + 'px'
       clickCursor.style.height = lh + 'px'            // block: full cell height
       clickCursor.style.animation = 'eq-term-blink 0.9s step-end infinite'
       clickCursor.style.display = 'block'
@@ -2640,14 +2640,14 @@ export class EasyQuizPanel {
     // The canvas renders white rectangles per-segment. mix-blend-mode:difference
     // inverts the colors of content underneath → authentic terminal selection look.
 
-    const selCanvas = this.shadow.querySelector('#eq-term-sel-canvas') as HTMLCanvasElement|null
-    let selCtx: CanvasRenderingContext2D|null = null
+    const selCanvas = this.shadow.querySelector('#eq-term-sel-canvas') as HTMLCanvasElement | null
+    let selCtx: CanvasRenderingContext2D | null = null
     if (selCanvas) {
       selCtx = selCanvas.getContext('2d')
     }
 
-    let selStart: {row:number, col:number}|null = null
-    let selEnd:   {row:number, col:number}|null = null
+    let selStart: { row: number, col: number } | null = null
+    let selEnd: { row: number, col: number } | null = null
     let dragging = false
     let mdX = 0, mdY = 0
 
@@ -2657,9 +2657,9 @@ export class EasyQuizPanel {
       const w = termOutput.scrollWidth
       const h = Math.max(termOutput.scrollHeight, termOutput.clientHeight)
       if (selCanvas.width !== w || selCanvas.height !== h) {
-        selCanvas.width  = w
+        selCanvas.width = w
         selCanvas.height = h
-        selCanvas.style.width  = w + 'px'
+        selCanvas.style.width = w + 'px'
         selCanvas.style.height = h + 'px'
       }
     }
@@ -2671,13 +2671,13 @@ export class EasyQuizPanel {
       selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height)
       if (!selStart || !selEnd) return
 
-      const lh    = getLineH()
-      const tW    = selCanvas.width   // total canvas width
+      const lh = getLineH()
+      const tW = selCanvas.width   // total canvas width
       // Normalize direction: always r1,c1 → r2,c2 in reading order
       let r1 = selStart.row, c1 = selStart.col
-      let r2 = selEnd.row,   c2 = selEnd.col
+      let r2 = selEnd.row, c2 = selEnd.col
       if (r1 > r2 || (r1 === r2 && c1 > c2)) {
-        [r1,c1,r2,c2] = [r2,c2,r1,c1]
+        [r1, c1, r2, c2] = [r2, c2, r1, c1]
       }
 
       selCtx.fillStyle = 'white'  // white + mix-blend-mode:difference = color inversion
@@ -2708,14 +2708,14 @@ export class EasyQuizPanel {
     const getCustomSelText = (): string => {
       if (!selStart || !selEnd || !termOutput) return ''
       let r1 = selStart.row, c1 = selStart.col
-      let r2 = selEnd.row,   c2 = selEnd.col
-      if (r1 > r2 || (r1 === r2 && c1 > c2)) { [r1,c1,r2,c2] = [r2,c2,r1,c1] }
+      let r2 = selEnd.row, c2 = selEnd.col
+      if (r1 > r2 || (r1 === r2 && c1 > c2)) { [r1, c1, r2, c2] = [r2, c2, r1, c1] }
       const contentLines = Array.from(termOutput.children)
         .filter(el => {
           const id = (el as HTMLElement).id
           return id !== 'eq-click-cursor' && id !== 'eq-term-sel-canvas' && id !== 'eq-term-current-line'
         })
-        .map(el => getElemText(el as HTMLElement).replace(/\n/g,''))
+        .map(el => getElemText(el as HTMLElement).replace(/\n/g, ''))
       const result: string[] = []
       for (let r = r1; r <= r2; r++) {
         const raw = r < contentLines.length ? contentLines[r] : ''
@@ -2733,12 +2733,12 @@ export class EasyQuizPanel {
       return result.join('\n').replace(/\n+$/, '')
     }
 
-    // Expose to copy/Ctrl+C handlers
-    ;(this as any)._getCustomSel = getCustomSelText
-    ;(this as any)._clearCustomSel = () => {
-      selStart = null; selEnd = null
-      if (selCtx && selCanvas) selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height)
-    }
+      // Expose to copy/Ctrl+C handlers
+      ; (this as any)._getCustomSel = getCustomSelText
+      ; (this as any)._clearCustomSel = () => {
+        selStart = null; selEnd = null
+        if (selCtx && selCanvas) selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height)
+      }
 
     // ResizeObserver: keep canvas in sync when termOutput changes height
     if (selCanvas && termOutput) {
@@ -2748,7 +2748,7 @@ export class EasyQuizPanel {
           if (selStart && selEnd) drawSel()  // redraw after resize
         })
         ro.observe(termOutput)
-      } catch(_) {}
+      } catch (_) { }
     }
 
     // ── Mouse events ──────────────────────────────────────
@@ -2761,7 +2761,7 @@ export class EasyQuizPanel {
       if (clickCursor) clickCursor.style.display = 'none'
       const rect = termOutput!.getBoundingClientRect()
       const relX = e.clientX - rect.left + termOutput!.scrollLeft
-      const relY = e.clientY - rect.top  + termOutput!.scrollTop
+      const relY = e.clientY - rect.top + termOutput!.scrollTop
       showClickCursor(relX, relY)
       setTimeout(() => { if (!dragging) focusTerm() }, 80)
     })
@@ -2828,33 +2828,33 @@ export class EasyQuizPanel {
         typedEl.textContent = cur.slice(0, -1)
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
-        this.terminalCmdHistoryIdx = Math.min(this.terminalCmdHistoryIdx+1, this.terminalCmdHistory.length-1)
+        this.terminalCmdHistoryIdx = Math.min(this.terminalCmdHistoryIdx + 1, this.terminalCmdHistory.length - 1)
         if (this.terminalCmdHistoryIdx >= 0) typedEl.textContent = this.terminalCmdHistory[this.terminalCmdHistoryIdx]
       } else if (e.key === 'ArrowDown') {
         e.preventDefault()
-        this.terminalCmdHistoryIdx = Math.max(this.terminalCmdHistoryIdx-1, -1)
+        this.terminalCmdHistoryIdx = Math.max(this.terminalCmdHistoryIdx - 1, -1)
         typedEl.textContent = this.terminalCmdHistoryIdx >= 0 ? this.terminalCmdHistory[this.terminalCmdHistoryIdx] : ''
       } else if (e.key === 'c' && e.ctrlKey) {
         const customSel = (this as any)._getCustomSel?.()
         if (customSel && customSel.trim().length > 0) {
-          ;(this as any)._clearCustomSel?.()
+          ; (this as any)._clearCustomSel?.()
           navigator.clipboard.writeText(customSel)
         } else {
           const selStr = window.getSelection()?.toString() || ''
           if (selStr) navigator.clipboard.writeText(selStr)
           else if (typedEl?.textContent) navigator.clipboard.writeText(typedEl.textContent)
         }
-        const cpFlash = this.shadow.querySelector('#eq-term-copy-btn') as HTMLElement|null
+        const cpFlash = this.shadow.querySelector('#eq-term-copy-btn') as HTMLElement | null
         if (cpFlash) { const oc = cpFlash.style.color; cpFlash.style.color = '#4ade80'; setTimeout(() => cpFlash.style.color = oc, 400) }
       } else if (e.key === 'v' && e.ctrlKey) {
         e.preventDefault()
         navigator.clipboard.readText().then(txt => {
-          if (typedEl) typedEl.textContent = (typedEl.textContent||'') + txt.replace(/\n/g, ' ')
+          if (typedEl) typedEl.textContent = (typedEl.textContent || '') + txt.replace(/\n/g, ' ')
           if (termOutput) termOutput.scrollTop = termOutput.scrollHeight
         })
       } else if (e.key === 'l' && e.ctrlKey) {
         e.preventDefault()
-        if (termOutput && currentLine) { [...termOutput.children].forEach(k=>{ if(k!==currentLine && (k as HTMLElement).dataset?.perm !== '1') k.remove() }) }
+        if (termOutput && currentLine) { [...termOutput.children].forEach(k => { if (k !== currentLine && (k as HTMLElement).dataset?.perm !== '1') k.remove() }) }
         typedEl.textContent = ''
       } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
         e.preventDefault()
@@ -2868,31 +2868,31 @@ export class EasyQuizPanel {
       e.preventDefault()
       const pasted = e.clipboardData?.getData('text') || ''
       const newlineRe = /\n/g
-      if (typedEl) typedEl.textContent = (typedEl.textContent||'') + pasted.replace(newlineRe,' ')
+      if (typedEl) typedEl.textContent = (typedEl.textContent || '') + pasted.replace(newlineRe, ' ')
     })
 
     // ── Filter context menu ───────────────────────────────
     // ── Auto-apply filters ──
     const applyFilters = () => {
-      const allChk  = (this.shadow.querySelector('#eq-fchk-all')   as HTMLInputElement)?.checked
-      const errChk  = (this.shadow.querySelector('#eq-fchk-error') as HTMLInputElement)?.checked
-      const aiChk   = (this.shadow.querySelector('#eq-fchk-ai')    as HTMLInputElement)?.checked
-      const domChk  = (this.shadow.querySelector('#eq-fchk-dom')   as HTMLInputElement)?.checked
+      const allChk = (this.shadow.querySelector('#eq-fchk-all') as HTMLInputElement)?.checked
+      const errChk = (this.shadow.querySelector('#eq-fchk-error') as HTMLInputElement)?.checked
+      const aiChk = (this.shadow.querySelector('#eq-fchk-ai') as HTMLInputElement)?.checked
+      const domChk = (this.shadow.querySelector('#eq-fchk-dom') as HTMLInputElement)?.checked
       // Determine filter
       if (allChk) { this.activeLogFilter = 'all' }
       else if (errChk && !aiChk && !domChk) { this.activeLogFilter = 'error' }
       else if (aiChk && !errChk && !domChk) { this.activeLogFilter = 'ai' }
       else if (domChk && !errChk && !aiChk) { this.activeLogFilter = 'dom' }
       else { this.activeLogFilter = 'all' }
-      const lbl = this.shadow.querySelector('#eq-output-filter-label') as HTMLElement|null
-      const lblMap: Record<string,string> = { all:'Todos', error:'Erros', ai:'IA', dom:'DOM' }
+      const lbl = this.shadow.querySelector('#eq-output-filter-label') as HTMLElement | null
+      const lblMap: Record<string, string> = { all: 'Todos', error: 'Erros', ai: 'IA', dom: 'DOM' }
       if (lbl) {
-        const lblMap2: Record<string,string> = { all:'Todos', error:'Erros', ai:'IA', dom:'DOM' }
-        const errC2  = (this.shadow.querySelector('#eq-fchk-error') as HTMLInputElement)?.checked
-        const aiC2   = (this.shadow.querySelector('#eq-fchk-ai')    as HTMLInputElement)?.checked
-        const domC2  = (this.shadow.querySelector('#eq-fchk-dom')   as HTMLInputElement)?.checked
-        const allC2  = (this.shadow.querySelector('#eq-fchk-all')   as HTMLInputElement)?.checked
-        const cnt = [errC2,aiC2,domC2].filter(Boolean).length
+        const lblMap2: Record<string, string> = { all: 'Todos', error: 'Erros', ai: 'IA', dom: 'DOM' }
+        const errC2 = (this.shadow.querySelector('#eq-fchk-error') as HTMLInputElement)?.checked
+        const aiC2 = (this.shadow.querySelector('#eq-fchk-ai') as HTMLInputElement)?.checked
+        const domC2 = (this.shadow.querySelector('#eq-fchk-dom') as HTMLInputElement)?.checked
+        const allC2 = (this.shadow.querySelector('#eq-fchk-all') as HTMLInputElement)?.checked
+        const cnt = [errC2, aiC2, domC2].filter(Boolean).length
         if (allC2 || cnt === 0) lbl.textContent = 'Todos'
         else if (cnt === 1) lbl.textContent = lblMap2[this.activeLogFilter] || this.activeLogFilter
         else lbl.textContent = '\u22ef (' + cnt + ')'
@@ -2907,11 +2907,11 @@ export class EasyQuizPanel {
     })
     // Wire checkboxes with Todos-exclusive logic
     filterMenu?.addEventListener('mousedown', (e) => e.stopPropagation())
-    const allChkEl   = this.shadow.querySelector('#eq-fchk-all')   as HTMLInputElement|null
-    const errChkEl   = this.shadow.querySelector('#eq-fchk-error') as HTMLInputElement|null
-    const aiChkEl    = this.shadow.querySelector('#eq-fchk-ai')    as HTMLInputElement|null
-    const domChkEl   = this.shadow.querySelector('#eq-fchk-dom')   as HTMLInputElement|null
-    const catChkEls  = [errChkEl, aiChkEl, domChkEl].filter(Boolean) as HTMLInputElement[]
+    const allChkEl = this.shadow.querySelector('#eq-fchk-all') as HTMLInputElement | null
+    const errChkEl = this.shadow.querySelector('#eq-fchk-error') as HTMLInputElement | null
+    const aiChkEl = this.shadow.querySelector('#eq-fchk-ai') as HTMLInputElement | null
+    const domChkEl = this.shadow.querySelector('#eq-fchk-dom') as HTMLInputElement | null
+    const catChkEls = [errChkEl, aiChkEl, domChkEl].filter(Boolean) as HTMLInputElement[]
 
     allChkEl?.addEventListener('change', () => {
       if (allChkEl.checked) {
@@ -2940,13 +2940,13 @@ export class EasyQuizPanel {
       if (filterMenu && filterMenu.style.display !== 'none') filterMenu.style.display = 'none'
       // Clear custom terminal selection when clicking outside terminal
       if (termOutput && !termOutput.contains(e.target as Node)) {
-        ;(this as any)._clearCustomSel?.()
+        ; (this as any)._clearCustomSel?.()
       }
     })
 
     // ── Sort button ──────────────────────────────────────
-    const sortBtn2 = this.shadow.querySelector('#eq-output-sort-btn') as HTMLElement|null
-    const sortArrow2 = this.shadow.querySelector('#eq-sort-arrow') as HTMLElement|null
+    const sortBtn2 = this.shadow.querySelector('#eq-output-sort-btn') as HTMLElement | null
+    const sortArrow2 = this.shadow.querySelector('#eq-sort-arrow') as HTMLElement | null
     if (sortArrow2) sortArrow2.style.transform = 'rotate(270deg)'
     sortBtn2?.addEventListener('click', () => {
       this.outputSortNewest = !this.outputSortNewest
@@ -2962,22 +2962,22 @@ export class EasyQuizPanel {
       this.renderTerminalEntries()
     })
     searchClear?.addEventListener('click', () => {
-      if (searchEl) searchEl.value=''
-      this.outputSearchQuery=''
-      if (searchClear) searchClear.style.display='none'
+      if (searchEl) searchEl.value = ''
+      this.outputSearchQuery = ''
+      if (searchClear) searchClear.style.display = 'none'
       this.renderTerminalEntries()
     })
 
     // ── Smart auto-scroll: disable on manual scroll up, re-enable at bottom ──
     if (this.liveDebugTerminal) {
-      let scrollTimer: ReturnType<typeof setTimeout>|null = null
+      let scrollTimer: ReturnType<typeof setTimeout> | null = null
       this.liveDebugTerminal.addEventListener('scroll', () => {
         if (scrollTimer) clearTimeout(scrollTimer)
         scrollTimer = setTimeout(() => {
           if (!this.liveDebugTerminal) return
           const el = this.liveDebugTerminal
           const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-          const btn = this.shadow.querySelector('#eq-dbg-scroll-toggle') as HTMLElement|null
+          const btn = this.shadow.querySelector('#eq-dbg-scroll-toggle') as HTMLElement | null
           if (distFromBottom > 40) {
             this.autoScrollLogs = false
             if (btn) { btn.style.color = '#333'; btn.style.borderColor = 'rgba(255,255,255,0.07)'; btn.title = 'Auto-scroll: desativado' }
@@ -2989,7 +2989,7 @@ export class EasyQuizPanel {
       })
     }
 
-        // Auto-scroll toggle
+    // Auto-scroll toggle
     this.shadow.querySelector('#eq-dbg-scroll-toggle')?.addEventListener('click', (e) => {
       this.autoScrollLogs = !this.autoScrollLogs
       const stEl = e.currentTarget as HTMLElement
@@ -3021,13 +3021,13 @@ export class EasyQuizPanel {
   // Characters inside stay perfectly on the monospace grid.
   // Reusable: pass any content div to add a visual grouping border.
   private termBorder(el: HTMLElement, color: string = '#1e1e1e', radius: number = 3): HTMLElement {
-    el.style.outline       = `1px solid ${color}`
+    el.style.outline = `1px solid ${color}`
     el.style.outlineOffset = '-1px'
-    el.style.borderRadius  = radius + 'px'
+    el.style.borderRadius = radius + 'px'
     return el
   }
 
-    public getFormattedLogs(): string {
+  public getFormattedLogs(): string {
     const filtered = this.activeLogFilter === 'all'
       ? this.logEntries
       : this.logEntries.filter((e) => e.category === this.activeLogFilter)
@@ -3369,7 +3369,7 @@ export class EasyQuizPanel {
         imgSrc: img.base64 ? `data:${img.mediaType || 'image/jpeg'};base64,${img.base64}` : undefined,
       }
     })
-    
+
     const imgNode = this.createTreeFolder(
       `️ IMAGENS DETECTADAS (${imgs.length})`,
       true, // Sempre começa expandida se tiver imagens
@@ -3396,7 +3396,7 @@ export class EasyQuizPanel {
       for (const it of items) {
         const leaf = document.createElement('div')
         leaf.className = 'eq-tree-leaf'
-        
+
         let imgHtml = ''
         if (it.imgSrc && it.imgSrc.startsWith('data:image')) {
           imgHtml = `<div style="margin-top: 8px; margin-bottom: 4px;"><img src="${it.imgSrc}" style="max-width: 100%; max-height: 120px; border-radius: 4px; border: 1px solid #3c4043; background: #1e1f22;" alt="Captura"></div>`
@@ -3494,9 +3494,9 @@ export class EasyQuizPanel {
 
   public setInterrupted(message = 'Análise interrompida pelo usuário.'): void {
     this.isBusy = false
-    ;[this.modelSelect, this.modeSelect, this.engineSelect, this.dryRunCheckbox, this.autoApplyCheckbox, this.autoAdvanceCheckbox, this.useVisionCheckbox, this.toastStackingCheckbox].forEach(
-      (e) => ((e as any).disabled = false),
-    )
+      ;[this.modelSelect, this.modeSelect, this.engineSelect, this.dryRunCheckbox, this.autoApplyCheckbox, this.autoAdvanceCheckbox, this.useVisionCheckbox, this.toastStackingCheckbox].forEach(
+        (e) => ((e as any).disabled = false),
+      )
 
     const ctaRow = this.analyzeBtn.closest('.eq-cta-wrapper')
     if (ctaRow) ctaRow.classList.remove('is-running')
@@ -3527,9 +3527,9 @@ export class EasyQuizPanel {
 
   public setBusy(busy: boolean, message?: string): void {
     this.isBusy = busy
-    ;[this.modelSelect, this.modeSelect, this.engineSelect, this.dryRunCheckbox, this.autoApplyCheckbox, this.autoAdvanceCheckbox, this.useVisionCheckbox, this.toastStackingCheckbox].forEach(
-      (e) => ((e as any).disabled = busy),
-    )
+      ;[this.modelSelect, this.modeSelect, this.engineSelect, this.dryRunCheckbox, this.autoApplyCheckbox, this.autoAdvanceCheckbox, this.useVisionCheckbox, this.toastStackingCheckbox].forEach(
+        (e) => ((e as any).disabled = busy),
+      )
 
     const ctaRow = this.analyzeBtn?.closest('.eq-cta-wrapper')
     if (busy) {
@@ -3575,7 +3575,7 @@ export class EasyQuizPanel {
 
   private _lastToastMsg = ''
   private _lastToastTime = 0
-  private _toastQueue: Array<{message: string; type: string; col: string; iconHtml: string; expiresAt: number}> = []
+  private _toastQueue: Array<{ message: string; type: string; col: string; iconHtml: string; expiresAt: number }> = []
   private _toastVisible: HTMLElement[] = []
   private _toastOverflowBtn: HTMLElement | null = null
 
@@ -3588,11 +3588,11 @@ export class EasyQuizPanel {
 
     const icons: Record<string, string> = {
       success: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
-      error:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>',
+      error: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>',
       warning: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>',
-      info:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>',
+      info: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>',
     }
-    const colors: Record<string, string> = { success:'#22c55e', error:'#ef4444', warning:'#f59e0b', info:'#60a5fa' }
+    const colors: Record<string, string> = { success: '#22c55e', error: '#ef4444', warning: '#f59e0b', info: '#60a5fa' }
     const col = colors[type] || colors.info
     const iconHtml = icons[type] || icons.info
 
@@ -3650,7 +3650,7 @@ export class EasyQuizPanel {
         if (useStacking) {
           this._toastVisible = this._toastVisible.filter(el => el !== toast)
           this._toastQueue = this._toastQueue.filter(e => e.expiresAt > Date.now())
-          this._updateToastOverflow(container!, Math.max(0, this._toastQueue.length - this._toastVisible.filter(e=>e.isConnected).length))
+          this._updateToastOverflow(container!, Math.max(0, this._toastQueue.length - this._toastVisible.filter(e => e.isConnected).length))
         }
       }, 200)
     }
@@ -3680,7 +3680,7 @@ export class EasyQuizPanel {
     // Remove existing overflow btn
     if (this._toastOverflowBtn) { this._toastOverflowBtn.remove(); this._toastOverflowBtn = null }
     // Show all queued toasts
-    const colors: Record<string, string> = { success:'#22c55e', error:'#ef4444', warning:'#f59e0b', info:'#60a5fa' }
+    const colors: Record<string, string> = { success: '#22c55e', error: '#ef4444', warning: '#f59e0b', info: '#60a5fa' }
     for (const entry of history) {
       if (container.querySelectorAll('.eq-toast-hist').length > 20) break
       const el = document.createElement('div')
@@ -3901,25 +3901,25 @@ export class EasyQuizPanel {
 
   // ── Brain Explorer State ────────────────────────────────────────
   private brainOpenTabs: { id: string; label: string }[] = []
-  private brainActiveTab:      string | null = null
+  private brainActiveTab: string | null = null
   private brainSelectedFolder: string | null = null
   private brainOpenFolders: Set<string> = new Set(['folder-ia', 'folder-ctx', 'folder-meta'])
   private brainCanvasHidden = false
   private brainCanvasHeight = 280
 
-  private readonly GLOBAL_ID    = '__global__'
+  private readonly GLOBAL_ID = '__global__'
   private readonly GLOBAL_LABEL = 'Contexto Global'
 
   private getBrainFileColor(icon: string): string {
     const m: Record<string, string> = {
-      file:     '#7eb8f7', code: '#f4c96a', list: '#a5d6a7',
-      chip:     '#80cbc4', sparkles: '#ce93d8', clock: '#ffcc80', info: '#81deea',
+      file: '#7eb8f7', code: '#f4c96a', list: '#a5d6a7',
+      chip: '#80cbc4', sparkles: '#ce93d8', clock: '#ffcc80', info: '#81deea',
     }
     return m[icon] || '#9e9e9e'
   }
 
   private renderMarkdown(raw: string): string {
-    const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     let html = ''
     const lines = raw.split('\n')
     let inCode = false, codeLang = '', codeLines: string[] = []
@@ -3962,7 +3962,7 @@ export class EasyQuizPanel {
 
   private getBrainFolders() {
     const plan = this.latestPlan
-    type BrainFile   = { id: string; label: string; icon: string }
+    type BrainFile = { id: string; label: string; icon: string }
     type BrainSubfolder = { id: string; label: string; icon: string; files: BrainFile[] }
     type BrainFolder = { id: string; label: string; files: BrainFile[]; subfolders?: BrainSubfolder[] }
     const imgFiles: BrainFile[] = this.latestImages.map((img, i) => ({
@@ -3971,26 +3971,34 @@ export class EasyQuizPanel {
       icon: 'image',
     }))
     const F: BrainFolder[] = [
-      { id: 'folder-ia',  label: 'Resposta da IA',    files: [
-          { id: 'rationale',  label: 'rationale.md',   icon: 'file'     },
-          { id: 'actions',    label: 'actions.json',   icon: 'code'     },
-          { id: 'summary',    label: 'resumo.txt',     icon: 'list'     },
-        ] },
-      { id: 'folder-ctx', label: 'Contexto & Prompt', files: [
-          { id: 'prompt', label: 'prompt-enviado.txt', icon: 'file'     },
-          { id: 'rag',    label: 'rag-context.txt',    icon: 'chip'     },
-        ] },
-      { id: 'folder-meta', label: 'Metadados',        files: [
-          { id: 'meta-model',   label: 'modelo.info',   icon: 'sparkles' },
-          { id: 'meta-latency', label: 'latencia.info', icon: 'clock'    },
-          { id: 'meta-tokens',  label: 'tokens.info',   icon: 'info'     },
-        ] },
+      {
+        id: 'folder-ia', label: 'Resposta da IA', files: [
+          { id: 'rationale', label: 'rationale.md', icon: 'file' },
+          { id: 'actions', label: 'actions.json', icon: 'code' },
+          { id: 'summary', label: 'resumo.txt', icon: 'list' },
+        ]
+      },
+      {
+        id: 'folder-ctx', label: 'Contexto & Prompt', files: [
+          { id: 'prompt', label: 'prompt-enviado.txt', icon: 'file' },
+          { id: 'rag', label: 'rag-context.txt', icon: 'chip' },
+        ]
+      },
+      {
+        id: 'folder-meta', label: 'Metadados', files: [
+          { id: 'meta-model', label: 'modelo.info', icon: 'sparkles' },
+          { id: 'meta-latency', label: 'latencia.info', icon: 'clock' },
+          { id: 'meta-tokens', label: 'tokens.info', icon: 'info' },
+        ]
+      },
     ]
     if ((plan as any)?.executionResult) {
-      F.push({ id: 'folder-exec', label: 'Execução', files: [
-        { id: 'exec-steps',  label: 'steps.log',     icon: 'list' },
-        { id: 'exec-result', label: 'resultado.log', icon: 'file' },
-      ] })
+      F.push({
+        id: 'folder-exec', label: 'Execução', files: [
+          { id: 'exec-steps', label: 'steps.log', icon: 'list' },
+          { id: 'exec-result', label: 'resultado.log', icon: 'file' },
+        ]
+      })
     }
     F.push({
       id: 'folder-media',
@@ -4082,11 +4090,11 @@ export class EasyQuizPanel {
     }
   }
 
-    public initBrainControls(): void {
-    const handle    = this.shadow.querySelector('#eq-brain-resize-handle') as HTMLElement | null
-    const canvas    = this.shadow.querySelector('.eq-brain-canvas')        as HTMLElement | null
+  public initBrainControls(): void {
+    const handle = this.shadow.querySelector('#eq-brain-resize-handle') as HTMLElement | null
+    const canvas = this.shadow.querySelector('.eq-brain-canvas') as HTMLElement | null
     const toggleBtn = this.shadow.querySelector('#eq-brain-canvas-toggle') as HTMLElement | null
-    const copyBtn   = this.shadow.querySelector('#eq-copy-prompt-btn')     as HTMLElement | null
+    const copyBtn = this.shadow.querySelector('#eq-copy-prompt-btn') as HTMLElement | null
 
     // Always sync icon — safe to do on every tab switch
     if (toggleBtn) {
@@ -4096,7 +4104,7 @@ export class EasyQuizPanel {
 
     // Guard: don't register resize+toggle listeners more than once
     if ((this as any)._brainControlsInited) return
-    ;(this as any)._brainControlsInited = true
+      ; (this as any)._brainControlsInited = true
 
     if (handle && canvas) {
       let startY = 0, startH = 0
@@ -4148,11 +4156,11 @@ export class EasyQuizPanel {
       const ctx = this.latestContext
       if (!ctx) return '// Aguardando captura de contexto pelo EasyQuiz...'
       const summary = {
-        scope: ctx.scope.tagName.toLowerCase() + (ctx.scope.id ? '#'+ctx.scope.id : '') + (ctx.scope.className ? '.'+ctx.scope.className.split(' ').join('.') : ''),
+        scope: ctx.scope.tagName.toLowerCase() + (ctx.scope.id ? '#' + ctx.scope.id : '') + (ctx.scope.className ? '.' + ctx.scope.className.split(' ').join('.') : ''),
         questionLength: ctx.questionText.length,
         questionSnippet: ctx.questionText.slice(0, 200) + (ctx.questionText.length > 200 ? '...' : ''),
         controlsCount: ctx.controls.length,
-        controls: ctx.controls.map((c, i) => ({ index: i+1, tag: c.tag, type: c.type, name: c.name||undefined, id: c.id||undefined, value: c.value||undefined, label: c.label||undefined, role: c.role })),
+        controls: ctx.controls.map((c, i) => ({ index: i + 1, tag: c.tag, type: c.type, name: c.name || undefined, id: c.id || undefined, value: c.value || undefined, label: c.label || undefined, role: c.role })),
       }
       return JSON.stringify(summary, null, 2)
     }
@@ -4180,16 +4188,16 @@ export class EasyQuizPanel {
     }
     const plan = this.latestPlan
     const DATA: Record<string, string> = {
-      rationale:      plan?.rationale || 'Aguardando raciocínio da IA (ou extração em andamento)...',
-      actions:        plan?.actions?.length ? JSON.stringify(plan.actions, null, 2) : '// Nenhuma ação planejada no momento.',
-      summary:        plan ? `Modo: ${plan.mode || 'auto'}\nConfiança: ${Math.round((plan.confidence||0)*100)}%\nAções: ${plan.actions?.length||0}\nModelo: ${plan.usedModel||'--'}` : 'Aguardando primeira análise completa...',
-      prompt:         plan?.promptSent || this.latestPromptText || 'Nenhum prompt em memória. A IA ainda não foi acionada.',
-      rag:            (plan as any)?.ragContext || 'Nenhuma memória estendida usada ou capturada.',
-      'meta-model':   `Modelo Ativo: ${plan?.usedModel || this.initialSettings.model || '--'}`,
+      rationale: plan?.rationale || 'Aguardando raciocínio da IA (ou extração em andamento)...',
+      actions: plan?.actions?.length ? JSON.stringify(plan.actions, null, 2) : '// Nenhuma ação planejada no momento.',
+      summary: plan ? `Modo: ${plan.mode || 'auto'}\nConfiança: ${Math.round((plan.confidence || 0) * 100)}%\nAções: ${plan.actions?.length || 0}\nModelo: ${plan.usedModel || '--'}` : 'Aguardando primeira análise completa...',
+      prompt: plan?.promptSent || this.latestPromptText || 'Nenhum prompt em memória. A IA ainda não foi acionada.',
+      rag: (plan as any)?.ragContext || 'Nenhuma memória estendida usada ou capturada.',
+      'meta-model': `Modelo Ativo: ${plan?.usedModel || this.initialSettings.model || '--'}`,
       'meta-latency': plan?.durationMs ? `Latência: ${plan.durationMs}ms` : 'Latência: --',
-      'meta-tokens':  plan?.tokensUsed ? `Tokens: ${plan.tokensUsed}` : 'Tokens: --',
-      'exec-steps':   (plan as any)?.executionResult?.steps?.map((s: unknown) => JSON.stringify(s)).join('\n') || 'Passos de execução ainda não iniciados.',
-      'exec-result':  (plan as any)?.executionResult ? JSON.stringify((plan as any).executionResult, null, 2) : 'Aguardando resultado de execução...',
+      'meta-tokens': plan?.tokensUsed ? `Tokens: ${plan.tokensUsed}` : 'Tokens: --',
+      'exec-steps': (plan as any)?.executionResult?.steps?.map((s: unknown) => JSON.stringify(s)).join('\n') || 'Passos de execução ainda não iniciados.',
+      'exec-result': (plan as any)?.executionResult ? JSON.stringify((plan as any).executionResult, null, 2) : 'Aguardando resultado de execução...',
     }
     return DATA[fileId] ?? 'Conteúdo não disponível para este arquivo.'
   }
@@ -4199,7 +4207,7 @@ export class EasyQuizPanel {
     const ctx = this.latestContext
     const imgs = this.latestImages
     const esc = (s: string) => String(s ?? '-- sem dados --')
-    
+
     const parts: string[] = [
       '# Visão Global — EasyQuiz',
       '',
@@ -4228,7 +4236,7 @@ export class EasyQuizPanel {
       plan?.actions?.length ? JSON.stringify(plan.actions, null, 2) : '// Nenhuma ação planejada no momento.',
       '',
       '### Resumo',
-      plan ? `- Modo: ${plan.mode || 'auto'}\n- Confiança: ${Math.round((plan.confidence||0)*100)}%\n- Total de ações: ${plan.actions?.length||0}\n- Modelo: ${plan.usedModel||'--'}` : 'Aguardando primeira análise...',
+      plan ? `- Modo: ${plan.mode || 'auto'}\n- Confiança: ${Math.round((plan.confidence || 0) * 100)}%\n- Total de ações: ${plan.actions?.length || 0}\n- Modelo: ${plan.usedModel || '--'}` : 'Aguardando primeira análise...',
       '',
       '---',
       '',
@@ -4272,7 +4280,7 @@ export class EasyQuizPanel {
 
     for (const folder of this.getBrainFolders()) {
       const isOpen = this.brainOpenFolders.has(folder.id)
-      const isSel  = this.brainSelectedFolder === folder.id || activeFolder === folder.id
+      const isSel = this.brainSelectedFolder === folder.id || activeFolder === folder.id
 
       const folderRow = document.createElement('div')
       folderRow.className = 'eq-tree-folder' + (isSel ? ' is-folder-sel' : '')
@@ -4315,7 +4323,7 @@ export class EasyQuizPanel {
       // Render subfolders (one level deep)
       for (const sf of (folder.subfolders || [])) {
         const sfIsOpen = this.brainOpenFolders.has(sf.id)
-        const sfIsSel  = this.brainSelectedFolder === sf.id
+        const sfIsSel = this.brainSelectedFolder === sf.id
 
         const sfRow = document.createElement('div')
         sfRow.className = 'eq-tree-folder eq-tree-subfolder' + (sfIsSel ? ' is-folder-sel' : '')
@@ -4379,7 +4387,7 @@ export class EasyQuizPanel {
     if (!contentEl) return
     contentEl.innerHTML = ''
 
-    const esc = (s: string) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    const esc = (s: string) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const wrap = document.createElement('div')
     wrap.className = 'eq-folder-view'
 
@@ -4429,7 +4437,7 @@ export class EasyQuizPanel {
     if (!this.brainOpenTabs.find(t => t.id === fileId)) this.brainOpenTabs.push({ id: fileId, label })
     this.brainActiveTab = fileId
     if (this.brainCanvasHidden) {
-      const canvas    = this.shadow.querySelector('.eq-brain-canvas')        as HTMLElement | null
+      const canvas = this.shadow.querySelector('.eq-brain-canvas') as HTMLElement | null
       const toggleBtn = this.shadow.querySelector('#eq-brain-canvas-toggle') as HTMLElement | null
       canvas?.classList.remove('is-hidden')
       if (toggleBtn) { toggleBtn.innerHTML = ICONS.eye; toggleBtn.title = 'Ocultar visualizador' }
@@ -4692,7 +4700,7 @@ export class EasyQuizPanel {
         zoomBadge.textContent = `${Math.round(scale * 100)}%`
         zoomBadge.style.opacity = '1'
         clearTimeout((imgSide as any)._zt)
-        ;(imgSide as any)._zt = setTimeout(() => { zoomBadge.style.opacity = '0' }, 1200)
+          ; (imgSide as any)._zt = setTimeout(() => { zoomBadge.style.opacity = '0' }, 1200)
       }, { passive: false })
 
       // Reset zoom on double-click
@@ -4809,11 +4817,11 @@ export class EasyQuizPanel {
     document.addEventListener('keydown', onKey)
   }
 
-    private closeBrainTab(fileId: string): void {
+  private closeBrainTab(fileId: string): void {
     const idx = this.brainOpenTabs.findIndex(t => t.id === fileId)
     if (idx === -1) return
     this.brainOpenTabs.splice(idx, 1)
-    if (this.brainActiveTab === fileId) this.brainActiveTab = this.brainOpenTabs[idx-1]?.id || this.brainOpenTabs[0]?.id || null
+    if (this.brainActiveTab === fileId) this.brainActiveTab = this.brainOpenTabs[idx - 1]?.id || this.brainOpenTabs[0]?.id || null
     this.renderBrainExplorer(); this.renderBrainTabs()
     this.refreshBrainCanvas()
   }
@@ -4871,12 +4879,12 @@ export class EasyQuizPanel {
     }
 
     const raw = this.getBrainFileText(fileId)
-    const safeEsc = (s: string) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    
-    const isGlobal   = fileId === this.GLOBAL_ID
+    const safeEsc = (s: string) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+    const isGlobal = fileId === this.GLOBAL_ID
     const isMarkdown = fileId === 'rationale' || isGlobal
-    const isJson     = fileId === 'actions' || fileId === 'exec-result'
-    const lang       = isGlobal ? 'markdown' : isMarkdown ? 'markdown' : isJson ? 'json' : 'text'
+    const isJson = fileId === 'actions' || fileId === 'exec-result'
+    const lang = isGlobal ? 'markdown' : isMarkdown ? 'markdown' : isJson ? 'json' : 'text'
 
     // Always wipe content first to avoid bleed from previous selection
     contentEl.innerHTML = ''
@@ -4910,7 +4918,7 @@ export class EasyQuizPanel {
     contentEl.appendChild(wrapper)
   }
 
-  
+
   private initTerminalWallpaper(): void {
     const view = this.shadow.querySelector('#eq-view-debug') as HTMLElement | null
     if (!view) return
@@ -4929,9 +4937,9 @@ export class EasyQuizPanel {
     if (!ctx) return
     const CELL = 18, MAX_ALPHA = 0.082
     const sources = [
-      { a: 0,               r: 0.28, s:  0.006 },
+      { a: 0, r: 0.28, s: 0.006 },
       { a: Math.PI * 0.667, r: 0.22, s: -0.004 },
-      { a: Math.PI * 1.333, r: 0.32, s:  0.003 },
+      { a: Math.PI * 1.333, r: 0.32, s: 0.003 },
     ]
     if (!this._wlpWhiteLogo) {
       const img = new Image()
@@ -5010,7 +5018,7 @@ export class EasyQuizPanel {
     const W = 240
     const r = btn.getBoundingClientRect()
     const left = Math.min(Math.max(4, r.right - W), window.innerWidth - W - 4)
-    const top  = r.bottom + 4
+    const top = r.bottom + 4
     const popup = document.createElement('div')
     Object.assign(popup.style, {
       position: 'fixed', top: top + 'px', left: left + 'px', width: W + 'px',
@@ -5393,7 +5401,7 @@ export class EasyQuizPanel {
       titleEl.textContent = rec.questionTitle || ('Questão ' + rec.questionIndex)
       const durEl = document.createElement('div')
       durEl.style.cssText = 'flex-shrink:0;font-size:13px;font-weight:800;color:' + speedColor + ';font-family:monospace;font-variant-numeric:tabular-nums;'
-      durEl.textContent = durSec < 60 ? (durSec.toFixed(1) + 's') : (Math.floor(durSec/60) + 'm' + String(Math.round(durSec%60)).padStart(2,'0') + 's')
+      durEl.textContent = durSec < 60 ? (durSec.toFixed(1) + 's') : (Math.floor(durSec / 60) + 'm' + String(Math.round(durSec % 60)).padStart(2, '0') + 's')
       topRow.appendChild(indexBadge); topRow.appendChild(titleEl); topRow.appendChild(durEl)
 
       // Bar
@@ -5462,7 +5470,7 @@ export class EasyQuizPanel {
     }
   }
 
-    private copyMetricsReport(): void {
+  private copyMetricsReport(): void {
     const data = loadActivityMetrics()
     const lines: string[] = []
     lines.push('# Relatório de Desempenho e Tempo — EasyQuiz')
