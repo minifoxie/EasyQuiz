@@ -272,6 +272,7 @@ export const PANEL_STYLES = `
     max-width: 95vw;
     height: 100vh;
     z-index: 2147483647;
+    background-color: #0d1117; /* Fallback de segurança para garantir opacidade/dimensões */
     background: var(--eq-bg);
     border-left: 1px solid var(--eq-border);
     color: var(--eq-text);

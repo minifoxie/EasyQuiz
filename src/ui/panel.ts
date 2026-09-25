@@ -257,13 +257,12 @@ export class EasyQuizPanel {
 
     this.host = document.createElement('div')
     this.host.id = 'easyquiz-shadow-root'
-    this.host.style.position = 'fixed'
-    this.host.style.top = '0'
-    this.host.style.left = '0'
-    this.host.style.width = '100vw'
-    this.host.style.height = '100vh'
-    this.host.style.zIndex = '2147483647'
-    this.host.style.pointerEvents = 'none'
+    this.host.style.setProperty('position', 'fixed', 'important')
+    this.host.style.setProperty('top', '15px', 'important')
+    this.host.style.setProperty('right', '15px', 'important')
+    this.host.style.setProperty('z-index', '2147483647', 'important')
+    this.host.style.setProperty('display', 'block', 'important')
+    this.host.style.setProperty('pointer-events', 'none', 'important')
 
     this.shadow = this.host.attachShadow({ mode: 'open' })
 
@@ -5271,43 +5270,38 @@ export class EasyQuizPanel {
   }
 
   private mountHost(): void {
-    // 1. Polling de Injeção (Espera Ativa a cada 500ms)
-    const injectInterval = setInterval(() => {
-      if (this.host.isConnected) {
-        clearInterval(injectInterval)
-        return
-      }
-
-      // 2. Injeção de Força Bruta (Fallback): tenta document.body, senão document.documentElement
+    const forceInject = () => {
+      if (this.host.isConnected) return
       const target = document.body || document.documentElement
       if (target) {
         try {
           target.appendChild(this.host)
         } catch (e) {
-          // Fallback agressivo: força na raiz se o body bloquear/falhar
           if (document.documentElement && document.documentElement !== target) {
-            try {
-              document.documentElement.appendChild(this.host)
-            } catch (e2) {
-              // Falha silenciosa, tentará no próximo ciclo de 500ms
-            }
-          }
-        }
-      }
-    }, 500)
-
-    // Tentativa imediata (Zero-delay)
-    if (!this.host.isConnected) {
-      const initialTarget = document.body || document.documentElement
-      if (initialTarget) {
-        try {
-          initialTarget.appendChild(this.host)
-        } catch (e) {
-          if (document.documentElement && document.documentElement !== initialTarget) {
             try { document.documentElement.appendChild(this.host) } catch (e2) { }
           }
         }
       }
+    }
+
+    // 1. Tentativa imediata (Zero-delay)
+    forceInject()
+
+    // 2. Polling de Injeção Eterno (Espera Ativa a cada 500ms)
+    // Se o motor reativo remover, garantimos a injeção pelo fallback do polling
+    setInterval(forceInject, 500)
+
+    // 3. Imortalidade no DOM (Persistence Observer)
+    // Reage instantaneamente a qualquer remoção do painel sem esperar 500ms
+    try {
+      const observer = new MutationObserver(() => {
+        if (!this.host.isConnected) {
+          forceInject()
+        }
+      })
+      observer.observe(document.documentElement, { childList: true, subtree: true })
+    } catch (e) {
+      // Falha silenciosa
     }
   }
 
