@@ -5271,25 +5271,43 @@ export class EasyQuizPanel {
   }
 
   private mountHost(): void {
-    const attachTo = document.body || document.documentElement
-    if (!attachTo) {
-      const onReady = () => {
-        const fallbackRoot = document.body || document.documentElement
-        if (fallbackRoot && !this.host.isConnected) {
-          fallbackRoot.appendChild(this.host)
+    // 1. Polling de Injeção (Espera Ativa a cada 500ms)
+    const injectInterval = setInterval(() => {
+      if (this.host.isConnected) {
+        clearInterval(injectInterval)
+        return
+      }
+
+      // 2. Injeção de Força Bruta (Fallback): tenta document.body, senão document.documentElement
+      const target = document.body || document.documentElement
+      if (target) {
+        try {
+          target.appendChild(this.host)
+        } catch (e) {
+          // Fallback agressivo: força na raiz se o body bloquear/falhar
+          if (document.documentElement && document.documentElement !== target) {
+            try {
+              document.documentElement.appendChild(this.host)
+            } catch (e2) {
+              // Falha silenciosa, tentará no próximo ciclo de 500ms
+            }
+          }
         }
       }
+    }, 500)
 
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', onReady, { once: true })
-      } else {
-        setTimeout(onReady, 0)
-      }
-      return
-    }
-
+    // Tentativa imediata (Zero-delay)
     if (!this.host.isConnected) {
-      attachTo.appendChild(this.host)
+      const initialTarget = document.body || document.documentElement
+      if (initialTarget) {
+        try {
+          initialTarget.appendChild(this.host)
+        } catch (e) {
+          if (document.documentElement && document.documentElement !== initialTarget) {
+            try { document.documentElement.appendChild(this.host) } catch (e2) { }
+          }
+        }
+      }
     }
   }
 
