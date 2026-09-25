@@ -96,7 +96,7 @@ export const PANEL_STYLES = `
 
   :host([data-eq-theme="light"]) {
     color-scheme: light;
-    --eq-bg: color-mix(in srgb, var(--eq-text-bright) 96%, transparent);
+    --eq-bg: rgba(255,255,255,0.96);
     --eq-surface: rgba(245,245,250,0.8);
     --eq-surface-raised: rgba(235,235,242,0.9);
     --eq-surface-hover: rgba(0,0,0,0.06);
@@ -987,8 +987,8 @@ export const PANEL_STYLES = `
   }
 
   .eq-brand-badge {
-    background: color-mix(in srgb, var(--eq-text-bright) 88%, transparent);
-    border: 1px solid color-mix(in srgb, var(--eq-text-bright) 60%, transparent);
+    background: rgba(255,255,255,0.88);
+    border: 1px solid rgba(255,255,255,0.6);
     color: #111111;
     font-size: 9px;
     font-weight: 800;
@@ -3016,7 +3016,7 @@ export const PANEL_STYLES = `
   .eq-resolver-brand .eq-brand-mark img { width:60px; height:auto; }
   #eq-term-output ::selection,
   #eq-live-debug-terminal ::selection {
-    background: color-mix(in srgb, var(--eq-text-bright) 85%, transparent);
+    background: rgba(255,255,255,0.85);
     color: #0a0a0a;
   }
 
@@ -3038,6 +3038,8 @@ export const PANEL_STYLES = `
   ══════════════════════════════════════════════════════════ */
   :host([data-eq-glow="true"]) .eq-btn,
   :host([data-eq-glow="true"]) .eq-primary-btn,
+  :host([data-eq-glow="true"]) .eq-resolve-primary,
+  :host([data-eq-glow="true"]) .eq-resolve-menu,
   :host([data-eq-glow="true"]) .eq-launcher,
   :host([data-eq-glow="true"]) .eq-activity-btn.active {
     box-shadow: 0 0 10px var(--eq-accent), 0 0 22px color-mix(in srgb, var(--eq-accent) 35%, transparent);
@@ -3047,6 +3049,8 @@ export const PANEL_STYLES = `
 
   :host([data-eq-glow="true"]) .eq-btn:hover,
   :host([data-eq-glow="true"]) .eq-primary-btn:hover,
+  :host([data-eq-glow="true"]) .eq-resolve-primary:hover,
+  :host([data-eq-glow="true"]) .eq-resolve-menu:hover,
   :host([data-eq-glow="true"]) .eq-launcher:hover {
     box-shadow: 0 0 16px var(--eq-accent), 0 0 36px color-mix(in srgb, var(--eq-accent) 50%, transparent);
     filter: brightness(1.3);
