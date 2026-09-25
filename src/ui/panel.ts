@@ -345,7 +345,7 @@ export class EasyQuizPanel {
             <div id="eq-tab-contextbar" style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:rgba(255,255,255,0.025);border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;min-height:30px;">
               <div style="display:flex;align-items:center;gap:8px;">
                 <span id="eq-ctxbar-icon" style="display:inline-flex;color:#aaa;opacity:0.7;"></span>
-                <span id="eq-ctxbar-name" style="font-size:11px;font-weight:700;color:#ccc;letter-spacing:0.02em;"></span>
+                <span id="eq-ctxbar-name" style="font-size:11px;font-weight:700;color:var(--eq-text);letter-spacing:0.02em;"></span>
                 <span id="eq-ctxbar-sub" style="font-size:9px;color:#444;font-weight:500;"></span>
               </div>
               <div id="eq-ctxbar-actions" style="display:flex;align-items:center;gap:4px;"></div>
@@ -496,7 +496,7 @@ export class EasyQuizPanel {
                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,0.05);flex-shrink:0;">
                   <div style="background:transparent;padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
                     <div style="font-size:9px;color:#555;font-weight:600;letter-spacing:0.06em;">TEMPO TOTAL</div>
-                    <div id="eq-metric-total-time" style="font-size:20px;font-weight:800;color:#e0e0e0;font-variant-numeric:tabular-nums;font-family:monospace;">00:00</div>
+                    <div id="eq-metric-total-time" style="font-size:20px;font-weight:800;color:var(--eq-text-bright);font-variant-numeric:tabular-nums;font-family:monospace;">00:00</div>
                     <div style="font-size:9px;color:#444;">Sessão atual</div>
                   </div>
                   <div style="background:transparent;padding:10px 12px;display:flex;flex-direction:column;gap:3px;">
@@ -542,7 +542,7 @@ export class EasyQuizPanel {
                   </div>
                   <button id="eq-output-sort-btn" type="button" title="Ordenar" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:5px;color:#aaa;cursor:pointer;flex-shrink:0;transition:color 0.12s;"><span id="eq-sort-arrow" style="display:inline-flex;width:13px;height:13px;transform:rotate(270deg);transition:transform 0.2s;">${ICONS.chevronRight}</span></button>
                   <div style="flex:1;display:flex;align-items:center;gap:5px;background:#0d0d0d;border:1px solid #1a1a1a;border-radius:5px;padding:0 8px;height:24px;"><input id="eq-output-search" type="text" placeholder="buscar logs..." autocomplete="off" style="flex:1;background:transparent;border:none;outline:none;color:#777;font-size:9.5px;font-family:'Cascadia Code','Fira Code',monospace;caret-color:#555;" /><button id="eq-output-search-clear" type="button" style="display:none;background:transparent;border:none;color:#333;cursor:pointer;font-size:9px;padding:0;line-height:1;">✕</button></div>
-                  <button id="eq-dbg-scroll-toggle" type="button" title="Auto-scroll: ativo" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);border-radius:5px;color:#ddd;cursor:pointer;flex-shrink:0;font-size:12px;font-weight:700;">⤓</button>
+                  <button id="eq-dbg-scroll-toggle" type="button" title="Auto-scroll: ativo" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);border-radius:5px;color:var(--eq-text-bright);cursor:pointer;flex-shrink:0;font-size:12px;font-weight:700;">⤓</button>
                 </div>
 
                 <!-- TERMINAL MODE — True terminal, no input bar -->
@@ -553,7 +553,7 @@ export class EasyQuizPanel {
                   <!-- Hidden textarea captures keyboard input -->
                   <textarea id="eq-term-capture" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;resize:none;border:none;outline:none;"></textarea>
                   <!-- Output area: all lines + current prompt at bottom -->
-                  <div id="eq-term-output" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 14px 6px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;background:transparent;color:#ddd;user-select:text;-webkit-user-select:text;cursor:text;outline:none;caret-color:transparent;position:relative;z-index:9;">
+                  <div id="eq-term-output" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 14px 6px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;line-height:1.65;background:transparent;color:var(--eq-text-bright);user-select:text;-webkit-user-select:text;cursor:text;outline:none;caret-color:transparent;position:relative;z-index:9;">
                     
 
 
@@ -569,7 +569,7 @@ export class EasyQuizPanel {
                     </div>
                     <div data-perm="1" style="font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:10px;color:#2a2a2a;padding:2px 0 8px;">Digite <span style="color:#555;font-weight:700;">help</span> <span style="color:#222;">para listar comandos disponíveis</span></div>
                     <!-- Current input line — always last -->
-                    <div id="eq-term-current-line" style="display:flex;align-items:baseline;overflow:hidden;flex-shrink:0;"><span style="color:#fff;font-weight:700;user-select:none;">EasyQuiz_Legacy:&nbsp;</span><span id="eq-term-typed" style="color:#e0e0e0;"></span><span class="eq-term-cursor"></span></div>
+                    <div id="eq-term-current-line" style="display:flex;align-items:baseline;overflow:hidden;flex-shrink:0;"><span style="color:#fff;font-weight:700;user-select:none;">EasyQuiz_Legacy:&nbsp;</span><span id="eq-term-typed" style="color:var(--eq-text-bright);"></span><span class="eq-term-cursor"></span></div>
                   </div>
                 </div>
 
@@ -1125,7 +1125,7 @@ export class EasyQuizPanel {
           pill.style.cssText = 'display:inline-flex;align-items:center;gap:1px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:2px;'
           const mkModeBtn = (id: string, label: string, active: boolean) => {
             const b = document.createElement('button'); b.id = id; b.type = 'button'; b.textContent = label
-            b.style.cssText = 'font-size:9px;font-weight:600;padding:2px 8px;border-radius:3px;cursor:pointer;transition:all 0.1s;background:' + (active ? '#1a1a1a' : 'transparent') + ';border:1px solid ' + (active ? '#333' : 'transparent') + ';color:' + (active ? '#ddd' : '#555') + ';'
+            b.style.cssText = 'font-size:9px;font-weight:600;padding:2px 8px;border-radius:3px;cursor:pointer;transition:all 0.1s;background:' + (active ? '#1a1a1a' : 'transparent') + ';border:1px solid ' + (active ? '#333' : 'transparent') + ';color:' + (active ? 'var(--eq-text-bright)' : '#555') + ';'
             return b
           }
           pill.appendChild(mkModeBtn('eq-term-mode-terminal', 'Terminal', true))
@@ -1152,7 +1152,7 @@ export class EasyQuizPanel {
     icon.innerHTML = meta.icon
     icon.style.color = meta.color
     name.textContent = meta.label
-    name.style.color = meta.color === '#a78bfa' ? '#ccc' : '#ddd'
+    name.style.color = meta.color === '#a78bfa' ? 'var(--eq-text)' : 'var(--eq-text-bright)'
     sub.textContent = meta.sub
 
     if (meta.actions) {
@@ -1195,7 +1195,7 @@ export class EasyQuizPanel {
       { id: 'dark', name: 'Dark', color: '#1c1c22', border: 'rgba(255,255,255,0.1)' },
       { id: 'purple-neon', name: 'Purple Neon', color: '#120824', border: 'rgba(160,80,255,0.3)' },
       { id: 'gray-blue', name: 'Gray Blue', color: '#282b30', border: 'rgba(88,101,242,0.22)' },
-      { id: 'light', name: 'Light', color: '#ffffff', border: 'rgba(0,0,0,0.1)' }
+      { id: 'light', name: 'Light', color: 'var(--eq-text-bright)', border: 'rgba(0,0,0,0.1)' }
     ]
 
     const currentTheme = localStorage.getItem('easyquiz_theme') || 'mega-black'
@@ -2196,7 +2196,7 @@ export class EasyQuizPanel {
              : colorClass === 'text-blue' ? '#888'
              : colorClass === 'text-green' ? '#aaa'
              : colorClass === 'text-yellow' ? '#888'
-             : '#ccc'
+             : 'var(--eq-text)'
     line.style.color = c
     if (currentLine) {
       this.liveTerminalOutput.insertBefore(line, currentLine)
@@ -2248,7 +2248,7 @@ export class EasyQuizPanel {
     }
 
     // ── Plain text output ─────────────────────────────────
-    const out = (t: string, c = '#cccccc') => richOut(`<span style="color:${c};">${t}</span>`)
+    const out = (t: string, c = 'var(--eq-text)ccc') => richOut(`<span style="color:${c};">${t}</span>`)
     const blank = () => out('', '#000')
     const sep = (w = 52) => out('  ' + '─'.repeat(w), '#222')
     const row = (cols: string[], widths: number[], colors?: string[]) => {
@@ -2371,7 +2371,7 @@ export class EasyQuizPanel {
             sep(44)
             const s = (ico: string, icoC: string, label: string, val: string, valC = '#aaa') =>
               richOut(`  ${ticon(ico,icoC,11)}  <span style="color:#444;">${label.padEnd(14)}</span><span style="color:${valC};font-weight:600;">${val||'--'}</span>`)
-            s('sparkles','#666','Modelo',    plan?.usedModel||(this.initialSettings as any)?.model||'--', '#ccc')
+            s('sparkles','#666','Modelo',    plan?.usedModel||(this.initialSettings as any)?.model||'--', 'var(--eq-text)')
             const _mode = plan?.mode||'aguardando'
             const _mc = _mode==='aguardando'?'#444':_mode.includes('error')?'#7a3333':'#4a6a4a'
             s('play',    '#555','Modo',      _mode, _mc)
@@ -2528,8 +2528,8 @@ export class EasyQuizPanel {
       if (outputBar)   outputBar.style.display    = isT ? 'none' : 'flex'
       const tb = this.shadow.querySelector('#eq-term-mode-terminal') as HTMLElement|null
       const ob = this.shadow.querySelector('#eq-term-mode-output')   as HTMLElement|null
-      if (tb) { tb.style.background = isT?'#181818':'transparent'; tb.style.borderColor = isT?'#2a2a2a':'transparent'; tb.style.color = isT?'#ddd':'#555' }
-      if (ob) { ob.style.background = !isT?'#181818':'transparent'; ob.style.borderColor = !isT?'#2a2a2a':'transparent'; ob.style.color = !isT?'#ddd':'#555' }
+      if (tb) { tb.style.background = isT?'#181818':'transparent'; tb.style.borderColor = isT?'#2a2a2a':'transparent'; tb.style.color = isT?'var(--eq-text-bright)':'#555' }
+      if (ob) { ob.style.background = !isT?'#181818':'transparent'; ob.style.borderColor = !isT?'#2a2a2a':'transparent'; ob.style.color = !isT?'var(--eq-text-bright)':'#555' }
       if (!isT) this.renderTerminalEntries()
     }
 
@@ -2977,7 +2977,7 @@ export class EasyQuizPanel {
             if (btn) { btn.style.color = '#333'; btn.style.borderColor = 'rgba(255,255,255,0.07)'; btn.title = 'Auto-scroll: desativado' }
           } else if (distFromBottom < 10) {
             this.autoScrollLogs = true
-            if (btn) { btn.style.color = '#ddd'; btn.style.borderColor = 'rgba(255,255,255,0.18)'; btn.title = 'Auto-scroll: ativo' }
+            if (btn) { btn.style.color = 'var(--eq-text-bright)'; btn.style.borderColor = 'rgba(255,255,255,0.18)'; btn.title = 'Auto-scroll: ativo' }
           }
         }, 150)
       })
@@ -2987,7 +2987,7 @@ export class EasyQuizPanel {
     this.shadow.querySelector('#eq-dbg-scroll-toggle')?.addEventListener('click', (e) => {
       this.autoScrollLogs = !this.autoScrollLogs
       const stEl = e.currentTarget as HTMLElement
-      stEl.style.color = this.autoScrollLogs ? '#ddd' : '#333'
+      stEl.style.color = this.autoScrollLogs ? 'var(--eq-text-bright)' : '#333'
       stEl.style.borderColor = this.autoScrollLogs ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)'
       stEl.title = this.autoScrollLogs ? 'Auto-scroll: ativo' : 'Auto-scroll: desativado'
     })
@@ -3311,7 +3311,7 @@ export class EasyQuizPanel {
       const makeAiFile = (id: string, label: string, subtitle: string, ready: boolean) => {
         const row = document.createElement('div')
         row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;cursor:pointer;border-radius:4px;transition:background 0.1s;' + (this.brainActiveTab === id ? 'background:rgba(251,191,36,0.1);' : '')
-        row.innerHTML = '<span style="font-size:9px;color:' + (ready ? '#fbbf24' : '#444') + ';">' + ICONS.code + '</span><span style="font-size:10px;color:' + (ready ? '#ddd' : '#444') + ';flex:1;">' + label + '</span><span style="font-size:8px;color:#333;">' + subtitle + '</span>'
+        row.innerHTML = '<span style="font-size:9px;color:' + (ready ? '#fbbf24' : '#444') + ';">' + ICONS.code + '</span><span style="font-size:10px;color:' + (ready ? 'var(--eq-text-bright)' : '#444') + ';flex:1;">' + label + '</span><span style="font-size:8px;color:#333;">' + subtitle + '</span>'
         row.addEventListener('click', () => {
           this.brainSelectedFolder = null
           this.brainActiveTab = id
@@ -3321,7 +3321,7 @@ export class EasyQuizPanel {
             contentEl.innerHTML = ''
             const pre = document.createElement('pre')
             pre.className = 'eq-brain-code'
-            pre.style.cssText = 'padding:12px;font-size:10.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word;color:#d0d8e8;font-family:"Cascadia Code","Fira Code","Courier New",monospace;'
+            pre.style.cssText = 'padding:12px;font-size:10.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word;color:var(--eq-text-bright);font-family:"Cascadia Code","Fira Code","Courier New",monospace;'
             pre.textContent = text
             contentEl.appendChild(pre)
           }
@@ -3398,9 +3398,9 @@ export class EasyQuizPanel {
 
         leaf.innerHTML = `
           <div style="display: flex; align-items: flex-start; gap: 8px; width: 100%;">
-            <strong style="color:#ffffff; min-width: 80px;">${it.label}:</strong>
+            <strong style="color:var(--eq-text-bright); min-width: 80px;">${it.label}:</strong>
             <div style="flex:1; display: flex; flex-direction: column;">
-              <span style="word-break: break-word; color:#aaaaaa;">${it.value}</span>
+              <span style="word-break: break-word; color:var(--eq-text);">${it.value}</span>
               ${imgHtml}
             </div>
             ${it.badge ? `<span class="eq-tree-badge" style="white-space: nowrap;">${it.badge}</span>` : ''}
@@ -4566,7 +4566,7 @@ export class EasyQuizPanel {
       if (total > 1) {
         const makeArrow = (dir: 'prev' | 'next') => {
           const btn = document.createElement('button')
-          btn.style.cssText = `position:absolute;${dir === 'prev' ? 'left:6px' : 'right:6px'};top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.12);color:#ccc;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:13px;z-index:5;display:flex;align-items:center;justify-content:center;transition:background 0.12s;`
+          btn.style.cssText = `position:absolute;${dir === 'prev' ? 'left:6px' : 'right:6px'};top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.12);color:var(--eq-text);width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:13px;z-index:5;display:flex;align-items:center;justify-content:center;transition:background 0.12s;`
           btn.innerHTML = dir === 'prev' ? '‹' : '›'
           btn.title = dir === 'prev' ? 'Imagem anterior' : 'Próxima imagem'
           btn.style.display = (dir === 'prev' && index === 0) || (dir === 'next' && index === total - 1) ? 'none' : 'flex'
@@ -4617,13 +4617,13 @@ export class EasyQuizPanel {
     if (desc?.description) {
       const aiD = document.createElement('div')
       aiD.style.cssText = 'background:rgba(96,165,250,0.06);border:1px solid rgba(96,165,250,0.15);border-radius:5px;padding:8px;'
-      aiD.innerHTML = `<div style="font-size:9px;color:#60a5fa;font-weight:600;margin-bottom:4px;">ANÁLISE DA IA</div><div style="font-size:10.5px;color:#ccc;line-height:1.55;">${desc.description}</div>`
+      aiD.innerHTML = `<div style="font-size:9px;color:#60a5fa;font-weight:600;margin-bottom:4px;">ANÁLISE DA IA</div><div style="font-size:10.5px;color:var(--eq-text);line-height:1.55;">${desc.description}</div>`
       metaScroll.appendChild(aiD)
     }
     if (img.textContext) {
       const txtD = document.createElement('div')
       txtD.style.cssText = 'background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.12);border-radius:5px;padding:8px;'
-      txtD.innerHTML = `<div style="font-size:9px;color:#fbbf24;font-weight:600;margin-bottom:4px;">CONTEXTO TEXTUAL</div><div style="font-size:10.5px;color:#ccc;line-height:1.55;">${img.textContext}</div>`
+      txtD.innerHTML = `<div style="font-size:9px;color:#fbbf24;font-weight:600;margin-bottom:4px;">CONTEXTO TEXTUAL</div><div style="font-size:10.5px;color:var(--eq-text);line-height:1.55;">${img.textContext}</div>`
       metaScroll.appendChild(txtD)
     }
 
@@ -4716,7 +4716,7 @@ export class EasyQuizPanel {
     metaSide.style.cssText = 'flex:0 0 35%;overflow-y:auto;padding:20px 16px 20px;border-left:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;gap:8px;min-width:0;'
 
     const title = document.createElement('div')
-    title.style.cssText = 'font-size:13px;font-weight:700;color:#e0e0e0;margin-bottom:6px;'
+    title.style.cssText = 'font-size:13px;font-weight:700;color:var(--eq-text-bright);margin-bottom:6px;'
     title.textContent = `Imagem ${index + 1} de ${this.latestImages.length}`
     metaSide.appendChild(title)
 
@@ -4745,13 +4745,13 @@ export class EasyQuizPanel {
     if (desc?.description) {
       const aiBlock = document.createElement('div')
       aiBlock.style.cssText = 'background:rgba(96,165,250,0.07);border:1px solid rgba(96,165,250,0.18);border-radius:5px;padding:8px;margin-top:4px;'
-      aiBlock.innerHTML = `<div style="font-size:9px;color:#60a5fa;font-weight:700;margin-bottom:5px;">ANÁLISE DA IA</div><div style="font-size:10px;color:#ccc;line-height:1.6;">${desc.description}</div>`
+      aiBlock.innerHTML = `<div style="font-size:9px;color:#60a5fa;font-weight:700;margin-bottom:5px;">ANÁLISE DA IA</div><div style="font-size:10px;color:var(--eq-text);line-height:1.6;">${desc.description}</div>`
       metaSide.appendChild(aiBlock)
     }
     if (img.textContext) {
       const txtBlock = document.createElement('div')
       txtBlock.style.cssText = 'background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.12);border-radius:5px;padding:8px;'
-      txtBlock.innerHTML = `<div style="font-size:9px;color:#fbbf24;font-weight:700;margin-bottom:5px;">CONTEXTO TEXTUAL</div><div style="font-size:10px;color:#ccc;line-height:1.6;">${img.textContext}</div>`
+      txtBlock.innerHTML = `<div style="font-size:9px;color:#fbbf24;font-weight:700;margin-bottom:5px;">CONTEXTO TEXTUAL</div><div style="font-size:10px;color:var(--eq-text);line-height:1.6;">${img.textContext}</div>`
       metaSide.appendChild(txtBlock)
     }
 
@@ -4783,7 +4783,7 @@ export class EasyQuizPanel {
     if (totalImgs > 1) {
       const makeNav = (dir: 'prev' | 'next') => {
         const btn = document.createElement('button')
-        btn.style.cssText = `position:absolute;${dir === 'prev' ? 'left:12px' : 'right:12px'};top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.15);color:#ddd;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:22px;z-index:10;display:${(dir === 'prev' && index === 0) || (dir === 'next' && index === totalImgs - 1) ? 'none' : 'flex'};align-items:center;justify-content:center;`
+        btn.style.cssText = `position:absolute;${dir === 'prev' ? 'left:12px' : 'right:12px'};top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.15);color:var(--eq-text-bright);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:22px;z-index:10;display:${(dir === 'prev' && index === 0) || (dir === 'next' && index === totalImgs - 1) ? 'none' : 'flex'};align-items:center;justify-content:center;`
         btn.innerHTML = dir === 'prev' ? '‹' : '›'
         btn.title = dir === 'prev' ? 'Anterior' : 'Próxima'
         btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(96,165,250,0.35)' })
@@ -5383,7 +5383,7 @@ export class EasyQuizPanel {
       indexBadge.style.cssText = 'flex-shrink:0;width:22px;height:22px;border-radius:5px;background:rgba(0,152,255,0.15);border:1px solid rgba(0,152,255,0.25);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#0098ff;'
       indexBadge.textContent = String(rec.questionIndex)
       const titleEl = document.createElement('div')
-      titleEl.style.cssText = 'flex:1;font-size:10.5px;color:#ccc;font-weight:600;line-height:1.4;word-break:break-word;'
+      titleEl.style.cssText = 'flex:1;font-size:10.5px;color:var(--eq-text);font-weight:600;line-height:1.4;word-break:break-word;'
       titleEl.textContent = rec.questionTitle || ('Questão ' + rec.questionIndex)
       const durEl = document.createElement('div')
       durEl.style.cssText = 'flex-shrink:0;font-size:13px;font-weight:800;color:' + speedColor + ';font-family:monospace;font-variant-numeric:tabular-nums;'
