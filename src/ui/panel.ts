@@ -1494,23 +1494,7 @@ export class EasyQuizPanel {
     })
 
 
-    // Toggle do Menu de 3 Pontinhos (⋮) — uses shared showCtxPopup class method
-    this.keyMoreBtn.addEventListener('click', (e) => {
-      e.stopPropagation()
-      if (this._ctxPopup) { this.closeCtxPopup(); return }
-      this.showCtxPopup(this.keyMoreBtn, [
-        { ic:'edit',      label:'Inserir via Janela Nativa',           badge:'Bypass', onClick: () => doPrompt() },
-        { ic:'paste',     label:'Colar da Área de Transferência',                       onClick: () => doPaste() },
-        { ic:'eye',       label:'Mostrar/Ocultar Campo',                               onClick: () => doToggleVis() },
-        { ic:'eraser',    label:'Limpar Campo',                                        onClick: () => doClear() },
-        { ic:'upload',    label:'Importar Chaves em Lote',                             onClick: () => doBulk() },
-        { ic:'code',      label:'Ver/Editar Chaves como Texto',                        onClick: () => doEditText() },
-        { ic:'zap',       label:'Testar Todas as Chaves',                              onClick: () => doTest() },
-        { divider:true, label:'', onClick: () => {} },
-        { ic:'trash',     label:'Apagar Todas as Chaves',  danger:true,                onClick: () => doDeleteAll() },
-        { ic:'refreshCw', label:'Resetar Todos os Dados',  danger:true,                onClick: () => handleResetAll() },
-      ])
-    })
+    // (Menu movido para depois das declarações das funções)
 
     // Fechar menu de 3 pontinhos se clicar fora
     this.shadow.addEventListener('click', (e) => {
@@ -1967,6 +1951,24 @@ export class EasyQuizPanel {
     }
     // Handler handleResetAll já está sendo chamado diretamente
     this.shadow.querySelector('#eq-reset-all-btn')?.addEventListener('click', handleResetAll)
+
+    // Toggle do Menu de 3 Pontinhos (⋮) — uses shared showCtxPopup class method
+    this.keyMoreBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      if (this._ctxPopup) { this.closeCtxPopup(); return }
+      this.showCtxPopup(this.keyMoreBtn, [
+        { ic:'edit',      label:'Inserir via Janela Nativa',           badge:'Bypass', onClick: () => doPrompt() },
+        { ic:'paste',     label:'Colar da Área de Transferência',                       onClick: () => doPaste() },
+        { ic:'eye',       label:'Mostrar/Ocultar Campo',                               onClick: () => doToggleVis() },
+        { ic:'eraser',    label:'Limpar Campo',                                        onClick: () => doClear() },
+        { ic:'upload',    label:'Importar Chaves em Lote',                             onClick: () => doBulk() },
+        { ic:'code',      label:'Ver/Editar Chaves como Texto',                        onClick: () => doEditText() },
+        { ic:'zap',       label:'Testar Todas as Chaves',                              onClick: () => doTest() },
+        { divider:true, label:'', onClick: () => {} },
+        { ic:'trash',     label:'Apagar Todas as Chaves',  danger:true,                onClick: () => doDeleteAll() },
+        { ic:'refreshCw', label:'Resetar Todos os Dados',  danger:true,                onClick: () => handleResetAll() },
+      ])
+    })
 
     // Botão Iniciar/Parar Autopilot
     this.apToggleBtn?.addEventListener('click', () => {
