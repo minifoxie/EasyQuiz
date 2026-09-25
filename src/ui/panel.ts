@@ -1498,18 +1498,17 @@ export class EasyQuizPanel {
     this.keyMoreBtn.addEventListener('click', (e) => {
       e.stopPropagation()
       if (this._ctxPopup) { this.closeCtxPopup(); return }
-      const _q = (id: string) => (this.shadow.querySelector(id) as HTMLElement)
       this.showCtxPopup(this.keyMoreBtn, [
-        { ic:'edit',      label:'Inserir via Janela Nativa',           badge:'Bypass', onClick: () => _q('#eq-menu-prompt')?.click() },
-        { ic:'paste',     label:'Colar da Área de Transferência',                       onClick: () => _q('#eq-menu-paste')?.click() },
-        { ic:'eye',       label:'Mostrar/Ocultar Campo',                               onClick: () => _q('#eq-menu-toggle-vis')?.click() },
-        { ic:'eraser',    label:'Limpar Campo',                                        onClick: () => _q('#eq-menu-clear')?.click() },
-        { ic:'upload',    label:'Importar Chaves em Lote',                             onClick: () => _q('#eq-menu-bulk')?.click() },
-        { ic:'code',      label:'Ver/Editar Chaves como Texto',                        onClick: () => _q('#eq-menu-edit-text')?.click() },
-        { ic:'zap',       label:'Testar Todas as Chaves',                              onClick: () => _q('#eq-menu-test')?.click() },
+        { ic:'edit',      label:'Inserir via Janela Nativa',           badge:'Bypass', onClick: () => doPrompt() },
+        { ic:'paste',     label:'Colar da Área de Transferência',                       onClick: () => doPaste() },
+        { ic:'eye',       label:'Mostrar/Ocultar Campo',                               onClick: () => doToggleVis() },
+        { ic:'eraser',    label:'Limpar Campo',                                        onClick: () => doClear() },
+        { ic:'upload',    label:'Importar Chaves em Lote',                             onClick: () => doBulk() },
+        { ic:'code',      label:'Ver/Editar Chaves como Texto',                        onClick: () => doEditText() },
+        { ic:'zap',       label:'Testar Todas as Chaves',                              onClick: () => doTest() },
         { divider:true, label:'', onClick: () => {} },
-        { ic:'trash',     label:'Apagar Todas as Chaves',  danger:true,                onClick: () => _q('#eq-menu-delete-all')?.click() },
-        { ic:'refreshCw', label:'Resetar Todos os Dados',  danger:true,                onClick: () => _q('#eq-menu-reset')?.click() },
+        { ic:'trash',     label:'Apagar Todas as Chaves',  danger:true,                onClick: () => doDeleteAll() },
+        { ic:'refreshCw', label:'Resetar Todos os Dados',  danger:true,                onClick: () => handleResetAll() },
       ])
     })
 
@@ -1521,9 +1520,8 @@ export class EasyQuizPanel {
       }
     })
 
-    // Itens do Menu de 3 Pontinhos
     // 1. Inserir via Janela Nativa (Bypass total contra scripts de bloqueio)
-    this.shadow.querySelector('#eq-menu-prompt')?.addEventListener('click', () => {
+    const doPrompt = () => {
       this.keyContextMenu.hidden = true
       const entered = window.prompt('Adicionar Nova Chave API do Google Gemini (AI Studio):')
       if (entered !== null && entered.trim()) {
@@ -1538,10 +1536,10 @@ export class EasyQuizPanel {
           this.setStatus(res.message, 'warning')
         }
       }
-    })
+    }
 
     // 2. Colar do Clipboard Nativo
-    this.shadow.querySelector('#eq-menu-paste')?.addEventListener('click', async () => {
+    const doPaste = async () => {
       this.keyContextMenu.hidden = true
       try {
         const text = await navigator.clipboard.readText()
@@ -1563,10 +1561,10 @@ export class EasyQuizPanel {
           }
         }
       }
-    })
+    }
 
     // 3. Mostrar / Ocultar Chave
-    this.shadow.querySelector('#eq-menu-toggle-vis')?.addEventListener('click', () => {
+    const doToggleVis = () => {
       this.keyContextMenu.hidden = true
       const isPass = this.apiKeyInput.type === 'password'
       this.apiKeyInput.type = isPass ? 'text' : 'password'
@@ -1574,18 +1572,18 @@ export class EasyQuizPanel {
       const textEl = this.shadow.querySelector('#eq-menu-vis-text') as HTMLElement
       if (iconEl) iconEl.innerHTML = isPass ? ICONS.eyeOff : ICONS.eye
       if (textEl) textEl.textContent = isPass ? 'Ocultar Campo' : 'Mostrar Campo'
-    })
+    }
 
     // 4. Limpar Campo
-    this.shadow.querySelector('#eq-menu-clear')?.addEventListener('click', () => {
+    const doClear = () => {
       this.keyContextMenu.hidden = true
       this.apiKeyInput.value = ''
       this.setStatus('Campo de inserção limpo.', 'info')
       this.apiKeyInput.focus()
-    })
+    }
 
     // 5. Importar Chaves em Lote
-    this.shadow.querySelector('#eq-menu-bulk')?.addEventListener('click', () => {
+    const doBulk = () => {
       this.keyContextMenu.hidden = true
 
       // Remove overlay anterior se existir
@@ -1786,11 +1784,11 @@ export class EasyQuizPanel {
           setTimeout(close, 2200)
         }
       })
-    })
+    }
 
 
     // 6. Ver / Editar Chaves como Texto
-    this.shadow.querySelector('#eq-menu-edit-text')?.addEventListener('click', () => {
+    const doEditText = () => {
       this.keyContextMenu.hidden = true
 
       // Remove overlay anterior se existir
@@ -1893,10 +1891,10 @@ export class EasyQuizPanel {
         this.setStatus(unique.length > 0 ? ` ${unique.length} chave(s) salva(s)!` : 'Todas as chaves foram removidas.', unique.length > 0 ? 'success' : 'info')
         setTimeout(close, 1400)
       })
-    })
+    }
 
     // 7. Apagar Todas as Chaves
-    this.shadow.querySelector('#eq-menu-delete-all')?.addEventListener('click', () => {
+    const doDeleteAll = () => {
       this.keyContextMenu.hidden = true
       const keys = keyManager.getAllKeys()
       if (keys.length === 0) return this.setStatus('Nenhuma chave para apagar.', 'info')
@@ -1906,11 +1904,11 @@ export class EasyQuizPanel {
         this.renderKeysList()
         this.setStatus('Todas as chaves foram removidas.', 'info')
       }
-    })
+    }
 
     // 8. Testar Todas as Chaves — paralelo com validateModelFast
 
-    this.shadow.querySelector('#eq-menu-test')?.addEventListener('click', async () => {
+    const doTest = async () => {
       this.keyContextMenu.hidden = true
       const keys = keyManager.getAllKeys()
       if (keys.length === 0) return this.setStatus('Nenhuma chave cadastrada para testar.', 'error')
@@ -1939,7 +1937,7 @@ export class EasyQuizPanel {
         this.setStatus(`Teste: ${okCount}/${keys.length} chave(s) válidas. ${result.message}`, okCount > 0 ? 'info' : 'error')
       }
       this.renderKeysList()
-    })
+    }
 
     // 6. Resetar Todos os Dados
     const handleResetAll = () => {
@@ -1967,7 +1965,7 @@ export class EasyQuizPanel {
         this.logToConsole('> [SYS] Armazenamento local resetado.', 'text-yellow')
       }
     }
-    this.shadow.querySelector('#eq-menu-reset')?.addEventListener('click', handleResetAll)
+    // Handler handleResetAll já está sendo chamado diretamente
     this.shadow.querySelector('#eq-reset-all-btn')?.addEventListener('click', handleResetAll)
 
     // Botão Iniciar/Parar Autopilot
