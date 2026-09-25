@@ -986,6 +986,9 @@ export class EasyQuizPanel {
     const themeToApply = savedTheme || initialSettings.theme || 'mega-black'
     this.shadow.host.setAttribute('data-eq-theme', themeToApply)
 
+    // Aplicar estado de Glow Effects
+    this.shadow.host.setAttribute('data-eq-glow', String(initialSettings.glowEffects ?? false))
+
     // Inicializar Pool Multi-API Key
     const initialRawKeys = Array.isArray(initialSettings.apiKeys) && initialSettings.apiKeys.length > 0
       ? initialSettings.apiKeys
@@ -2048,7 +2051,11 @@ export class EasyQuizPanel {
     this.showTokensCheckbox?.addEventListener('change', () => this.callbacks.onSettingsChange({ showTokenUsage: this.showTokensCheckbox.checked }))
     this.soundFeedbackCheckbox?.addEventListener('change', () => this.callbacks.onSettingsChange({ enableSoundFeedback: this.soundFeedbackCheckbox.checked }))
     this.compactModeCheckbox?.addEventListener('change', () => this.callbacks.onSettingsChange({ compactMode: this.compactModeCheckbox.checked }))
-    this.glowEffectsCheckbox?.addEventListener('change', () => this.callbacks.onSettingsChange({ glowEffects: this.glowEffectsCheckbox.checked }))
+    this.glowEffectsCheckbox?.addEventListener('change', () => {
+      const glowEnabled = this.glowEffectsCheckbox.checked
+      this.shadow.host.setAttribute('data-eq-glow', String(glowEnabled))
+      this.callbacks.onSettingsChange({ glowEffects: glowEnabled })
+    })
     this.languageHintSelect?.addEventListener('change', () => this.callbacks.onSettingsChange({ languageHint: this.languageHintSelect.value }))
     this.autoScrollLogsCheckbox?.addEventListener('change', () => this.callbacks.onSettingsChange({ autoScrollLogs: this.autoScrollLogsCheckbox.checked }))
 

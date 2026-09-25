@@ -27,9 +27,9 @@ export const PANEL_STYLES = `
 
   /* Themes */
   :host([data-eq-theme="mega-black"]) {
-    --eq-bg: rgba(0,0,0,0.92);
-    --eq-surface: rgba(12,12,12,0.80);
-    --eq-surface-raised: rgba(18,18,18,0.90);
+    --eq-bg: transparent;
+    --eq-surface: transparent;
+    --eq-surface-raised: rgba(0,0,0,0.15);
     --eq-surface-hover: rgba(255,255,255,0.06);
     --eq-border: rgba(255,255,255,0.14);
     --eq-text: #bdbdbd;
@@ -272,8 +272,8 @@ export const PANEL_STYLES = `
     max-width: 95vw;
     height: 100vh;
     z-index: 2147483647;
-    background: rgba(0, 0, 0, 0.65);
-    border-left: 1px solid rgba(255,255,255,0.12);
+    background: var(--eq-bg);
+    border-left: 1px solid var(--eq-border);
     color: var(--eq-text);
     display: flex;
     flex-direction: row;
@@ -284,6 +284,14 @@ export const PANEL_STYLES = `
     /* Backdrop filters por tema definidos via variáveis ou overrides */
     backdrop-filter: blur(20px) saturate(200%) brightness(0.85);
     -webkit-backdrop-filter: blur(20px) saturate(200%) brightness(0.85);
+  }
+
+  /* Tema mega-black (legacy): sem backdrop-filter para manter transparência total */
+  :host([data-eq-theme="mega-black"]) .eq-sidebar {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    border-left: 1px solid rgba(255,255,255,0.10);
   }
 
   :host([data-eq-theme="dark"]) .eq-sidebar {
@@ -3020,6 +3028,56 @@ export const PANEL_STYLES = `
     border: 1px solid rgba(255,255,255,0.08) !important;
     border-radius: 8px !important;
     box-shadow: 0 12px 36px rgba(0,0,0,0.75) !important;
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     SISTEMA DE GLOW EFFECTS
+     Ativado via atributo data-eq-glow="true" no host.
+     Aplica brilho vibrante em botões, controles e elementos
+     interativos — intensidade calibrada para não ofuscar.
+  ══════════════════════════════════════════════════════════ */
+  :host([data-eq-glow="true"]) .eq-btn,
+  :host([data-eq-glow="true"]) .eq-primary-btn,
+  :host([data-eq-glow="true"]) .eq-launcher,
+  :host([data-eq-glow="true"]) .eq-activity-btn.active {
+    box-shadow: 0 0 10px var(--eq-accent), 0 0 22px color-mix(in srgb, var(--eq-accent) 35%, transparent);
+    filter: brightness(1.15);
+    transition: box-shadow 0.25s ease, filter 0.25s ease;
+  }
+
+  :host([data-eq-glow="true"]) .eq-btn:hover,
+  :host([data-eq-glow="true"]) .eq-primary-btn:hover,
+  :host([data-eq-glow="true"]) .eq-launcher:hover {
+    box-shadow: 0 0 16px var(--eq-accent), 0 0 36px color-mix(in srgb, var(--eq-accent) 50%, transparent);
+    filter: brightness(1.3);
+  }
+
+  :host([data-eq-glow="true"]) .eq-activity-btn:hover {
+    box-shadow: 0 0 8px var(--eq-icon-accent), 0 0 16px color-mix(in srgb, var(--eq-icon-accent) 30%, transparent);
+    filter: brightness(1.2);
+  }
+
+  :host([data-eq-glow="true"]) .eq-brand-icon,
+  :host([data-eq-glow="true"]) .eq-launcher-icon {
+    filter: drop-shadow(0 0 6px var(--eq-icon-accent)) brightness(1.25);
+  }
+
+  /* Ícones de acção dentro de botões ficam mais vibrantes */
+  :host([data-eq-glow="true"]) .eq-btn-icon,
+  :host([data-eq-glow="true"]) .eq-menu-icon {
+    filter: brightness(1.4) drop-shadow(0 0 3px currentColor);
+  }
+
+  /* Indicador de aba activa pulsa suavemente com glow */
+  :host([data-eq-glow="true"]) .eq-activity-indicator {
+    background: var(--eq-accent);
+    box-shadow: 0 0 8px var(--eq-accent);
+    animation: eq-glow-pulse 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes eq-glow-pulse {
+    from { opacity: 0.7; box-shadow: 0 0 4px var(--eq-accent); }
+    to   { opacity: 1;   box-shadow: 0 0 14px var(--eq-accent); }
   }
 
 `

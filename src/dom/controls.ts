@@ -1,4 +1,5 @@
 import type { ControlDescriptor } from '../core/types'
+import { isInKnownSidebarRegion } from './layoutCache'
 
 export const CONTROL_SELECTOR = [
   'input:not([type="hidden"])',
@@ -206,10 +207,15 @@ export function isInsideEasyQuiz(el: Element | null): boolean {
 /**
  * Detecta se o elemento pertence à sidebar/lista de tarefas do Khan Academy
  * (e não à questão ativa). Esses controles NÃO devem ser coletados como respostas.
+ * Usa o LayoutCache de sessão para melhorar precisão ao longo do tempo.
  */
 export function isKhanSidebarElement(el: Element | null): boolean {
   if (!el) return false
-  // Khan Academy sidebar containers: task list, lesson navigation, mastery cards
+
+  // 1. Verifica memória de layout da sessão (mais preciso e rápido)
+  if (isInKnownSidebarRegion(el)) return true
+
+  // 2. Khan Academy sidebar containers: task list, lesson navigation, mastery cards
   const sidebarAncestor = el.closest(
     'aside, nav, ' +
     '[class*="task-list" i], [class*="lesson-list" i], [class*="mastery" i], ' +
@@ -225,12 +231,13 @@ export function isKhanSidebarElement(el: Element | null): boolean {
     if (!isInsideExercise) return true
   }
   
-  // Heurística de posição: se estamos na Khan Academy e o elemento está muito à esquerda (< 35% da tela)
-  // E o centro da tela tem conteúdo principal, provável que seja a sidebar de atividades.
+  // 3. Heurística de posição: se estamos na Khan Academy e o elemento está muito à esquerda (< 30% da tela)
+  // enquanto há conteúdo Perseus no centro/direita.
   if (isKhanAcademyPage()) {
     try {
       const rect = el.getBoundingClientRect()
-      if (rect.width > 0 && rect.left >= 0 && rect.right < window.innerWidth * 0.35) {
+      const hasPerseus = !!document.querySelector('.perseus-renderer, .framework-perseus')
+      if (hasPerseus && rect.width > 0 && rect.left >= 0 && rect.right < window.innerWidth * 0.32) {
         return true
       }
     } catch {}

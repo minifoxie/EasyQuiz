@@ -8,6 +8,7 @@ import { executePlan, setupSmartOptionInterceptors, buildDragFallbackJs, injectC
 import { clearHighlights, highlightAttachedImages, highlightScope, highlightTargetActions } from './dom/highlighter'
 import { captureImages } from './media/capture'
 import { EasyQuizPanel } from './ui/panel'
+import { buildLayoutSnapshot, invalidateLayoutCache } from './dom/layoutCache'
 
 type EasyQuizWindow = Window & {
   __easyquiz?: {
@@ -47,6 +48,9 @@ async function initEasyQuiz(): Promise<void> {
   setupSmartOptionInterceptors()
   // Pré-aquece a conexão com a API Google Gemini (DNS prefetch + Preconnect)
   injectPreconnect()
+  // Mapeia o layout da página (sidebars, nav, conteúdo principal) para evitar
+  // leituras incorretas de elementos laterais ao extrair questões
+  setTimeout(() => { try { buildLayoutSnapshot() } catch {} }, 500)
 
   // Se já existir uma instância rodando (reexecução do bookmarklet para atualizar), limpa a antiga
   if (eqWindow.__easyquiz) {

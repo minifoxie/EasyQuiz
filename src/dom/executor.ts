@@ -1605,20 +1605,76 @@ export async function simulateDragAndCategorize(
       console.warn('[EasyQuiz] Estratégia G (React DnD internals) falhou:', reactErr)
     }
   }
+
+  // ---- ESTRATÉGIA H: QUIZIZZ / WAYGROUND — PADRÃO RBD COM POSIÇÃO REAL ----
+  // O Quizizz usa react-beautiful-dnd (rbd). O problema das estratégias anteriores
+  // é que elas disparam eventos sem as coordenadas físicas corretas, e o RBD ignora
+  // eventos sem clientX/clientY válidos. Esta estratégia calcula as posições reais
+  // e dispara na sequência exata que o RBD espera.
+  if (!dest.contains(origin)) {
+    try {
+      const quizizzDraggable = origin.closest('[data-rbd-draggable-id]') as HTMLElement | null
+      const quizizzDroppable = dest.closest('[data-rbd-droppable-id]') as HTMLElement | null
+
+      if (quizizzDraggable && quizizzDroppable) {
+        const srcRect = quizizzDraggable.getBoundingClientRect()
+        const dstRect = quizizzDroppable.getBoundingClientRect()
+        const sx = srcRect.left + srcRect.width / 2
+        const sy = srcRect.top + srcRect.height / 2
+        const ex = dstRect.left + dstRect.width / 2
+        const ey = dstRect.top + dstRect.height / 2
+
+        const mkPtr = (type: string, x: number, y: number, extra?: PointerEventInit) =>
+          new PointerEvent(type, { bubbles: true, cancelable: true, composed: true,
+            clientX: x, clientY: y, screenX: x, screenY: y,
+            isPrimary: true, pointerId: 1, pointerType: 'mouse', pressure: type === 'pointerup' ? 0 : 0.5,
+            ...extra
+          })
+
+        // RBD escuta no window para mover e no próprio elemento para iniciar
+        quizizzDraggable.dispatchEvent(mkPtr('pointerdown', sx, sy))
+        await new Promise(r => setTimeout(r, 80))
+
+        // Movimento incremental: RBD precisa ver o movimento físico gradual
+        const STEPS = 8
+        for (let i = 1; i <= STEPS; i++) {
+          const curX = sx + (ex - sx) * (i / STEPS)
+          const curY = sy + (ey - sy) * (i / STEPS)
+          window.dispatchEvent(mkPtr('pointermove', curX, curY))
+          document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: curX, clientY: curY }))
+          await new Promise(r => setTimeout(r, 20))
+        }
+
+        // Soltar no destino
+        quizizzDroppable.dispatchEvent(mkPtr('pointerup', ex, ey, { pressure: 0 }))
+        quizizzDroppable.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: ex, clientY: ey, button: 0 }))
+        await new Promise(r => setTimeout(r, 120))
+
+        console.log('[EasyQuiz] Estratégia H (Quizizz RBD) executada')
+      }
+    } catch (hErr) {
+      console.warn('[EasyQuiz] Estratégia H (Quizizz RBD) falhou:', hErr)
+    }
+  }
 }
 
 // ---- GERA FALLBACK JS PARA DRAG QUANDO TODAS AS ESTRATÉGIAS FALHAM ----
 export function buildDragFallbackJs(fromText: string, toText: string, fromId: string, toId: string): string {
   const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').slice(0, 100)
   const fT = esc(fromText.toLowerCase()), tT = esc(toText.toLowerCase())
-  const fI = esc(fromId), tI = esc(toId)
+  const fI = esc(fromId)
   return (
-    `var src=$eq.find('${fI}')||Array.from(document.querySelectorAll('[draggable],[class*="cursor-grab"],[class*="dnd-card"]'))` +
+    `var src=$eq.find('${fI}')||Array.from(document.querySelectorAll('[data-rbd-draggable-id],[draggable],[class*="cursor-grab"],[class*="dnd-card"]'))` +
     `.find(function(e){return (e.textContent||'').toLowerCase().includes('${fT}');});` +
-    `var dst=Array.from(document.querySelectorAll('[class*="list-group"],[class*="dropzone"],[data-category],[data-rbd-droppable-id]'))` +
+    `var dst=Array.from(document.querySelectorAll('[data-rbd-droppable-id],[class*="list-group"],[class*="dropzone"],[data-category]'))` +
     `.find(function(e){var h=e.querySelector('.font-bold,h1,h2,h3,h4,[class*="header"]');` +
     `var t=(h||e);return (t.textContent||'').toLowerCase().includes('${tT}');});` +
-    `if(src&&dst){dst.appendChild(src);` +
+    `if(src&&dst){` +
+    // Tenta rbd keyboard sensor primeiro (mais confiável)
+    `try{src.focus();src.dispatchEvent(new KeyboardEvent('keydown',{key:' ',code:'Space',keyCode:32,bubbles:true}));` +
+    `setTimeout(function(){dst.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true}));},200);}catch(e){}` +
+    // Fallback: move o nó diretamente
+    `try{dst.appendChild(src);}catch(e){}` +
     `[src,dst].forEach(function(el){` +
     `try{el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}` +
     `try{el.dispatchEvent(new CustomEvent('dndkitdrop',{bubbles:true,detail:{}}));}catch(e){}` +

@@ -107,6 +107,10 @@ export class Autopilot {
   private questionPhase: 'unanswered' | 'answered' | 'feedback' | 'advanced' = 'unanswered'
   /** Timestamp de quando a resposta foi submetida (para cooldown pós-verificação) */
   private answerSubmittedAt = 0
+  /** Timeout de guardia anti-stall: aborta análise que demorar mais de 45s */
+  private analysisStallTimer: number | null = null
+  /** Contador de stalls consecutivos na mesma questão */
+  private stallCount = 0
 
   constructor(callbacks: AutopilotCallbacks) {
     this.callbacks = callbacks
@@ -150,6 +154,7 @@ export class Autopilot {
 
   public stop() {
     this.active = false
+    if (this.analysisStallTimer) { clearTimeout(this.analysisStallTimer); this.analysisStallTimer = null }
     if (this.abortController) {
       try { this.abortController.abort() } catch {}
       this.abortController = null
@@ -165,6 +170,7 @@ export class Autopilot {
     this.replanCount.clear()
     this.questionPhase = 'unanswered'
     this.answerSubmittedAt = 0
+    this.stallCount = 0
     this.callbacks.onStatusChange('idle', '> [SYS] Autopilot DESATIVADO pelo usuário.', 'text-yellow')
   }
 
@@ -312,7 +318,28 @@ export class Autopilot {
         if (!this.active) return
 
         this.abortController = new AbortController()
+
+        // GUARDA ANTI-STALL: aborta e reinicia se demorar mais de 45s
+        this.stallCount = (this.stallCount || 0)
+        if (this.analysisStallTimer) clearTimeout(this.analysisStallTimer)
+        this.analysisStallTimer = window.setTimeout(() => {
+          this.stallCount++
+          this.callbacks.onStatusChange('waiting', `> [AVISO] Análise travada (stall #${this.stallCount}). Abortando e reiniciando automaticamente...`, 'text-yellow')
+          try { this.abortController?.abort() } catch {}
+          this.abortController = null
+          this.isProcessing = false
+          this.lastAttemptTime = 0
+          if (this.stallCount >= 3) {
+            this.callbacks.onStatusChange('waiting', '> [AVISO] Muitos stalls consecutivos. Aguardando 15s antes de tentar novamente...', 'text-yellow')
+            this.stallCount = 0
+            window.setTimeout(() => { if (this.active) void this.checkAndAnalyze() }, 15000)
+          } else {
+            window.setTimeout(() => { if (this.active) void this.checkAndAnalyze() }, 2000)
+          }
+        }, 45_000)
+
         const plan = await this.callbacks.onRequestAnalysis(1, this.abortController.signal)
+        if (this.analysisStallTimer) { clearTimeout(this.analysisStallTimer); this.analysisStallTimer = null }
         this.abortController = null
         if (!this.active) return
 
@@ -325,6 +352,7 @@ export class Autopilot {
           this.callbacks.onStatusChange('analyzing', `> [IA] Raciocínio: ${plan.rationale}`, 'text-blue')
           this.callbacks.onStatusChange('analyzing', `> [IA] Ações: ${plan.actions.length}`, 'text-blue')
           this.errorCount = 0
+          this.stallCount = 0  // reset stall count em sucesso
 
           if (plan.memoryToStore) {
             this.callbacks.onStatusChange('analyzing', `> [IA] 🧠 Memória RAG: "${plan.memoryToStore}"`, 'text-yellow')
