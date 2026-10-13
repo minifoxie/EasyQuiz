@@ -9,33 +9,61 @@ await mkdir(dist, { recursive: true })
 
 const isWatch = process.argv.includes('--watch')
 
-const bannerText = `/* EasyQuiz v1.0.0 — Resolução inteligente de quizzes sem servidor
- * GitHub: https://github.com/minifoxie/EasyQuiz
- * 100% Client-side. Direct Google Gemini REST API.
- */`
-
 console.log('[EasyQuiz] Compilando bundle...')
 
 import { execSync } from 'child_process'
 
-let versionLabel = 'v3.4.8'
+let versionLabel = 'v3.8.4'
 let gitHash = 'main'
+
 try {
   gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim()
-  const rawCount = parseInt(execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim(), 10)
+  let rawCount = 386
+  try {
+    rawCount = parseInt(execSync('git rev-list --count HEAD origin/main', { encoding: 'utf8' }).trim(), 10)
+  } catch {
+    rawCount = parseInt(execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim(), 10)
+  }
   const statusOutput = execSync('git status --porcelain', { encoding: 'utf8' }).trim()
   const count = statusOutput.length > 0 ? rawCount + 1 : rawCount
-  versionLabel = `v${String(count).split('').join('.')}`
-} catch {}
+  const parsedVersion = String(count).split('').join('.')
+  versionLabel = `v${parsedVersion}`
+  
+  try {
+    const pkgPath = path.join(root, 'package.json')
+    const pkgRaw = await readFile(pkgPath, 'utf-8')
+    const pkgData = JSON.parse(pkgRaw)
+    if (pkgData.version !== parsedVersion) {
+      pkgData.version = parsedVersion
+      await writeFile(pkgPath, JSON.stringify(pkgData, null, 2) + '\n', 'utf-8')
+      console.log(`[EasyQuiz] package.json atualizado automaticamente para a versão ${parsedVersion}`)
+    }
+  } catch (err) {
+    console.warn('[EasyQuiz] Falha ao sincronizar package.json', err)
+  }
+} catch {
+  try {
+    const pkgData = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf-8'))
+    if (pkgData.version) {
+      versionLabel = pkgData.version.startsWith('v') ? pkgData.version : `v${pkgData.version}`
+    }
+  } catch {}
+}
+
+const bannerText = `/* EasyQuiz ${versionLabel} (${gitHash}) — Resolução inteligente de quizzes sem servidor
+ * GitHub: https://github.com/minifoxie/EasyQuiz
+ * 100% Client-side. Direct Google Gemini REST API.
+ */`
 
 // Always use 'main' so bookmarklets fetch the latest after every push.
 // Using a specific commit hash would pin them to the pre-push commit (stale).
 const canonicalGitHash = 'main'
 
-console.log(`[EasyQuiz] Version: ${versionLabel}`)
+console.log(`[EasyQuiz] Version: ${versionLabel} (${gitHash})`)
 
 const defineOptions = {
-  'process.env.EASYQUIZ_VERSION': JSON.stringify(versionLabel)
+  'process.env.EASYQUIZ_VERSION': JSON.stringify(versionLabel),
+  'process.env.EASYQUIZ_COMMIT': JSON.stringify(gitHash)
 }
 
 const buildOptions = {
@@ -72,7 +100,7 @@ const discreteBuildOptions = {
   legalComments: 'none',
   sourcemap: false,
   define: defineOptions,
-  banner: { js: `/* EasyQuiz Discreto v1.0.0 — Modo Stealth sem interface\n * 100% Client-side. Direct Google Gemini REST API.\n */` },
+  banner: { js: `/* EasyQuiz Discreto ${versionLabel} — Modo Stealth sem interface\n * 100% Client-side. Direct Google Gemini REST API.\n */` },
 }
 
 await build(discreteBuildOptions)

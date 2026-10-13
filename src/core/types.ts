@@ -46,8 +46,8 @@ export interface CapturedImage {
   associatedLabel?: string
   targetControlId?: string
   element?: Element
-  /** Status da captura: captured=imagem base64 ok, text_only=só contexto textual, failed=sem nada */
-  captureStatus?: 'captured' | 'text_only' | 'failed'
+  /** Status da captura: captured=imagem base64 ok, text_only=só contexto textual, failed=sem nada, failed_relevant=falhou mas é imagem relevante para a questão */
+  captureStatus?: 'captured' | 'text_only' | 'failed' | 'failed_relevant'
   /** Contexto textual extraído quando captura visual falhou (alt, figcaption, aria-label, texto vizinho) */
   textContext?: string
 }
@@ -169,6 +169,20 @@ export interface EasyQuizSettings {
   useVision: boolean
   confidenceThreshold: number
   toastStacking: boolean
+  // Visual & Tema
+  theme: 'mega-black' | 'dark' | 'purple-neon' | 'gray-blue' | 'light'
+  panelOpacity: number
+  borderRadius: 'none' | 'soft' | 'rounded'
+  glowEffects: boolean
+  highlightColor: string
+  // IA
+  languageHint: string
+  maxRetries: number
+  showTokenUsage: boolean
+  // Sistema
+  autoScrollLogs: boolean
+  compactMode: boolean
+  enableSoundFeedback: boolean
 }
 
 export const DEFAULT_SETTINGS: EasyQuizSettings = {
@@ -185,6 +199,20 @@ export const DEFAULT_SETTINGS: EasyQuizSettings = {
   useVision: true,
   confidenceThreshold: 0.8,
   toastStacking: true,
+  // Visual & Tema
+  theme: 'mega-black',
+  panelOpacity: 0.65,
+  borderRadius: 'none',
+  glowEffects: false,
+  highlightColor: '#ffd600',
+  // IA
+  languageHint: 'auto',
+  maxRetries: 2,
+  showTokenUsage: true,
+  // Sistema
+  autoScrollLogs: true,
+  compactMode: false,
+  enableSoundFeedback: false,
 }
 
 export interface QuestionTimingRecord {

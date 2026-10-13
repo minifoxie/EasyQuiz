@@ -1,7 +1,7 @@
 import type { ActionExecutionReport, AnalysisPlan, DeclarativeAction } from '../core/types'
 import { assertActionAllowed, createExecutionPolicy, validateJavaScriptSource, type ExecutionPolicy } from '../core/policy'
 import { loadDomainCache, saveDomainCache } from '../core/storage'
-import { cleanText, isNavigationControl, isUtilityOrGamificationControl, isVisible, labelForControl, NAVIGATION_PATTERN, ANTI_NAVIGATION_PATTERN, safeCssEscape } from './controls'
+import { cleanText, isNavigationControl, isUtilityOrGamificationControl, isVisible, labelForControl, NAVIGATION_PATTERN, ANTI_NAVIGATION_PATTERN, safeCssEscape, isKhanAcademyPage } from './controls'
 import { findActiveScope } from './detector'
 
 export function isInsideEasyQuiz(el: HTMLElement | null): boolean {
@@ -610,6 +610,85 @@ function setNativeValue(element: HTMLElement, value: string): void {
     const forId = target.getAttribute('for')!
     const forInput = target.ownerDocument.getElementById(forId)
     if (forInput) target = forInput
+  }
+
+  // ── PERSEUS/KHAN: MathQuill field detection ──────────────────────
+  // MathQuill usa <span class="mq-editable-field"> com API interna
+  const mqField = target.classList?.contains('mq-editable-field') || target.classList?.contains('mq-root-block')
+    ? target
+    : target.querySelector('.mq-editable-field, .mq-root-block') as HTMLElement | null
+  if (mqField) {
+    try {
+      // Tentativa 1: API MathQuill direta
+      const mqApi = (mqField as any).__mathquill || (mqField as any).mathquill
+      if (mqApi && typeof mqApi.latex === 'function') {
+        mqApi.latex(value)
+        mqField.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
+        mqField.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
+        return
+      }
+
+      // Tentativa 2: window.MathQuill API global
+      const MQ = (window as any).MathQuill?.getInterface?.(2) || (window as any).MathQuill?.getInterface?.(1)
+      if (MQ) {
+        const mqInstance = MQ(mqField)
+        if (mqInstance && typeof mqInstance.latex === 'function') {
+          mqInstance.latex(value)
+          mqField.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
+          return
+        }
+      }
+
+      // Tentativa 3: Digitação simulada char-a-char (fallback universal)
+      mqField.focus?.()
+      // Limpa o campo antes
+      mqField.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', ctrlKey: true, bubbles: true }))
+      mqField.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', code: 'Backspace', bubbles: true }))
+      // Digita cada caractere
+      for (const char of value) {
+        mqField.dispatchEvent(new KeyboardEvent('keydown', { key: char, code: `Key${char.toUpperCase()}`, bubbles: true, cancelable: true }))
+        mqField.dispatchEvent(new KeyboardEvent('keypress', { key: char, code: `Key${char.toUpperCase()}`, bubbles: true, cancelable: true }))
+        mqField.dispatchEvent(new InputEvent('input', { data: char, inputType: 'insertText', bubbles: true, cancelable: true, composed: true }))
+        mqField.dispatchEvent(new KeyboardEvent('keyup', { key: char, code: `Key${char.toUpperCase()}`, bubbles: true, cancelable: true }))
+      }
+      mqField.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
+      return
+    } catch (e) {
+      console.warn('[EasyQuiz] MathQuill fill falhou, continuando com fallback padrão:', e)
+    }
+  }
+
+  // ── PERSEUS/KHAN: Custom dropdown (não-nativo) ──────────────────────
+  const perseusDropdown = target.matches?.('[class*="perseus-dropdown" i], [class*="perseus"] [role="combobox"]')
+    ? target
+    : target.querySelector('[class*="perseus-dropdown" i], [class*="perseus"] [role="combobox"]') as HTMLElement | null
+  if (perseusDropdown) {
+    try {
+      // Abre o dropdown clicando
+      simulatePointerClick(perseusDropdown)
+      // Aguarda o portal React renderizar as opções
+      setTimeout(() => {
+        const normValue = value.trim().toLowerCase()
+        // Busca opções em portals no body (React renderiza fora do scope)
+        const portalOptions = Array.from(document.querySelectorAll(
+          '[role="option"], [role="listbox"] [role="option"], [class*="dropdown"] [role="option"], ' +
+          '[class*="perseus"] [class*="option"], .dropdown-option, [class*="select-option"]'
+        )).filter(opt => {
+          const el = opt as HTMLElement
+          if (!isVisible(el) || isInsideEasyQuiz(el)) return false
+          const txt = (el.textContent || '').trim().toLowerCase()
+          const val = el.getAttribute('data-value')?.toLowerCase() || ''
+          return txt === normValue || val === normValue || txt.includes(normValue) || (normValue.length > 2 && normValue.includes(txt))
+        }) as HTMLElement[]
+
+        if (portalOptions.length > 0) {
+          simulatePointerClick(portalOptions[0])
+        }
+      }, 250)
+      return
+    } catch (e) {
+      console.warn('[EasyQuiz] Perseus dropdown fill falhou:', e)
+    }
   }
 
   // Se o elemento ou alvo for um <select> ou combobox/listbox customizado, redireciona diretamente
@@ -1526,20 +1605,76 @@ export async function simulateDragAndCategorize(
       console.warn('[EasyQuiz] Estratégia G (React DnD internals) falhou:', reactErr)
     }
   }
+
+  // ---- ESTRATÉGIA H: QUIZIZZ / WAYGROUND — PADRÃO RBD COM POSIÇÃO REAL ----
+  // O Quizizz usa react-beautiful-dnd (rbd). O problema das estratégias anteriores
+  // é que elas disparam eventos sem as coordenadas físicas corretas, e o RBD ignora
+  // eventos sem clientX/clientY válidos. Esta estratégia calcula as posições reais
+  // e dispara na sequência exata que o RBD espera.
+  if (!dest.contains(origin)) {
+    try {
+      const quizizzDraggable = origin.closest('[data-rbd-draggable-id]') as HTMLElement | null
+      const quizizzDroppable = dest.closest('[data-rbd-droppable-id]') as HTMLElement | null
+
+      if (quizizzDraggable && quizizzDroppable) {
+        const srcRect = quizizzDraggable.getBoundingClientRect()
+        const dstRect = quizizzDroppable.getBoundingClientRect()
+        const sx = srcRect.left + srcRect.width / 2
+        const sy = srcRect.top + srcRect.height / 2
+        const ex = dstRect.left + dstRect.width / 2
+        const ey = dstRect.top + dstRect.height / 2
+
+        const mkPtr = (type: string, x: number, y: number, extra?: PointerEventInit) =>
+          new PointerEvent(type, { bubbles: true, cancelable: true, composed: true,
+            clientX: x, clientY: y, screenX: x, screenY: y,
+            isPrimary: true, pointerId: 1, pointerType: 'mouse', pressure: type === 'pointerup' ? 0 : 0.5,
+            ...extra
+          })
+
+        // RBD escuta no window para mover e no próprio elemento para iniciar
+        quizizzDraggable.dispatchEvent(mkPtr('pointerdown', sx, sy))
+        await new Promise(r => setTimeout(r, 80))
+
+        // Movimento incremental: RBD precisa ver o movimento físico gradual
+        const STEPS = 8
+        for (let i = 1; i <= STEPS; i++) {
+          const curX = sx + (ex - sx) * (i / STEPS)
+          const curY = sy + (ey - sy) * (i / STEPS)
+          window.dispatchEvent(mkPtr('pointermove', curX, curY))
+          document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: curX, clientY: curY }))
+          await new Promise(r => setTimeout(r, 20))
+        }
+
+        // Soltar no destino
+        quizizzDroppable.dispatchEvent(mkPtr('pointerup', ex, ey, { pressure: 0 }))
+        quizizzDroppable.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: ex, clientY: ey, button: 0 }))
+        await new Promise(r => setTimeout(r, 120))
+
+        console.log('[EasyQuiz] Estratégia H (Quizizz RBD) executada')
+      }
+    } catch (hErr) {
+      console.warn('[EasyQuiz] Estratégia H (Quizizz RBD) falhou:', hErr)
+    }
+  }
 }
 
 // ---- GERA FALLBACK JS PARA DRAG QUANDO TODAS AS ESTRATÉGIAS FALHAM ----
 export function buildDragFallbackJs(fromText: string, toText: string, fromId: string, toId: string): string {
   const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').slice(0, 100)
   const fT = esc(fromText.toLowerCase()), tT = esc(toText.toLowerCase())
-  const fI = esc(fromId), tI = esc(toId)
+  const fI = esc(fromId)
   return (
-    `var src=$eq.find('${fI}')||Array.from(document.querySelectorAll('[draggable],[class*="cursor-grab"],[class*="dnd-card"]'))` +
+    `var src=$eq.find('${fI}')||Array.from(document.querySelectorAll('[data-rbd-draggable-id],[draggable],[class*="cursor-grab"],[class*="dnd-card"]'))` +
     `.find(function(e){return (e.textContent||'').toLowerCase().includes('${fT}');});` +
-    `var dst=Array.from(document.querySelectorAll('[class*="list-group"],[class*="dropzone"],[data-category],[data-rbd-droppable-id]'))` +
+    `var dst=Array.from(document.querySelectorAll('[data-rbd-droppable-id],[class*="list-group"],[class*="dropzone"],[data-category]'))` +
     `.find(function(e){var h=e.querySelector('.font-bold,h1,h2,h3,h4,[class*="header"]');` +
     `var t=(h||e);return (t.textContent||'').toLowerCase().includes('${tT}');});` +
-    `if(src&&dst){dst.appendChild(src);` +
+    `if(src&&dst){` +
+    // Tenta rbd keyboard sensor primeiro (mais confiável)
+    `try{src.focus();src.dispatchEvent(new KeyboardEvent('keydown',{key:' ',code:'Space',keyCode:32,bubbles:true}));` +
+    `setTimeout(function(){dst.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true}));},200);}catch(e){}` +
+    // Fallback: move o nó diretamente
+    `try{dst.appendChild(src);}catch(e){}` +
     `[src,dst].forEach(function(el){` +
     `try{el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}` +
     `try{el.dispatchEvent(new CustomEvent('dndkitdrop',{bubbles:true,detail:{}}));}catch(e){}` +
@@ -1600,6 +1735,82 @@ export const EqAPI = {
 }
 if (typeof window !== 'undefined') {
   ;(window as any).$eq = EqAPI
+}
+
+// ---- ESTRATÉGIAS KHAN ACADEMY (PERSEUS) ----
+export async function executePerseusAction(action: DeclarativeAction, el: HTMLElement, valHint: string): Promise<boolean> {
+  if (!el) return false
+
+  // 1. MathQuill handler (.mq-editable-field)
+  if (action.t === 'val' && (el.classList.contains('mq-editable-field') || el.closest('.mq-editable-field'))) {
+    const target = el.classList.contains('mq-editable-field') ? el : el.closest('.mq-editable-field') as HTMLElement
+    if (target) {
+      try {
+        const controller = (target as any).__controller || (target as any).__mathquill_controller
+        if (controller && controller.API) {
+          controller.API.latex(valHint)
+          return true
+        }
+      } catch {}
+      // Fallback MathQuill: focus e simulação de teclado
+      try {
+        target.focus()
+        for (const char of valHint) {
+          const kEvent = { key: char, bubbles: true, cancelable: true }
+          target.dispatchEvent(new KeyboardEvent('keydown', kEvent))
+          target.dispatchEvent(new KeyboardEvent('keypress', kEvent))
+          document.execCommand?.('insertText', false, char)
+          target.dispatchEvent(new KeyboardEvent('keyup', kEvent))
+        }
+        return true
+      } catch {}
+    }
+  }
+
+  // 2. Perseus Dropdown handler
+  if (action.t === 'sel' && el.closest('.perseus-widget-container')) {
+    const btn = el.tagName === 'BUTTON' ? el : el.querySelector('button') || el.closest('button')
+    if (btn) {
+      try {
+        // Clica para abrir
+        simulatePointerClick(btn as HTMLElement)
+        await new Promise(r => setTimeout(r, 150)) // Aguarda portal React
+        // Procura opções em portais ou no próprio widget
+        const portals = Array.from(document.querySelectorAll('[data-reach-popover], [role="listbox"], .perseus-dropdown'))
+        for (const portal of portals) {
+          const opts = Array.from(portal.querySelectorAll('[role="option"], li, button'))
+          const match = opts.find(o => cleanSearchTerm(o.textContent).toLowerCase().includes(cleanSearchTerm(valHint).toLowerCase()))
+          if (match) {
+            simulatePointerClick(match as HTMLElement)
+            return true
+          }
+        }
+        // Se não achou na lista portal, tenta fechar (clica de novo) e re-lançar evento genérico
+        simulatePointerClick(btn as HTMLElement)
+      } catch {}
+    }
+  }
+
+  // 3. React Fiber Fallback para clicks em controles customizados (radio/checkbox)
+  if ((action.t === 'clk' || action.t === 'chk') && el.closest('.perseus-widget-container')) {
+    try {
+      const fiberKey = Object.keys(el).find(k => k.startsWith('__reactFiber$'))
+      const propsKey = Object.keys(el).find(k => k.startsWith('__reactProps$'))
+      if (propsKey && (el as any)[propsKey]) {
+        const props = (el as any)[propsKey]
+        if (typeof props.onClick === 'function') {
+          props.onClick({ preventDefault: () => {}, stopPropagation: () => {} })
+          return true
+        }
+        if (typeof props.onChange === 'function') {
+          props.onChange({ target: { checked: true, value: valHint }, preventDefault: () => {} })
+          return true
+        }
+      }
+    } catch {}
+  }
+
+  return false // Não foi tratado pelo Perseus engine, seguir fluxo normal
 }
 
 // ---- EXECUTOR DECLARATIVO ----
@@ -1775,8 +1986,55 @@ export async function executeDeclarativeAction(action: DeclarativeAction, attemp
     }
   }
 
+  // ── FALLBACK PERSEUS: Quando nenhum método padrão encontrou o alvo ──
+  if (!element && action.t !== 'adv') {
+    const perseusRoot = document.querySelector('.perseus-renderer, .framework-perseus, .perseus-widget-container') as HTMLElement | null
+    if (perseusRoot) {
+      const clean = cleanSearchTerm(elId).toLowerCase()
+      // Tenta encontrar dentro do Perseus: MathQuill, radios, dropdowns, inputs
+      const perseusTargets = Array.from(perseusRoot.querySelectorAll(
+        '.mq-editable-field, [role="radio"], [role="checkbox"], [role="combobox"], ' +
+        'input:not([type="hidden"]), textarea, select, [role="button"], [role="option"]'
+      )).filter(el => isVisible(el as HTMLElement) && !isInsideEasyQuiz(el as HTMLElement)) as HTMLElement[]
+
+      // Busca por texto, id, aria-label, value
+      element = perseusTargets.find(t => {
+        const txt = (t.textContent || '').trim().toLowerCase()
+        const id = (t.id || '').toLowerCase()
+        const aria = (t.getAttribute('aria-label') || '').toLowerCase()
+        const val = ((t as any).value || t.getAttribute('data-value') || '').toLowerCase()
+        return id === clean || txt === clean || aria === clean || val === clean ||
+          (clean.length >= 3 && (txt.includes(clean) || aria.includes(clean)))
+      }) || null
+
+      // Se nenhum match textual, usa fallback posicional para ações val (primeiro input editável)
+      if (!element && (action.t === 'val') && perseusTargets.length > 0) {
+        const editableTargets = perseusTargets.filter(t =>
+          t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement ||
+          t.classList.contains('mq-editable-field') || t.classList.contains('mq-root-block') ||
+          t.isContentEditable
+        )
+        if (editableTargets.length > 0) {
+          // Se elId é numérico, usa como índice
+          const numMatch = clean.match(/^#?_?([0-9]+)$/)
+          if (numMatch) {
+            const idx = parseInt(numMatch[1], 10)
+            element = editableTargets[Math.min(idx - 1, editableTargets.length - 1)] || editableTargets[0]
+          } else {
+            element = editableTargets[0]
+          }
+        }
+      }
+    }
+  }
+
   if (!element && action.t !== 'adv') {
     throw new Error(`Alvo '${elId}' não encontrado no DOM para ação '${action.t}'.`)
+  }
+
+  if (isKhanAcademyPage() && element && action.t !== 'adv') {
+    const handled = await executePerseusAction(action, element, valHint)
+    if (handled) return
   }
 
   switch (action.t) {
@@ -1841,7 +2099,57 @@ export async function executeDeclarativeAction(action: DeclarativeAction, attemp
               : (action as any).val !== undefined
                 ? (action as any).val
                 : (action as any).text
-        const valString = actRawVal !== undefined && actRawVal !== null ? String(actRawVal) : ''
+        let valString = actRawVal !== undefined && actRawVal !== null ? String(actRawVal) : ''
+
+        // Validação de restrições do input (Bug: matrizes 3×3 recebiam valores inválidos)
+        const inputToValidate = targetInput || element
+        if (inputToValidate instanceof HTMLInputElement) {
+          const inputType = inputToValidate.type.toLowerCase()
+          const maxLength = inputToValidate.maxLength
+          const min = inputToValidate.min
+          const max = inputToValidate.max
+          const step = inputToValidate.step
+          const pattern = inputToValidate.pattern
+
+          // Truncar se maxlength definido
+          if (maxLength > 0 && valString.length > maxLength) {
+            valString = valString.slice(0, maxLength)
+          }
+
+          // Para inputs numéricos, clampar ao range min/max
+          if (inputType === 'number' || inputType === 'range') {
+            const numVal = parseFloat(valString)
+            if (!isNaN(numVal)) {
+              let clamped = numVal
+              if (min !== '' && !isNaN(parseFloat(min))) clamped = Math.max(clamped, parseFloat(min))
+              if (max !== '' && !isNaN(parseFloat(max))) clamped = Math.min(clamped, parseFloat(max))
+              // Respeitar step: arredondar ao step mais próximo
+              if (step !== '' && step !== 'any' && !isNaN(parseFloat(step))) {
+                const stepVal = parseFloat(step)
+                const base = min !== '' ? parseFloat(min) : 0
+                clamped = base + Math.round((clamped - base) / stepVal) * stepVal
+                // Re-clampar após arredondamento
+                if (min !== '' && !isNaN(parseFloat(min))) clamped = Math.max(clamped, parseFloat(min))
+                if (max !== '' && !isNaN(parseFloat(max))) clamped = Math.min(clamped, parseFloat(max))
+              }
+              valString = Number.isInteger(clamped) ? String(clamped) : String(parseFloat(clamped.toFixed(6)))
+            }
+          }
+
+          // Validar pattern regex — se o valor não casa, tentar extrair parte válida
+          if (pattern) {
+            try {
+              const rx = new RegExp(`^(?:${pattern})$`)
+              if (!rx.test(valString)) {
+                // Tenta extrair a parte numérica se o pattern aceita números
+                const numericExtract = valString.match(/-?\d+\.?\d*/)
+                if (numericExtract && rx.test(numericExtract[0])) {
+                  valString = numericExtract[0]
+                }
+              }
+            } catch {}
+          }
+        }
 
         if (targetInput) {
           setNativeValue(targetInput, valString)

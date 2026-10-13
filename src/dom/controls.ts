@@ -1,4 +1,5 @@
 import type { ControlDescriptor } from '../core/types'
+import { isInKnownSidebarRegion } from './layoutCache'
 
 export const CONTROL_SELECTOR = [
   'input:not([type="hidden"])',
@@ -60,10 +61,22 @@ export const CONTROL_SELECTOR = [
   '[data-testid="perseus-math-input"]',
   '[data-testid*="perseus-input" i]',
   '.mq-editable-field',   // MathQuill editor interno do Perseus
+  '.mq-root-block',
   '.choice-radio-btn',    // Radio button de escolha múltipla Perseus
   '[class*="choice_" i]', // Padrão interno das alternativas Perseus (choice_0, choice_1...)
   '[class*="perseus-radio" i]',
   '[class*="perseus-checkbox" i]',
+  '[class*="expression-editor" i]',
+  '[class*="math-input" i]',
+  '[class*="perseus-dropdown" i]',
+  '[class*="perseus"] [role="listbox"]',
+  '[class*="perseus"] [role="radio"]',
+  '[class*="perseus"] [role="combobox"]',
+  '.perseus-widget-container [role="button"]',
+  '.perseus-widget-container input',
+  '.perseus-widget-container select',
+  '.number-line [role="slider"]',
+  '[class*="interactive-graph" i]',
   '.interactive-component', // Componente interativo genérico Khan Academy
 ].join(',')
 
@@ -197,6 +210,59 @@ export function isInsideEasyQuiz(el: Element | null): boolean {
       '#easyquiz-shadow-root, .eq-sidebar, .eq-launcher, [data-easyquiz-ignore="true"], .btn-inject-eq, #btn-inject-script',
     ) || el.getAttribute?.('data-easyquiz-ignore') === 'true',
   )
+}
+
+/**
+ * Detecta se o elemento pertence à sidebar/lista de tarefas do Khan Academy
+ * (e não à questão ativa). Esses controles NÃO devem ser coletados como respostas.
+ * Usa o LayoutCache de sessão para melhorar precisão ao longo do tempo.
+ */
+export function isKhanSidebarElement(el: Element | null): boolean {
+  if (!el) return false
+
+  // 1. Verifica memória de layout da sessão (mais preciso e rápido)
+  if (isInKnownSidebarRegion(el)) return true
+
+  // 2. Khan Academy sidebar containers: task list, lesson navigation, mastery cards
+  const sidebarAncestor = el.closest(
+    'aside, nav, ' +
+    '[class*="task-list" i], [class*="lesson-list" i], [class*="mastery" i], ' +
+    '[class*="sidebar" i], [class*="side-bar" i], [class*="side_bar" i], ' +
+    '[class*="unit-nav" i], [class*="course-nav" i], ' +
+    '[data-testid*="sidebar" i], [data-testid*="task-list" i], ' +
+    '[class*="practice-tab" i], [class*="progress-nav" i], ' +
+    '[role="navigation"], [role="complementary"]'
+  )
+  if (sidebarAncestor) {
+    // Certifica que o ancestor não é o próprio exercício/Perseus renderer
+    const isInsideExercise = sidebarAncestor.querySelector('.perseus-renderer, .framework-perseus, [data-test-id*="exercise" i]')
+    if (!isInsideExercise) return true
+  }
+  
+  // 3. Heurística de posição: se estamos na Khan Academy e o elemento está muito à esquerda (< 30% da tela)
+  // enquanto há conteúdo Perseus no centro/direita.
+  if (isKhanAcademyPage()) {
+    try {
+      const rect = el.getBoundingClientRect()
+      const hasPerseus = !!document.querySelector('.perseus-renderer, .framework-perseus')
+      if (hasPerseus && rect.width > 0 && rect.left >= 0 && rect.right < window.innerWidth * 0.32) {
+        return true
+      }
+    } catch {}
+  }
+  
+  return false
+}
+
+/**
+ * Detecta se a página atual é do Khan Academy via URL ou DOM markers.
+ */
+export function isKhanAcademyPage(): boolean {
+  try {
+    if (/khanacademy\.org/i.test(window.location.href)) return true
+    if (document.querySelector('.perseus-renderer, .framework-perseus')) return true
+  } catch {}
+  return false
 }
 
 export const UTILITY_CONTROL_PATTERN =

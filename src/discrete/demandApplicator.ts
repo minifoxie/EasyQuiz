@@ -72,11 +72,11 @@ export class DemandApplicator {
   private charsInserted = new Map<number, number>()
   private failedSteps = new Set<number>()
 
-  private boundKey:         (e: KeyboardEvent) => void
-  private boundKeypress:    (e: KeyboardEvent) => void
-  private boundBeforeInput: (e: InputEvent)    => void
-  private boundKeyup:       (e: KeyboardEvent) => void
-  private boundClick:       (e: MouseEvent)    => void
+  private boundKey:         EventListener
+  private boundKeypress:    EventListener
+  private boundBeforeInput: EventListener
+  private boundKeyup:       EventListener
+  private boundClick:       EventListener
 
   constructor(
     coin: CoinCursor,
@@ -88,11 +88,11 @@ export class DemandApplicator {
     this.toast = toast
     this.highlight = highlight
     this.debugOutput = debugOutput
-    this.boundKey         = this.onKey.bind(this)
-    this.boundKeypress    = this.onKeypress.bind(this)
-    this.boundBeforeInput = this.onBeforeInput.bind(this)
-    this.boundKeyup       = this.onKeyup.bind(this)
-    this.boundClick       = this.onClick.bind(this)
+    this.boundKey         = this.onKey.bind(this) as EventListener
+    this.boundKeypress    = this.onKeypress.bind(this) as EventListener
+    this.boundBeforeInput = this.onBeforeInput.bind(this) as EventListener
+    this.boundKeyup       = this.onKeyup.bind(this) as EventListener
+    this.boundClick       = this.onClick.bind(this) as EventListener
   }
 
   setDebugOutput(debugOutput: DebugOutput): void {

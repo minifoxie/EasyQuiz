@@ -5,6 +5,8 @@
     "moduleResolution": "bundler",
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "strict": true,
+    "strictPropertyInitialization": false,
+    "noImplicitAny": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "noEmit": true,

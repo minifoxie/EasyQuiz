@@ -21,6 +21,61 @@ function blobToBase64(blob: Blob): Promise<string> {
   })
 }
 
+function isCanvasBlank(canvas: HTMLCanvasElement): boolean {
+  try {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return true
+    // Amostra em 3 regiões para robustez (centro, topo-esquerda, meio-baixo)
+    const w = canvas.width, h = canvas.height
+    if (w <= 0 || h <= 0) return true
+    const sampleSize = Math.min(40, Math.floor(w / 3), Math.floor(h / 3))
+    if (sampleSize <= 0) return true
+    const regions = [
+      [0, 0], // topo-esquerda
+      [Math.floor(w / 2) - Math.floor(sampleSize / 2), Math.floor(h / 2) - Math.floor(sampleSize / 2)], // centro
+      [Math.floor(w / 3), Math.floor(h * 2 / 3)] // terço inferior
+    ]
+    let totalPixels = 0
+    let uniformPixels = 0
+    let firstR = -1, firstG = -1, firstB = -1
+    for (const [sx, sy] of regions) {
+      const rx = Math.max(0, Math.min(sx, w - sampleSize))
+      const ry = Math.max(0, Math.min(sy, h - sampleSize))
+      const data = ctx.getImageData(rx, ry, sampleSize, sampleSize).data
+      for (let i = 0; i < data.length; i += 4) {
+        totalPixels++
+        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3]
+        if (a === 0) { uniformPixels++; continue } // transparente
+        if (firstR === -1) { firstR = r; firstG = g; firstB = b }
+        // Pixel é "uniforme" se é muito próximo do primeiro pixel lido (monocromático)
+        if (Math.abs(r - firstR) < 8 && Math.abs(g - firstG) < 8 && Math.abs(b - firstB) < 8) {
+          uniformPixels++
+        }
+      }
+    }
+    // Canvas blank = >97% dos pixels são uniformes (mesma cor ou transparentes)
+    // Isso diferencia "imagem real com fundo branco" de "canvas genuinamente vazio"
+    return totalPixels > 0 && (uniformPixels / totalPixels) > 0.97
+  } catch {
+    return false
+  }
+}
+
+/** Força fundo branco quando a cor detectada é escura demais para renderização legível */
+function ensureLightBackground(detectedBg: string): string {
+  try {
+    // Detecta cores escuras: rgb(R,G,B) onde luminance < 0.15
+    const m = detectedBg.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/)
+    if (m) {
+      const [r, g, b] = [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])]
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+      if (luminance < 0.15) return '#ffffff' // Fundo muito escuro → força branco
+    }
+    if (detectedBg === 'transparent' || detectedBg === 'rgba(0, 0, 0, 0)') return '#ffffff'
+  } catch {}
+  return detectedBg
+}
+
 async function compressImage(source: HTMLImageElement | HTMLCanvasElement | ImageBitmap): Promise<Blob> {
   let width = 0
   let height = 0
@@ -84,27 +139,32 @@ async function rasterizeSvgElement(
   // Injetar estilos computados essenciais em todos os elementos filhos do SVG
   // para que cores, fontes e traços sejam idênticos mesmo sem CSS externo
   try {
-    const origElements = Array.from(svgEl.querySelectorAll('*'))
-    const cloneElements = Array.from(clone.querySelectorAll('*'))
+    const origElements = [svgEl, ...Array.from(svgEl.querySelectorAll('*'))] as SVGElement[]
+    const cloneElements = [clone, ...Array.from(clone.querySelectorAll('*'))] as SVGElement[]
+    
     for (let i = 0; i < Math.min(origElements.length, cloneElements.length); i++) {
-      const orig = origElements[i] as SVGElement
-      const dest = cloneElements[i] as SVGElement
+      const orig = origElements[i]
+      const dest = cloneElements[i]
       if (!orig || !dest || !dest.style) continue
+      
       const cs = window.getComputedStyle ? window.getComputedStyle(orig) : null
       if (cs) {
-        if (cs.fill && cs.fill !== 'none') dest.style.fill = cs.fill
-        if (cs.stroke && cs.stroke !== 'none') dest.style.stroke = cs.stroke
-        if (cs.strokeWidth) dest.style.strokeWidth = cs.strokeWidth
-        if (cs.fontFamily) dest.style.fontFamily = cs.fontFamily
-        if (cs.fontSize) dest.style.fontSize = cs.fontSize
-        if (cs.fontWeight) dest.style.fontWeight = cs.fontWeight
-        if (cs.color) dest.style.color = cs.color
+        const props = [
+          'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin',
+          'opacity', 'font-family', 'font-size', 'font-weight', 'color', 'transform', 'display', 'visibility'
+        ]
+        props.forEach(prop => {
+          const val = cs.getPropertyValue(prop)
+          if (val && val !== 'none' && val !== 'normal' && val !== 'auto') {
+            dest.style.setProperty(prop, val, 'important')
+          }
+        })
       }
     }
   } catch {}
 
   // Detecta cor de fundo real do elemento ou da página para preservar contraste em temas escuros (ex: KhanMath)
-  let bgColor = '#ffffff'
+  let bgColor = '#ffffff' // fallback seguro
   try {
     let cur: HTMLElement | null = (svgEl.parentElement as HTMLElement) || (svgEl as any)
     while (cur && cur !== document.documentElement) {
@@ -117,6 +177,12 @@ async function rasterizeSvgElement(
       cur = cur.parentElement
     }
   } catch {}
+  bgColor = ensureLightBackground(bgColor)
+
+  // Jimmy's fix: Garante atributo xmlns obrigatório para conversão base64
+  if (!clone.getAttribute('xmlns')) {
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+  }
 
   const serializer = new XMLSerializer()
   const svgString = serializer.serializeToString(clone)
@@ -159,9 +225,12 @@ async function rasterizeSvgElement(
     canvas.height = targetHeight
     const ctx = canvas.getContext('2d', { alpha: false })
     if (ctx && img) {
-      ctx.fillStyle = bgColor
+      // FORÇA fundo branco (evita SVGs pretos na conversão)
+      ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, targetWidth, targetHeight)
       ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
+
+      if (isCanvasBlank(canvas)) return { base64: fallbackSvgBase64, mediaType: 'image/svg+xml' }
 
       const blob = await new Promise<Blob | null>((resolve) => {
         canvas.toBlob(resolve, 'image/jpeg', 0.92)
@@ -233,7 +302,7 @@ async function captureElementVisualSnapshot(node: HTMLElement): Promise<Captured
       } catch {}
     }
 
-    // Detectar cor de fundo
+    // Detectar cor de fundo — força branco se o tema for escuro (PNG sem fundo ficaria preto)
     let bgColor = '#ffffff'
     try {
       let cur: HTMLElement | null = node
@@ -247,6 +316,7 @@ async function captureElementVisualSnapshot(node: HTMLElement): Promise<Captured
         cur = cur.parentElement
       }
     } catch {}
+    bgColor = ensureLightBackground(bgColor)
 
     const clone = node.cloneNode(true) as HTMLElement
     const origElements = Array.from(node.querySelectorAll('*'))
@@ -306,6 +376,8 @@ async function captureElementVisualSnapshot(node: HTMLElement): Promise<Captured
         ctx.fillStyle = bgColor
         ctx.fillRect(0, 0, targetW, targetH)
         ctx.drawImage(img, 0, 0, targetW, targetH)
+
+        if (isCanvasBlank(canvas)) throw new Error('ForeignObject gerou canvas em branco')
 
         const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.90))
         if (blob) {
@@ -369,16 +441,30 @@ export function validateImageRelevance(el: Element, alt: string, width: number, 
   const role = el.getAttribute('role')
   const srcStr = el instanceof HTMLImageElement ? (el.src || '') : ''
 
-  if (ariaHidden === 'true') return false
-  if (role === 'presentation' || role === 'none') return false
+  // 4.1. WHITELIST: Imagens dentro de containers de questão/exercício são SEMPRE relevantes
+  //      (mesmo com aria-hidden, alt vazio, ou role presentation — sites como Khan Academy
+  //       usam esses atributos em imagens de conteúdo)
+  const insideQuestionScope = Boolean(el.closest(
+    '.perseus-renderer, .framework-perseus, [data-test-id*="exercise" i], [data-testid*="exercise" i], ' +
+    '.perseus-widget-container, [class*="problem" i], [class*="exercise" i], ' +
+    '[data-question], [class*="question-content" i], [class*="stimulus" i], ' +
+    '[class*="enunciado" i], [class*="statement" i], figure, .problem, .exercise'
+  ))
+
+  // Se está dentro de container de questão E tem dimensões razoáveis (≥60x60), é relevante
+  if (insideQuestionScope && width >= 60 && height >= 60) return true
+
+  if (ariaHidden === 'true' && !insideQuestionScope) return false
+  if ((role === 'presentation' || role === 'none') && !insideQuestionScope) return false
 
   const decorativePatterns = /\b(icon|logo|avatar|badge|emoji|decoration|ornament|spinner|loading|thumbnail|profile|photo)\b/i
   if (decorativePatterns.test(classStr)) return false
   if (alt && decorativePatterns.test(alt)) return false
   if (srcStr && /\/icons?\/|\/logos?\/|\/avatars?\/|\/badges?\/|\/emojis?\//i.test(srcStr)) return false
 
-  // 5. Alt text vazio ou apresentacional geralmente = decoração
-  if (alt === '' || alt === ' ' || alt === '-') return false
+  // 5. Alt text vazio ou apresentacional — NÃO rejeitar se dentro de container de questão
+  if ((alt === '' || alt === ' ' || alt === '-') && !insideQuestionScope) return false
+  // Se alt vazio mas dentro de questão: aceitar (Khan Academy usa alt="" em imagens de conteúdo)
 
   // 6. Imagens que claramente são de conteúdo (gráficos, tabelas, mapas, diagramas)
   const contentPatterns = /\b(graph|chart|diagram|table|map|formula|equation|figure|plot|curve|histogram|scatter|matrix|image|foto|imagem|gráfico|tabela|mapa|fórmula|questão|enunciado|stimulus)\b/i
@@ -390,7 +476,17 @@ export function validateImageRelevance(el: Element, alt: string, width: number, 
   )
   if (questionContainer) return true
 
-  // 8. Por padrão: aceita se dimensão razoável (≥80x80)
+  // 8. Imagens na vizinhança de texto de questão (verificação por irmãos textuais)
+  try {
+    const parent = el.parentElement
+    if (parent) {
+      const siblingText = (parent.textContent || '').toLowerCase()
+      const questionIndicators = /\?|calcul|determin|observ|analis|image|figur|gráfic|diagram/i
+      if (questionIndicators.test(siblingText) && width >= 60 && height >= 60) return true
+    }
+  } catch {}
+
+  // 9. Por padrão: aceita se dimensão razoável (≥80x80)
   return width >= 80 && height >= 80
 }
 
@@ -459,6 +555,12 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
   if (!src) return null
   const alt = (img.alt || img.getAttribute('aria-label') || 'Imagem da questão').slice(0, 500)
 
+  // Determina se esta imagem é potencialmente relevante para o conteúdo da questão
+  const rect = img.getBoundingClientRect()
+  const w = img.naturalWidth || rect.width || img.width || 0
+  const h = img.naturalHeight || rect.height || img.height || 0
+  const isLikelyRelevant = validateImageRelevance(img, alt, w, h)
+
   // Estratégia 1: Canvas direto (funciona para mesma origem, data: e blob:)
   if (img.complete && img.naturalWidth > 0) {
     try {
@@ -505,15 +607,17 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
     // CORS bloqueado
   }
 
-  // Estratégia 3: Bypass via Proxies CORS Transparentes (concorrente com timeout rápido de 1500ms)
+  // Estratégia 3: Bypass via Proxies CORS Transparentes (concorrente com timeout rápido de 800ms)
   if (src.startsWith('http')) {
+    const encodedSrc = encodeURIComponent(src)
     const proxies = [
-      `https://corsproxy.io/?${encodeURIComponent(src)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(src)}`,
+      `https://corsproxy.io/?${encodedSrc}`,
+      `https://api.allorigins.win/raw?url=${encodedSrc}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodedSrc}`
     ]
     const tryProxy = async (proxyUrl: string): Promise<Response> => {
       const controller = new AbortController()
-      const tid = setTimeout(() => controller.abort(), 1500)
+      const tid = setTimeout(() => controller.abort(), 800)
       try {
         const res = await fetch(proxyUrl, { signal: controller.signal })
         clearTimeout(tid)
@@ -559,8 +663,21 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
       base64: '',
       alt,
       source: src.slice(0, 2000),
-      captureStatus: 'text_only',
+      // Se a imagem é relevante para a questão mas não pôde ser capturada, sinaliza explicitamente
+      captureStatus: isLikelyRelevant ? 'failed_relevant' : 'text_only',
       textContext: textCtx || `Imagem da questão (src: ${src.slice(0, 100)})`,
+    }
+  }
+
+  // Estratégia 6: Se a imagem é relevante mas nenhuma estratégia funcionou, emite failed_relevant
+  if (isLikelyRelevant && src) {
+    return {
+      mediaType: 'image/jpeg',
+      base64: '',
+      alt: alt || 'Imagem relevante não capturada',
+      source: src.slice(0, 2000),
+      captureStatus: 'failed_relevant',
+      textContext: `IMAGEM RELEVANTE NÃO CAPTURADA. Src: ${src.slice(0, 200)}. ${extractTextContextForImage(img)}`,
     }
   }
 
@@ -603,18 +720,35 @@ export function findAssociatedContextForMedia(
       const textLabel = cleanText(optionContainer.innerText || optionContainer.textContent || '', 120)
       const ariaLabel = optionContainer.getAttribute('aria-label') || optionContainer.getAttribute('title') || ''
 
+      // Numerar a posição da alternativa dentro do scope para contexto ordinal
+      let positionHint = ''
+      try {
+        const allSiblings = Array.from(scope.querySelectorAll(
+          '[data-easyquiz-id], [role="radio"], [role="checkbox"], [role="option"], .option-card, .quiz-option, .choice, .answer, [class*="option" i], [class*="choice" i]'
+        )).filter(s => isVisible(s as HTMLElement) && !isNavigationControl(s as HTMLElement))
+        const idx = allSiblings.indexOf(optionContainer)
+        if (idx >= 0) positionHint = ` (opção ${idx + 1} de ${allSiblings.length})`
+      } catch {}
+
       const bestLabel = textLabel || ariaLabel
       const idHint = controlId ? ` [id: ${controlId}]` : ''
 
       if (bestLabel) {
         return {
-          associatedLabel: `Alternativa/Opção: "${bestLabel}"${idHint}`,
+          associatedLabel: `Alternativa/Opção: "${bestLabel}"${idHint}${positionHint}`,
           targetControlId: controlId,
         }
       }
       if (controlId) {
         return {
-          associatedLabel: `Alternativa/Opção ${idHint}`,
+          associatedLabel: `Alternativa/Opção${idHint}${positionHint}`,
+          targetControlId: controlId,
+        }
+      }
+      // Mesmo sem texto, se está dentro de card com ID, associa pela posição
+      if (positionHint) {
+        return {
+          associatedLabel: `Imagem da Alternativa${positionHint}`,
           targetControlId: controlId,
         }
       }
@@ -637,6 +771,18 @@ export function findAssociatedContextForMedia(
       return { associatedLabel: `Gráfico do Enunciado: "${text}"` }
     }
   }
+
+  // 4. Numerar imagens do enunciado quando há múltiplas
+  try {
+    const allImages = Array.from(scope.querySelectorAll('img, svg, canvas, [style*="background-image"]'))
+      .filter(i => isVisible(i as HTMLElement))
+    if (allImages.length > 1) {
+      const idx = allImages.indexOf(el as HTMLElement)
+      if (idx >= 0) {
+        return { associatedLabel: `Imagem ${idx + 1} de ${allImages.length} do Enunciado` }
+      }
+    }
+  } catch {}
 
   return { associatedLabel: 'Gráfico/Imagem do Enunciado Principal' }
 }
@@ -671,20 +817,15 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
     return visualCaptures >= MAX_IMAGES
   }
 
-  // Procura no escopo e no container da questão (caso o escopo detectado tenha sido apenas a grade de opções)
+  // MIRA A LASER: Procura estritamente dentro do escopo da questão isolado! 
+  // Removido o '.closest(containerSelectors)' que causava vazamento para o footer (ex: Google Play).
   const roots: HTMLElement[] = [scope]
-  const container = scope.closest(
-    'article, .card, [class*="question" i], [class*="exercise" i], form, [data-test-id*="exercise" i], [data-testid*="exercise" i]',
-  ) as HTMLElement | null
-  if (container && container !== scope && container !== document.body && isVisible(container)) {
-    roots.push(container)
-  }
 
   // 1. Imagens nativas (<img>)
   const seenImgs = new Set<HTMLImageElement>()
   for (const root of roots) {
     const images = Array.from(root.querySelectorAll('img')).filter(
-      (el) => isVisible(el) && !isUtilityOrGamificationControl(el) && !seenImgs.has(el),
+      (el) => isVisible(el) && !isUtilityOrGamificationControl(el) && !seenImgs.has(el) && !el.closest('footer, nav, aside, [class*="sidebar" i], [class*="lesson" i]')
     )
     for (const img of images) {
       seenImgs.add(img)
@@ -708,6 +849,13 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
   const seenSvgs = new Set<SVGElement>()
   for (const root of roots) {
     const svgs = Array.from(root.querySelectorAll('svg')).filter((svg) => {
+      // IGNORA SVGs de equações matemáticas KaTeX (evita SVGs inúteis ou pretos), 
+      // pois o texto da fórmula já é extraído em MathML/text no detector.ts
+      if (svg.closest('.katex') || svg.classList.contains('katex-mathml')) return false
+      
+      // IGNORA SVGs que vazaram para rodapé/navegação
+      if (svg.closest('footer, nav, aside, [class*="sidebar" i], [class*="lesson" i]')) return false
+
       if (!isVisible(svg) || isUtilityOrGamificationControl(svg) || seenSvgs.has(svg)) return false
       const rect = typeof svg.getBoundingClientRect === 'function' ? svg.getBoundingClientRect() : { width: 0, height: 0 }
       const width = rect.width || parseFloat(svg.getAttribute('width') || '0')
@@ -829,6 +977,67 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
               const cap: CapturedImage = { mediaType: 'image/jpeg', base64: base64b, alt: 'Imagem CSS background', source: url.slice(0, 2000), captureStatus: 'captured' }
               if (pushCapture(cap, bgEl)) return captures
             }
+          }
+        } catch {}
+      }
+    }
+  }
+
+  // 5. Scan de background-image COMPUTADO (não apenas inline styles)
+  // Essencial para Khan Academy e sites que aplicam imagens via classes CSS compiladas
+  if (captures.filter(c => c.captureStatus === 'captured').length < MAX_IMAGES) {
+    const seenBgEls = new Set<HTMLElement>()
+    for (const root of roots) {
+      // Varre todos os elementos com dimensões significativas buscando background-image computado
+      const potentialBgEls = Array.from(root.querySelectorAll<HTMLElement>(
+        'div, span, section, figure, [class*="image" i], [class*="media" i], [class*="visual" i], [class*="graph" i], [class*="diagram" i], [class*="figure" i]'
+      )).filter(el => {
+        if (seenBgEls.has(el) || !isVisible(el) || isUtilityOrGamificationControl(el)) return false
+        const elRect = el.getBoundingClientRect()
+        return elRect.width >= 80 && elRect.height >= 60
+      })
+
+      for (const bgEl of potentialBgEls) {
+        seenBgEls.add(bgEl)
+        try {
+          const computedBg = window.getComputedStyle ? window.getComputedStyle(bgEl).backgroundImage : ''
+          if (!computedBg || computedBg === 'none' || !computedBg.includes('url(')) continue
+          // Já coberto pelo scan inline anterior? Verifica se o elemento já tinha style inline
+          if (bgEl.style.backgroundImage && bgEl.style.backgroundImage.includes('url(')) continue
+
+          const urlMatch = computedBg.match(/url\(["']?([^"')]+)["']?\)/)
+          if (!urlMatch || !urlMatch[1] || urlMatch[1].startsWith('data:image/svg+xml')) continue
+          const bgUrl = urlMatch[1]
+
+          const elRect = bgEl.getBoundingClientRect()
+          if (!validateImageRelevance(bgEl, bgEl.getAttribute('aria-label') || '', elRect.width, elRect.height)) continue
+
+          try {
+            const res = await fetch(bgUrl, { mode: 'cors' })
+            if (res.ok) {
+              const blob = await res.blob()
+              if (blob.type.startsWith('image/') || blob.size > 200) {
+                const bitmap = await createImageBitmap(blob)
+                const compressed = await compressImage(bitmap)
+                bitmap.close()
+                const base64 = await blobToBase64(compressed)
+                if (base64) {
+                  const cap: CapturedImage = {
+                    mediaType: 'image/jpeg',
+                    base64,
+                    alt: bgEl.getAttribute('aria-label') || 'Imagem CSS computada da questão',
+                    source: bgUrl.slice(0, 2000),
+                    captureStatus: 'captured',
+                    textContext: extractTextContextForImage(bgEl),
+                  }
+                  if (pushCapture(cap, bgEl)) return captures
+                }
+              }
+            }
+          } catch {
+            // Fallback: snapshot visual do container
+            const snapshot = await captureElementVisualSnapshot(bgEl)
+            if (snapshot && pushCapture(snapshot, bgEl)) return captures
           }
         } catch {}
       }

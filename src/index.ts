@@ -9,6 +9,7 @@ import { executePlan, setupSmartOptionInterceptors, buildDragFallbackJs, injectC
 import { clearHighlights, highlightAttachedImages, highlightScope, highlightTargetActions } from './dom/highlighter'
 import { captureImages } from './media/capture'
 import { EasyQuizPanel } from './ui/panel'
+import { buildLayoutSnapshot, invalidateLayoutCache } from './dom/layoutCache'
 
 type EasyQuizWindow = Window & {
   __easyquiz?: {
@@ -48,6 +49,9 @@ async function initEasyQuiz(): Promise<void> {
   setupSmartOptionInterceptors()
   // Pré-aquece a conexão com a API Google Gemini (DNS prefetch + Preconnect)
   injectPreconnect()
+  // Mapeia o layout da página (sidebars, nav, conteúdo principal) para evitar
+  // leituras incorretas de elementos laterais ao extrair questões
+  setTimeout(() => { try { buildLayoutSnapshot() } catch {} }, 500)
 
   // Se já existir uma instância rodando (reexecução do bookmarklet para atualizar), limpa a antiga
   if (eqWindow.__easyquiz) {
@@ -179,9 +183,29 @@ async function initEasyQuiz(): Promise<void> {
       panel.setStatus(`Questão localizada (${context.controls.length} controles). Preparando análise...`, 'info')
       panel.setProgress(40, `Consultando Gemini (${settings.model})...`)
       let images = await captureImages(context.scope, settings.useVision)
+
+      // SANITY CHECK RIGOROSO (Validação do Conteúdo Extraído)
+      console.log('================ [SANITY CHECK] ================')
+      console.log(`[DOM Scope]: ${context.scope.tagName.toLowerCase()}#${context.scope.id || 'N/A'}`)
+      console.log(`[Imagens Capturadas]: ${images.length}`)
+      console.log(`[Texto Extraído (Início)]: ${context.questionText.slice(0, 150).replace(/\n/g, ' ')}...`)
+      console.log('================================================')
+
+      if (context.questionText.trim().length < 10 && images.length === 0) {
+        panel.logToConsole('> [ERRO] Texto extraído muito curto e sem imagens. Abortando API.', 'text-red')
+        panel.setStatus('Falha de escopo: contêiner inválido ou vazio.', 'error')
+        return undefined
+      }
+
       if (images.length > 0) {
-        const attachedElements = images.map((img) => img.element).filter(Boolean) as Element[]
-        highlightAttachedImages(attachedElements)
+        // Só destacar elementos com imagem REAL capturada — evita highlights fantasma
+        const realImages = images.filter(img =>
+          img.captureStatus === 'captured' && img.base64 && img.base64.length > 100 && img.element
+        )
+        if (realImages.length > 0) {
+          const attachedElements = realImages.map((img) => img.element).filter(Boolean) as Element[]
+          highlightAttachedImages(attachedElements)
+        }
         // Atualiza a aba Contexto com as imagens capturadas
         panel.updateImages(images)
       }
@@ -229,8 +253,13 @@ async function initEasyQuiz(): Promise<void> {
         panel.updateContext(context)
         images = await captureImages(context.scope, settings.useVision)
         if (images.length > 0) {
-          const attachedElements = images.map((img) => img.element).filter(Boolean) as Element[]
-          highlightAttachedImages(attachedElements)
+          const realImages = images.filter(img =>
+            img.captureStatus === 'captured' && img.base64 && img.base64.length > 100 && img.element
+          )
+          if (realImages.length > 0) {
+            const attachedElements = realImages.map((img) => img.element).filter(Boolean) as Element[]
+            highlightAttachedImages(attachedElements)
+          }
           panel.updateImages(images)
         }
         panel.setStatus(`Reconsultando IA com escopo ampliado (${context.controls.length} controles)...`, 'info')

@@ -11,6 +11,10 @@ let captureBadges: HTMLElement[] = []
 let scanOverlay: HTMLElement | null = null
 let repositionListener: (() => void) | null = null
 
+/** Dimensão mínima (px) para que um elemento receba highlight de imagem.
+ * Evita "highlights fantasma" em elementos invisíveis, br/span vazios, etc. */
+const MIN_HIGHLIGHT_AREA_PX = 40
+
 const IMAGE_PULSE_KEYFRAMES = `
 @keyframes eq-image-pulse-yellow-white {
   0%, 100% {
@@ -97,6 +101,24 @@ export function clearHighlights(): void {
     try { scanOverlay.remove() } catch {}
     scanOverlay = null
   }
+
+  // Limpeza global de segurança: remover qualquer frame/badge órfão do document.body
+  // que possa ter sobrevivido a uma navegação SPA
+  try {
+    document.querySelectorAll('[data-easyquiz-image-frame]').forEach(el => { try { el.remove() } catch {} })
+    document.querySelectorAll('[data-easyquiz-capture-badge]').forEach(el => { try { el.remove() } catch {} })
+    document.querySelectorAll('[data-easyquiz-image-highlight]').forEach(el => {
+      try {
+        const h = el as HTMLElement
+        h.style.removeProperty('animation')
+        h.style.removeProperty('outline')
+        h.style.removeProperty('outline-offset')
+        h.style.removeProperty('box-shadow')
+        h.style.removeProperty('filter')
+        h.removeAttribute('data-easyquiz-image-highlight')
+      } catch {}
+    })
+  } catch {}
 }
 
 export function highlightAttachedImages(elements: Element[]): void {
@@ -107,27 +129,29 @@ export function highlightAttachedImages(elements: Element[]): void {
     if (!el || typeof (el as any).setAttribute !== 'function') continue
     const node = el as HTMLElement
 
-    // 1. Aplica destaque direto no elemento
-    try {
-      if ((node as any).style) {
-        node.style.outline = '3px solid #ffd600'
-        node.style.outlineOffset = '4px'
-        node.style.animation = 'eq-image-pulse-yellow-white 1.2s ease-in-out infinite'
-        node.style.boxShadow = '0 0 16px rgba(255, 214, 0, 0.7)'
-        node.style.filter = 'drop-shadow(0 0 8px rgba(255, 214, 0, 0.8))'
-      }
-      node.setAttribute('data-easyquiz-image-highlight', 'true')
-      highlightedImages.push(node)
-    } catch {}
-
-    // 2. Cria Moldura Flutuante Bounding-Box no document.body
-    // Essa moldura é imune a cortes de overflow: hidden, especificações de SVG ou estilos do container
     try {
       const rect = el.getBoundingClientRect()
-      const effectiveW = rect.width || (el as HTMLElement).offsetWidth || 280
-      const effectiveH = rect.height || (el as HTMLElement).offsetHeight || 200
+      const effectiveW = rect.width || node.offsetWidth || 0
+      const effectiveH = rect.height || node.offsetHeight || 0
 
-      if (effectiveW > 10 && effectiveH > 10) {
+      // Guard contra highlights fantasma: elemento deve ter dimensão mínima real
+      if (effectiveW >= MIN_HIGHLIGHT_AREA_PX && effectiveH >= MIN_HIGHLIGHT_AREA_PX) {
+        
+        // 1. Aplica destaque direto no elemento
+        try {
+          if ((node as any).style) {
+            node.style.outline = '3px solid #ffd600'
+            node.style.outlineOffset = '4px'
+            node.style.animation = 'eq-image-pulse-yellow-white 1.2s ease-in-out infinite'
+            node.style.boxShadow = '0 0 16px rgba(255, 214, 0, 0.7)'
+            node.style.filter = 'drop-shadow(0 0 8px rgba(255, 214, 0, 0.8))'
+          }
+          node.setAttribute('data-easyquiz-image-highlight', 'true')
+          highlightedImages.push(node)
+        } catch {}
+
+        // 2. Cria Moldura Flutuante Bounding-Box no document.body
+        // Essa moldura é imune a cortes de overflow: hidden, especificações de SVG ou estilos do container
         const frame = document.createElement('div')
         frame.setAttribute('data-easyquiz-image-frame', 'true')
         frame.style.cssText = `
@@ -177,18 +201,38 @@ export function highlightAttachedImages(elements: Element[]): void {
   }
 
   // Sincroniza posição das molduras com scroll e redimensionamento
+  // Também auto-remove frames órfãs cujo elemento já não está no DOM
   if (trackedPairs.length > 0 && !repositionListener && typeof window !== 'undefined') {
     repositionListener = () => {
-      for (const pair of trackedPairs) {
+      for (let i = trackedPairs.length - 1; i >= 0; i--) {
+        const pair = trackedPairs[i]
         try {
+          // Verificar se o elemento ainda existe no DOM e está visível
+          if (!document.contains(pair.element)) {
+            // Elemento foi removido (navegação SPA) — limpar frame órfã
+            try { pair.frame.remove() } catch {}
+            const frameIdx = imageFrames.indexOf(pair.frame)
+            if (frameIdx !== -1) imageFrames.splice(frameIdx, 1)
+            trackedPairs.splice(i, 1)
+            continue
+          }
           const r = pair.element.getBoundingClientRect()
           if (r.width > 0 && r.height > 0) {
             pair.frame.style.top = `${r.top + window.scrollY - 3}px`
             pair.frame.style.left = `${r.left + window.scrollX - 3}px`
             pair.frame.style.width = `${r.width + 6}px`
             pair.frame.style.height = `${r.height + 6}px`
+          } else {
+            // Elemento tem tamanho 0 (pode estar oculto) — esconder frame
+            pair.frame.style.display = 'none'
           }
         } catch {}
+      }
+      // Se todos os pares foram removidos, limpar o listener
+      if (trackedPairs.length === 0 && repositionListener) {
+        window.removeEventListener('scroll', repositionListener)
+        window.removeEventListener('resize', repositionListener)
+        repositionListener = null
       }
     }
     window.addEventListener('scroll', repositionListener, { passive: true })

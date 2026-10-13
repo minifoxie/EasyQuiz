@@ -5,6 +5,8 @@ import {
   CONTROL_SELECTOR,
   describeControl,
   isInsideEasyQuiz,
+  isKhanAcademyPage,
+  isKhanSidebarElement,
   isNavigationControl,
   isUtilityOrGamificationControl,
   isVisible,
@@ -50,6 +52,7 @@ const CANDIDATE_SELECTORS = [
   '[class*="question" i]',
   '[class*="pergunta" i]',
   '[class*="categoriz" i]',
+  '[role="group"]',
   'article',
   'form',
   'section',
@@ -60,8 +63,13 @@ const CANDIDATE_SELECTORS = [
 function scoreCandidate(element: HTMLElement): number {
   if (!isVisible(element)) return -Infinity
 
+  // Khan Academy: penalizar severamente elementos na sidebar/lista de tarefas
+  if (isKhanSidebarElement(element)) return -Infinity
+
   const rect = element.getBoundingClientRect()
-  const controls = Array.from(element.querySelectorAll(CONTROL_SELECTOR)).filter(isVisible)
+  const controls = Array.from(element.querySelectorAll(CONTROL_SELECTOR)).filter(
+    (el) => isVisible(el) && !isKhanSidebarElement(el)
+  )
   const textLength = cleanText(element.innerText || element.textContent || '', 4000).length
 
   // Não pontua se texto for vazio ou se não tiver controles nem texto explicativo
@@ -77,7 +85,9 @@ function scoreCandidate(element: HTMLElement): number {
   if (areaRatio > 0.8) return -Infinity
 
   const centerY = rect.top + rect.height / 2
-  const centerDistance = Math.abs(centerY - window.innerHeight / 2) / Math.max(1, window.innerHeight)
+  const centerX = rect.left + rect.width / 2
+  const centerDistanceY = Math.abs(centerY - window.innerHeight / 2) / Math.max(1, window.innerHeight)
+  const centerDistanceX = Math.abs(centerX - window.innerWidth / 2) / Math.max(1, window.innerWidth)
 
   // Bônus para elementos que agregam tanto o enunciado (texto > 40 chars) quanto controles
   const hasSubstantialText = textLength > 40 ? 35 : 0
@@ -87,17 +97,26 @@ function scoreCandidate(element: HTMLElement): number {
 
   // Bônus para seletores específicos Khan Academy / Perseus
   const isPerseusSpecific = element.matches?.(
-    '.perseus-renderer, .framework-perseus, [class*="ExerciseWrapper"], [class*="exercise-wrapper" i], [class*="task-challenge" i], [class*="task-body" i]'
+    '.perseus-renderer, .framework-perseus, [class*="ExerciseWrapper"], [class*="exercise-wrapper" i], [class*="task-challenge" i], [class*="task-body" i], [data-test-id*="exercise" i]'
   ) ? 50 : 0
 
+  // Penalidade severa para elementos que estão muito na lateral (prováveis sidebars)
+  const sidebarPenalty = centerDistanceX > 0.35 ? 150 : 0
+
+  // Penalidade para elementos que são praticamente a página toda
+  const massivePenalty = areaRatio > 0.85 ? 100 : 0
+
   return (
-    controls.length * 15 +
+    // Limita pontuação de controles para não favorecer o <body> só porque ele engloba todos os controles da página
+    Math.min(10, controls.length) * 15 +
     Math.min(60, textLength / 20) +
     hasSubstantialText +
     inViewportBonus +
     isPerseusSpecific -
-    areaRatio * 20 -
-    centerDistance * 10
+    areaRatio * 30 -
+    centerDistanceY * 20 -
+    sidebarPenalty -
+    massivePenalty
   )
 }
 
@@ -161,6 +180,127 @@ export function findTrueQuestionContainer(element: HTMLElement): HTMLElement {
 }
 
 
+/**
+ * Extrai texto com consciência matemática: converte KaTeX/MathML para LaTeX legível.
+ * Usado em vez de `innerText` puro para preservar a formatação de fórmulas.
+ */
+export function extractMathAwareText(element: HTMLElement, maxLen = 16_000): string {
+  const clone = element.cloneNode(true) as HTMLElement
+
+  // Isolamento Cirúrgico: Remover barras laterais, navegação e drawers do Khan Academy e similares
+  clone.querySelectorAll('nav, aside, [class*="sidebar" i], [class*="lesson" i], [class*="_ka-drawer_" i], [class*="navigation" i], [role="navigation"]').forEach(el => el.remove())
+
+  // 1. KaTeX: substituir <span class="katex"> pelo LaTeX source da <annotation>
+  const katexEls = Array.from(clone.querySelectorAll('.katex'))
+  for (const katex of katexEls) {
+    const annotation = katex.querySelector('annotation[encoding="application/x-tex"]')
+    if (annotation && annotation.textContent) {
+      const latexText = ` $${annotation.textContent.trim()}$ `
+      const replacement = document.createTextNode(latexText)
+      katex.replaceWith(replacement)
+    }
+  }
+
+  // 2. MathML <math>: linearizar frações, raízes, potências
+  const mathEls = Array.from(clone.querySelectorAll('math'))
+  for (const math of mathEls) {
+    try {
+      const linearized = linearizeMathML(math)
+      if (linearized) {
+        const replacement = document.createTextNode(` ${linearized} `)
+        math.replaceWith(replacement)
+      }
+    } catch {}
+  }
+
+  // 3. MathQuill: extrair texto linearizado
+  const mqEls = Array.from(clone.querySelectorAll('.mq-root-block, .mq-editable-field'))
+  for (const mq of mqEls) {
+    const textContent = mq.textContent?.trim()
+    if (textContent) {
+      mq.textContent = ` [math: ${textContent}] `
+    }
+  }
+
+  // 4. <sup> e <sub> → notação de potência/índice
+  const sups = Array.from(clone.querySelectorAll('sup'))
+  for (const sup of sups) {
+    sup.textContent = `^{${sup.textContent?.trim() || ''}}`
+  }
+  const subs = Array.from(clone.querySelectorAll('sub'))
+  for (const sub of subs) {
+    sub.textContent = `_{${sub.textContent?.trim() || ''}}`
+  }
+
+  // 5. Extração de Dados de Acessibilidade (Screen Reader) para Gráficos
+  let srHiddenData = ''
+  clone.querySelectorAll('.sr-only, .visuallyhidden, .visually-hidden, [aria-label], [aria-describedby]').forEach(el => {
+    // Tenta capturar rótulos ocultos
+    const label = el.getAttribute('aria-label') || el.getAttribute('aria-describedby') || ''
+    const txt = el.textContent?.trim() || ''
+    
+    // Se não for um elemento de interface inútil
+    if (!el.closest('button, input, a')) {
+      if (label && !srHiddenData.includes(label)) {
+        srHiddenData += `\n[Dado do Gráfico/Imagem: ${label}]`
+      }
+      if (txt && !label && txt.length > 5 && !srHiddenData.includes(txt)) {
+        srHiddenData += `\n[Tabela Oculta do Gráfico: ${txt}]`
+      }
+    }
+  })
+
+  const rawText = clone.innerText && clone.innerText.trim().length > 0 ? clone.innerText : clone.textContent || ''
+  
+  // Mescla o texto visível normal com os dados cruciais de acessibilidade que os leitores de tela leem
+  const finalText = rawText + (srHiddenData ? `\n\n--- DADOS OCULTOS DA QUESTÃO ---\n${srHiddenData}` : '')
+  
+  return cleanText(finalText, maxLen)
+}
+
+/** Lineariza um elemento MathML para texto legível */
+function linearizeMathML(math: Element): string {
+  const parts: string[] = []
+  function walk(el: Element): void {
+    const tag = el.tagName?.toLowerCase()
+    if (tag === 'mfrac') {
+      const children = Array.from(el.children)
+      const num = children[0]?.textContent?.trim() || '?'
+      const den = children[1]?.textContent?.trim() || '?'
+      parts.push(`(${num}/${den})`)
+      return
+    }
+    if (tag === 'msqrt') {
+      parts.push(`sqrt(${el.textContent?.trim() || '?'})`)
+      return
+    }
+    if (tag === 'msup') {
+      const children = Array.from(el.children)
+      const base = children[0]?.textContent?.trim() || '?'
+      const exp = children[1]?.textContent?.trim() || '?'
+      parts.push(`${base}^{${exp}}`)
+      return
+    }
+    if (tag === 'msub') {
+      const children = Array.from(el.children)
+      const base = children[0]?.textContent?.trim() || '?'
+      const sub = children[1]?.textContent?.trim() || '?'
+      parts.push(`${base}_{${sub}}`)
+      return
+    }
+    if (tag === 'mn' || tag === 'mi' || tag === 'mo' || tag === 'mtext') {
+      parts.push(el.textContent?.trim() || '')
+      return
+    }
+    // Recursivo para containers como <mrow>, <mstyle>, etc.
+    for (const child of Array.from(el.children)) {
+      walk(child)
+    }
+  }
+  walk(math)
+  return parts.join(' ')
+}
+
 export function expandToGeneralSelection(scope: HTMLElement): HTMLElement {
   let curr = scope
   // Sobe procurando o container maior do exercício, artigo, formulário ou main
@@ -182,27 +322,107 @@ export function expandToGeneralSelection(scope: HTMLElement): HTMLElement {
   return curr || document.body
 }
 
+// ---- CACHE DE LAYOUT INTELIGENTE ----
+// Memoriza o seletor do escopo que funcionou no último scan para evitar re-scan redundante.
+// Invalida automaticamente se o seletor cached não pontua mais (troca de página/layout).
+const _scopeCache = new Map<string, { selector: string; timestamp: number }>()
+const SCOPE_CACHE_TTL = 30_000 // 30s — depois disso, refaz o scan completo
+const MIN_SCOPE_SCORE = 8 // Escopos fracos (ex: main, body vazio) não são cacheados
+
+function getCachedScopeSelector(): string | null {
+  const key = window.location.href // Cache atrelado à URL exata (invalida ao mudar de questão em SPAs se a URL mudar)
+  const cached = _scopeCache.get(key)
+  if (!cached) return null
+  if (Date.now() - cached.timestamp > SCOPE_CACHE_TTL) {
+    _scopeCache.delete(key)
+    return null
+  }
+  return cached.selector
+}
+
+function setCachedScopeSelector(element: HTMLElement): void {
+  try {
+    if (scoreCandidate(element) < MIN_SCOPE_SCORE) return
+
+    // Constrói um seletor único para o elemento: tag + id + classes + easyquizId
+    const tag = element.tagName.toLowerCase()
+    const id = element.id ? `#${element.id}` : ''
+    const eqId = element.dataset.easyquizId ? `[data-easyquiz-id="${element.dataset.easyquizId}"]` : ''
+    const cls = Array.from(element.classList).slice(0, 3).map(c => `.${c}`).join('')
+    const selector = `${tag}${id}${eqId}${cls}`
+    
+    // Nunca cacheia body ou html sem um identificador muito forte
+    if (selector && selector !== 'body' && selector !== 'html') {
+      _scopeCache.set(window.location.href, { selector, timestamp: Date.now() })
+    }
+  } catch {}
+}
+
 export function findActiveScope(): HTMLElement {
+  // -1. CACHE: tenta o seletor memorizado do layout anterior (evita re-scan redundante)
+  const cachedSelector = getCachedScopeSelector()
+  if (cachedSelector) {
+    try {
+      const cached = document.querySelector(cachedSelector) as HTMLElement | null
+      if (cached && isVisible(cached) && !isKhanSidebarElement(cached) && scoreCandidate(cached) >= MIN_SCOPE_SCORE) {
+        return findTrueQuestionContainer(cached)
+      }
+    } catch {}
+    // Cache inválido — limpa e segue para scan completo
+    _scopeCache.delete(window.location.href)
+  }
+
   // 0. PRIORIDADE MÁXIMA: widget de classificação (Wayground/Quizizz) — escopo é o container completo
   const classificationWidget = document.querySelector(
     '[class*="classification-layout" i], [class*="quiz-container" i][class*="classification" i]'
   ) as HTMLElement | null
   if (classificationWidget && isVisible(classificationWidget)) {
+    setCachedScopeSelector(classificationWidget)
     return classificationWidget
+  }
+
+  // 0.5 PRIORIDADE KHAN ACADEMY: buscar o Perseus renderer VISÍVEL e no VIEWPORT
+  // O Khan Academy renderiza múltiplos exercícios no mesmo DOM (sidebar de cards),
+  // mas apenas UM está ativo e visível. Este bloco garante que capturamos o correto.
+  if (isKhanAcademyPage()) {
+    const perseusRenderers = Array.from(
+      document.querySelectorAll('.perseus-renderer, .framework-perseus')
+    ) as HTMLElement[]
+    // Filtrar: visível no viewport, com dimensões reais, e NÃO na sidebar
+    const activeRenderers = perseusRenderers.filter((el) => {
+      if (!isVisible(el) || isKhanSidebarElement(el)) return false
+      const rect = el.getBoundingClientRect()
+      // Deve estar pelo menos parcialmente no viewport e ter tamanho razoável
+      return rect.width > 100 && rect.height > 50 && rect.bottom > 0 && rect.top < window.innerHeight
+    })
+    if (activeRenderers.length > 0) {
+      // Prefere o maior renderer visível (o que contém a questão ativa)
+      activeRenderers.sort((a, b) => {
+        const rA = a.getBoundingClientRect()
+        const rB = b.getBoundingClientRect()
+        return (rB.width * rB.height) - (rA.width * rA.height)
+      })
+      const result = findTrueQuestionContainer(activeRenderers[0])
+      setCachedScopeSelector(result)
+      return result
+    }
   }
 
   // 1. Verificar se o elemento com foco do usuário está dentro de uma questão candidata
   const active = document.activeElement as HTMLElement | null
   if (active && active !== document.body) {
     const focusedScope = active.closest(CANDIDATE_SELECTORS) as HTMLElement | null
-    if (focusedScope && scoreCandidate(focusedScope) > 0) {
-      return findTrueQuestionContainer(focusedScope)
+    if (focusedScope && !isKhanSidebarElement(focusedScope) && scoreCandidate(focusedScope) > 0) {
+      const result = findTrueQuestionContainer(focusedScope)
+      setCachedScopeSelector(result)
+      return result
     }
   }
 
   // 2. Pontuar todos os candidatos na página
   const candidates = Array.from(document.querySelectorAll(CANDIDATE_SELECTORS)) as HTMLElement[]
   const ranked = candidates
+    .filter((el) => !isKhanSidebarElement(el)) // Excluir sidebar do Khan Academy
     .map((element) => ({ element, score: scoreCandidate(element) }))
     .filter((item) => Number.isFinite(item.score))
     .sort((a, b) => b.score - a.score)
@@ -214,11 +434,15 @@ export function findActiveScope(): HTMLElement {
   })
 
   if (specific) {
-    return findTrueQuestionContainer(specific.element)
+    const result = findTrueQuestionContainer(specific.element)
+    setCachedScopeSelector(result)
+    return result
   }
 
   if (ranked.length > 0 && ranked[0].score > 0) {
-    return findTrueQuestionContainer(ranked[0].element)
+    const result = findTrueQuestionContainer(ranked[0].element)
+    setCachedScopeSelector(result)
+    return result
   }
 
   // 3. Fallback: procurar o formulário principal ou main
@@ -275,10 +499,13 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
   const allElements = Array.from(scope.querySelectorAll(CONTROL_SELECTOR)) as HTMLElement[]
   const handledInputs = new Set<HTMLElement>()
   const selectedElements: HTMLElement[] = []
+  const isKhan = isKhanAcademyPage()
 
   // 1ª passada: inputs nativos e selects
   for (const el of allElements) {
     if (!isVisible(el) || isNavigationControl(el) || isUtilityOrGamificationControl(el)) continue
+    // Khan Academy: excluir controles que estão na sidebar/lista de tarefas
+    if (isKhan && isKhanSidebarElement(el)) continue
     // Descarta botões de retrocesso ("Anterior", "Voltar", etc.) que não são barrados por isNavigationControl
     const elText = ((el as HTMLInputElement).value || el.textContent || '').trim()
     if (ANTI_NAVIGATION_PATTERN.test(elText)) continue
@@ -293,6 +520,8 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
   // 2ª passada: cards, labels e botões que representam opções customizadas (sem input interno já coletado)
   for (const el of allElements) {
     if (!isVisible(el) || isNavigationControl(el) || isUtilityOrGamificationControl(el)) continue
+    // Khan Academy: excluir controles da sidebar (2ª passada)
+    if (isKhan && isKhanSidebarElement(el)) continue
     // Descarta botões de retrocesso que escapam do isNavigationControl
     const elText2 = ((el as HTMLInputElement).value || el.textContent || '').trim()
     if (ANTI_NAVIGATION_PATTERN.test(elText2)) continue
@@ -427,6 +656,55 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
     }
   }
 
+  // 5ª passada: Perseus / Khan Academy widgets especializados
+  // Ativa quando nenhum controle real foi encontrado OU quando os controles encontrados são
+  // apenas labels/textos sem inputs nativos — Perseus renderiza tudo como <div>s com React handlers
+  if (selectedElements.length === 0 || (selectedElements.length > 0 && !hasRealInputs && !selectedElements.some(el =>
+    el.getAttribute('role') === 'radio' || el.getAttribute('role') === 'checkbox' ||
+    el.classList.contains('mq-editable-field') || el.closest('.perseus-widget-container')
+  ))) {
+    const perseusRoot = document.querySelector('.perseus-renderer, .framework-perseus') as HTMLElement | null
+    const perseusScope = perseusRoot || scope
+
+    // 5.1 MathQuill fields (expression input)
+    const mqFields = Array.from(perseusScope.querySelectorAll('.mq-editable-field, .mq-root-block, [class*="expression-editor" i], [class*="math-input" i]')) as HTMLElement[]
+    for (const mq of mqFields) {
+      if (!isVisible(mq) || isInsideEasyQuiz(mq)) continue
+      if (!selectedElements.includes(mq)) selectedElements.push(mq)
+    }
+
+    // 5.2 Perseus dropdowns (custom select with React portal)
+    const perseusDropdowns = Array.from(perseusScope.querySelectorAll('[class*="perseus-dropdown" i], .perseus-widget-container select, .perseus-widget-container [role="combobox"], .perseus-widget-container [role="listbox"]')) as HTMLElement[]
+    for (const dd of perseusDropdowns) {
+      if (!isVisible(dd) || isInsideEasyQuiz(dd)) continue
+      if (!selectedElements.includes(dd)) selectedElements.push(dd)
+    }
+
+    // 5.3 Perseus radios (div[role="radio"] without native input)
+    const perseusRadios = Array.from(perseusScope.querySelectorAll('[class*="perseus-radio" i] [role="radio"], .perseus-widget-container [role="radio"], .perseus-widget-container [role="checkbox"]')) as HTMLElement[]
+    for (const pr of perseusRadios) {
+      if (!isVisible(pr) || isInsideEasyQuiz(pr)) continue
+      // Evita duplicatas com inputs nativos já coletados
+      if (pr.querySelector('input[type="radio"], input[type="checkbox"]')) continue
+      if (!selectedElements.includes(pr)) selectedElements.push(pr)
+    }
+
+    // 5.4 Perseus interactive widgets (sortable, number-line, interactive-graph)
+    const perseusInteractive = Array.from(perseusScope.querySelectorAll('.perseus-widget-container [role="button"], .number-line [role="slider"], [class*="interactive-graph" i] [role="button"]')) as HTMLElement[]
+    for (const pi of perseusInteractive) {
+      if (!isVisible(pi) || isInsideEasyQuiz(pi) || isNavigationControl(pi)) continue
+      if (!selectedElements.includes(pi)) selectedElements.push(pi)
+    }
+
+    // 5.5 Perseus native inputs/selects inside widget containers
+    const perseusInputs = Array.from(perseusScope.querySelectorAll('.perseus-widget-container input:not([type="hidden"]), .perseus-widget-container textarea, .perseus-widget-container select')) as HTMLElement[]
+    for (const pi of perseusInputs) {
+      if (!isVisible(pi) || isInsideEasyQuiz(pi)) continue
+      if (handledInputs.has(pi)) continue
+      if (!selectedElements.includes(pi)) selectedElements.push(pi)
+    }
+  }
+
   return selectedElements
     .slice(0, 100)
     .map((el) => describeControl(el, 'answer'))
@@ -481,11 +759,17 @@ export function captureCurrentContext(expanded = false): CapturedContext | null 
     navs = extractNavigationControls(document.body)
   }
 
-  // Captura de texto com limite inteligente para páginas extensas
-  const rawText = scope.innerText && scope.innerText.trim().length > 0 ? scope.innerText : scope.textContent || ''
-  const questionText = rawText.length > 40_000
-    ? cleanText(rawText.slice(0, 8000), 8000) + '\n[...conteúdo extenso truncado...]\n' + cleanText(rawText.slice(-2000), 2000)
-    : cleanText(rawText, 16_000)
+  // Captura de texto com consciência matemática (KaTeX/MathML) para Khan Academy
+  const hasMathContent = scope.querySelector('.katex, math, .mq-root-block, .mq-editable-field')
+  let questionText: string
+  if (hasMathContent) {
+    questionText = extractMathAwareText(scope, 16_000)
+  } else {
+    const rawText = scope.innerText && scope.innerText.trim().length > 0 ? scope.innerText : scope.textContent || ''
+    questionText = rawText.length > 40_000
+      ? cleanText(rawText.slice(0, 8000), 8000) + '\n[...conteúdo extenso truncado...]\n' + cleanText(rawText.slice(-2000), 2000)
+      : cleanText(rawText, 16_000)
+  }
   const controls = [...answers, ...navs].slice(0, 120)
 
   // Se tem texto explicativo relevante (> 30 chars), mesmo sem controles de resposta direta,
