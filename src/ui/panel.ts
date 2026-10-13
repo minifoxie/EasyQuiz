@@ -1515,8 +1515,11 @@ export class EasyQuizPanel {
           return
         }
 
-        // Extração inteligente de chaves (AIza... ou fallback por quebra de linha/vírgula)
-        const regexMatches = raw.match(/AIza[0-9A-Za-z\-_]{35}/g)
+        // Extração inteligente de chaves — suporta múltiplos formatos:
+        // • AIzaSy... (Google AI Studio clássico, 39 chars)
+        // • AQ.Ab8RN6... (OAuth2/Gemini API token de novo formato)
+        // Fallback: qualquer token separado por linha/vírgula com ≥20 chars
+        const regexMatches = raw.match(/AIza[0-9A-Za-z\-_]{35}|AQ\.[0-9A-Za-z\-_]{20,}/g)
         let keysToImport: string[] = []
         if (regexMatches && regexMatches.length > 0) {
           keysToImport = Array.from(new Set(regexMatches))

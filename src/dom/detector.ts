@@ -12,11 +12,19 @@ import {
 
 
 const CANDIDATE_SELECTORS = [
-  // Khan Academy & Perseus
-  '[data-test-id*="exercise" i]',
-  '[data-testid*="exercise" i]',
+  // Khan Academy & Perseus — seletores específicos 2026
+  '[data-testid="exercise-question-number"]',
+  '[data-testid="perseus-expression-input"]',
+  '[data-testid="perseus-math-input"]',
+  '[data-testid="exercise-header"]',
+  '[class*="ExerciseWrapper"]',
+  '[class*="exercise-wrapper" i]',
+  '[class*="task-challenge" i]',
+  '[class*="task-body" i]',
   '.perseus-renderer',
   '.framework-perseus',
+  '[data-test-id*="exercise" i]',
+  '[data-testid*="exercise" i]',
   // Google Forms
   '.Qr7Oae',
   '[data-item-id]',
@@ -48,6 +56,7 @@ const CANDIDATE_SELECTORS = [
   'main',
 ].join(',')
 
+
 function scoreCandidate(element: HTMLElement): number {
   if (!isVisible(element)) return -Infinity
 
@@ -63,6 +72,10 @@ function scoreCandidate(element: HTMLElement): number {
   const elementArea = Math.max(1, rect.width * rect.height)
   const areaRatio = Math.min(1, elementArea / viewportArea)
 
+  // Penalização severa para containers que cobrem >80% do viewport (main/body do Khan Academy, page wrappers)
+  // Isso impede que a tela inteira seja capturada como escopo de questão
+  if (areaRatio > 0.8) return -Infinity
+
   const centerY = rect.top + rect.height / 2
   const centerDistance = Math.abs(centerY - window.innerHeight / 2) / Math.max(1, window.innerHeight)
 
@@ -72,18 +85,35 @@ function scoreCandidate(element: HTMLElement): number {
   // Se o elemento estiver visível no viewport atual, ganha bônus
   const inViewportBonus = rect.top >= 0 && rect.bottom <= window.innerHeight ? 25 : 0
 
+  // Bônus para seletores específicos Khan Academy / Perseus
+  const isPerseusSpecific = element.matches?.(
+    '.perseus-renderer, .framework-perseus, [class*="ExerciseWrapper"], [class*="exercise-wrapper" i], [class*="task-challenge" i], [class*="task-body" i]'
+  ) ? 50 : 0
+
   return (
     controls.length * 15 +
     Math.min(60, textLength / 20) +
     hasSubstantialText +
-    inViewportBonus -
+    inViewportBonus +
+    isPerseusSpecific -
     areaRatio * 20 -
     centerDistance * 10
   )
 }
 
+
 export function findTrueQuestionContainer(element: HTMLElement): HTMLElement {
   let curr = element
+
+  // ── CAMINHO RÁPIDO: Khan Academy / Perseus ────────────────────────────────
+  // Se o elemento estiver dentro de um container Perseus, usa o menor
+  // container válido como escopo, impedindo captura da tela inteira.
+  const perseusContainer = curr.closest(
+    '.perseus-renderer, .framework-perseus, [class*="ExerciseWrapper"], [class*="exercise-wrapper" i], [class*="task-challenge" i], [class*="task-body" i], [data-testid="exercise-header"]'
+  ) as HTMLElement | null
+  if (perseusContainer && perseusContainer !== document.body) {
+    return perseusContainer
+  }
 
   // Se o próprio elemento já é um container de questão válido (article, card, etc. que não seja main ou body)
   if (
@@ -129,6 +159,7 @@ export function findTrueQuestionContainer(element: HTMLElement): HTMLElement {
 
   return curr
 }
+
 
 export function expandToGeneralSelection(scope: HTMLElement): HTMLElement {
   let curr = scope

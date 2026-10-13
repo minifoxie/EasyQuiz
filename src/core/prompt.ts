@@ -304,7 +304,35 @@ function detectPlatformHint(url: string, html: string): string {
     }
     return '[PLATAFORMA: Wayground/Quizizz — alternativas são cards clicáveis, use clk]'
   }
-  if (/khanacademy\.org/i.test(url) || html.includes('perseus')) return '[PLATAFORMA: Khan Academy — widgets Perseus; use js via $eq para widgets interativos se necessário]'
+  if (/khanacademy\.org/i.test(url) || html.includes('perseus')) {
+    const hasExpressionInput = html.includes('perseus-expression-input') || html.includes('perseus-math-input')
+    const hasMultipleChoice = html.includes('perseus-radio') || html.includes('perseus-checkbox') || html.includes('choice-radio') || html.includes('choice_')
+    const hasDropdown = html.includes('perseus-dropdown') || html.includes('perseus-select')
+    const hasInputNumber = html.includes('perseus-input-number') || html.includes('unit-input') || html.includes('numerator') || html.includes('denominator')
+
+    let khanHint = '[PLATAFORMA: Khan Academy / Perseus]\n'
+    khanHint += 'REGRAS CRÍTICAS PARA KHAN ACADEMY:\n'
+
+    if (hasMultipleChoice) {
+      khanHint += '• MÚLTIPLA ESCOLHA: As alternativas são radio buttons com classe "choice-radio-btn" ou data-testid contendo "choice". '
+      khanHint += 'Use chk com o ID do controle listado em [RESPOSTAS]. Se não funcionar, use {t:"js",v:"$eq(\'[data-testid*=choice]:nth-child(N)\').click()"}\n'
+    }
+    if (hasExpressionInput) {
+      khanHint += '• EXPRESSÃO MATEMÁTICA: Input Perseus [data-testid=perseus-expression-input] ou .mq-editable-field. '
+      khanHint += 'Use val com o ID do controle. Se o input não aceitar val, use {t:"js",v:"const el=$eq(\'[data-testid=perseus-expression-input] .mq-editable-field\'); el.focus(); document.execCommand(\'selectAll\'); document.execCommand(\'insertText\',false,\'VALOR\')"}\n'
+    }
+    if (hasInputNumber) {
+      khanHint += '• INPUT NUMÉRICO: Use val com o ID do controle (ex: {t:"val",id:"eq-ctrl-X",v:"42"}). '
+      khanHint += 'Se recusar, use {t:"js",v:"const i=$eq(\'input[data-testid*=input]\'); i.value=\'42\'; i.dispatchEvent(new Event(\'input\',{bubbles:true})); i.dispatchEvent(new Event(\'change\',{bubbles:true}))"}\n'
+    }
+    if (hasDropdown) {
+      khanHint += '• DROPDOWN PERSEUS: Use sel com o ID. Fallback: {t:"js",v:"$eq(\'select\').value=\'OPCAO\'; $eq(\'select\').dispatchEvent(new Event(\'change\',{bubbles:true}))"}\n'
+    }
+    khanHint += '• BOTÃO CHECK/VERIFICAR: Use {t:"adv"} — o sistema localiza automaticamente o botão de verificação Perseus.\n'
+    khanHint += '• SEMPRE prefira os IDs de [RESPOSTAS] antes de tentar JS. JS é ÚLTIMO RECURSO para widgets que não respondem a eventos DOM.'
+
+    return khanHint
+  }
   if (/moodle|ava\.|classroom\.google/i.test(url)) return '[PLATAFORMA: Moodle/AVA/Classroom — formulários padrão]'
   if (/duolingo/i.test(url)) return '[PLATAFORMA: Duolingo — tiles clicáveis, use clk por texto]'
   if (/blackboard|canvas\.instructure/i.test(url)) return '[PLATAFORMA: Canvas/Blackboard — quiz-question padrão]'

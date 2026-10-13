@@ -55,7 +55,18 @@ export const CONTROL_SELECTOR = [
   // Cards e tiles genéricos de quiz
   '[class*="card-option" i]',
   '[class*="tile" i][class*="option" i]',
+  // Khan Academy / Perseus 2026 — widgets matemáticos e de escolha
+  '[data-testid="perseus-expression-input"]',
+  '[data-testid="perseus-math-input"]',
+  '[data-testid*="perseus-input" i]',
+  '.mq-editable-field',   // MathQuill editor interno do Perseus
+  '.choice-radio-btn',    // Radio button de escolha múltipla Perseus
+  '[class*="choice_" i]', // Padrão interno das alternativas Perseus (choice_0, choice_1...)
+  '[class*="perseus-radio" i]',
+  '[class*="perseus-checkbox" i]',
+  '.interactive-component', // Componente interativo genérico Khan Academy
 ].join(',')
+
 
 export const NAVIGATION_PATTERN =
   /(verificar|checar|check|conferir|validar|próxim[oa]|next|continuar|continue|avançar|prosseguir|enviar|submit|concluir|finalizar|terminar|começar|iniciar|start|vamos lá|próxima tarefa|next task|próxima pergunta|next question|marcar como concluíd[oa]|mostrar resumo|entendi|compreendi|ok|leitura concluída|seguir|ir para o exercício|fazer o teste|próximo artigo|ir para a aula)/i
