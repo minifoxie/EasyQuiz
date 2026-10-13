@@ -227,6 +227,20 @@ export class FloatingAnswersHud {
     meta.append(mode, confidence)
     body.appendChild(meta)
 
+    if (plan.rationale) {
+      const rationaleEl = document.createElement('div')
+      rationaleEl.style.cssText = 'padding:6px 10px;margin:6px 0 8px;border-radius:6px;background:rgba(0,255,204,0.06);border:1px solid rgba(0,255,204,0.18);font-size:11px;color:#a7f3d0;line-height:1.4;'
+      rationaleEl.innerHTML = `<span style="color:#00ffcc;font-weight:700;">💡 IA:</span> ${plan.rationale}`
+      body.appendChild(rationaleEl)
+    }
+
+    if (plan.learnedSkill) {
+      const skillEl = document.createElement('div')
+      skillEl.style.cssText = 'padding:4px 8px;margin-bottom:8px;border-radius:5px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.25);font-size:10px;color:#e9d5ff;'
+      skillEl.innerHTML = `<span style="color:#c084fc;font-weight:700;">📚 Skill Registrada:</span> ${plan.learnedSkill.name}`
+      body.appendChild(skillEl)
+    }
+
     // 1. MODO: CATEGORIZAÇÃO / ARRASTAR E SOLTAR
     if (dragActions.length > 0 || plan.mode === 'categorizacao' || plan.mode === 'arrastar_soltar') {
       pillText.textContent = `Categorização (${dragActions.length} itens)`

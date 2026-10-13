@@ -18,12 +18,14 @@ console.log('[EasyQuiz] Compilando bundle...')
 
 import { execSync } from 'child_process'
 
-let versionLabel = 'v2.3.7'
+let versionLabel = 'v3.4.8'
 let gitHash = 'main'
 try {
   gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim()
-  const count = execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim()
-  versionLabel = `v${count.split('').join('.')}`
+  const rawCount = parseInt(execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim(), 10)
+  const statusOutput = execSync('git status --porcelain', { encoding: 'utf8' }).trim()
+  const count = statusOutput.length > 0 ? rawCount + 1 : rawCount
+  versionLabel = `v${String(count).split('').join('.')}`
 } catch {}
 
 // Always use 'main' so bookmarklets fetch the latest after every push.
@@ -255,7 +257,8 @@ await writeFile(path.join(dist, 'instalar_discreto.html'), installerDiscreto, 'u
 
 // Userscript para Tampermonkey / Violentmonkey (mais robusto que bookmarklet em sites restritos)
 const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf-8'))
-const version = pkg.version || '2.1.0'
+const semverFromGit = versionLabel.replace(/^v/, '')
+const version = semverFromGit || pkg.version || '3.4.8'
 
 const userscriptHeader = `// ==UserScript==
 // @name         EasyQuiz Pro

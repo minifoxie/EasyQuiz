@@ -308,6 +308,33 @@ export function isNavigationControl(element: Element | null): boolean {
   return false
 }
 
+function extractMathAndVisualContext(root: HTMLElement): string {
+  const parts: string[] = []
+  try {
+    // 1. TeX/LaTeX annotations (KaTeX, MathJax, Perseus)
+    const annotations = root.querySelectorAll('annotation[encoding*="tex"], [data-tex], [data-latex], math')
+    for (const ann of Array.from(annotations).slice(0, 3)) {
+      const tex = ann.getAttribute('data-tex') || ann.getAttribute('data-latex') || ann.textContent || ''
+      const cleanTex = tex.trim().replace(/\s+/g, ' ')
+      if (cleanTex && cleanTex.length > 1 && cleanTex.length < 200) {
+        parts.push(`[Math: ${cleanTex}]`)
+      }
+    }
+    // 2. Imagens ou SVGs internos da opção
+    const imgs = root.querySelectorAll('img, svg')
+    for (const img of Array.from(imgs).slice(0, 2)) {
+      const alt = (img.getAttribute('alt') || img.getAttribute('aria-label') || '').trim()
+      if (alt) {
+        parts.push(`[Img: ${alt}]`)
+      } else if (img.tagName.toLowerCase() === 'svg') {
+        const title = img.querySelector('title')?.textContent?.trim()
+        if (title) parts.push(`[SVG: ${title}]`)
+      }
+    }
+  } catch {}
+  return parts.length > 0 ? ' ' + parts.join(' ') : ''
+}
+
 export function labelForControl(element: HTMLElement): string {
   // 1. Contexto específico para tabelas (ex: Verdadeiro/Falso, matriz de julgamento)
   const tr = element.closest('tr')
@@ -348,16 +375,22 @@ export function labelForControl(element: HTMLElement): string {
     const labels = Array.from((element as HTMLInputElement).labels ?? [])
       .map((label) => label.textContent)
       .join(' ')
-    if (labels.trim()) return cleanText(labels)
+    if (labels.trim()) {
+      const extra = extractMathAndVisualContext(element.parentElement || element)
+      return cleanText(labels + extra)
+    }
   }
 
   // 5. Se for radio/checkbox em container personalizado (Google Forms, Moodle, Khan, etc.)
   const parentContainer = element.closest(
-    '.docssharedWizToggleLabeledContainer, [role="listitem"], .answer, label, .quiz-option, .form-check, .option-card',
-  )
+    '.docssharedWizToggleLabeledContainer, [role="listitem"], .answer, label, .quiz-option, .form-check, .option-card, .choice-radio-btn, [data-testid*="choice"]',
+  ) as HTMLElement | null
   if (parentContainer && parentContainer !== element) {
     const parentText = cleanText(parentContainer.textContent)
-    if (parentText) return parentText
+    if (parentText) {
+      const extra = extractMathAndVisualContext(parentContainer)
+      return cleanText(parentText + extra)
+    }
   }
 
   // 6. Placeholder ou título
@@ -369,7 +402,8 @@ export function labelForControl(element: HTMLElement): string {
     rawVal ||
     ''
 
-  return cleanText(fallback)
+  const extra = extractMathAndVisualContext(element)
+  return cleanText(fallback + extra)
 }
 
 export function describeControl(element: HTMLElement, role: 'answer' | 'navigation'): ControlDescriptor {

@@ -58,6 +58,7 @@ export function loadSettings(): EasyQuizSettings {
         typeof parsed.confidenceThreshold === 'number'
           ? parsed.confidenceThreshold
           : DEFAULT_SETTINGS.confidenceThreshold,
+      toastStacking: parsed.toastStacking !== undefined ? Boolean(parsed.toastStacking) : DEFAULT_SETTINGS.toastStacking,
     }
   } catch {
     return { ...DEFAULT_SETTINGS }

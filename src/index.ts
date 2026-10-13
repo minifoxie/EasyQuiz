@@ -1,6 +1,7 @@
 import { analyzeWithGemini } from './core/gemini'
 import { buildUserPrompt } from './core/prompt'
 import { addSessionMemory, loadSettings, saveSettings, recordQuestionTiming, loadActivityMetrics, resetActivityMetrics } from './core/storage'
+import { loadPageProfile, recordSkill, recordFailedAction, recordActionSuccess, recordFlowNote } from './core/pageSkills'
 import { createExecutionPolicy } from './core/policy'
 import type { AnalysisPlan, EasyQuizSettings, FailedActionDetail } from './core/types'
 import { captureCurrentContext, captureFullPageText, isQuestionContent } from './dom/detector'
@@ -167,6 +168,14 @@ async function initEasyQuiz(): Promise<void> {
         'text-blue',
       )
 
+      const pageProfile = loadPageProfile(context.sourceUrl)
+      if (pageProfile.skills.length > 0) {
+        panel.logToConsole(`> [SKILLS] 📚 ${pageProfile.skills.length} mini-skill(s) ativas carregadas para este domínio.`, 'text-blue')
+      }
+      if (pageProfile.failedPatterns.length > 0) {
+        panel.logToConsole(`> [ANTI-ERRO] 🛡️ ${pageProfile.failedPatterns.length} anti-pattern(s) memorizados — prevenindo repetição de erros.`, 'text-yellow')
+      }
+
       panel.setStatus(`Questão localizada (${context.controls.length} controles). Preparando análise...`, 'info')
       panel.setProgress(40, `Consultando Gemini (${settings.model})...`)
       let images = await captureImages(context.scope, settings.useVision)
@@ -248,6 +257,26 @@ async function initEasyQuiz(): Promise<void> {
       if (plan.memoryToStore) {
         addSessionMemory(plan.memoryToStore)
         panel.logToConsole(`> [RAG]  Nova memória teórica salva na sessão: "${plan.memoryToStore}"`, 'text-yellow')
+      }
+
+      // Registra Mini-Skill aprendida ou sintetizada pela IA
+      if (plan.learnedSkill) {
+        recordSkill(
+          {
+            name: plan.learnedSkill.name,
+            description: plan.learnedSkill.description,
+            rule: plan.learnedSkill.targetRule,
+            source: 'ai_synthesized',
+          },
+          context.sourceUrl,
+        )
+        panel.logToConsole(`> [SKILL] 📚 Nova Mini-Skill sintetizada pela IA: "${plan.learnedSkill.name}"`, 'text-purple')
+      }
+
+      // Registra nota de fluxo da página
+      if (plan.flowState?.stepDescription) {
+        recordFlowNote(plan.flowState.stepDescription, context.sourceUrl)
+        panel.logToConsole(`> [FLOW] 🗺️ Fluxo da página registrado: "${plan.flowState.stepDescription}"`, 'text-blue')
       }
 
       // Log de imageDescriptions — o que a IA entendeu de cada imagem
@@ -364,19 +393,29 @@ async function initEasyQuiz(): Promise<void> {
       if (signal?.aborted) return
       panel.setExecutionReport(result)
 
-      // Log e replanejamento para QUALQUER tipo de ação que falhou
+      // Grava sucessos das ações verificadas/aplicadas como habilidades confirmadas
+      if (result.reports && result.reports.length > 0) {
+        for (const rep of result.reports) {
+          if (rep.verified || rep.applied) {
+            recordActionSuccess(rep.action, rep.strategy || 'execucao_padrao', window.location.href)
+          }
+        }
+      }
+
+      // Log e replanejamento para QUALQUER tipo de ação que falhou + Registro em Anti-Patterns
       if (result.failedActions && result.failedActions.length > 0) {
         panel.logToConsole(
-          `> [REPLAN] ️ ${result.failedActions.length} ação(ões) não verificadas no DOM. Iniciando replanejamento...`,
+          `> [REPLAN] ⚠️ ${result.failedActions.length} ação(ões) não verificadas no DOM. Registrando no Anti-Patterns...`,
           'text-yellow',
         )
         for (const fail of result.failedActions) {
+          recordFailedAction(fail.action, fail.evidence, window.location.href)
           const a = fail.action as any
           const label = a.t === 'drag' ? `drag: "${a.from}" → "${a.to}"` :
             a.t === 'clk' || a.t === 'chk' ? `${a.t}: "${a.id}"` :
             a.t === 'val' ? `val: "${a.id}" = "${a.v}"` :
             JSON.stringify(a).slice(0, 80)
-          panel.logToConsole(`>    [${a.t.toUpperCase()}] ${label} | ${fail.evidence.slice(0, 80)}`, 'text-yellow')
+          panel.logToConsole(`>    [ANTI-ERRO] [${a.t.toUpperCase()}] ${label} | Falha memorizada: ${fail.evidence.slice(0, 70)} (NÃO REPETIR)`, 'text-yellow')
         }
         await runActionFallback(result.failedActions, signal)
       }
@@ -499,7 +538,8 @@ async function initEasyQuiz(): Promise<void> {
         await executeAlternativeActionPath(fail.action)
         await new Promise(r => setTimeout(r, 250))
         if (verifyActionApplied(fail.action)) {
-          panel.logToConsole(`> [REPLAN]  Estratégia 1 OK: ${label}`, 'text-green')
+          recordActionSuccess(fail.action, 'Estratégia 1: Rota Alternativa', window.location.href)
+          panel.logToConsole(`> [REPLAN]  Estratégia 1 OK: ${label} (memorizado como Mini-Skill)`, 'text-green')
           continue
         }
       } catch {}
@@ -513,7 +553,8 @@ async function initEasyQuiz(): Promise<void> {
             injectClickViaScript(el)
             await new Promise(r => setTimeout(r, 300))
             if (verifyActionApplied(fail.action)) {
-              panel.logToConsole(`> [REPLAN]  Estratégia 2 OK: ${label}`, 'text-green')
+              recordActionSuccess(fail.action, 'Estratégia 2: Script Injection Bypass', window.location.href)
+              panel.logToConsole(`> [REPLAN]  Estratégia 2 OK: ${label} (memorizado como Mini-Skill)`, 'text-green')
               continue
             }
           }
@@ -536,7 +577,8 @@ async function initEasyQuiz(): Promise<void> {
             el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true }))
             await new Promise(r => setTimeout(r, 200))
             if (verifyActionApplied(fail.action)) {
-              panel.logToConsole(`> [REPLAN]  Estratégia 3 OK: ${label}`, 'text-green')
+              recordActionSuccess(fail.action, 'Estratégia 3: Keyboard Simulation Tab+Space', window.location.href)
+              panel.logToConsole(`> [REPLAN]  Estratégia 3 OK: ${label} (memorizado como Mini-Skill)`, 'text-green')
               continue
             }
           }
@@ -575,7 +617,8 @@ async function initEasyQuiz(): Promise<void> {
             if (!hadId) setTimeout(() => { try { if (el.id === scriptTid) el.removeAttribute('id') } catch {} }, 0)
             await new Promise(r => setTimeout(r, 300))
             if (verifyActionApplied(fail.action)) {
-              panel.logToConsole(`> [REPLAN]  Estratégia 4 OK: ${label}`, 'text-green')
+              recordActionSuccess(fail.action, 'Estratégia 4: React/Vue Framework Internals', window.location.href)
+              panel.logToConsole(`> [REPLAN]  Estratégia 4 OK: ${label} (memorizado como Mini-Skill)`, 'text-green')
               continue
             }
           }
@@ -638,7 +681,8 @@ NÃO repita as estratégias já tentadas acima.`
         const fallbackPlan: AnalysisPlan = { ...latestPlan, actions: jsActions, pageType: 'question' }
         const fallbackResult = await executePlan(fallbackPlan, false, 1, createExecutionPolicy(settings))
         if (fallbackResult.applied > 0) {
-          panel.logToConsole(`> [REPLAN]  Estratégia 5 OK: ${fallbackResult.applied} ação(ões) JS executada(s)!`, 'text-green')
+          recordActionSuccess(fail.action, 'Estratégia 5: JS Customizado da IA', window.location.href)
+          panel.logToConsole(`> [REPLAN]  Estratégia 5 OK: ${fallbackResult.applied} ação(ões) JS executada(s) (memorizado como Mini-Skill)!`, 'text-green')
         } else {
           panel.logToConsole('> [REPLAN]  Todas as estratégias esgotadas para esta ação.', 'text-yellow')
         }

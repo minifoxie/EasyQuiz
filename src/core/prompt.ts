@@ -1,26 +1,29 @@
 import type { CapturedContext, CapturedImage, EasyQuizSettings } from './types'
 import { getSessionMemories } from './storage'
+import { formatSkillsContextForPrompt } from './pageSkills'
 
 export const SYSTEM_PROMPT = `Você é o motor operacional inteligente do EasyQuiz. Saída EXCLUSIVA em JSON minificado, sem markdown, sem comentários, sem texto fora do JSON.
 
 ════════════════════════════════════════════════════════════
 RACIOCÍNIO OBRIGATÓRIO — PENSE ANTES DE AGIR
 ════════════════════════════════════════════════════════════
-Use o campo "thinking" do JSON para raciocinar de forma CALMA e ESTRUTURADA antes de decidir as actions.
+Use o campo "thinking" do JSON para raciocinar de forma CALMA, CRÍTICA e ESTRUTURADA antes de decidir as actions.
 O campo "thinking" é escrito ANTES das "actions". Siga esta ordem mental:
 
-  PASSO 1 — Leia [TEXTO] completo. Identifique: tipo de questão, enunciado, contexto, idioma.
+  PASSO 1 — Leia [TEXTO] completo. Identifique: tipo de questão, enunciado, contexto, idioma, fórmulas matemáticas e imagens anexadas.
   PASSO 2 — Leia [RESPOSTAS]. Anote: quantos itens, IDs, tipos (t), textos (txt), estado atual (v).
+  PASSO 2.5 — COMPARAÇÃO CRÍTICA ENTRE ALTERNATIVAS: Compare cada opção contra as demais. Isole pegadinhas e distratores. Justifique no "thinking" por que a alternativa escolhida supera as outras.
   PASSO 3 — Raciocine a resposta correta usando seu conhecimento. Seja preciso — não adivinhe.
+  PASSO 3.5 — VERIFICAÇÃO DE SKILLS & ANTI-PATTERNS: Verifique [BIBLIOTECA DE MINI-SKILLS] para usar padrões que já funcionaram. Verifique [MEMÓRIA DE ANTI-PATTERNS (NÃO REPETIR)] para NUNCA cometer um erro registrado anteriormente nesta página.
   PASSO 4 — Escolha a ferramenta (clk/chk/val/sel/drag) certa para o tipo de controle.
   PASSO 5 — Verifique: o ID usado existe em [RESPOSTAS]? O tipo da ação bate com o tipo do elemento?
   PASSO 6 — Emita as actions. Confirme: adv é a ÚLTIMA ação se necessário.
 
 Exemplo de uso do campo thinking:
-  "thinking": "Questão pede capitais. Alternativa 'Paris' é capital da França → correto. ID eq-abc-1 é radio. Uso chk."
+  "thinking": "Questão de geometria. Opção B ('12 cm') resulta do teorema de Pitágoras; opções A e C são distratores comuns. Nenhuma falha prévia registrada para eq-ctrl-2. Uso chk."
 
 NÃO produza saída impulsiva. Raciocínio calmo evita erros e respostas trocadas.
-O campo thinking é leve (1-3 linhas). NÃO escreva essays — seja telegráfico e preciso.
+O campo thinking é leve (1-4 linhas). NÃO escreva essays — seja telegráfico e preciso.
 
 ════════════════════════════════════════════════════════════
 ANÁLISE DE PÁGINA — INTERPRETAÇÃO INTELIGENTE DA INTERFACE
@@ -33,6 +36,9 @@ Ao receber [DADOS], analise:
 4. [IMAGENS E GRÁFICOS] — Visuais inline (inline_data) OU contexto textual [CONTEXTO_IMAGEM_N]. Veja instrução K abaixo.
 5. [MEMÓRIA] — Fatos aprendidos de questões anteriores desta sessão (use para contexto).
 6. [PLATAFORMA] — Hint do sistema sobre como interagir com essa plataforma específica.
+7. [BIBLIOTECA DE MINI-SKILLS DA PÁGINA] — Regras e habilidades comprovadas para este domínio. Priorize estes métodos!
+8. [MEMÓRIA DE ANTI-PATTERNS & ERROS DA PÁGINA — NÃO REPETIR!] — Ações que falharam anteriormente. JAMAIS repita estas ações.
+9. [FLUXO DA PÁGINA] — Notas sobre a progressão sequencial do quiz.
 
 CLASSIFICAÇÃO OBRIGATÓRIA (pageType):
 - "question"  → há [RESPOSTAS] não-vazia OU o enunciado tem pergunta/alternativa. SEMPRE que houver controles de resposta.
@@ -243,10 +249,12 @@ REGRAS ABSOLUTAS
 6. NUNCA emita adv se ainda há itens de categorização/classificação não resolvidos.
 7. Se [RESPOSTAS] tiver controles mas você não souber a resposta, ainda assim emita a ação com melhor estimativa — nunca retorne actions:[].
 
-PLANO JSON (campos obrigatórios):
-{ "pageType": "question|info|start|conclusion", "mode": "...", "confidence": 0.0-1.0, "rationale": "...", "actions": [...], "memoryToStore": "...", "imageDescriptions": [] }
+PLANO JSON (campos obrigatórios e opcionais):
+{ "pageType": "question|info|start|conclusion", "mode": "...", "confidence": 0.0-1.0, "rationale": "...", "thinking": "...", "actions": [...], "memoryToStore": "...", "imageDescriptions": [], "learnedSkill": { "name": "...", "description": "...", "targetRule": "..." }, "flowState": { "stepDescription": "...", "expectedActionNext": "..." } }
 imageDescriptions: array descrevendo cada imagem/contexto visual recebido. Array vazio [] quando não há imagens.
-memoryToStore: fato útil para questões futuras desta sessão (omitir se não houver nada relevante).
+memoryToStore: fato conceitual útil para questões futuras desta sessão (omitir se não houver nada relevante).
+learnedSkill: emita quando descobrir um padrão de interação singular desta plataforma que deva ser guardado na biblioteca de mini-skills.
+flowState: descrição da etapa de progresso no quiz/prova.
 
 ════════════════════════════════════════════════════════════
 L. SEM CONTROLES / INSPEÇÃO AUTÔNOMA DE PÁGINA
@@ -420,11 +428,12 @@ export function buildUserPrompt(
 
   const platformHint = detectPlatformHint(context.sourceUrl, context.htmlSnippet)
   const platformBlock = platformHint ? `\n${platformHint}\n` : ''
+  const skillsBlock = formatSkillsContextForPrompt(context.sourceUrl)
 
   return `--- ANÁLISE ---
 [MODO]: ${settings.engine} | Dica: ${settings.modeHint || 'Auto'}
 [URL]: ${context.sourceUrl}
-[PÁGINA]: ${context.pageTitle}${memoryBlock}${platformBlock}
+[PÁGINA]: ${context.pageTitle}${memoryBlock}${platformBlock}${skillsBlock}
 [DADOS]
 [TEXTO]:
 ${context.questionText}${htmlBlock}${domInspectionBlock}
@@ -458,20 +467,27 @@ ${
       : isMultiSelect
         ? '[MULTI-SELEÇÃO: marque TODOS os corretos, pode ser 2 ou mais]\n'
         : isRadioOnly
-          ? '[ESCOLHA-Única: marque APENAS 1 opção]\n'
+          ? '[ESCOLHA-Única: marque APENAS 1 opção — compare criticamente todas as alternativas antes de escolher]\n'
           : isMultiInput
             ? `[MÚLTIPLOS CAMPOS DE PREENCHIMENTO (${inputControls.length} campos): emita uma ação val para CADA um dos ${inputControls.length} campos abaixo com seu id exato]\n`
             : ''
 
     return header + JSON.stringify(
-      answerControls.map((c) => ({
-        id: c.id,
-        t: c.type,
-        n: c.name || undefined,
-        txt: c.label ? (c.label.length > 160 ? c.label.slice(0, 160) + '...' : c.label) : undefined,
-        v: c.value || undefined,
-        opt: c.options && c.options.length ? c.options.slice(0, 20).map((o) => o.label || o.value) : undefined,
-      }))
+      answerControls.map((c, idx) => {
+        const optionLetter = c.label && /^[A-Ea-e][\)\.\:\-\s]/.test(c.label.trim())
+          ? c.label.trim().charAt(0).toUpperCase()
+          : String.fromCharCode(65 + (idx % 26))
+
+        return {
+          id: c.id,
+          t: c.type,
+          item: optionLetter,
+          n: c.name || undefined,
+          txt: c.label ? (c.label.length > 220 ? c.label.slice(0, 220) + '...' : c.label) : undefined,
+          v: c.value || undefined,
+          opt: c.options && c.options.length ? c.options.slice(0, 20).map((o) => o.label || o.value) : undefined,
+        }
+      })
     )
   })()
 }

@@ -169,21 +169,21 @@ export class DemandApplicator {
 
   private attach(): void {
     for (const target of [window, document]) {
-      target.addEventListener('keydown',     this.boundKey,         { capture: true })
-      target.addEventListener('keypress',    this.boundKeypress,    { capture: true })
-      target.addEventListener('beforeinput', this.boundBeforeInput, { capture: true })
-      target.addEventListener('keyup',       this.boundKeyup,       { capture: true })
-      target.addEventListener('click',       this.boundClick,       { capture: true })
+      target.addEventListener('keydown',     this.boundKey as EventListener,         { capture: true })
+      target.addEventListener('keypress',    this.boundKeypress as EventListener,    { capture: true })
+      target.addEventListener('beforeinput', this.boundBeforeInput as EventListener, { capture: true })
+      target.addEventListener('keyup',       this.boundKeyup as EventListener,       { capture: true })
+      target.addEventListener('click',       this.boundClick as EventListener,       { capture: true })
     }
   }
 
   private detach(): void {
     for (const target of [window, document]) {
-      target.removeEventListener('keydown',     this.boundKey,         { capture: true })
-      target.removeEventListener('keypress',    this.boundKeypress,    { capture: true })
-      target.removeEventListener('beforeinput', this.boundBeforeInput, { capture: true })
-      target.removeEventListener('keyup',       this.boundKeyup,       { capture: true })
-      target.removeEventListener('click',       this.boundClick,       { capture: true })
+      target.removeEventListener('keydown',     this.boundKey as EventListener,         { capture: true })
+      target.removeEventListener('keypress',    this.boundKeypress as EventListener,    { capture: true })
+      target.removeEventListener('beforeinput', this.boundBeforeInput as EventListener, { capture: true })
+      target.removeEventListener('keyup',       this.boundKeyup as EventListener,       { capture: true })
+      target.removeEventListener('click',       this.boundClick as EventListener,       { capture: true })
     }
   }
 

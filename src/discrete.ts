@@ -5,6 +5,7 @@
 
 import { analyzeWithGemini, fetchAvailableModels } from './core/gemini'
 import { loadSettings, addSessionMemory, resetActivityMetrics } from './core/storage'
+import { loadPageProfile, recordSkill, recordFlowNote } from './core/pageSkills'
 import { captureCurrentContext, captureFullPageText } from './dom/detector'
 import { captureImages } from './media/capture'
 import { setupSmartOptionInterceptors, buildDragFallbackJs } from './dom/executor'
@@ -168,6 +169,14 @@ async function initDiscrete(): Promise<void> {
         return
       }
 
+      const profile = loadPageProfile(ctx.sourceUrl)
+      if (profile.skills.length > 0) {
+        debugOutput.log('SYS', `📚 ${profile.skills.length} mini-skill(s) ativas no domínio`)
+      }
+      if (profile.failedPatterns.length > 0) {
+        debugOutput.log('SYS', `🛡️ ${profile.failedPatterns.length} anti-pattern(s) memorizados para evitar erros`)
+      }
+
       debugOutput.log('DOM', `Contexto detectado: ${ctx.controls.length} controles, ${ctx.questionText.length} chars`, ctx.questionText)
 
       const images = await captureImages(ctx.scope, settings.useVision)
@@ -192,6 +201,25 @@ async function initDiscrete(): Promise<void> {
       debugOutput.setPlan(plan, ctx.questionText, latency, settings.model, images)
 
       if (plan.memoryToStore) addSessionMemory(plan.memoryToStore)
+
+      if (plan.learnedSkill) {
+        recordSkill(
+          {
+            name: plan.learnedSkill.name,
+            description: plan.learnedSkill.description,
+            rule: plan.learnedSkill.targetRule,
+            source: 'ai_synthesized',
+          },
+          ctx.sourceUrl,
+        )
+        toast.flash(`📚 Skill: ${plan.learnedSkill.name}`)
+        debugOutput.log('SYS', `📚 Nova Mini-Skill aprendida pela IA: ${plan.learnedSkill.name}`)
+      }
+
+      if (plan.flowState?.stepDescription) {
+        recordFlowNote(plan.flowState.stepDescription, ctx.sourceUrl)
+        debugOutput.log('SYS', `🗺️ Fluxo registrado: ${plan.flowState.stepDescription}`)
+      }
 
       // Log imageDescriptions — o que a IA entendeu de cada imagem
       if (plan.imageDescriptions && plan.imageDescriptions.length > 0) {

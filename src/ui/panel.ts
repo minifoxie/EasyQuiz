@@ -2,6 +2,7 @@ import type { AnalysisPlan, CapturedContext, CapturedImage, ImageDescriptionEntr
 import type { ExecutionResult } from '../dom/executor'
 import { AVAILABLE_MODELS, fetchAvailableModels, testApiKey, validateModelFast, isValidQuizModel, keyManager, KeyManager, resetSessionBlacklist } from '../core/gemini'
 import { clearSessionMemories, getSessionMemories, resetAllData, loadActivityMetrics, resetActivityMetrics } from '../core/storage'
+import { loadPageProfile, clearDomainSkills } from '../core/pageSkills'
 import { Autopilot } from '../dom/autopilot'
 import { FloatingAnswersHud } from './floatingHud'
 import { ICONS } from './icons'
@@ -80,7 +81,7 @@ export class EasyQuizPanel {
   private floatingAnswers: FloatingAnswersHud
   private initialSettings: EasyQuizSettings
   private isCollapsed: boolean = false
-  private activeTab: 'resolver' | 'brain' | 'metrics' | 'debug' | 'settings' = 'resolver'
+  private activeTab: 'resolver' | 'brain' | 'media' | 'metrics' | 'debug' | 'settings' = 'resolver'
   private isBusy: boolean = false
   private stopwatchInterval: any = null
   private stopwatchStartTime: number = 0
@@ -738,7 +739,7 @@ export class EasyQuizPanel {
     this.launcherDot = this.shadow.querySelector('#eq-launcher-dot') as HTMLElement
     this.dockToggleBtn = this.shadow.querySelector('#eq-dock-toggle') as HTMLButtonElement
     this.sidebarEl = this.shadow.querySelector('.eq-sidebar') as HTMLElement
-    this.apToggleBtn = this.shadow.querySelector('#eq-ap-toggle-btn') as HTMLButtonElement | null
+    this.apToggleBtn = this.shadow.querySelector('#eq-ap-toggle-btn') as HTMLButtonElement
     this.apConsole = this.shadow.querySelector('#eq-ap-console') as HTMLElement
     this.executionConsole = this.shadow.querySelector('#eq-execution-console') as HTMLElement
 
@@ -801,9 +802,8 @@ export class EasyQuizPanel {
     this.hostDarkModeCheckbox = this.shadow.querySelector('#eq-host-dark') as HTMLInputElement
     this.useVisionCheckbox = this.shadow.querySelector('#eq-use-vision') as HTMLInputElement
     this.toastStackingCheckbox = this.shadow.querySelector('#eq-toast-stacking') as HTMLInputElement
-    this.toastStackingCheckbox = this.shadow.querySelector('#eq-toast-stacking') as HTMLInputElement
     this.analyzeBtn = this.shadow.querySelector('#eq-analyze-btn') as HTMLButtonElement
-    this.applyBtn = this.shadow.querySelector('#eq-apply-btn') as HTMLButtonElement | null
+    this.applyBtn = this.shadow.querySelector('#eq-apply-btn') as HTMLButtonElement
     if (this.applyBtn) this.applyBtn.disabled = true
     this.resultContainer = this.shadow.querySelector('#eq-result') as HTMLElement
 
@@ -1816,7 +1816,9 @@ export class EasyQuizPanel {
         if (!this.copyPromptBtn) return
         const prev = this.copyPromptBtn.innerHTML
         this.copyPromptBtn.innerHTML = `${ICONS.check} Copiado!`
-        setTimeout(() => (this.copyPromptBtn.innerHTML = prev), 2000)
+        setTimeout(() => {
+          if (this.copyPromptBtn) this.copyPromptBtn.innerHTML = prev
+        }, 2000)
       })
     })
 
@@ -3064,6 +3066,40 @@ export class EasyQuizPanel {
     const memoriesNode = this.createTreeFolder(` MEMÓRIA RAG ACUMULADA (${memories.length})`, memories.length > 0, memoriesChildren)
     this.contextTreeContainer.appendChild(memoriesNode)
 
+    // Pasta 3.5: Biblioteca de Mini-Skills da Página (Aprendizados por Domínio)
+    const pageProfile = loadPageProfile(window.location.href)
+    if (pageProfile.skills.length > 0) {
+      const skillsChildren = pageProfile.skills.map((s) => ({
+        label: s.name,
+        value: `${s.description}${s.rule ? ` [Regra: ${s.rule}]` : ''}`,
+        badge: `${s.successCount}x OK`,
+      }))
+      const skillsNode = this.createTreeFolder(`📚 MINI-SKILLS DA PÁGINA (${pageProfile.skills.length})`, true, skillsChildren)
+      this.contextTreeContainer.appendChild(skillsNode)
+    }
+
+    // Pasta 3.6: Memória de Anti-Patterns / Erros Evitados (Não Persistir no Erro)
+    if (pageProfile.failedPatterns.length > 0) {
+      const antiPatternsChildren = pageProfile.failedPatterns.map((f) => ({
+        label: `[ANTI-ERRO] ${f.actionType.toUpperCase()} em "${f.target.slice(0, 35)}"`,
+        value: `${f.reason} → Evitar: ${f.retryAvoidanceHint}`,
+        badge: 'Evitado',
+      }))
+      const antiNode = this.createTreeFolder(`🛡️ ERROS EVITADOS (ANTI-PATTERNS) (${pageProfile.failedPatterns.length})`, true, antiPatternsChildren)
+      this.contextTreeContainer.appendChild(antiNode)
+    }
+
+    // Pasta 3.7: Fluxo Registrado da Página
+    if (pageProfile.flowNotes.length > 0) {
+      const flowChildren = pageProfile.flowNotes.map((n, i) => ({
+        label: `Etapa #${i + 1}`,
+        value: n,
+        badge: 'Fluxo',
+      }))
+      const flowNode = this.createTreeFolder(`🗺️ FLUXO REGISTRADO (${pageProfile.flowNotes.length})`, true, flowChildren)
+      this.contextTreeContainer.appendChild(flowNode)
+    }
+
     // Pasta 4: Último Plano da IA
     if (plan) {
       const planNode = this.createTreeFolder(` ÚLTIMO PLANO IA (${plan.actions.length} ações)`, true, [
@@ -3707,9 +3743,9 @@ export class EasyQuizPanel {
 
     const inl = (line: string) => line
       .replace(/`([^`]+)`/g, (_: string, c: string) => `<code class="eq-md-inline">${esc(c)}</code>`)
-      .replace(/***([^*]+)***/g, (_: string, t: string) => `<strong><em>${esc(t)}</em></strong>`)
-      .replace(/**([^*]+)**/g, (_: string, t: string) => `<strong>${esc(t)}</strong>`)
-      .replace(/*([^*]+)*/g, (_: string, t: string) => `<em>${esc(t)}</em>`)
+      .replace(/\*\*\*([^*]+)\*\*\*/g, (_: string, t: string) => `<strong><em>${esc(t)}</em></strong>`)
+      .replace(/\*\*([^*]+)\*\*/g, (_: string, t: string) => `<strong>${esc(t)}</strong>`)
+      .replace(/\*([^*]+)\*/g, (_: string, t: string) => `<em>${esc(t)}</em>`)
       .replace(/~~([^~]+)~~/g, (_: string, t: string) => `<del>${esc(t)}</del>`)
 
     for (const line of lines) {

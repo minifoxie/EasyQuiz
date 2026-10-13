@@ -96,6 +96,17 @@ export interface AnalysisPlan {
   needsMoreContext?: boolean
   /** Descrições das imagens geradas pela IA (mesmo agente, campo extra no JSON) */
   imageDescriptions?: ImageDescriptionEntry[]
+  /** Mini-skill aprendida e sintetizada pela IA para esta página/plataforma */
+  learnedSkill?: {
+    name: string
+    description: string
+    targetRule?: string
+  }
+  /** Definição ou nota de fluxo da página determinada pela IA */
+  flowState?: {
+    stepDescription?: string
+    expectedActionNext?: string
+  }
 }
 
 export interface ActionExecutionReport {
@@ -163,7 +174,7 @@ export interface EasyQuizSettings {
 export const DEFAULT_SETTINGS: EasyQuizSettings = {
   apiKey: '',
   apiKeys: [],
-  model: 'gemini-2.5-flash',
+  model: 'gemini-3.8-flash',
   uiMode: 'easy',
   modeHint: '',
   engine: 'smart',

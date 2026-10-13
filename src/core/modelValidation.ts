@@ -44,11 +44,13 @@ export function isValidQuizModel(modelId: string): boolean {
     'mediapipe',
     // Modelos restritos (acesso Fairwind / programas especiais)
     'cyber',
-    // Aliases genéricos instáveis que sofrem de 503 "No capacity available" crônico:
-    'latest',
+    // Aliases genéricos instáveis (exceto gemini-flash-latest que é mapeado)
     '-ultra',
     'experimental',
   ]
+
+  // Permite especificamente gemini-flash-latest
+  if (id === 'gemini-flash-latest') return true
 
   for (const pattern of invalidSubstrings) {
     if (id.includes(pattern)) return false

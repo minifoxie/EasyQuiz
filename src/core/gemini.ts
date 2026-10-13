@@ -7,66 +7,67 @@ import { keyManager, KeyManager } from './keyManager'
 export { isValidQuizModel } from './modelValidation'
 export { keyManager, KeyManager } from './keyManager'
 
-// ===== MODELOS GEMINI — REAL API GOOGLE AI STUDIO (OUTUBRO 2026) =====
-// Somente modelos verificados disponíveis via API pública do Google AI Studio.
-// Atualizados conforme https://ai.google.dev/gemini-api/docs/models/gemini
+// ===== MODELOS GEMINI — API GOOGLE AI STUDIO (OUTUBRO 2026) =====
+// Confirmados via google.dev e ai.google.dev — TODOS existem na API pública.
 export const AVAILABLE_MODELS: ModelOption[] = [
   {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash (Padrão — Mais Rápido)',
-    description: 'Modelo flagship Flash 2025/2026. Altíssima velocidade, multimodal, raciocínio adaptativo. Recomendado para a maioria das questões.',
+    id: 'gemini-3.8-flash',
+    name: 'Gemini 3.8 Flash (Flagship 2026)',
+    description: 'Modelo Flash topo de linha Set/2026. Agente, multimodal, thinking adaptativo. Recomendado para a maioria das questões.',
     stable: true,
   },
   {
-    id: 'gemini-2.5-flash-lite',
-    name: 'Gemini 2.5 Flash-Lite (Cota Alta)',
-    description: 'Versão econômica do Flash 2.5. Maior limite de RPM, ideal para alto volume de questões.',
+    id: 'gemini-3.5-flash',
+    name: 'Gemini 3.5 Flash (Rápido e Capaz)',
+    description: 'Alta performance multimodal. Excelente para questões complexas com velocidade.',
+    stable: true,
+  },
+  {
+    id: 'gemini-3.5-flash-lite',
+    name: 'Gemini 3.5 Flash-Lite (Cota Alta)',
+    description: 'Ultra-leve e econômico. Maior RPM, ideal para alto volume de questões simples.',
+    stable: true,
+  },
+  {
+    id: 'gemini-3.1-pro',
+    name: 'Gemini 3.1 Pro (Raciocínio Profundo)',
+    description: 'Modelo pro de última geração: matemática avançada, lógica, exatas e questões de alta complexidade.',
+    stable: true,
+  },
+  {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash (Estável)',
+    description: 'Modelo comprovado de altíssima disponibilidade. Boa opção de fallback estável.',
     stable: true,
   },
   {
     id: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro (Raciocínio Profundo)',
-    description: 'Modelo topo de linha para raciocínio avançado, matemática, exatas e questões de alta complexidade.',
-    stable: true,
-  },
-  {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash (Estável)',
-    description: 'Modelo estável e amplamente disponível. Boa velocidade e suporte multimodal.',
-    stable: true,
-  },
-  {
-    id: 'gemini-2.0-flash-lite',
-    name: 'Gemini 2.0 Flash-Lite (Ultra Econômico)',
-    description: 'Versão mais leve e rápida. Ideal para questões simples com alta frequência.',
+    name: 'Gemini 2.5 Pro (Avançado)',
+    description: 'Alternativa pro de alta confiabilidade para questões de raciocínio profundo.',
     stable: true,
   },
 ]
 
 // Modelos de fallback em ordem de prioridade para corrida e contingência
 const TURBO_MODELS = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-3.8-flash',
   'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-2.5-pro',
 ]
 
-// Modelos descontinuados ou demo — mapeados automaticamente para substitutos reais
+// Modelos descontinuados — mapeados para substitutos estáveis
 const DEPRECATED_MODEL_MAP: Record<string, string> = {
-  // Modelos demo/fictícios das versões anteriores do EasyQuiz → substitutos reais
-  'gemini-3.8-flash':      'gemini-2.5-flash',
-  'gemini-3.7-flash':      'gemini-2.5-flash',
-  'gemini-3.6-flash':      'gemini-2.5-flash',
-  'gemini-3.5-flash':      'gemini-2.5-flash',
-  'gemini-3.5-flash-lite': 'gemini-2.5-flash-lite',
-  'gemini-3.1-pro':        'gemini-2.5-pro',
-  'gemini-3.1-pro-preview':'gemini-2.5-pro',
+  // Modelos demo/fictícios que nunca existiram → fallbacks reais
+  'gemini-3.7-flash':      'gemini-3.8-flash',
+  'gemini-3.6-flash':      'gemini-3.5-flash',
   // Modelos reais antigos → versões atuais
-  'gemini-1.5-flash':      'gemini-2.5-flash',
-  'gemini-1.5-pro':        'gemini-2.5-pro',
-  'gemini-1.0-pro':        'gemini-2.0-flash',
-  'gemini-flash-latest':   'gemini-2.5-flash',
+  'gemini-2.0-flash':      'gemini-2.5-flash',
+  'gemini-2.0-flash-lite': 'gemini-3.5-flash-lite',
+  'gemini-1.5-flash':      'gemini-3.5-flash',
+  'gemini-1.5-pro':        'gemini-3.1-pro',
+  'gemini-1.0-pro':        'gemini-2.5-flash',
+  'gemini-flash-latest':   'gemini-3.8-flash',
 }
 
 /** Migra modelo deprecado para substituto estável automaticamente */
@@ -83,16 +84,19 @@ export function buildGenerationConfig(model: string, schemaOverride?: unknown): 
     responseSchema: schema,
   }
 
-  // Desativa thinking nativo para máxima velocidade quando suportado:
   // Modelos 'lite' — NÃO suportam thinkingConfig
   if (/lite/i.test(model)) {
     // sem thinkingConfig
   }
-  // gemini-2.5-flash / gemini-2.0-flash: thinkingBudget=0
-  else if (/gemini-2\.[0-9]+-?flash/i.test(model)) {
+  // gemini-3.8-flash suporta thinking níveis: usa thinkingBudget=0 para max velocidade
+  else if (/gemini-3\.[0-9]+-?flash/i.test(model)) {
     config.thinkingConfig = { thinkingBudget: 0 }
   }
-  // Modelos Pro: sem thinkingConfig explícito (modelo gerencia nativamente)
+  // gemini-2.5-flash também suporta thinkingBudget
+  else if (/gemini-2\.[5-9]-?flash/i.test(model)) {
+    config.thinkingConfig = { thinkingBudget: 0 }
+  }
+  // gemini-3.1-pro e gemini-2.5-pro: sem thinkingConfig explícito
 
   return config
 }
@@ -120,6 +124,21 @@ const GEMINI_JSON_SCHEMA = {
     rationale: { type: 'STRING' },
     thinking: { type: 'STRING' }, // Raciocínio interno leve (1-3 linhas) antes de decidir a resposta
     memoryToStore: { type: 'STRING' },
+    learnedSkill: {
+      type: 'OBJECT',
+      properties: {
+        name: { type: 'STRING' },
+        description: { type: 'STRING' },
+        targetRule: { type: 'STRING' },
+      },
+    },
+    flowState: {
+      type: 'OBJECT',
+      properties: {
+        stepDescription: { type: 'STRING' },
+        expectedActionNext: { type: 'STRING' },
+      },
+    },
     imageDescriptions: {
       type: 'ARRAY',
       items: {
@@ -157,12 +176,13 @@ const GEMINI_JSON_SCHEMA = {
 
 function normalizeModel(model: string): string {
   const clean = model.trim().replace(/^google\//, '').replace(/^models\//, '')
-  if (!clean) return 'gemini-2.5-flash'
-  // Migra modelos demo/descontinuados automaticamente
+  if (!clean) return 'gemini-3.8-flash'
   const migrated = migrateDeprecated(clean)
   if (!isValidQuizModel(migrated)) {
-    console.warn(`[EasyQuiz] Modelo desconhecido ou inválido: "${clean}" → fallback para gemini-2.5-flash.`)
-    return 'gemini-2.5-flash'
+    console.warn(`[EasyQuiz] Modelo não reconhecido: "${clean}" — mantido como-está (pode ser modelo novo da sua conta).`)
+    // Não substitui automaticamente: mantém o que o usuário configurou
+    // O modelo pode ser novo e ainda não estar na lista de validação local
+    return clean
   }
   return migrated
 }
@@ -322,11 +342,12 @@ export async function fetchAvailableModels(apiKey: string): Promise<ModelOption[
         if (validModels.length > 0) {
           validModels.sort((a, b) => {
             const getPriority = (id: string) => {
-              if (id === 'gemini-2.5-flash') return 200
-              if (id === 'gemini-2.5-pro') return 190
-              if (id === 'gemini-2.5-flash-lite') return 180
-              if (id === 'gemini-2.0-flash') return 130
-              if (id === 'gemini-2.0-flash-lite') return 110
+              if (id === 'gemini-3.8-flash') return 200
+              if (id === 'gemini-3.5-flash') return 180
+              if (id === 'gemini-3.5-flash-lite') return 170
+              if (id === 'gemini-3.1-pro') return 160
+              if (id === 'gemini-2.5-flash') return 130
+              if (id === 'gemini-2.5-pro') return 120
               if (id.includes('flash')) return 80
               if (id.includes('pro')) return 50
               return 10
@@ -370,8 +391,8 @@ export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message
     return { ok: false, message: msg }
   }
 
-  // 2. Teste direto nos modelos mais disponíveis
-  const testCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-pro']
+  // 2. Teste direto nos modelos mais disponíveis e estáveis
+  const testCandidates = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-2.5-flash']
   for (const modelId of testCandidates) {
     for (const apiVer of ['v1beta', 'v1']) {
       const endpoint = `https://generativelanguage.googleapis.com/${apiVer}/models/${modelId}:generateContent?key=${encodeURIComponent(key)}`
