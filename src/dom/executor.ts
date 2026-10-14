@@ -2881,12 +2881,42 @@ export function verifyActionApplied(action: DeclarativeAction): boolean {
 
       if (action.t === 'clk' && !inputEl && !isInsideQuizOptions) {
         // Botão de ação puro (não seleção de alternativa) — aceita clique como sucesso
+        // MAS: se o card possui atributos de estado de seleção explícitos, NÃO aceita cegamente
+        const hasExplicitState =
+          card.hasAttribute('aria-selected') ||
+          card.hasAttribute('data-selected') ||
+          card.hasAttribute('data-checked') ||
+          card.hasAttribute('data-state') ||
+          card.hasAttribute('aria-checked') ||
+          card.hasAttribute('aria-pressed')
+        if (hasExplicitState) {
+          // Se tem estado explícito, verifica se está selecionado
+          return (
+            card.getAttribute('aria-selected') === 'true' ||
+            card.getAttribute('data-selected') === 'true' ||
+            card.getAttribute('data-checked') === 'true' ||
+            /^(checked|on|selected|active)$/i.test(card.getAttribute('data-state') || '') ||
+            card.getAttribute('aria-checked') === 'true' ||
+            card.getAttribute('aria-pressed') === 'true'
+          )
+        }
         return true
       }
 
       // Para cards de quiz sem input nativo e sem evidência de estado: verificar aria-expanded/aria-pressed
       if (card.getAttribute('aria-expanded') !== null || card.getAttribute('aria-pressed') !== null) {
         return true // O clique mudou o estado de expansão/pressionamento
+      }
+
+      // Quizizz/Wayground: cards com classes de seleção específicas após clique
+      const quizizzSelectedClass = /\b(selected|active|correct|chosen|is-selected|is-active)\b/i
+      if (quizizzSelectedClass.test(card.className || '') || quizizzSelectedClass.test(el.className || '')) {
+        return true
+      }
+
+      // Wayground: verifica se o botão de opção ficou desabilitado após seleção (sinal de seleção efetivada)
+      if ((card as HTMLButtonElement).disabled || card.getAttribute('aria-disabled') === 'true') {
+        return false // Botão desabilitado antes do clique = não funciona
       }
 
       return false
@@ -2920,6 +2950,8 @@ export async function executePlan(
   const actionDomSnapshot = new Map<DeclarativeAction, string>()
   /** Rastreia ações já contadas em appliedCount para não re-contar nas passagens 2 e 3 */
   const appliedInPass1 = new Set<DeclarativeAction>()
+  /** Blacklist de ação+estratégia que falhou nesta execução — evita loop infinito */
+  const failedStrategies = new Map<DeclarativeAction, Set<string>>()
 
   const isQuestion = plan.pageType === 'question' || regularActions.length > 0
 
@@ -2932,6 +2964,7 @@ export async function executePlan(
   for (const action of regularActions) {
     const strategies: string[] = []
     actionStrategies.set(action, strategies)
+    failedStrategies.set(action, new Set())
     try {
       if (action.t === 'drag') {
         strategies.push('declarative-A-F')
@@ -2950,14 +2983,45 @@ export async function executePlan(
         strategies.push('declarative-primary')
       }
       await executeDeclarativeAction(action, attempt, policy)
-      appliedCount++
+      // CRÍTICO: appliedCount++ apenas APÓS execução bem-sucedida (sem exceção lançada).
+      // Não conta ações que lançaram exceção — isso previne falso-positivo de injeção.
       appliedInPass1.add(action)
     } catch (err) {
-      actionErrors.set(action, err instanceof Error ? err.message : String(err))
+      const errMsg = err instanceof Error ? err.message : String(err)
+      actionErrors.set(action, errMsg)
+      failedStrategies.get(action)?.add('declarative-primary')
       console.warn('[EasyQuiz] Ação declarativa primária falhou com segurança:', action, err)
     }
     // Pausa inteligente entre ações — 35ms é o ideal para dispatch síncrono e microtasks dos frameworks (React/Vue)
     await new Promise((resolve) => setTimeout(resolve, action.t === 'drag' ? 180 : 35))
+  }
+
+  // Aguarda o DOM processar todas as ações antes de contar como aplicadas
+  await new Promise((resolve) => setTimeout(resolve, regularActions.length > 0 ? 120 : 25))
+
+  // Conta como appliedCount apenas ações que foram verificadas no DOM (ou que não têm erro)
+  for (const action of regularActions) {
+    if (appliedInPass1.has(action) && !actionErrors.has(action)) {
+      // Para ações 'js': contamos como aplicada se não houve exceção (js não tem verificação de DOM direta)
+      if (action.t === 'js') {
+        appliedCount++
+        continue
+      }
+      // Para drag: verificamos de imediato após delay
+      if (action.t === 'drag') {
+        const fromEl = findDragTarget(action.from, 'source') || findElementExt(action.from)
+        const toEl = findDragTarget(action.to, 'destination') || findElementExt(action.to)
+        const childCountBefore = dragDestChildCountBefore.get(action)
+        if (fromEl && toEl && verifyDragSuccess(fromEl, toEl, childCountBefore).success) {
+          appliedCount++
+        }
+        continue
+      }
+      // Para outras ações: verifica no DOM
+      if (verifyActionApplied(action)) {
+        appliedCount++
+      }
+    }
   }
 
   // RECONCILIAÇÃO DETERMINÍSTICA DE MULTI-SELEÇÃO:

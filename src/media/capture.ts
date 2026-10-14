@@ -581,9 +581,12 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
     }
   }
 
-  // Estratégia 2: fetch CORS normal
+  // Estratégia 2: fetch CORS normal com timeout rápido de 1500ms (evita hangs)
   try {
-    const res = await fetch(src, { mode: 'cors' })
+    const corsCtrl = new AbortController()
+    const corsTid = setTimeout(() => corsCtrl.abort(), 1500)
+    const res = await fetch(src, { mode: 'cors', signal: corsCtrl.signal })
+    clearTimeout(corsTid)
     if (res.ok) {
       const blob = await res.blob()
       if (blob.type.startsWith('image/')) {
@@ -604,7 +607,7 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
       }
     }
   } catch {
-    // CORS bloqueado
+    // CORS bloqueado ou timeout atingido
   }
 
   // Estratégia 3: Bypass via Proxies CORS Transparentes (concorrente com timeout rápido de 800ms)
@@ -827,21 +830,26 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
     const images = Array.from(root.querySelectorAll('img')).filter(
       (el) => isVisible(el) && !isUtilityOrGamificationControl(el) && !seenImgs.has(el) && !el.closest('footer, nav, aside, [class*="sidebar" i], [class*="lesson" i]')
     )
-    for (const img of images) {
+    const validImgs = images.filter((img) => {
       seenImgs.add(img)
-      try {
-        // Usa naturalWidth/naturalHeight e fallback para getBoundingClientRect
-        const rect = img.getBoundingClientRect()
-        const w = img.naturalWidth || rect.width || img.width || 0
-        const h = img.naturalHeight || rect.height || img.height || 0
-        const alt = img.alt || ''
+      const rect = img.getBoundingClientRect()
+      const w = img.naturalWidth || rect.width || img.width || 0
+      const h = img.naturalHeight || rect.height || img.height || 0
+      const alt = img.alt || ''
+      return validateImageRelevance(img, alt, w, h)
+    })
 
-        // Valida relevância antes de tentar capturar
-        if (!validateImageRelevance(img, alt, w, h)) continue
-
+    const imgResults = await Promise.allSettled(
+      validImgs.map(async (img) => {
         const cap = await captureImageElement(img)
-        if (pushCapture(cap, img)) return captures
-      } catch {}
+        return { cap, img }
+      })
+    )
+
+    for (const r of imgResults) {
+      if (r.status === 'fulfilled' && r.value.cap) {
+        if (pushCapture(r.value.cap, r.value.img)) return captures
+      }
     }
   }
 
@@ -864,42 +872,50 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
       return hasMeaningfulSvgGraphics(svg)
     })
 
-    for (const svg of svgs) {
-      seenSvgs.add(svg)
-      try {
-        const result = await rasterizeSvgElement(svg)
-        if (result.base64) {
-          const textCtx = extractTextContextForImage(svg)
-          const cap: CapturedImage = {
-            mediaType: result.mediaType as any,
-            base64: result.base64,
-            alt: svg.getAttribute('aria-label') || 'Gráfico/Diagrama vetorial da questão',
-            source: 'svg',
-            captureStatus: 'captured',
-            textContext: textCtx,
-          }
-          if (pushCapture(cap, svg)) return captures
-        }
-      } catch {
-        const parentDiag = (svg.closest('.trig-diagram-container, [class*="diagram" i], [class*="graph" i], figure') || svg.parentElement || svg) as HTMLElement
-        const fallbackCap = await captureElementVisualSnapshot(parentDiag)
-        if (fallbackCap) {
-          if (pushCapture(fallbackCap, svg)) return captures
-        } else {
-          // Extrai contexto textual do SVG
-          const textCtx = extractTextContextForImage(svg)
-          if (textCtx) {
-            const textCap: CapturedImage = {
-              mediaType: 'image/jpeg',
-              base64: '',
-              alt: svg.getAttribute('aria-label') || 'Gráfico vetorial',
+    const svgResults = await Promise.allSettled(
+      svgs.map(async (svg) => {
+        seenSvgs.add(svg)
+        try {
+          const result = await rasterizeSvgElement(svg)
+          if (result.base64) {
+            const textCtx = extractTextContextForImage(svg)
+            const cap: CapturedImage = {
+              mediaType: result.mediaType as any,
+              base64: result.base64,
+              alt: svg.getAttribute('aria-label') || 'Gráfico/Diagrama vetorial da questão',
               source: 'svg',
-              captureStatus: 'text_only',
+              captureStatus: 'captured',
               textContext: textCtx,
             }
-            pushCapture(textCap, svg)
+            return { cap, svg }
+          }
+        } catch {
+          const parentDiag = (svg.closest('.trig-diagram-container, [class*="diagram" i], [class*="graph" i], figure') || svg.parentElement || svg) as HTMLElement
+          const fallbackCap = await captureElementVisualSnapshot(parentDiag)
+          if (fallbackCap) {
+            return { cap: fallbackCap, svg }
+          } else {
+            const textCtx = extractTextContextForImage(svg)
+            if (textCtx) {
+              const textCap: CapturedImage = {
+                mediaType: 'image/jpeg',
+                base64: '',
+                alt: svg.getAttribute('aria-label') || 'Gráfico vetorial',
+                source: 'svg',
+                captureStatus: 'text_only',
+                textContext: textCtx,
+              }
+              return { cap: textCap, svg }
+            }
           }
         }
+        return null
+      })
+    )
+
+    for (const r of svgResults) {
+      if (r.status === 'fulfilled' && r.value?.cap) {
+        if (pushCapture(r.value.cap, r.value.svg)) return captures
       }
     }
   }

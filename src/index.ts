@@ -5,7 +5,7 @@ import { loadPageProfile, recordSkill, recordFailedAction, recordActionSuccess, 
 import { createExecutionPolicy } from './core/policy'
 import type { AnalysisPlan, EasyQuizSettings, FailedActionDetail } from './core/types'
 import { captureCurrentContext, captureFullPageText, isQuestionContent } from './dom/detector'
-import { executePlan, setupSmartOptionInterceptors, buildDragFallbackJs, injectClickViaScript, findElementExt, verifyActionApplied, executeAlternativeActionPath } from './dom/executor'
+import { executePlan, setupSmartOptionInterceptors, buildDragFallbackJs, injectClickViaScript, findElementExt, verifyActionApplied, executeAlternativeActionPath, simulatePointerClick } from './dom/executor'
 import { clearHighlights, highlightAttachedImages, highlightScope, highlightTargetActions } from './dom/highlighter'
 import { captureImages } from './media/capture'
 import { EasyQuizPanel } from './ui/panel'
@@ -67,6 +67,10 @@ async function initEasyQuiz(): Promise<void> {
   let latestPlan: AnalysisPlan | null = null
   let activeAnalysisController: AbortController | null = null
   let currentQuestionStartTime: number = 0
+  /** Contador de re-planejamentos IA para evitar loop de custo infinito (max 2/sessão) */
+  let aiReplanCount = 0
+  /** Set de IDs de ação que já passaram pelo pipeline completo de fallback — evita re-entrada */
+  const exhaustedFallbacks = new Set<string>()
 
   const panel = new EasyQuizPanel(settings, {
     onAnalyze: (attempt = 1, signal?: AbortSignal, isAutopilot = false) => runAnalysis(attempt, signal, isAutopilot),
@@ -288,6 +292,15 @@ async function initEasyQuiz(): Promise<void> {
         panel.logToConsole(`> [RAG]  Nova memória teórica salva na sessão: "${plan.memoryToStore}"`, 'text-yellow')
       }
 
+      // ── Sinais de auto-consciência do plano ──
+      if ((plan as any).wrongAnswerDetected) {
+        panel.logToConsole('> [IA] ⚠️ IA detectou que resposta anterior estava ERRADA. Recalculando...', 'text-yellow')
+        panel.setStatus('A plataforma sinalizou resposta incorreta. A IA vai reconsiderar...', 'warning')
+      }
+      if ((plan as any).suggestStrategyChange) {
+        panel.logToConsole('> [IA] ⚡ IA recomenda mudar estratégia de interação para esta questão.', 'text-yellow')
+      }
+
       // Registra Mini-Skill aprendida ou sintetizada pela IA
       if (plan.learnedSkill) {
         recordSkill(
@@ -407,7 +420,13 @@ async function initEasyQuiz(): Promise<void> {
 
     // forceAdvance=true quando chamado pelo Autopilot — ignora autoAdvance (que é opt-in para modo manual)
     // No Autopilot, o avanço é SEMPRE desejado quando a confiança atinge o limiar
+    // BLOQUEIO: nunca avança quando a IA detectou resposta incorreta anteriormente
+    const wrongAnswerBlocked = !!(latestPlan as any).wrongAnswerDetected
+    if (wrongAnswerBlocked) {
+      panel.logToConsole('> [NAV]  Avanço BLOQUEADO: resposta incorreta detectada pela IA.', 'text-yellow')
+    }
     const canAdvance =
+      !wrongAnswerBlocked &&
       (forceAdvance || settings.autoAdvance || isInfoOrStart) &&
       latestPlan.confidence >= settings.confidenceThreshold &&
       !latestPlan.needsMoreContext &&
@@ -523,6 +542,7 @@ async function initEasyQuiz(): Promise<void> {
    * Re-planejamento automático para QUALQUER ação que falhou.
    * Pipeline de 5 estratégias progressivas — cada uma verifica o DOM após tentar.
    * Para assim que uma estratégia tiver sucesso.
+   * Proteção contra loop infinito: session dedup por action fingerprint + cap de AI replan.
    */
   async function runActionFallback(fails: FailedActionDetail[], signal?: AbortSignal): Promise<void> {
     if (!latestPlan) return
@@ -556,6 +576,13 @@ async function initEasyQuiz(): Promise<void> {
         a.t === 'sel' ? `sel: "${a.id}" = "${Array.isArray(a.v) ? a.v[0] : a.v}"` :
         JSON.stringify(a).slice(0, 60)
 
+      // Gera fingerprint único da ação para evitar loop infinito
+      const actionFingerprint = `${a.t}:${a.id || a.from || ''}:${a.v || a.c || ''}`
+      if (exhaustedFallbacks.has(actionFingerprint)) {
+        panel.logToConsole(`> [REPLAN] ⚠️ Ação "${label}" já esgotou todas as estratégias. Ignorando para evitar loop.`, 'text-yellow')
+        continue
+      }
+
       panel.logToConsole(`> [REPLAN]  Recuperando: ${label}`, 'text-blue')
 
       const elId = String(a.id || a.name || a.selector || '')
@@ -574,6 +601,7 @@ async function initEasyQuiz(): Promise<void> {
       } catch {}
 
       // ESTRATÉGIA 2: injectClickViaScript (bypass isTrusted via <script> injection)
+      // VARIANTE 2b: Clique por coordenadas absolutas quando action tem campo co:[x,y]
       if (a.t === 'clk' || a.t === 'chk') {
         panel.logToConsole(`> [REPLAN] Estratégia 2: script injection (bypass isTrusted)...`, 'text-blue')
         try {
@@ -585,6 +613,27 @@ async function initEasyQuiz(): Promise<void> {
               recordActionSuccess(fail.action, 'Estratégia 2: Script Injection Bypass', window.location.href)
               panel.logToConsole(`> [REPLAN]  Estratégia 2 OK: ${label} (memorizado como Mini-Skill)`, 'text-green')
               continue
+            }
+          }
+          // VARIANTE 2b: se a ação tem co:[x,y], tenta clique por coordenadas em canvas/svg/elemento genérico
+          const coField = a.co as [number, number] | undefined
+          if (coField && coField.length === 2) {
+            panel.logToConsole(`> [REPLAN] Estratégia 2b: clique por coordenadas [${coField[0]},${coField[1]}]...`, 'text-blue')
+            // Tenta no elemento identificado ou no canvas/svg mais próximo
+            const targetForCoords = el ||
+              document.querySelector('canvas, .graphie, .interactive-graph, [class*="graph" i], svg') as HTMLElement | null
+            if (targetForCoords) {
+              simulatePointerClick(targetForCoords as HTMLElement, coField)
+              await new Promise(r => setTimeout(r, 300))
+              // Verificação mais suave para coordenadas: se algo mudou na página, considera sucesso
+              const sig1 = document.querySelectorAll('input:checked, [aria-selected="true"], [data-selected="true"]').length
+              await new Promise(r => setTimeout(r, 200))
+              const sig2 = document.querySelectorAll('input:checked, [aria-selected="true"], [data-selected="true"]').length
+              if (sig2 !== sig1 || verifyActionApplied(fail.action)) {
+                recordActionSuccess(fail.action, 'Estratégia 2b: Coordinate Click', window.location.href)
+                panel.logToConsole(`> [REPLAN]  Estratégia 2b OK: clique por coordenadas aceito!`, 'text-green')
+                continue
+              }
             }
           }
         } catch {}
@@ -655,7 +704,13 @@ async function initEasyQuiz(): Promise<void> {
       }
 
       // ESTRATÉGIA 5: Re-consulta IA com contexto de diagnóstico rico + pedido de JS customizado
+      // CAP: máximo 2 re-planejamentos IA por sessão para evitar loop de custo
       if (signal?.aborted) return
+      if (aiReplanCount >= 2) {
+        panel.logToConsole(`> [REPLAN] ℹ️ Limite de re-consultas IA (2) atingido. Encerrando pipeline para "${label}".`, 'text-yellow')
+        exhaustedFallbacks.add(actionFingerprint)
+        continue
+      }
       panel.logToConsole(`> [REPLAN] Estratégia 5: re-consulta IA com diagnóstico focado...`, 'text-blue')
 
       try {
@@ -689,6 +744,7 @@ Você pode tentar múltiplas abordagens em um único bloco JS. Seja criativo.
 NÃO repita as estratégias já tentadas acima.`
 
         const replanCtx = { ...ctx!, questionText: replanPrompt }
+        aiReplanCount++
         const replanResult = await analyzeWithGemini(
           replanCtx, [], { ...settings },
           (msg) => panel.logToConsole(`> [REPLAN-AI] ${msg}`, 'text-blue'),
@@ -697,12 +753,14 @@ NÃO repita as estratégias já tentadas acima.`
 
         if (signal?.aborted || !replanResult?.plan) {
           panel.logToConsole('> [REPLAN]  Re-consulta não retornou plano.', 'text-yellow')
+          exhaustedFallbacks.add(actionFingerprint)
           continue
         }
 
         const jsActions = replanResult.plan.actions.filter(a => a.t === 'js')
         if (jsActions.length === 0) {
           panel.logToConsole('> [REPLAN] ℹ️ IA não gerou ações JS de fallback.', 'text-yellow')
+          exhaustedFallbacks.add(actionFingerprint)
           continue
         }
 
@@ -715,8 +773,10 @@ NÃO repita as estratégias já tentadas acima.`
         } else {
           panel.logToConsole('> [REPLAN]  Todas as estratégias esgotadas para esta ação.', 'text-yellow')
         }
+        exhaustedFallbacks.add(actionFingerprint)
       } catch (e) {
         panel.logToConsole(`> [REPLAN] Erro na re-consulta: ${e instanceof Error ? e.message : String(e)}`, 'text-yellow')
+        exhaustedFallbacks.add(actionFingerprint)
       }
     }
   }

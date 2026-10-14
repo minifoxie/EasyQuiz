@@ -79,7 +79,9 @@ export function buildGenerationConfig(model: string, schemaOverride?: unknown): 
   const schema = schemaOverride ?? GEMINI_JSON_SCHEMA
   const config: Record<string, unknown> = {
     temperature: 0.0,
-    maxOutputTokens: 1350,
+    // 2000 tokens: suficiente para questões complexas (redação, tabelas de compra,
+    // matrizes V/F com 10+ afirmações, gráficos com cálculo de coordenadas)
+    maxOutputTokens: 2000,
     responseMimeType: 'application/json',
     responseSchema: schema,
   }
@@ -88,15 +90,16 @@ export function buildGenerationConfig(model: string, schemaOverride?: unknown): 
   if (/lite/i.test(model)) {
     // sem thinkingConfig
   }
-  // gemini-3.8-flash suporta thinking níveis: usa thinkingBudget=0 para max velocidade
+  // gemini-3.8-flash suporta thinking: budget 512 melhora raciocínio em questões de exatas
+  // sem custo de latência relevante (ainda é Flash)
   else if (/gemini-3\.[0-9]+-?flash/i.test(model)) {
-    config.thinkingConfig = { thinkingBudget: 0 }
+    config.thinkingConfig = { thinkingBudget: 512 }
   }
   // gemini-2.5-flash também suporta thinkingBudget
   else if (/gemini-2\.[5-9]-?flash/i.test(model)) {
-    config.thinkingConfig = { thinkingBudget: 0 }
+    config.thinkingConfig = { thinkingBudget: 256 }
   }
-  // gemini-3.1-pro e gemini-2.5-pro: sem thinkingConfig explícito
+  // gemini-3.1-pro e gemini-2.5-pro: sem thinkingConfig explícito (usam reasoning nativo)
 
   return config
 }
@@ -170,6 +173,8 @@ const GEMINI_JSON_SCHEMA = {
         required: ['t'],
       },
     },
+    wrongAnswerDetected: { type: 'BOOLEAN' },    // IA detectou que resposta anterior estava incorreta
+    suggestStrategyChange: { type: 'BOOLEAN' },  // IA recomenda mudar estratégia de interação
   },
   required: ['pageType', 'mode', 'confidence', 'rationale', 'actions'],
 }
@@ -724,13 +729,14 @@ export async function analyzeWithGemini(
   const allConfiguredKeys = keyManager.getAllKeys()
   const totalKeysCount = allConfiguredKeys.length
 
-  // ── Concorrência adaptativa ──
-  // Onda 0 (1ª tentativa): sempre 1 slot — se funcionar, gastamos apenas 1 chamada de API.
-  // Ondas 1+: 2 slots — maior velocidade de recuperação quando a primeira chave falha.
-  // Isso economiza ~50% dos tokens em questões respondidas na primeira tentativa.
+  // ── Concorrência adaptativa e hedging de baixa latência ──
+  // Onda 0 (1ª tentativa): 2 slots concorrentes quando houver múltiplas chaves (Promise.any).
+  // Assim que a chave mais rápida responde (~800ms-1.2s), a outra é cancelada imediatamente.
+  // Isso elimina esperas de chaves lentas, em cold start ou com cota saturada.
   const getWaveConcurrency = (waveIdx: number): number => {
     if (totalKeysCount <= 1) return 1
-    return waveIdx === 0 ? 1 : 2  // 1 slot na primeira onda, 2 nas demais
+    if (totalKeysCount >= 5 && waveIdx > 0) return 3
+    return 2
   }
 
   const usedPairs = new Set<string>() // "key::model"
@@ -738,9 +744,9 @@ export async function analyzeWithGemini(
   const getTimeout = (modelName: string, waveIdx: number): number => {
     const isPro = /pro/i.test(modelName)
     const isLite = /lite/i.test(modelName)
-    if (isPro)  return waveIdx === 0 ? 18000 : waveIdx === 1 ? 24000 : 30000
-    if (isLite) return waveIdx === 0 ? 10000 : waveIdx === 1 ? 14000 : 18000
-    return             waveIdx === 0 ? 16000 : waveIdx === 1 ? 20000 : 25000
+    if (isPro)  return waveIdx === 0 ? 15000 : waveIdx === 1 ? 20000 : 25000
+    if (isLite) return waveIdx === 0 ? 7000  : waveIdx === 1 ? 10000 : 14000
+    return             waveIdx === 0 ? 9000  : waveIdx === 1 ? 14000 : 20000
   }
 
   const runWave = async (
