@@ -53,16 +53,24 @@ export function resolveTargetControlOrCard(element: HTMLElement): HTMLElement {
 
   // 3. Procura container de alternativa/questão verdadeiro (evita match prematuro em .option-text, .option-badge e NUNCA sobe para article/section/main)
   const trueCard = element.closest(
-    'label, .option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, td, li, .dnd-card, [class*="option-card" i], [class*="choice-card" i], .dropdown-row, [class*="dropdown" i], [class*="select-row" i]',
+    'label, .option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, td, li, .dnd-card, [class*="option-card" i], [class*="choice-card" i], .perseus-radio-option, [class*="radio-option" i], [class*="choice" i], [data-testid*="choice"], .choice-radio-btn, .dropdown-row, [class*="dropdown" i], [class*="select-row" i]',
   ) as HTMLElement | null
 
   if (trueCard && !['article', 'section', 'main', 'form', 'body'].includes(trueCard.tagName.toLowerCase())) {
     const forId = trueCard.getAttribute('for')
     const forInput = forId ? (trueCard.ownerDocument.getElementById(forId) as HTMLInputElement | null) : null
     const innerInput = (forInput || trueCard.querySelector('input:not([type="hidden"]), select, textarea')) as HTMLElement | null
-    if (innerInput) return innerInput
+    if (innerInput) {
+      // No Khan Academy, o input nativo é invisível (opacity:0 / pointer-events:none) e o React escuta no container/card
+      if (isKhanAcademyPage() && innerInput instanceof HTMLInputElement && (innerInput.type === 'radio' || innerInput.type === 'checkbox')) {
+        return trueCard
+      }
+
+      return innerInput
+    }
     return trueCard
   }
+
 
   const clickable = element.closest('button, a, [role="button"], [draggable="true"]') as HTMLElement | null
   if (clickable) return clickable
@@ -972,7 +980,7 @@ export function setCheckedState(element: HTMLElement, checked: boolean): void {
   if (!element) return
 
   const cardParent = (element.closest(
-    'label, td, .option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], li',
+    'label, td, .option-card, [role="radio"], [role="checkbox"], [role="option"], .quiz-option, .answer, .choice, [class*="option" i], [class*="choice" i], .perseus-radio-option, [class*="radio-option" i], [data-testid*="choice"], .choice-radio-btn, li',
   ) || element) as HTMLElement
 
   let inputEl =
@@ -985,10 +993,16 @@ export function setCheckedState(element: HTMLElement, checked: boolean): void {
   }
 
   // Identifica o alvo interativo que deve receber os eventos de ponteiro/clique (o elemento visível na tela)
-  const interactiveTarget =
-    element instanceof HTMLInputElement
-      ? (element.closest('label') || (element.id ? cardParent.ownerDocument.getElementById(cardParent.getAttribute('for')!) : null) || element)
-      : ((cardParent && isVisible(cardParent)) ? cardParent : element)
+  const isKhan = isKhanAcademyPage()
+  const khanChoice = (cardParent.matches?.('.perseus-radio-option, [class*="radio-option" i], [class*="choice" i], [data-testid*="choice"], .choice-radio-btn, li') ? cardParent : null) ||
+    element.closest?.('.perseus-radio-option, [class*="radio-option" i], [class*="choice" i], [data-testid*="choice"], .choice-radio-btn, li') as HTMLElement | null
+
+  const interactiveTarget: HTMLElement =
+    (isKhan && khanChoice && isVisible(khanChoice))
+      ? khanChoice
+      : element instanceof HTMLInputElement
+        ? (element.closest('label') || (element.id ? cardParent.ownerDocument.getElementById(cardParent.getAttribute('for')!) : null) || (cardParent && cardParent !== element && isVisible(cardParent) ? cardParent : element))
+        : ((cardParent && isVisible(cardParent)) ? cardParent : element)
 
   if (inputEl) {
     const isRadio = inputEl.type === 'radio'
@@ -1002,6 +1016,7 @@ export function setCheckedState(element: HTMLElement, checked: boolean): void {
         cardParent.setAttribute('aria-checked', 'true')
         cardParent.setAttribute('aria-selected', 'true')
         cardParent.classList.add('selected', 'active', 'checked')
+        if (isKhan) cardParent.classList.add('perseus-radio-selected')
         return
       }
       if (isCheckbox) {
@@ -1011,13 +1026,14 @@ export function setCheckedState(element: HTMLElement, checked: boolean): void {
         cardParent.classList.toggle('selected', checked)
         cardParent.classList.toggle('active', checked)
         cardParent.classList.toggle('checked', checked)
+        if (isKhan) cardParent.classList.toggle('perseus-radio-selected', checked)
         return
       }
     }
 
     // Estado divergente: precisamos marcar/alternar com clique real!
     // 1. Simula clique completo de ponteiro no elemento interativo visível (card ou label)
-    if (interactiveTarget && interactiveTarget !== inputEl) {
+    if (interactiveTarget) {
       simulatePointerClick(interactiveTarget)
     }
 
@@ -1043,12 +1059,38 @@ export function setCheckedState(element: HTMLElement, checked: boolean): void {
       dispatchEventSequence(inputEl, ['input', 'change'])
     }
 
-    // 4. Atualiza atributos visuais e semânticos no card APÓS o clique
+    // 4. Se for Khan Academy, dispara também handlers do React no container da opção e no botão interno
+    if (isKhan) {
+      const targets = [interactiveTarget, cardParent, khanChoice].filter(Boolean) as HTMLElement[]
+      for (const t of targets) {
+        try {
+          const propsKey = Object.keys(t).find(k => k.startsWith('__reactProps'))
+          if (propsKey && (t as any)[propsKey]) {
+            const props = (t as any)[propsKey]
+            const mockEvt = {
+              type: 'click',
+              target: t,
+              currentTarget: t,
+              bubbles: true,
+              cancelable: true,
+              preventDefault: () => {},
+              stopPropagation: () => {},
+            }
+            if (typeof props.onClick === 'function') props.onClick(mockEvt)
+            if (typeof props.onChange === 'function') props.onChange({ target: { checked, value: inputEl.value }, currentTarget: t, preventDefault: () => {} })
+          }
+        } catch {}
+      }
+    }
+
+    // 5. Atualiza atributos visuais e semânticos no card APÓS o clique
     cardParent.setAttribute('aria-checked', checked ? 'true' : 'false')
     cardParent.setAttribute('aria-selected', checked ? 'true' : 'false')
     cardParent.classList.toggle('selected', checked)
     cardParent.classList.toggle('active', checked)
     cardParent.classList.toggle('checked', checked)
+    if (isKhan) cardParent.classList.toggle('perseus-radio-selected', checked)
+
   } else {
     // Opção customizada sem input nativo (card div, span, button, tile)
     // Avalia o estado ANTES de alterar qualquer classe ou atributo no DOM
@@ -1791,24 +1833,24 @@ export async function executePerseusAction(action: DeclarativeAction, el: HTMLEl
     }
   }
 
-  // 3. React Fiber Fallback para clicks em controles customizados (radio/checkbox)
-  if ((action.t === 'clk' || action.t === 'chk') && el.closest('.perseus-widget-container')) {
-    try {
-      const fiberKey = Object.keys(el).find(k => k.startsWith('__reactFiber$'))
-      const propsKey = Object.keys(el).find(k => k.startsWith('__reactProps$'))
-      if (propsKey && (el as any)[propsKey]) {
-        const props = (el as any)[propsKey]
-        if (typeof props.onClick === 'function') {
-          props.onClick({ preventDefault: () => {}, stopPropagation: () => {} })
-          return true
-        }
-        if (typeof props.onChange === 'function') {
-          props.onChange({ target: { checked: true, value: valHint }, preventDefault: () => {} })
-          return true
-        }
-      }
-    } catch {}
+  // 3. Perseus choices (radio / checkbox / option buttons)
+  if (action.t === 'clk' || action.t === 'chk') {
+    const choice = (el.closest?.(
+      '.perseus-radio-option, [class*="radio-option" i], [class*="choice" i], [data-testid*="choice"], .choice-radio-btn, [role="radio"], [role="checkbox"], li, button'
+    ) || el) as HTMLElement
+
+    const isPerseus = Boolean(
+      choice.closest('.perseus-widget-container, .perseus-renderer, [class*="perseus" i]') ||
+      choice.matches?.('.perseus-radio-option, [class*="radio-option" i], [class*="choice" i], [data-testid*="choice"], .choice-radio-btn')
+    )
+
+    if (isPerseus) {
+      const targetState = action.t === 'chk' && action.c !== undefined ? Boolean(action.c) : true
+      setCheckedState(choice, targetState)
+      return true
+    }
   }
+
 
   return false // Não foi tratado pelo Perseus engine, seguir fluxo normal
 }

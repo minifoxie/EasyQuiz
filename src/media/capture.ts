@@ -23,43 +23,45 @@ function blobToBase64(blob: Blob): Promise<string> {
 
 function isCanvasBlank(canvas: HTMLCanvasElement): boolean {
   try {
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return true
-    // Amostra em 3 regiões para robustez (centro, topo-esquerda, meio-baixo)
     const w = canvas.width, h = canvas.height
     if (w <= 0 || h <= 0) return true
-    const sampleSize = Math.min(40, Math.floor(w / 3), Math.floor(h / 3))
-    if (sampleSize <= 0) return true
-    const regions = [
-      [0, 0], // topo-esquerda
-      [Math.floor(w / 2) - Math.floor(sampleSize / 2), Math.floor(h / 2) - Math.floor(sampleSize / 2)], // centro
-      [Math.floor(w / 3), Math.floor(h * 2 / 3)] // terço inferior
-    ]
-    let totalPixels = 0
+
+    // Downscale para miniatura 24x24: permite inspecionar 100% da área do canvas
+    // de forma veloz (576 pixels no total), eliminando falsos positivos e áreas brancas
+    const thumb = document.createElement('canvas')
+    thumb.width = 24
+    thumb.height = 24
+    const tCtx = thumb.getContext('2d')
+    if (!tCtx) return true
+
+    tCtx.drawImage(canvas, 0, 0, 24, 24)
+    const imgData = tCtx.getImageData(0, 0, 24, 24).data
+    let blankPixels = 0
     let uniformPixels = 0
-    let firstR = -1, firstG = -1, firstB = -1
-    for (const [sx, sy] of regions) {
-      const rx = Math.max(0, Math.min(sx, w - sampleSize))
-      const ry = Math.max(0, Math.min(sy, h - sampleSize))
-      const data = ctx.getImageData(rx, ry, sampleSize, sampleSize).data
-      for (let i = 0; i < data.length; i += 4) {
-        totalPixels++
-        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3]
-        if (a === 0) { uniformPixels++; continue } // transparente
-        if (firstR === -1) { firstR = r; firstG = g; firstB = b }
-        // Pixel é "uniforme" se é muito próximo do primeiro pixel lido (monocromático)
-        if (Math.abs(r - firstR) < 8 && Math.abs(g - firstG) < 8 && Math.abs(b - firstB) < 8) {
-          uniformPixels++
-        }
+    const totalPixels = 24 * 24
+    const firstR = imgData[0], firstG = imgData[1], firstB = imgData[2], firstA = imgData[3]
+
+    for (let i = 0; i < imgData.length; i += 4) {
+      const r = imgData[i], g = imgData[i + 1], b = imgData[i + 2], a = imgData[i + 3]
+      // Transparente ou quase branco (>240 em RGB)
+      if (a === 0 || (r > 240 && g > 240 && b > 240)) {
+        blankPixels++
+      }
+      if (Math.abs(r - firstR) < 10 && Math.abs(g - firstG) < 10 && Math.abs(b - firstB) < 10 && Math.abs(a - firstA) < 10) {
+        uniformPixels++
       }
     }
-    // Canvas blank = >97% dos pixels são uniformes (mesma cor ou transparentes)
-    // Isso diferencia "imagem real com fundo branco" de "canvas genuinamente vazio"
-    return totalPixels > 0 && (uniformPixels / totalPixels) > 0.97
+
+    // Se mais de 92% dos pixels são transparentes/brancos ou monocromáticos, é uma área em branco
+    if (blankPixels / totalPixels > 0.92) return true
+    if (uniformPixels / totalPixels > 0.95) return true
+
+    return false
   } catch {
     return false
   }
 }
+
 
 /** Força fundo branco quando a cor detectada é escura demais para renderização legível */
 function ensureLightBackground(detectedBg: string): string {
@@ -287,6 +289,7 @@ async function captureElementVisualSnapshot(node: HTMLElement): Promise<Captured
 
     // Se o nó for um canvas
     if (node instanceof HTMLCanvasElement) {
+      if (isCanvasBlank(node)) return null
       try {
         const blob = await compressImage(node)
         const base64 = await blobToBase64(blob)
@@ -301,6 +304,13 @@ async function captureElementVisualSnapshot(node: HTMLElement): Promise<Captured
         }
       } catch {}
     }
+
+    // Se não for SVG nem Canvas, só tira snapshot se o nó contiver elementos visuais reais (SVG, Canvas ou Imagem)
+    const hasVisualGraphics = node.querySelector('svg, canvas, img') !== null
+    if (!hasVisualGraphics) {
+      return null
+    }
+
 
     // Detectar cor de fundo — força branco se o tema for escuro (PNG sem fundo ficaria preto)
     let bgColor = '#ffffff'
@@ -653,10 +663,13 @@ async function captureImageElement(img: HTMLImageElement): Promise<CapturedImage
     } catch {}
   }
 
-  // Estratégia 4: Snapshot visual "Print-like" do elemento renderizado no DOM
+  // Estratégia 4: Snapshot visual "Print-like" do elemento renderizado no DOM (apenas se contiver SVG ou Canvas)
   const parentNode = (img.parentElement || img) as HTMLElement
-  const snapshot = await captureElementVisualSnapshot(parentNode)
-  if (snapshot) return snapshot
+  if (parentNode.querySelector('svg, canvas')) {
+    const snapshot = await captureElementVisualSnapshot(parentNode)
+    if (snapshot) return snapshot
+  }
+
 
   // Estratégia 5: Fallback textual detalhado (metadados, alt, figcaption, vizinhança)
   const textCtx = extractTextContextForImage(img)
@@ -926,6 +939,14 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
       (c) => isVisible(c) && !isUtilityOrGamificationControl(c),
     )
     for (const cnv of canvases) {
+      // Ignora ferramentas de anotação/scratchpad do Khan Academy ou canvases em branco
+      if (
+        cnv.matches('.scratchpad, [class*="scratchpad" i], [class*="drawing" i], [id*="scratchpad" i]') ||
+        cnv.closest('.scratchpad, [class*="scratchpad" i], [class*="drawing" i], [id*="scratchpad" i]') ||
+        isCanvasBlank(cnv)
+      ) {
+        continue
+      }
       try {
         const blob = await compressImage(cnv)
         const base64 = await blobToBase64(blob)
@@ -940,8 +961,11 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
           if (pushCapture(cap, cnv)) return captures
         }
       } catch {
-        const raster = await captureElementVisualSnapshot((cnv.parentElement || cnv) as HTMLElement)
-        if (pushCapture(raster, cnv)) return captures
+        const parentDiag = (cnv.parentElement || cnv) as HTMLElement
+        if (parentDiag.querySelector('svg, canvas')) {
+          const raster = await captureElementVisualSnapshot(parentDiag)
+          if (raster && pushCapture(raster, cnv)) return captures
+        }
       }
     }
   }
@@ -1051,9 +1075,11 @@ export async function captureImages(scope: HTMLElement, enabled = true): Promise
               }
             }
           } catch {
-            // Fallback: snapshot visual do container
-            const snapshot = await captureElementVisualSnapshot(bgEl)
-            if (snapshot && pushCapture(snapshot, bgEl)) return captures
+            // Fallback: snapshot visual do container SOMENTE se contiver gráficos reais (SVG, Canvas ou Imagem)
+            if (bgEl.querySelector('svg, canvas, img')) {
+              const snapshot = await captureElementVisualSnapshot(bgEl)
+              if (snapshot && pushCapture(snapshot, bgEl)) return captures
+            }
           }
         } catch {}
       }

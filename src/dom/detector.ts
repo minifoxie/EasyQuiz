@@ -19,12 +19,10 @@ const CANDIDATE_SELECTORS = [
   '[data-testid="perseus-expression-input"]',
   '[data-testid="perseus-math-input"]',
   '[data-testid="exercise-header"]',
-  '[class*="ExerciseWrapper"]',
-  '[class*="exercise-wrapper" i]',
   '[class*="task-challenge" i]',
   '[class*="task-body" i]',
+  '.perseus-renderer-responsive',
   '.perseus-renderer',
-  '.framework-perseus',
   '[data-test-id*="exercise" i]',
   '[data-testid*="exercise" i]',
   // Google Forms
@@ -63,8 +61,9 @@ const CANDIDATE_SELECTORS = [
 function scoreCandidate(element: HTMLElement): number {
   if (!isVisible(element)) return -Infinity
 
-  // Khan Academy: penalizar severamente elementos na sidebar/lista de tarefas
+  // Khan Academy: penalizar severamente wrappers de página inteira e sidebar
   if (isKhanSidebarElement(element)) return -Infinity
+  if (element.matches?.('.framework-perseus, [class*="ExerciseWrapper" i], [data-testid="content-area"], [data-testid="exercise-view"]')) return -Infinity
 
   const rect = element.getBoundingClientRect()
   const controls = Array.from(element.querySelectorAll(CONTROL_SELECTOR)).filter(
@@ -97,7 +96,7 @@ function scoreCandidate(element: HTMLElement): number {
 
   // Bônus para seletores específicos Khan Academy / Perseus
   const isPerseusSpecific = element.matches?.(
-    '.perseus-renderer, .framework-perseus, [class*="ExerciseWrapper"], [class*="exercise-wrapper" i], [class*="task-challenge" i], [class*="task-body" i], [data-test-id*="exercise" i]'
+    '.perseus-renderer-responsive, .perseus-renderer, [class*="task-challenge" i], [class*="task-body" i], [data-test-id*="exercise" i], [data-testid*="exercise" i]'
   ) ? 50 : 0
 
   // Penalidade severa para elementos que estão muito na lateral (prováveis sidebars)
@@ -125,12 +124,12 @@ export function findTrueQuestionContainer(element: HTMLElement): HTMLElement {
   let curr = element
 
   // ── CAMINHO RÁPIDO: Khan Academy / Perseus ────────────────────────────────
-  // Se o elemento estiver dentro de um container Perseus, usa o menor
-  // container válido como escopo, impedindo captura da tela inteira.
+  // Se o elemento estiver dentro de um container Perseus específico de questão,
+  // usa o container mais específico como escopo, impedindo captura da tela inteira.
   const perseusContainer = curr.closest(
-    '.perseus-renderer, .framework-perseus, [class*="ExerciseWrapper"], [class*="exercise-wrapper" i], [class*="task-challenge" i], [class*="task-body" i], [data-testid="exercise-header"]'
+    '[data-test-id="exercise-question"], [data-testid="exercise-question"], [data-testid="question-item"], [class*="perseus-question-container" i], [class*="questionRenderer" i], .perseus-renderer-responsive, .perseus-renderer'
   ) as HTMLElement | null
-  if (perseusContainer && perseusContainer !== document.body) {
+  if (perseusContainer && perseusContainer !== document.body && !isKhanSidebarElement(perseusContainer)) {
     return perseusContainer
   }
 
@@ -381,31 +380,86 @@ export function findActiveScope(): HTMLElement {
     return classificationWidget
   }
 
-  // 0.5 PRIORIDADE KHAN ACADEMY: buscar o Perseus renderer VISÍVEL e no VIEWPORT
-  // O Khan Academy renderiza múltiplos exercícios no mesmo DOM (sidebar de cards),
-  // mas apenas UM está ativo e visível. Este bloco garante que capturamos o correto.
+  // 0.5 PRIORIDADE KHAN ACADEMY: buscar o container da questão específica ATIVA no viewport
+  // O Khan Academy renderiza múltiplos exercícios no mesmo DOM ou carrega itens em gavetas/carrosséis,
+  // mas apenas a questão ativa aberta na tela deve ser isolada e analisada.
   if (isKhanAcademyPage()) {
-    const perseusRenderers = Array.from(
-      document.querySelectorAll('.perseus-renderer, .framework-perseus')
-    ) as HTMLElement[]
-    // Filtrar: visível no viewport, com dimensões reais, e NÃO na sidebar
-    const activeRenderers = perseusRenderers.filter((el) => {
+    const khanQuestionSelectors = [
+      '[data-test-id="exercise-question"]',
+      '[data-testid="exercise-question"]',
+      '[data-testid="question-item"]',
+      '[class*="perseus-question-container" i]',
+      '[class*="questionRenderer" i]',
+      '.perseus-renderer-responsive',
+      '.perseus-renderer',
+      '[class*="task-challenge" i]',
+      '[class*="task-body" i]',
+    ].join(',')
+
+    const allKhanContainers = Array.from(document.querySelectorAll(khanQuestionSelectors)) as HTMLElement[]
+
+    // Filtrar: visível no viewport, não colapsado, e NÃO pertencente à sidebar, scratchpad ou drawer
+    const activeQuestions = allKhanContainers.filter((el) => {
       if (!isVisible(el) || isKhanSidebarElement(el)) return false
+      // Ignora containers colapsados, minimizados ou com aria-hidden
+      if (el.closest('[aria-hidden="true"], [hidden], [class*="minimized" i], [class*="collapsed" i], [class*="closed" i], aside, nav, [class*="sidebar" i], [class*="task-list" i], [class*="lesson-list" i], [class*="drawer" i], [class*="tray" i]')) return false
+
       const rect = el.getBoundingClientRect()
-      // Deve estar pelo menos parcialmente no viewport e ter tamanho razoável
-      return rect.width > 100 && rect.height > 50 && rect.bottom > 0 && rect.top < window.innerHeight
+      // Deve ter dimensões de questão real aberta (ignora cartões minimizados com height reduzido)
+      if (rect.width < 180 || rect.height < 60) return false
+
+      // Deve estar centrado ou visível no viewport principal
+      const inView = rect.bottom > 60 && rect.top < window.innerHeight - 40
+      if (!inView) return false
+
+      // Deve estar na coluna principal (não na barra lateral esquerda < 20% ou extrema direita)
+      if (rect.right < window.innerWidth * 0.22 || rect.left > window.innerWidth * 0.95) return false
+
+      // Deve conter controles de resposta ou texto substantivo
+      const controls = el.querySelectorAll(CONTROL_SELECTOR)
+      const hasControls = Array.from(controls).some(c => isVisible(c as HTMLElement) && !isKhanSidebarElement(c as HTMLElement))
+      const text = cleanText(el.innerText || el.textContent || '', 100)
+      if (!hasControls && text.length < 15) return false
+
+      return true
     })
-    if (activeRenderers.length > 0) {
-      // Prefere o maior renderer visível (o que contém a questão ativa)
-      activeRenderers.sort((a, b) => {
+
+    if (activeQuestions.length > 0) {
+      // Prioriza o container mais ESPECÍFICO (menor área que ainda contém o exercício ativo),
+      // e que possui controles de resposta ativos e está mais próximo do centro vertical da tela.
+      // Isso elimina os wrappers gigantes como .framework-perseus ou div global da página!
+      activeQuestions.sort((a, b) => {
         const rA = a.getBoundingClientRect()
         const rB = b.getBoundingClientRect()
-        return (rB.width * rB.height) - (rA.width * rA.height)
+        const areaA = rA.width * rA.height
+        const areaB = rB.width * rB.height
+
+        // Se 'a' contém 'b', 'b' é mais específico (filho direto), então 'b' vem antes!
+        if (a.contains(b)) return 1
+        if (b.contains(a)) return -1
+
+        // Container com controles ativos visíveis tem precedência sobre containers sem controles
+        const controlsA = Array.from(a.querySelectorAll(CONTROL_SELECTOR)).filter(c => isVisible(c as HTMLElement)).length
+        const controlsB = Array.from(b.querySelectorAll(CONTROL_SELECTOR)).filter(c => isVisible(c as HTMLElement)).length
+        if (controlsA > 0 && controlsB === 0) return -1
+        if (controlsB > 0 && controlsA === 0) return 1
+
+        // Proximidade do centro vertical da tela
+        const centerDistA = Math.abs((rA.top + rA.bottom) / 2 - window.innerHeight / 2)
+        const centerDistB = Math.abs((rB.top + rB.bottom) / 2 - window.innerHeight / 2)
+        if (Math.abs(centerDistA - centerDistB) > 100) {
+          return centerDistA - centerDistB
+        }
+
+        // Prefere o container mais compacto
+        return areaA - areaB
       })
-      const result = findTrueQuestionContainer(activeRenderers[0])
-      setCachedScopeSelector(result)
-      return result
+
+      const best = activeQuestions[0]
+      setCachedScopeSelector(best)
+      return best
     }
+
   }
 
   // 1. Verificar se o elemento com foco do usuário está dentro de uma questão candidata
@@ -512,6 +566,22 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
     const tag = el.tagName.toLowerCase()
 
     if (['input', 'textarea', 'select'].includes(tag)) {
+      if (isKhan && tag === 'input') {
+        const inputType = (el as HTMLInputElement).type?.toLowerCase()
+        if (inputType === 'radio' || inputType === 'checkbox') {
+          // No Khan Academy, o <input> é estilizado/invisível (opacity:0) e o clique precisa ser no card/li.
+          // Identifica o container interativo pai da opção:
+          const optionContainer = el.closest(
+            '.perseus-radio-option, [class*="radio-option" i], [class*="choice" i], [data-testid*="choice"], .choice-radio-btn, li'
+          ) as HTMLElement | null
+          if (optionContainer && isVisible(optionContainer)) {
+            handledInputs.add(el)
+            handledInputs.add(optionContainer)
+            selectedElements.push(optionContainer)
+            continue
+          }
+        }
+      }
       handledInputs.add(el)
       selectedElements.push(el)
     }
@@ -529,8 +599,16 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
 
     if (['input', 'textarea', 'select'].includes(tag)) continue
 
+    // Evita nós filhos dentro de um container de opção que já foi adicionado
+    if (selectedElements.some(parent => parent.contains(el))) continue
+    const parentContainer = el.closest(
+      '.perseus-radio-option, [class*="radio-option" i], [class*="choice" i], .choice-radio-btn, .option-card, label, li'
+    )
+    if (parentContainer && handledInputs.has(parentContainer as HTMLElement)) continue
+
     const innerInput = el.querySelector('input, textarea, select') as HTMLElement | null
     if (innerInput && handledInputs.has(innerInput)) continue
+
 
     if (el.hasAttribute('for')) {
       const forId = el.getAttribute('for')
@@ -663,8 +741,7 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
     el.getAttribute('role') === 'radio' || el.getAttribute('role') === 'checkbox' ||
     el.classList.contains('mq-editable-field') || el.closest('.perseus-widget-container')
   ))) {
-    const perseusRoot = document.querySelector('.perseus-renderer, .framework-perseus') as HTMLElement | null
-    const perseusScope = perseusRoot || scope
+    const perseusScope = scope
 
     // 5.1 MathQuill fields (expression input)
     const mqFields = Array.from(perseusScope.querySelectorAll('.mq-editable-field, .mq-root-block, [class*="expression-editor" i], [class*="math-input" i]')) as HTMLElement[]
@@ -680,14 +757,22 @@ export function extractAnswerControls(scope: HTMLElement): ControlDescriptor[] {
       if (!selectedElements.includes(dd)) selectedElements.push(dd)
     }
 
-    // 5.3 Perseus radios (div[role="radio"] without native input)
-    const perseusRadios = Array.from(perseusScope.querySelectorAll('[class*="perseus-radio" i] [role="radio"], .perseus-widget-container [role="radio"], .perseus-widget-container [role="checkbox"]')) as HTMLElement[]
+    // 5.3 Perseus radios e choices (li / div / button)
+    const perseusRadios = Array.from(perseusScope.querySelectorAll(
+      '.perseus-radio-option, [class*="radio-option" i], [class*="choice" i], [data-testid*="choice"], .choice-radio-btn, [class*="perseus-radio" i] [role="radio"], .perseus-widget-container [role="radio"], .perseus-widget-container [role="checkbox"]'
+    )) as HTMLElement[]
     for (const pr of perseusRadios) {
       if (!isVisible(pr) || isInsideEasyQuiz(pr)) continue
-      // Evita duplicatas com inputs nativos já coletados
-      if (pr.querySelector('input[type="radio"], input[type="checkbox"]')) continue
-      if (!selectedElements.includes(pr)) selectedElements.push(pr)
+      if (selectedElements.includes(pr)) continue
+      if (selectedElements.some(parent => parent.contains(pr))) continue
+      const parentContainer = pr.closest(
+        '.perseus-radio-option, [class*="radio-option" i], [class*="choice" i], .choice-radio-btn, .option-card, label, li'
+      )
+      if (parentContainer && parentContainer !== pr && selectedElements.includes(parentContainer as HTMLElement)) continue
+      selectedElements.push(pr)
     }
+
+
 
     // 5.4 Perseus interactive widgets (sortable, number-line, interactive-graph)
     const perseusInteractive = Array.from(perseusScope.querySelectorAll('.perseus-widget-container [role="button"], .number-line [role="slider"], [class*="interactive-graph" i] [role="button"]')) as HTMLElement[]
@@ -743,13 +828,17 @@ export function captureCurrentContext(expanded = false): CapturedContext | null 
 
   // SE O ESCOPO LOCAL NÃO ENCONTROU CONTROLES DE RESPOSTA, MAS ELES EXISTEM NO DOCUMENTO:
   if (answers.length === 0) {
-    const globalAnswers = extractAnswerControls(document.body)
-    if (globalAnswers.length > 0) {
-      scope = expandToGeneralSelection(scope)
-      answers = extractAnswerControls(scope)
-      if (answers.length === 0) {
-        answers = globalAnswers
-        scope = (document.querySelector('main, article, form, [role="main"]') || document.body) as HTMLElement
+    // No Khan Academy, NUNCA expanda para o body inteiro, pois isso captura
+    // exercícios de outras tarefas ou minimizados!
+    if (!isKhanAcademyPage()) {
+      const globalAnswers = extractAnswerControls(document.body)
+      if (globalAnswers.length > 0) {
+        scope = expandToGeneralSelection(scope)
+        answers = extractAnswerControls(scope)
+        if (answers.length === 0) {
+          answers = globalAnswers
+          scope = (document.querySelector('main, article, form, [role="main"]') || document.body) as HTMLElement
+        }
       }
     }
   }
@@ -775,12 +864,17 @@ export function captureCurrentContext(expanded = false): CapturedContext | null 
   // Se tem texto explicativo relevante (> 30 chars), mesmo sem controles de resposta direta,
   // é uma página de leitura/contexto/artigo válida!
   if (!questionText || (controls.length === 0 && questionText.length < 30)) {
-    const fullBodyText = cleanText(document.body.innerText || document.body.textContent || '', 16_000)
-    if (fullBodyText.length >= 30) {
-      return captureFullPageText()
+    // No Khan Academy, NUNCA expanda para o body inteiro, pois captura todas as tarefas
+    // minimizadas, artigos e cabeçalhos da página!
+    if (!isKhanAcademyPage()) {
+      const fullBodyText = cleanText(document.body.innerText || document.body.textContent || '', 16_000)
+      if (fullBodyText.length >= 30) {
+        return captureFullPageText()
+      }
     }
     return null
   }
+
 
   return {
     sourceUrl: window.location.href.slice(0, 2_000),

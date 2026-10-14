@@ -63,6 +63,10 @@ export const CONTROL_SELECTOR = [
   '.mq-editable-field',   // MathQuill editor interno do Perseus
   '.mq-root-block',
   '.choice-radio-btn',    // Radio button de escolha múltipla Perseus
+  '.perseus-radio-option',
+  '[class*="radio-option" i]',
+  '[class*="choice" i]',
+  '[class*="checkbox-and-option" i]',
   '[class*="choice_" i]', // Padrão interno das alternativas Perseus (choice_0, choice_1...)
   '[class*="perseus-radio" i]',
   '[class*="perseus-checkbox" i]',
@@ -79,6 +83,7 @@ export const CONTROL_SELECTOR = [
   '[class*="interactive-graph" i]',
   '.interactive-component', // Componente interativo genérico Khan Academy
 ].join(',')
+
 
 
 export const NAVIGATION_PATTERN =
@@ -102,20 +107,29 @@ function isVisibleBasic(node: HTMLElement): boolean {
   try {
     const style = window.getComputedStyle ? window.getComputedStyle(node) : (node.style as any)
     if (style) {
-      if (style.display === 'none' || style.visibility === 'hidden') {
+      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
         return false
       }
     }
   } catch {}
 
-  try {
-    if (typeof node.getBoundingClientRect === 'function') {
-      const rect = node.getBoundingClientRect()
-      if (rect.width > 0 || rect.height > 0) {
-        return true
-      }
+  const isJSDOM =
+    (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) ||
+    Boolean((globalThis as any).process?.versions?.node)
+
+  if (!isJSDOM && typeof node.getBoundingClientRect === 'function' && typeof window !== 'undefined' && window.innerHeight > 0) {
+    const rect = node.getBoundingClientRect()
+    // Elementos com dimensões zero (minimizados, colapsados em accordion ou com height:0)
+    if (rect.width === 0 && rect.height === 0) {
+      return false
     }
-  } catch {}
+    // Elementos deslocados para fora da tela (ex: carrossel inativo ou drawer recolhido com left/top extremo)
+    if (rect.right < -300 || rect.left > window.innerWidth + 1500 || rect.bottom < -300) {
+      return false
+    }
+    return true
+  }
+
 
   return (node.textContent || '').trim().length > 0
 }
@@ -148,24 +162,30 @@ export function isVisible(element: Element): boolean {
         } catch {}
       }
       const parentOption = node.closest(
-        'label, .option-card, .quiz-option, .choice, .answer, [role="radio"], [role="checkbox"], [class*="option" i], [class*="choice" i], [class*="item" i], li, tr',
+        'label, .option-card, .quiz-option, .choice, .answer, [role="radio"], [role="checkbox"], [class*="option" i], [class*="choice" i], [class*="item" i], .perseus-radio-option, .choice-radio-btn, li, tr',
       ) as HTMLElement | null
       if (parentOption && parentOption !== node) {
         if (isVisibleBasic(parentOption)) return true
       }
     }
 
-    // Controles de formulário (text inputs, textareas, selects, buttons) não contêm nós de texto internos.
-    // Em JSDOM ou renderizadores sem reflow (onde getBoundingClientRect retorna 0x0), eles são visíveis
-    // desde que não estejam ocultos por display:none, visibility:hidden, hidden ou aria-hidden.
+    // Controles de formulário (text inputs, textareas, selects, buttons)
     try {
       const hiddenAncestor = node.closest('[hidden], [style*="display: none"], [style*="display:none"], [aria-hidden="true"]')
       if (!hiddenAncestor) {
         const style = window.getComputedStyle ? window.getComputedStyle(node) : (node.style as any)
-        if (!style || (style.display !== 'none' && style.visibility !== 'hidden')) {
+        if (!style || (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0')) {
           if (typeof node.getBoundingClientRect === 'function') {
             const rect = node.getBoundingClientRect()
             if (rect.width > 0 || rect.height > 0) return true
+            const isJSDOM =
+              (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) ||
+              Boolean((globalThis as any).process?.versions?.node)
+
+            if (!isJSDOM && typeof window !== 'undefined' && window.innerHeight > 0) {
+              return false // Em navegador real, 0x0 significa colapsado/minimizado
+            }
+
           }
           return true
         }
@@ -223,29 +243,31 @@ export function isKhanSidebarElement(el: Element | null): boolean {
   // 1. Verifica memória de layout da sessão (mais preciso e rápido)
   if (isInKnownSidebarRegion(el)) return true
 
-  // 2. Khan Academy sidebar containers: task list, lesson navigation, mastery cards
+  // 2. Khan Academy sidebar containers: task list, lesson navigation, mastery cards, scratchpad, hint drawers
   const sidebarAncestor = el.closest(
     'aside, nav, ' +
     '[class*="task-list" i], [class*="lesson-list" i], [class*="mastery" i], ' +
     '[class*="sidebar" i], [class*="side-bar" i], [class*="side_bar" i], ' +
     '[class*="unit-nav" i], [class*="course-nav" i], ' +
     '[data-testid*="sidebar" i], [data-testid*="task-list" i], ' +
-    '[class*="practice-tab" i], [class*="progress-nav" i], ' +
+    '[class*="practice-tab" i], [class*="progress-nav" i], [class*="exercise-progress" i], ' +
+    '[data-testid*="progress" i], [class*="scratchpad" i], [class*="drawing" i], ' +
+    '[class*="hints-container" i], [data-testid*="hint" i], [class*="drawer" i], [class*="tray" i], ' +
     '[role="navigation"], [role="complementary"]'
   )
   if (sidebarAncestor) {
     // Certifica que o ancestor não é o próprio exercício/Perseus renderer
-    const isInsideExercise = sidebarAncestor.querySelector('.perseus-renderer, .framework-perseus, [data-test-id*="exercise" i]')
+    const isInsideExercise = sidebarAncestor.querySelector('.perseus-renderer, .perseus-renderer-responsive, [data-test-id*="exercise" i], [data-testid*="exercise-question" i]')
     if (!isInsideExercise) return true
   }
   
-  // 3. Heurística de posição: se estamos na Khan Academy e o elemento está muito à esquerda (< 30% da tela)
+  // 3. Heurística de posição: se estamos na Khan Academy e o elemento está muito à esquerda (< 25% da tela)
   // enquanto há conteúdo Perseus no centro/direita.
   if (isKhanAcademyPage()) {
     try {
       const rect = el.getBoundingClientRect()
-      const hasPerseus = !!document.querySelector('.perseus-renderer, .framework-perseus')
-      if (hasPerseus && rect.width > 0 && rect.left >= 0 && rect.right < window.innerWidth * 0.32) {
+      const hasPerseus = !!document.querySelector('.perseus-renderer, .perseus-renderer-responsive, .framework-perseus')
+      if (hasPerseus && rect.width > 0 && rect.left >= 0 && rect.right < window.innerWidth * 0.25) {
         return true
       }
     } catch {}
@@ -449,7 +471,7 @@ export function labelForControl(element: HTMLElement): string {
 
   // 5. Se for radio/checkbox em container personalizado (Google Forms, Moodle, Khan, etc.)
   const parentContainer = element.closest(
-    '.docssharedWizToggleLabeledContainer, [role="listitem"], .answer, label, .quiz-option, .form-check, .option-card, .choice-radio-btn, [data-testid*="choice"]',
+    '.docssharedWizToggleLabeledContainer, [role="listitem"], .answer, label, .quiz-option, .form-check, .option-card, .choice-radio-btn, [data-testid*="choice"], .perseus-radio-option, [class*="radio-option" i], [class*="choice" i], [class*="checkbox-and-option" i], li',
   ) as HTMLElement | null
   if (parentContainer && parentContainer !== element) {
     const parentText = cleanText(parentContainer.textContent)
@@ -479,13 +501,28 @@ export function describeControl(element: HTMLElement, role: 'answer' | 'navigati
   element.dataset.easyquizRole = role
 
   const tagName = element.tagName.toLowerCase()
-  const tag: ControlDescriptor['tag'] = ['input', 'textarea', 'select', 'button'].includes(tagName)
-    ? (tagName as ControlDescriptor['tag'])
-    : 'other'
-
   const customRole = element.getAttribute('role') || ''
+
+  const innerInput = element.querySelector('input:not([type="hidden"]), select, textarea') as HTMLInputElement | null
+  const effectiveInput = element instanceof HTMLInputElement ? element : innerInput
+  const effectiveTag = effectiveInput ? effectiveInput.tagName.toLowerCase() : tagName
+
+  const isPerseusChoice =
+    element.matches?.('.perseus-radio-option, [class*="radio-option" i], [class*="choice" i], [data-testid*="choice"], .choice-radio-btn') ||
+    element.closest('.perseus-radio-option, [class*="radio-option" i], [class*="choice" i], [data-testid*="choice"], .choice-radio-btn') !== null
+
+  let resolvedRoleType = effectiveInput?.type || customRole || ''
+  if (!resolvedRoleType && isPerseusChoice) {
+    resolvedRoleType = 'radio'
+  }
+
+  const tag: ControlDescriptor['tag'] = ['input', 'textarea', 'select', 'button'].includes(effectiveTag)
+    ? (effectiveTag as ControlDescriptor['tag'])
+    : (isPerseusChoice ? 'input' : 'other')
+
   const testId = (element.getAttribute('data-testid') || element.getAttribute('data-test-id') || '').toLowerCase()
   const classStr = (element.className && typeof element.className === 'string' ? element.className : '').toLowerCase()
+
 
   const isDraggable =
     element.getAttribute('draggable') === 'true' ||
@@ -505,12 +542,17 @@ export function describeControl(element: HTMLElement, role: 'answer' | 'navigati
     /dropzone|category-box|bucket|target-zone/i.test(classStr)
 
   const widgetHint = isDraggable ? 'draggable' : isDropzone ? 'dropzone' : ''
-  const inputType = cleanText(widgetHint || input.type || customRole || tag, 40)
+  const inputType = cleanText(widgetHint || resolvedRoleType || input.type || customRole || tag, 40)
 
   let currentValue = ''
-  if (input.type === 'checkbox' || input.type === 'radio' || customRole === 'radio' || customRole === 'checkbox') {
-    const isChecked = input.checked || element.getAttribute('aria-checked') === 'true'
-    const rawVal = input.value && input.value !== 'on' ? input.value : element.getAttribute('data-value') || ''
+  if (inputType === 'checkbox' || inputType === 'radio' || customRole === 'radio' || customRole === 'checkbox') {
+    const isChecked = Boolean(effectiveInput?.checked) ||
+      element.getAttribute('aria-checked') === 'true' ||
+      element.getAttribute('aria-selected') === 'true' ||
+      element.classList.contains('selected') ||
+      element.classList.contains('active') ||
+      element.classList.contains('perseus-radio-selected')
+    const rawVal = effectiveInput?.value && effectiveInput.value !== 'on' ? effectiveInput.value : element.getAttribute('data-value') || ''
     currentValue = isChecked ? (rawVal ? `checked:${rawVal}` : 'checked') : (rawVal || 'unchecked')
   } else if (tag === 'button' || tagName === 'a' || role === 'navigation' || isNavigationControl(element)) {
     // Botões e links de navegação NÃO possuem valor de preenchimento de formulário!
@@ -521,6 +563,7 @@ export function describeControl(element: HTMLElement, role: 'answer' | 'navigati
       : ''
     currentValue = cleanText(rawVal || element.getAttribute('data-category') || '', 2000)
   }
+
 
   const options: Array<{ value: string; label: string }> = []
   if (select && select.options) {
