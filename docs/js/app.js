@@ -383,19 +383,21 @@ async function fetchNoCache(url, options = {}) {
 
 async function fetchLatestCommit() {
   try {
-    let d, total = 0;
+    let d, total = 0, explicitVer = null;
+    try {
+      const mr = await fetchNoCache('meta.json');
+      if (mr.ok) {
+        const meta = await mr.json();
+        if (meta.version) explicitVer = meta.version;
+        if (meta.total) total = Number(meta.total) || total || 0;
+      }
+    } catch(e){}
+
     try {
       const r = await fetchNoCache('commits.json');
       if (r.ok) {
         d = await r.json();
-        total = Array.isArray(d) ? d.length : 0;
-        try {
-          const mr = await fetchNoCache('meta.json');
-          if (mr.ok) {
-            const meta = await mr.json();
-            total = Number(meta.total) || total || 0;
-          }
-        } catch(e){}
+        total = Array.isArray(d) ? d.length : total;
       }
     } catch(e) {}
     
@@ -410,12 +412,27 @@ async function fetchLatestCommit() {
     _totalCommits = total || d.length || 0;
     
     const sha = d[0].sha.slice(0,7), dt = new Date(d[0].commit.author.date).toLocaleDateString('pt-BR');
-    const ver = versionFromTotal(_totalCommits);
+    let ver = explicitVer;
+    if (!ver && d[0]?.commit?.message) {
+      const msgMatch = d[0].commit.message.match(/\b(v\d+\.\d+\.\d+)\b/i);
+      if (msgMatch) ver = msgMatch[1].toLowerCase();
+    }
+    if (!ver) {
+      const existing = document.getElementById('site-version')?.textContent?.trim();
+      if (existing && existing !== 'v0.0.0') {
+        ver = existing;
+      } else {
+        ver = versionFromTotal(_totalCommits);
+      }
+    }
     document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = ver);
     const sl = sha+' · '+dt;
     document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = sl);
   } catch(_) {
-    document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = 'v0.0.0'); 
+    const existing = document.getElementById('site-version')?.textContent?.trim();
+    if (!existing || existing === 'v0.0.0') {
+      document.querySelectorAll('#site-version,#home-version').forEach(el => el.textContent = 'v3.9.0'); 
+    }
     document.querySelectorAll('#discrete-sha,#legacy-sha').forEach(el => el.textContent = 'GitHub indisponivel');
   }
 }

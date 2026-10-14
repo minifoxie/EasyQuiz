@@ -13,41 +13,22 @@ console.log('[EasyQuiz] Compilando bundle...')
 
 import { execSync } from 'child_process'
 
-let versionLabel = 'v3.8.4'
+let versionLabel = 'v3.9.0'
 let gitHash = 'main'
 
 try {
   gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim()
-  let rawCount = 386
-  try {
-    rawCount = parseInt(execSync('git rev-list --count HEAD origin/main', { encoding: 'utf8' }).trim(), 10)
-  } catch {
-    rawCount = parseInt(execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim(), 10)
+} catch {}
+
+try {
+  const pkgPath = path.join(root, 'package.json')
+  const pkgRaw = await readFile(pkgPath, 'utf-8')
+  const pkgData = JSON.parse(pkgRaw)
+  if (pkgData.version) {
+    versionLabel = pkgData.version.startsWith('v') ? pkgData.version : `v${pkgData.version}`
   }
-  const statusOutput = execSync('git status --porcelain', { encoding: 'utf8' }).trim()
-  const count = statusOutput.length > 0 ? rawCount + 1 : rawCount
-  const parsedVersion = String(count).split('').join('.')
-  versionLabel = `v${parsedVersion}`
-  
-  try {
-    const pkgPath = path.join(root, 'package.json')
-    const pkgRaw = await readFile(pkgPath, 'utf-8')
-    const pkgData = JSON.parse(pkgRaw)
-    if (pkgData.version !== parsedVersion) {
-      pkgData.version = parsedVersion
-      await writeFile(pkgPath, JSON.stringify(pkgData, null, 2) + '\n', 'utf-8')
-      console.log(`[EasyQuiz] package.json atualizado automaticamente para a versão ${parsedVersion}`)
-    }
-  } catch (err) {
-    console.warn('[EasyQuiz] Falha ao sincronizar package.json', err)
-  }
-} catch {
-  try {
-    const pkgData = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf-8'))
-    if (pkgData.version) {
-      versionLabel = pkgData.version.startsWith('v') ? pkgData.version : `v${pkgData.version}`
-    }
-  } catch {}
+} catch (err) {
+  console.warn('[EasyQuiz] Falha ao ler package.json', err)
 }
 
 const bannerText = `/* EasyQuiz ${versionLabel} (${gitHash}) — Resolução inteligente de quizzes sem servidor
@@ -393,12 +374,26 @@ try {
   // Update site index.html
   try {
     let indexHtml = await readFile(path.join(root, 'docs', 'index.html'), 'utf-8');
-    indexHtml = indexHtml.replace(/<span id="site-version" class="version-badge">.*?<\/span>/g, `<span id="site-version" class="version-badge">${versionLabel}</span>`);
+    indexHtml = indexHtml.replace(/(<span\b[^>]*\bid="site-version"[^>]*>)[^<]*(<\/span>)/g, `$1${versionLabel}$2`);
+    indexHtml = indexHtml.replace(/(<span\b[^>]*\bid="home-version"[^>]*>)[^<]*(<\/span>)/g, `$1${versionLabel}$2`);
     indexHtml = normalizeEasyQuizRepoVersion(indexHtml);
-    await writeFile(path.join(root, 'docs', 'index.html'), indexHtml);
+    await writeFile(path.join(root, 'docs', 'index.html'), indexHtml, 'utf-8');
     console.log(`[EasyQuiz] docs/index.html atualizado com a versão ${versionLabel}`);
   } catch (e) {
     console.log('[EasyQuiz] docs/index.html não encontrado ou erro ao atualizar', e);
+  }
+
+  // Create docs/meta.json
+  try {
+    const metaData = {
+      version: versionLabel,
+      commit: gitHash,
+      date: new Date().toISOString()
+    };
+    await writeFile(path.join(root, 'docs', 'meta.json'), JSON.stringify(metaData, null, 2) + '\n', 'utf-8');
+    console.log(`[EasyQuiz] docs/meta.json criado com sucesso (${versionLabel})`);
+  } catch (e) {
+    console.warn('[EasyQuiz] Falha ao criar docs/meta.json', e);
   }
 
 } catch (e) {
